@@ -53,6 +53,18 @@ class ProductionController {
             error_log('Unable to ensure production supplier archive/concern column: ' . $e->getMessage());
         }
         try {
+            $productConcern = Database::fetchOne("SHOW COLUMNS FROM products LIKE 'concern_id'");
+            if (!$productConcern) {
+                Database::execute("ALTER TABLE products ADD COLUMN concern_id INT DEFAULT NULL AFTER seller_id");
+            }
+            $productConcernIndex = Database::fetchOne("SHOW INDEX FROM products WHERE Key_name = 'idx_products_concern_id'");
+            if (!$productConcernIndex) {
+                Database::execute("ALTER TABLE products ADD INDEX idx_products_concern_id (concern_id)");
+            }
+        } catch (\Throwable $e) {
+            error_log('Unable to ensure product concern ownership column: ' . $e->getMessage());
+        }
+        try {
             $colInwItems = Database::fetchOne("SHOW COLUMNS FROM production_purchase_items LIKE 'is_inwarded'");
             if (!$colInwItems) {
                 Database::execute("ALTER TABLE production_purchase_items ADD COLUMN is_inwarded TINYINT(1) DEFAULT 0");
@@ -1539,7 +1551,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$purchaseId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (pp.concern_id = ? OR pp.concern_id IS NULL)";
             } else {
@@ -1643,7 +1655,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$purchaseId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (pp.concern_id = ? OR pp.concern_id IS NULL)";
             } else {
@@ -1860,7 +1872,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$purchaseId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (concern_id = ? OR concern_id IS NULL)";
             } else {
@@ -2424,7 +2436,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$purchaseId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (concern_id = ? OR concern_id IS NULL)";
             } else {
@@ -3516,7 +3528,7 @@ class ProductionController {
         $status = isset($_GET['status']) ? trim((string)$_GET['status']) : 'unmapped';
         $search = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
         $categoryId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
-        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $cid = currentConcernId();
 
         $where = [];
         $params = [];
@@ -3646,7 +3658,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$purchaseId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (pp.concern_id = ? OR pp.concern_id IS NULL)";
             } else {
@@ -3793,10 +3805,19 @@ class ProductionController {
      * Keep old item-specific links working by redirecting them to the bill form.
      */
     public function thirdPartyMappingEdit(string $id): void {
-        $item = Database::fetchOne(
-            "SELECT purchase_id FROM production_purchase_items WHERE id = ?",
-            [(int)$id]
-        );
+        $activeCid = currentConcernId();
+        $itemSql = "SELECT ppi.purchase_id
+                    FROM production_purchase_items ppi
+                    INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+                    WHERE ppi.id = ?";
+        $itemParams = [(int)$id];
+        if ($activeCid !== null) {
+            $itemSql .= $activeCid === 1
+                ? " AND (pp.concern_id = ? OR pp.concern_id IS NULL)"
+                : " AND pp.concern_id = ?";
+            $itemParams[] = $activeCid;
+        }
+        $item = Database::fetchOne($itemSql, $itemParams);
         if (!$item) {
             Session::flash('error', 'Purchase item not found.');
             Response::redirect(url('purchases/mapping'));
@@ -3843,7 +3864,7 @@ class ProductionController {
         $activeCid = currentConcernId();
         $concernWhere = '';
         $params = [$itemId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid !== null) {
             if ($activeCid === 1) {
                 $concernWhere = " AND (pp.concern_id = ? OR pp.concern_id IS NULL)";
             } else {
@@ -4727,13 +4748,20 @@ class ProductionController {
      * Universal QR Lookup for Damage Module.
      * Recognizes ANY QR in the system: QR batches, catalog products, fabric rolls, warehouse items, QC items, variants, and supplies.
      */
+    private function damageItemMatchesActiveConcern(?int $concernId): bool {
+        $activeCid = currentConcernId();
+        return $activeCid === null
+            || $concernId === $activeCid
+            || ($activeCid === 1 && $concernId === null);
+    }
+
     private function universalDamageQrLookup(string $scanCode): ?array {
         // 1. Check qr_generation_items & qr_generations
         $qrg = Database::fetchOne("
             SELECT qri.id as qr_item_id, qri.qr_code, qri.status as qr_status,
                    qrg.id as generation_id, qrg.product_id, qrg.variant_id, qrg.category_name, qrg.subcategory_name,
                    qrg.color_name, qrg.size_name, qrg.mrp, qrg.selling_price, qrg.qr_source,
-                   p.name as product_name, p.code as product_code,
+                   p.name as product_name, p.code as product_code, p.concern_id as record_concern_id,
                    pv.sku, pv.weight as variant_weight, pv.selling_price as var_selling_price, pv.mrp as var_mrp
             FROM qr_generation_items qri
             JOIN qr_generations qrg ON qri.generation_id = qrg.id
@@ -4743,7 +4771,9 @@ class ProductionController {
             LIMIT 1
         ", [$scanCode]);
 
-        if ($qrg) {
+        if ($qrg && $this->damageItemMatchesActiveConcern(
+            isset($qrg['record_concern_id']) ? (int)$qrg['record_concern_id'] : null
+        )) {
             $varId = (int)($qrg['variant_id'] ?? 0);
             $availStock = 0.0;
             if ($varId > 0) {
@@ -4786,6 +4816,7 @@ class ProductionController {
         // 2. Check product_variants (by variant_code, qr_code, or SKU)
         $variant = Database::fetchOne("
             SELECT pv.*, p.id as product_id, p.name as product_name, p.code as product_code,
+                   p.concern_id as record_concern_id,
                    sz.name as size_name, cl.name as color_name
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
@@ -4795,7 +4826,9 @@ class ProductionController {
             LIMIT 1
         ", [$scanCode, $scanCode, $scanCode]);
 
-        if ($variant) {
+        if ($variant && $this->damageItemMatchesActiveConcern(
+            isset($variant['record_concern_id']) ? (int)$variant['record_concern_id'] : null
+        )) {
             $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
             $price = (float)(!empty($variant['selling_price']) && $variant['selling_price'] > 0
                 ? $variant['selling_price']
@@ -4830,7 +4863,8 @@ class ProductionController {
 
         // 3. Check warehouse_qr_codes
         $whQr = Database::fetchOne("
-            SELECT wq.*, p.id as product_id, p.name as product_name, pv.id as variant_id, pv.sku, pv.selling_price, pv.mrp,
+            SELECT wq.*, p.id as product_id, p.name as product_name, p.concern_id as record_concern_id,
+                   pv.id as variant_id, pv.sku, pv.selling_price, pv.mrp,
                    pv.weight as variant_weight, sz.name as size_name, cl.name as color_name, w.name as warehouse_name
             FROM warehouse_qr_codes wq
             LEFT JOIN product_variants pv ON pv.id = wq.variant_id
@@ -4842,7 +4876,9 @@ class ProductionController {
             LIMIT 1
         ", [$scanCode]);
 
-        if ($whQr) {
+        if ($whQr && $this->damageItemMatchesActiveConcern(
+            isset($whQr['record_concern_id']) ? (int)$whQr['record_concern_id'] : null
+        )) {
             $varId = (int)($whQr['variant_id'] ?? 0);
             $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ?", [$varId]) ?? 0);
             $price = (float)(!empty($whQr['selling_price']) && $whQr['selling_price'] > 0 ? $whQr['selling_price'] : (!empty($whQr['mrp']) ? $whQr['mrp'] : 500.00));
@@ -4876,24 +4912,37 @@ class ProductionController {
 
         // 4. Check seller_rolls (Fabric Roll QR)
         $roll = Database::fetchOne("
-            SELECT sr.*, s.name as seller_name, s.company as seller_company
+            SELECT sr.*, s.name as seller_name, s.company as seller_company,
+                   s.concern_id as record_concern_id
             FROM seller_rolls sr
             JOIN sellers s ON s.id = sr.seller_id
             WHERE UPPER(TRIM(sr.qr_code)) = ? OR UPPER(TRIM(sr.start_code)) = ? OR UPPER(TRIM(sr.roll_number)) = ?
             LIMIT 1
         ", [$scanCode, $scanCode, $scanCode]);
 
+        if ($roll && !$this->damageItemMatchesActiveConcern(
+            isset($roll['record_concern_id']) ? (int)$roll['record_concern_id'] : null
+        )) {
+            $roll = null;
+        }
+
         if (!$roll && preg_match('/^([A-Z]{2}\d{4})(\d+)$/', $scanCode, $matches)) {
             $prefix = $matches[1];
             $sequence = (int)$matches[2];
             $candidates = Database::fetchAll("
-                SELECT sr.*, s.name as seller_name, s.company as seller_company
+                SELECT sr.*, s.name as seller_name, s.company as seller_company,
+                       s.concern_id as record_concern_id
                 FROM seller_rolls sr
                 JOIN sellers s ON s.id = sr.seller_id
                 WHERE sr.start_code LIKE ? AND sr.end_code LIKE ?
             ", [$prefix . '%', $prefix . '%']);
 
             foreach ($candidates as $cand) {
+                if (!$this->damageItemMatchesActiveConcern(
+                    isset($cand['record_concern_id']) ? (int)$cand['record_concern_id'] : null
+                )) {
+                    continue;
+                }
                 if (strtoupper(substr((string)$cand['start_code'], 0, 6)) === $prefix
                     && $sequence >= (int)$cand['start_seq']
                     && $sequence <= (int)$cand['end_seq']) {
@@ -4940,7 +4989,8 @@ class ProductionController {
 
         // 5. Check QC Items
         $qc = Database::fetchOne("
-            SELECT qi.*, p.id as product_id, p.name as product_name, pv.id as variant_id, pv.sku, pv.selling_price, pv.mrp, pv.weight as variant_weight
+            SELECT qi.*, p.id as product_id, p.name as product_name, p.concern_id as record_concern_id,
+                   pv.id as variant_id, pv.sku, pv.selling_price, pv.mrp, pv.weight as variant_weight
             FROM qc_items qi
             LEFT JOIN product_variants pv ON pv.id = qi.variant_id
             LEFT JOIN products p ON p.id = pv.product_id
@@ -4948,7 +4998,9 @@ class ProductionController {
             LIMIT 1
         ", [$scanCode]);
 
-        if ($qc) {
+        if ($qc && $this->damageItemMatchesActiveConcern(
+            isset($qc['record_concern_id']) ? (int)$qc['record_concern_id'] : null
+        )) {
             $price = (float)(!empty($qc['selling_price']) && $qc['selling_price'] > 0 ? $qc['selling_price'] : 500.00);
             $weight = (float)(!empty($qc['variant_weight']) ? $qc['variant_weight'] : 0.25);
             $prodName = $qc['product_name'] ?: 'QC Inspected Garment';
@@ -4979,7 +5031,8 @@ class ProductionController {
 
         // 6. Check production_batch_items
         $batch = Database::fetchOne("
-            SELECT pbi.*, p.id as product_id, p.name as product_name, pv.id as variant_id, pv.sku, pv.selling_price, pv.weight as variant_weight
+            SELECT pbi.*, p.id as product_id, p.name as product_name, p.concern_id as record_concern_id,
+                   pv.id as variant_id, pv.sku, pv.selling_price, pv.weight as variant_weight
             FROM production_batch_items pbi
             LEFT JOIN product_variants pv ON pv.id = pbi.variant_id
             LEFT JOIN products p ON p.id = pv.product_id
@@ -4987,7 +5040,9 @@ class ProductionController {
             LIMIT 1
         ", ['%' . $scanCode . '%', '%' . $scanCode . '%']);
 
-        if ($batch) {
+        if ($batch && $this->damageItemMatchesActiveConcern(
+            isset($batch['record_concern_id']) ? (int)$batch['record_concern_id'] : null
+        )) {
             $price = (float)(!empty($batch['selling_price']) && $batch['selling_price'] > 0 ? $batch['selling_price'] : 500.00);
             $weight = (float)(!empty($batch['variant_weight']) ? $batch['variant_weight'] : 0.25);
             $prodName = $batch['product_name'] ?: 'Production Batch Piece';
@@ -5018,7 +5073,8 @@ class ProductionController {
 
         // 7. Check production_purchase_items (Third-party / raw supplies)
         $ppi = Database::fetchOne("
-            SELECT ppi.*, pp.purchase_number, s.name as supplier_name, s.company as supplier_company
+            SELECT ppi.*, pp.purchase_number, pp.concern_id as record_concern_id,
+                   s.name as supplier_name, s.company as supplier_company
             FROM production_purchase_items ppi
             JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
@@ -5026,7 +5082,9 @@ class ProductionController {
             LIMIT 1
         ", [$scanCode, $scanCode]);
 
-        if ($ppi) {
+        if ($ppi && $this->damageItemMatchesActiveConcern(
+            isset($ppi['record_concern_id']) ? (int)$ppi['record_concern_id'] : null
+        )) {
             $price = (float)(!empty($ppi['unit_price']) ? $ppi['unit_price'] : (!empty($ppi['price']) ? $ppi['price'] : 100.00));
             $weight = (float)(!empty($ppi['weight']) ? $ppi['weight'] : 0.25);
             $prodName = $ppi['item_name'] ?: 'Purchased Supply Item';
@@ -5113,7 +5171,16 @@ class ProductionController {
 
     public function ajaxLookupEditDamageRoll(): void {
         $damageId = max(0, (int)($_GET['damage_id'] ?? 0));
-        if ($damageId === 0 || !Database::fetchOne("SELECT id FROM roll_damages WHERE id = ?", [$damageId])) {
+        $activeCid = currentConcernId();
+        $damageSql = "SELECT id FROM roll_damages WHERE id = ?";
+        $damageParams = [$damageId];
+        if ($activeCid !== null) {
+            $damageSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $damageParams[] = $activeCid;
+        }
+        if ($damageId === 0 || !Database::fetchOne($damageSql, $damageParams)) {
             Response::json(['success' => false, 'message' => 'Damage record not found.'], 404);
             return;
         }
@@ -5123,16 +5190,23 @@ class ProductionController {
         $scanCode = trim(ltrim($scanCode, '#'));
 
         // Check if scanning a product variant for edit
+        $productSql = "SELECT pv.*, p.id as product_id, p.name as product_name,
+                              sz.name as size_name, cl.name as color_name
+                       FROM product_variants pv
+                       JOIN products p ON p.id = pv.product_id
+                       LEFT JOIN sizes sz ON sz.id = pv.size_id
+                       LEFT JOIN colors cl ON cl.id = pv.color_id
+                       WHERE (UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ?)";
+        $productParams = [$scanCode, $scanCode, $scanCode];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (p.concern_id = ? OR p.concern_id IS NULL)"
+                : " AND p.concern_id = ?";
+            $productParams[] = $activeCid;
+        }
         $var = Database::fetchOne(
-            "SELECT pv.*, p.id as product_id, p.name as product_name,
-                    sz.name as size_name, cl.name as color_name
-             FROM product_variants pv
-             JOIN products p ON p.id = pv.product_id
-             LEFT JOIN sizes sz ON sz.id = pv.size_id
-             LEFT JOIN colors cl ON cl.id = pv.color_id
-             WHERE UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ?
-             LIMIT 1",
-            [$scanCode, $scanCode, $scanCode]
+            $productSql . " LIMIT 1",
+            $productParams
         );
         if ($var) {
             $loss = (float)(!empty($var['selling_price']) && $var['selling_price'] > 0
@@ -5162,13 +5236,21 @@ class ProductionController {
 
         $prefix = $matches[1];
         $sequence = (int)$matches[2];
+        $rollSql = "SELECT sr.id, sr.seller_id, sr.roll_number, sr.start_code, sr.end_code, sr.start_seq, sr.end_seq,
+                           s.name AS seller_name, s.company AS seller_company
+                    FROM seller_rolls sr
+                    JOIN sellers s ON s.id = sr.seller_id
+                    WHERE sr.start_code LIKE ? AND sr.end_code LIKE ?";
+        $rollParams = [$prefix . '%', $prefix . '%'];
+        if ($activeCid !== null) {
+            $rollSql .= $activeCid === 1
+                ? " AND (s.concern_id = ? OR s.concern_id IS NULL)"
+                : " AND s.concern_id = ?";
+            $rollParams[] = $activeCid;
+        }
         $candidates = Database::fetchAll(
-            "SELECT sr.id, sr.seller_id, sr.roll_number, sr.start_code, sr.end_code, sr.start_seq, sr.end_seq,
-                    s.name AS seller_name, s.company AS seller_company
-             FROM seller_rolls sr
-             JOIN sellers s ON s.id = sr.seller_id
-             WHERE sr.start_code LIKE ? AND sr.end_code LIKE ?",
-            [$prefix . '%', $prefix . '%']
+            $rollSql,
+            $rollParams
         );
         $matchingRolls = array_values(array_filter($candidates, static function (array $candidate) use ($prefix, $sequence): bool {
             return strtoupper(substr((string)$candidate['start_code'], 0, 6)) === $prefix
@@ -5566,7 +5648,7 @@ class ProductionController {
         $direct = Database::fetchOne(
             "SELECT qi.id AS qc_item_id, COALESCE(qi.variant_id, pv.id) AS variant_id,
                     qi.base_price, qi.discount_price,
-                    p.id AS product_id, p.name AS product_name,
+                    p.id AS product_id, p.name AS product_name, p.concern_id AS record_concern_id,
                     pv.sku, pv.mrp, pv.selling_price, pv.production_cost,
                     pv.weight AS variant_weight,
                     COALESCE(qi.size_name, sz.name) AS size_name,
@@ -5582,7 +5664,9 @@ class ProductionController {
              LIMIT 1",
             [$tag]
         );
-        if ($direct) {
+        if ($direct && $this->damageItemMatchesActiveConcern(
+            isset($direct['record_concern_id']) ? (int)$direct['record_concern_id'] : null
+        )) {
             return $direct;
         }
 
@@ -5590,7 +5674,7 @@ class ProductionController {
             "SELECT qb.id AS qc_batch_id, qb.pieces_data,
                     qi.id AS qc_item_id, COALESCE(qi.variant_id, pv.id) AS variant_id,
                     qi.base_price, qi.discount_price,
-                    p.id AS product_id, p.name AS product_name,
+                    p.id AS product_id, p.name AS product_name, p.concern_id AS record_concern_id,
                     pv.sku, pv.mrp, pv.selling_price, pv.production_cost,
                     pv.weight AS variant_weight,
                     COALESCE(qi.size_name, sz.name) AS size_name,
@@ -5608,6 +5692,11 @@ class ProductionController {
         );
 
         foreach ($candidates as $candidate) {
+            if (!$this->damageItemMatchesActiveConcern(
+                isset($candidate['record_concern_id']) ? (int)$candidate['record_concern_id'] : null
+            )) {
+                continue;
+            }
             $raw = (string)($candidate['pieces_data'] ?? '');
             $decoded = json_decode($raw, true);
             if (!is_array($decoded)) {
@@ -5663,7 +5752,7 @@ class ProductionController {
         $supplySql =
             "SELECT ppi.id, ppi.purchase_id, ppi.item_name, ppi.quantity, ppi.unit,
                     ppi.weight_kg, ppi.unit_price, ppi.total_price, ppi.hsn_code,
-                    ppi.product_id, ppi.variant_id, pp.seller_id,
+                    ppi.product_id, ppi.variant_id, pp.seller_id, pp.concern_id AS record_concern_id,
                     pp.purchase_number, s.name AS supplier_name, s.company AS supplier_company
              FROM production_purchase_items ppi
              JOIN production_purchases pp ON pp.id = ppi.purchase_id
@@ -5678,6 +5767,11 @@ class ProductionController {
         $packageSequenceByPurchase = [];
         $matches = [];
         foreach ($supplyRows as $supply) {
+            if (!$this->damageItemMatchesActiveConcern(
+                isset($supply['record_concern_id']) ? (int)$supply['record_concern_id'] : null
+            )) {
+                continue;
+            }
             $purchaseId = (int)$supply['purchase_id'];
             $quantity = max(0.0, (float)$supply['quantity']);
             $isWholeQuantity = floor($quantity) === $quantity;
@@ -6613,10 +6707,20 @@ class ProductionController {
         $sql .= " ORDER BY rd.created_at DESC";
         $damages = Database::fetchAll($sql, $params);
 
-        // Overall KPI stats
+        $damageStatsWhere = '';
+        $damageStatsParams = [];
+        if ($cid) {
+            $damageStatsWhere = ($cid === 1)
+                ? 'WHERE concern_id = ? OR concern_id IS NULL'
+                : 'WHERE concern_id = ?';
+            $damageStatsParams[] = $cid;
+        }
+
         $allDamages = Database::fetchAll(
             "SELECT rd.status, rd.resolution_type, rd.damaged_quantity, rd.damaged_weight, rd.loss_amount, rd.refund_amount
-             FROM roll_damages rd"
+             FROM roll_damages rd
+             $damageStatsWhere",
+            $damageStatsParams
         );
 
         $stats = [
@@ -7006,7 +7110,16 @@ class ProductionController {
         }
 
         $damageId = (int)$id;
-        $existing = Database::fetchOne("SELECT * FROM roll_damages WHERE id = ?", [$damageId]);
+        $activeCid = currentConcernId();
+        $damageSql = "SELECT * FROM roll_damages WHERE id = ?";
+        $damageParams = [$damageId];
+        if ($activeCid !== null) {
+            $damageSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $damageParams[] = $activeCid;
+        }
+        $existing = Database::fetchOne($damageSql, $damageParams);
         if (!$existing) {
             Session::flash('error', 'Damage record not found.');
             Response::back();
@@ -7259,7 +7372,16 @@ class ProductionController {
             if (!Database::beginTransaction()) {
                 throw new RuntimeException('Could not start the damage resolution transaction.');
             }
-            $damage = Database::fetchOne("SELECT * FROM roll_damages WHERE id = ? FOR UPDATE", [$damageId]);
+            $activeCid = currentConcernId();
+            $damageSql = "SELECT * FROM roll_damages WHERE id = ?";
+            $damageParams = [$damageId];
+            if ($activeCid !== null) {
+                $damageSql .= $activeCid === 1
+                    ? " AND (concern_id = ? OR concern_id IS NULL)"
+                    : " AND concern_id = ?";
+                $damageParams[] = $activeCid;
+            }
+            $damage = Database::fetchOne($damageSql . " FOR UPDATE", $damageParams);
             if (!$damage) {
                 Database::rollback();
                 Session::flash('error', 'Damage record not found.');
@@ -7704,7 +7826,16 @@ class ProductionController {
         }
 
         $damageId = (int)$id;
-        $damage = Database::fetchOne("SELECT * FROM roll_damages WHERE id = ?", [$damageId]);
+        $activeCid = currentConcernId();
+        $damageSql = "SELECT * FROM roll_damages WHERE id = ?";
+        $damageParams = [$damageId];
+        if ($activeCid !== null) {
+            $damageSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $damageParams[] = $activeCid;
+        }
+        $damage = Database::fetchOne($damageSql, $damageParams);
         if (!$damage) {
             Session::flash('error', 'Damage record not found.');
             Response::back();
@@ -7727,9 +7858,11 @@ class ProductionController {
     // =========================================================================
 
     public function catalogList(): void {
+        self::ensureDatabaseSchema();
         $search = trim($_GET['search'] ?? '');
         $categoryId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : null;
         $subcategoryId = !empty($_GET['subcategory_id']) ? (int)$_GET['subcategory_id'] : null;
+        $activeCid = currentConcernId();
 
         $sql = "SELECT p.*, c.name as category_name, sc.name as subcategory_name, ssc.name as sub_subcategory_name, b.name as brand_name,
                        COALESCE(pv_summary.variant_count, 0) as variant_count,
@@ -7760,6 +7893,13 @@ class ProductionController {
                 WHERE (p.source_type IN ('OWN_PRODUCTION', 'MANUFACTURED', 'IN_HOUSE') OR p.source_type IS NULL) 
                   AND p.is_active = 1";
         $params = [];
+
+        if ($activeCid !== null) {
+            $sql .= $activeCid === 1
+                ? " AND (p.concern_id = ? OR p.concern_id IS NULL)"
+                : " AND p.concern_id = ?";
+            $params[] = $activeCid;
+        }
 
         if (!empty($search)) {
             $sql .= " AND (
@@ -7819,6 +7959,7 @@ class ProductionController {
     }
 
     public function createCatalog(): void {
+        self::ensureDatabaseSchema();
         $categories = Database::fetchAll("SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
         $brands = Database::fetchAll("SELECT * FROM brands WHERE is_active = 1 ORDER BY name ASC");
         $sizes = Database::fetchAll("SELECT * FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
@@ -7848,6 +7989,7 @@ class ProductionController {
     }
 
     public function storeCatalog(): void {
+        self::ensureDatabaseSchema();
         $name = mb_strtoupper(trim($_POST['name'] ?? ''));
         $code = mb_strtoupper(trim($_POST['code'] ?? ''));
         $categoryId = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
@@ -7908,6 +8050,7 @@ class ProductionController {
         $subcategoryCode = mb_strtoupper(trim($_POST['subcategory_code'] ?? ''));
         $subSubcategoryCode = mb_strtoupper(trim($_POST['sub_subcategory_code'] ?? ''));
         $qrCodePrefix = mb_strtoupper(trim($_POST['qr_code_prefix'] ?? ''));
+        $activeConcernId = currentConcernId() ?: 1;
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
@@ -7922,8 +8065,8 @@ class ProductionController {
         }
 
         Database::execute(
-            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, image_url, cloudinary_public_id, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, image_url, cloudinary_public_id, is_active, concern_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
             [
                 $name,
                 $code,
@@ -7942,7 +8085,8 @@ class ProductionController {
                 $minStock,
                 $maxStock,
                 $imageUrl,
-                $cloudinaryPublicId
+                $cloudinaryPublicId,
+                $activeConcernId
             ]
         );
 
@@ -8053,16 +8197,23 @@ class ProductionController {
     }
 
     public function viewCatalog(int $id): void {
-        $product = Database::fetchOne(
-            "SELECT p.*, c.name as category_name, sc.name as subcategory_name, ssc.name as sub_subcategory_name, b.name as brand_name
-             FROM products p
-             LEFT JOIN categories c ON p.category_id = c.id
-             LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
-             LEFT JOIN sub_subcategories ssc ON p.sub_subcategory_id = ssc.id
-             LEFT JOIN brands b ON p.brand_id = b.id
-             WHERE p.id = ? AND UPPER(COALESCE(p.source_type, '')) <> 'EXTERNAL_PURCHASE'",
-            [$id]
-        );
+        self::ensureDatabaseSchema();
+        $activeCid = currentConcernId();
+        $productSql = "SELECT p.*, c.name as category_name, sc.name as subcategory_name, ssc.name as sub_subcategory_name, b.name as brand_name
+                       FROM products p
+                       LEFT JOIN categories c ON p.category_id = c.id
+                       LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
+                       LEFT JOIN sub_subcategories ssc ON p.sub_subcategory_id = ssc.id
+                       LEFT JOIN brands b ON p.brand_id = b.id
+                       WHERE p.id = ? AND UPPER(COALESCE(p.source_type, '')) <> 'EXTERNAL_PURCHASE'";
+        $productParams = [$id];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (p.concern_id = ? OR p.concern_id IS NULL)"
+                : " AND p.concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        $product = Database::fetchOne($productSql, $productParams);
 
         if (!$product) {
             Session::flash('error', 'Product style not found.');
@@ -8135,11 +8286,18 @@ class ProductionController {
     }
 
     public function editCatalog(int $id): void {
-        $product = Database::fetchOne(
-            "SELECT * FROM products
-             WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'",
-            [$id]
-        );
+        self::ensureDatabaseSchema();
+        $activeCid = currentConcernId();
+        $productSql = "SELECT * FROM products
+                       WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'";
+        $productParams = [$id];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        $product = Database::fetchOne($productSql, $productParams);
         if (!$product) {
             Session::flash('error', 'Product style not found.');
             Response::redirect(url('production/catalog'));
@@ -8215,11 +8373,18 @@ class ProductionController {
     }
 
     public function updateCatalog(int $id): void {
-        $product = Database::fetchOne(
-            "SELECT * FROM products
-             WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'",
-            [$id]
-        );
+        self::ensureDatabaseSchema();
+        $activeCid = currentConcernId();
+        $productSql = "SELECT * FROM products
+                       WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'";
+        $productParams = [$id];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        $product = Database::fetchOne($productSql, $productParams);
         if (!$product) {
             Session::flash('error', 'Product style not found.');
             Response::redirect(url('production/catalog'));
@@ -8436,10 +8601,20 @@ class ProductionController {
     }
 
     public function deleteCatalog(int $id): void {
+        self::ensureDatabaseSchema();
+        $activeCid = currentConcernId();
+        $productSql = "SELECT id FROM products
+                       WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'";
+        $productParams = [$id];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
         if (!Database::fetchOne(
-            "SELECT id FROM products
-             WHERE id = ? AND UPPER(COALESCE(source_type, '')) <> 'EXTERNAL_PURCHASE'",
-            [$id]
+            $productSql,
+            $productParams
         )) {
             Session::flash('error', 'Production product style not found.');
             Response::redirect(url('production/catalog'));
@@ -18652,6 +18827,15 @@ class ProductionController {
     }
 
     public function viewDamage(string $id): void {
+        $activeCid = currentConcernId();
+        $damageWhere = "WHERE rd.id = ?";
+        $damageParams = [(int)$id];
+        if ($activeCid !== null) {
+            $damageWhere .= $activeCid === 1
+                ? " AND (rd.concern_id = ? OR rd.concern_id IS NULL)"
+                : " AND rd.concern_id = ?";
+            $damageParams[] = $activeCid;
+        }
         $damage = Database::fetchOne(
             "SELECT rd.*, s.name AS seller_name, s.company AS seller_company,
                     sr.roll_number, sr.color AS roll_color, sr.design_name AS roll_design,
@@ -18669,8 +18853,8 @@ class ProductionController {
              LEFT JOIN users u_rep ON rd.reported_by = u_rep.id
              LEFT JOIN users u_res ON rd.resolved_by = u_res.id
              LEFT JOIN seller_rolls repl_sr ON rd.replacement_roll_id = repl_sr.id
-             WHERE rd.id = ?",
-            [(int)$id]
+             $damageWhere",
+            $damageParams
         );
         if (!$damage) {
             Response::error(404, 'Damage record not found.');
@@ -20091,14 +20275,23 @@ class ProductionController {
         $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY name ASC");
         $subcategories = $categoryId ? Database::fetchAll("SELECT id, name, code FROM third_party_subcategories WHERE category_id = ? AND is_active = 1 ORDER BY name ASC", [$categoryId]) : [];
 
+        $metricWhere = "WHERE is_active = 1";
+        $metricParams = [];
+        if ($cid !== null) {
+            $metricWhere .= $cid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $metricParams[] = $cid;
+        }
+
         $metrics = Database::fetchOne("
             SELECT COUNT(*) AS total_styles,
                    COALESCE(AVG(selling_price), 0) AS avg_selling,
                    COALESCE(AVG(mrp), 0) AS avg_mrp,
                    COUNT(DISTINCT third_party_category_id) AS total_categories
             FROM third_party_products
-            WHERE is_active = 1
-        ");
+            {$metricWhere}
+        ", $metricParams);
 
         Response::view('production.third_party_catalog.index', [
             'pageTitle'     => 'Third-Party Product Catalog',
@@ -20121,8 +20314,8 @@ class ProductionController {
 
     public function createThirdPartyCatalog(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
+        $activeCid = currentConcernId();
         $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY name ASC");
-        $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
         $tpSellerWhere = "WHERE is_active = 1 AND (production_deleted_at IS NULL)";
         $tpSellerParams = [];
         if ($activeCid) {
@@ -20204,7 +20397,7 @@ class ProductionController {
         $subsub = $subSubcategoryId ? Database::fetchOne("SELECT code FROM third_party_sub_subcategories WHERE id = ?", [$subSubcategoryId]) : null;
 
         $encodedAttrs = !empty($rawAttrs) ? json_encode($rawAttrs, JSON_UNESCAPED_UNICODE) : null;
-        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $cid = currentConcernId() ?: 1;
         $userId = (int)(Session::get('user_id') ?? 0);
 
         Database::execute("
@@ -20227,7 +20420,16 @@ class ProductionController {
 
     public function editThirdPartyCatalog(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
-        $product = Database::fetchOne("SELECT * FROM third_party_products WHERE id = ?", [(int)$id]);
+        $activeCid = currentConcernId();
+        $productSql = "SELECT * FROM third_party_products WHERE id = ?";
+        $productParams = [(int)$id];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        $product = Database::fetchOne($productSql, $productParams);
         if (!$product) {
             Session::flash('error', 'Third-party catalog item not found.');
             Response::redirect(url('production/purchases/mapping/catalog'));
@@ -20273,7 +20475,16 @@ class ProductionController {
     public function updateThirdPartyCatalog(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         $tpId = (int)$id;
-        $product = Database::fetchOne("SELECT id FROM third_party_products WHERE id = ?", [$tpId]);
+        $activeCid = currentConcernId();
+        $productSql = "SELECT id FROM third_party_products WHERE id = ?";
+        $productParams = [$tpId];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        $product = Database::fetchOne($productSql, $productParams);
         if (!$product) {
             Session::flash('error', 'Product not found.');
             Response::redirect(url('production/purchases/mapping/catalog'));
@@ -20343,7 +20554,16 @@ class ProductionController {
 
     public function deleteThirdPartyCatalog(string $id): void {
         $tpId = (int)$id;
-        Database::execute("UPDATE third_party_products SET is_active = 0 WHERE id = ?", [$tpId]);
+        $activeCid = currentConcernId();
+        $productSql = "UPDATE third_party_products SET is_active = 0 WHERE id = ?";
+        $productParams = [$tpId];
+        if ($activeCid !== null) {
+            $productSql .= $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $productParams[] = $activeCid;
+        }
+        Database::execute($productSql, $productParams);
         Session::flash('success', 'Third-party catalog style removed.');
         Response::redirect(url('production/purchases/mapping/catalog'));
     }
