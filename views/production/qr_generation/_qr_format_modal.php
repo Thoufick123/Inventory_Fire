@@ -294,6 +294,10 @@ function updateLivePreview() {
     const scale = 6.0; // px per mm
     const cardPxWidth = Math.round(wMm * scale);
     const cardPxHeight = Math.round(hMm * scale);
+    const previewContainer = document.getElementById('liveStickerContainer');
+    if (previewContainer) {
+        previewContainer.style.setProperty('gap', `${gap * scale}px`, 'important');
+    }
 
     const card1 = document.getElementById('liveStickerCard1');
     const card2 = document.getElementById('liveStickerCard2');
@@ -338,6 +342,8 @@ function updateLivePreview() {
     const skuY = parseFloat(document.getElementById('cfgSkuY')?.value || 62) * dotScale;
     const mrpY = parseFloat(document.getElementById('cfgMrpY')?.value || 90) * dotScale;
     const discY = parseFloat(document.getElementById('cfgDiscY')?.value || 118) * dotScale;
+    const fontSizes = { '1': '7.5px', '2': '8.5px', '3': '10px' };
+    const previewFontSize = fontSizes[document.getElementById('cfgTextFont')?.value || '2'];
 
     const col2ShiftPx = col2ShiftDots * dotScale;
 
@@ -364,6 +370,14 @@ function updateLivePreview() {
     setPos('prevSkuTxt2', textX + col2ShiftPx, skuY);
     setPos('prevMrpTxt2', textX + col2ShiftPx, mrpY);
     setPos('prevDiscTxt2', textX + col2ShiftPx, discY);
+
+    [
+        'prevCodeTxt1', 'prevTitleTxt1', 'prevSkuTxt1', 'prevMrpTxt1', 'prevDiscTxt1',
+        'prevCodeTxt2', 'prevTitleTxt2', 'prevSkuTxt2', 'prevMrpTxt2', 'prevDiscTxt2'
+    ].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.style.fontSize = previewFontSize;
+    });
 }
 
 function saveQrPrinterSettings() {

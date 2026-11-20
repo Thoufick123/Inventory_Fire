@@ -343,6 +343,48 @@ function isAdmin(): bool {
 }
 
 /**
+ * Map permission areas to their concern-level module entitlement.
+ */
+function concernModuleForPermission(string $module): ?string {
+    static $moduleMap = [
+        'production' => 'production',
+        'catalog' => 'production',
+        'variants' => 'production',
+        'qr_generation' => 'production',
+        'programs' => 'production',
+        'cutting' => 'production',
+        'stitching' => 'production',
+        'stitching_wastage' => 'production',
+        'qc' => 'production',
+        'damages' => 'production',
+        'wastage' => 'production',
+        'purchases' => 'purchases',
+        'sellers' => 'purchases',
+        'production_purchases' => 'purchases',
+        'production_purchase_mapping' => 'purchases',
+        'inventory' => 'warehouse',
+        'inward' => 'warehouse',
+        'batches' => 'warehouse',
+        'outward' => 'warehouse',
+        'production_stock_requests' => 'warehouse',
+        'warehouse_rework' => 'warehouse',
+        'retail_pos' => 'retail_pos',
+        'production_billing' => 'retail_pos',
+        'returns' => 'returns',
+        'production_returns' => 'returns',
+        'expenses' => 'expenses',
+        'production_expenses' => 'expenses',
+        'assets' => 'assets',
+        'asset_register' => 'assets',
+        'asset_maintenance' => 'assets',
+        'reports_production' => 'production',
+        'digital_sales' => 'digital_sales',
+    ];
+
+    return $moduleMap[$module] ?? null;
+}
+
+/**
  * Check if current user has a specific permission.
  * Supports both hasPermission('module.action') and hasPermission('module', 'action')
  */
@@ -364,6 +406,11 @@ function hasPermission(string $module, ?string $action = null): bool {
     $roleId = (int)($user['role_id'] ?? 0);
     if ($roleId === 1 || $roleSlug === 'super_admin') {
         return true;
+    }
+
+    $concernModule = concernModuleForPermission($module);
+    if ($concernModule !== null && !hasConcernModule($concernModule)) {
+        return false;
     }
 
     // Cache permissions for the current request to ensure instant updates from DB
@@ -746,8 +793,8 @@ function currentConcernId(): ?int {
         }
     }
 
-    // Default to user's explicitly assigned default concern
-    if (!empty($u['default_concern_id'])) {
+    // Staff use an assigned default concern; global admins select context independently.
+    if (!$isSuper && !empty($u['default_concern_id'])) {
         Session::set('active_concern_id', (int)$u['default_concern_id']);
         return (int)$u['default_concern_id'];
     }
@@ -820,7 +867,21 @@ function currentConcernType(?int $concernId = null): string {
  * Check if a module is enabled for the current active concern.
  */
 function hasConcernModule(string $moduleKey): bool {
-    return true;
+    if (isSuperAdmin()) {
+        return true;
+    }
+
+    $concernId = currentConcernId();
+    if (!$concernId || !class_exists('Database')) {
+        return false;
+    }
+
+    $module = Database::fetchOne(
+        "SELECT is_enabled FROM concern_modules WHERE concern_id = ? AND module_key = ?",
+        [$concernId, $moduleKey]
+    );
+
+    return !empty($module['is_enabled']);
 }
 
 /**

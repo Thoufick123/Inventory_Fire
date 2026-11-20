@@ -9,7 +9,12 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
         <?php if (!empty($displayLogo)): ?>
             <img src="<?= htmlspecialchars($displayLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? 'Production unit'), ENT_QUOTES, 'UTF-8') ?> logo" class="mb-2" style="max-width:180px;max-height:64px;object-fit:contain;">
         <?php endif; ?>
-        <h4 class="mb-1 fw-bold"><?= htmlspecialchars($bill['bill_number']) ?></h4>
+        <h4 class="mb-1 fw-bold d-flex align-items-center gap-2">
+            <span><?= htmlspecialchars($bill['bill_number']) ?></span>
+            <?php if (!empty($bill['is_direct_bill'])): ?>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fs-6"><i class="bi bi-box-arrow-up-right me-1"></i>Direct Bill</span>
+            <?php endif; ?>
+        </h4>
         <div class="text-muted small">Production bill · <?= htmlspecialchars(date('d M Y', strtotime($bill['bill_date']))) ?> · <?= htmlspecialchars($concernBrand['name'] ?? '') ?></div>
     </div>
     <div class="d-flex gap-2">

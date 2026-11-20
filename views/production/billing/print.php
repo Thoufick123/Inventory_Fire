@@ -427,8 +427,14 @@ if (!empty($billItems[0])) {
     <div class="info-grid">
         <div class="info-row">
             <span class="info-label">Bill No :</span>
-            <span class="info-value font-monospace" style="font-weight: bold;"><?= htmlspecialchars($bill['bill_number']) ?></span>
+            <span class="info-value font-monospace" style="font-weight: bold;"><?= htmlspecialchars($bill['bill_number']) ?><?= !empty($bill['is_direct_bill']) ? ' [DIRECT BILL]' : '' ?></span>
         </div>
+        <?php if (!empty($bill['is_direct_bill'])): ?>
+        <div class="info-row">
+            <span class="info-label">Type :</span>
+            <span class="info-value" style="font-weight: bold; color: #b45309;">DIRECT SALE (SEPARATED)</span>
+        </div>
+        <?php endif; ?>
         <div class="info-row">
             <span class="info-label">BID :</span>
             <span class="info-value"><?= (int)$bill['id'] ?></span>

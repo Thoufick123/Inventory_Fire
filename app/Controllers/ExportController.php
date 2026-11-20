@@ -173,10 +173,17 @@ class ExportController {
 
             // SALES & FINANCE
             'billing' => [
-                'name' => 'Direct Factory Billing (POS)',
-                'desc' => 'Tax invoices, customer details, HSN codes, GST amounts & payment types',
+                'name' => 'Standard Factory Billing (POS)',
+                'desc' => 'Normal tax invoices, customer details, HSN codes, GST amounts & payment types (excludes direct bills)',
                 'icon' => 'bi bi-receipt',
                 'color' => 'primary',
+                'category' => 'Sales & Finance'
+            ],
+            'direct_billing' => [
+                'name' => 'Direct Sales Bills (Separated Invoices)',
+                'desc' => 'Separated direct sales bills excluded from normal billing totals, client details, payment logs & line items',
+                'icon' => 'bi bi-box-arrow-up-right',
+                'color' => 'warning',
                 'category' => 'Sales & Finance'
             ],
             'returns' => [
@@ -289,7 +296,7 @@ class ExportController {
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward',
             'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations',
             'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework',
-            'billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
+            'billing', 'direct_billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
         $selectedModules = !empty($_REQUEST['modules']) && is_array($_REQUEST['modules'])
             ? array_values(array_intersect($_REQUEST['modules'], $allModules))
@@ -352,6 +359,44 @@ class ExportController {
         $_REQUEST['selected_month'] = date('n');
         $_REQUEST['selected_year'] = date('Y');
         $_REQUEST['format'] = 'CSV';
+        if (function_exists('currentConcernId')) {
+            $curCid = currentConcernId();
+            if ($curCid > 0 && !isset($_REQUEST['concern_ids'])) {
+                $_REQUEST['concern_ids'] = [$curCid];
+            }
+        }
+        $this->download();
+    }
+
+    /**
+     * Dedicated separate file export for Direct Bills only
+     */
+    public function directBillsCsv(): void {
+        $_REQUEST['period_type'] = $_REQUEST['period_type'] ?? 'MONTH';
+        $_REQUEST['selected_month'] = $_REQUEST['selected_month'] ?? date('n');
+        $_REQUEST['selected_year'] = $_REQUEST['selected_year'] ?? date('Y');
+        $_REQUEST['format'] = 'CSV';
+        $_REQUEST['modules'] = ['direct_billing'];
+        $_REQUEST['custom_filename'] = 'direct_bills_separated_export';
+        if (function_exists('currentConcernId')) {
+            $curCid = currentConcernId();
+            if ($curCid > 0 && !isset($_REQUEST['concern_ids'])) {
+                $_REQUEST['concern_ids'] = [$curCid];
+            }
+        }
+        $this->download();
+    }
+
+    /**
+     * Dedicated export for Normal/Standard Bills only
+     */
+    public function normalBillsCsv(): void {
+        $_REQUEST['period_type'] = $_REQUEST['period_type'] ?? 'MONTH';
+        $_REQUEST['selected_month'] = $_REQUEST['selected_month'] ?? date('n');
+        $_REQUEST['selected_year'] = $_REQUEST['selected_year'] ?? date('Y');
+        $_REQUEST['format'] = 'CSV';
+        $_REQUEST['modules'] = ['billing'];
+        $_REQUEST['custom_filename'] = 'normal_standard_bills_export';
         if (function_exists('currentConcernId')) {
             $curCid = currentConcernId();
             if ($curCid > 0 && !isset($_REQUEST['concern_ids'])) {

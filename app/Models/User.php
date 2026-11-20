@@ -202,7 +202,7 @@ class User {
         // Exclude root Super Administrator from staff directory
         $includeSuperAdmin = $filters['include_superadmin'] ?? false;
         if (!$includeSuperAdmin) {
-            $sql .= " AND (u.role_id != 1 AND u.username != 'admin' AND (r.slug != 'admin' OR r.slug IS NULL))";
+            $sql .= " AND (u.role_id != 1 AND u.username != 'admin' AND (r.slug NOT IN ('admin', 'super_admin') OR r.slug IS NULL))";
         }
 
         if (!empty($filters['concern_id'])) {

@@ -82,7 +82,13 @@ class ConcernController {
         $sql = "
             SELECT c.*,
                    (SELECT COUNT(*) FROM concern_modules cm WHERE cm.concern_id = c.id AND cm.is_enabled = 1) AS enabled_modules_count,
-                   (SELECT COUNT(*) FROM user_concerns uc WHERE uc.concern_id = c.id) AS assigned_users_count,
+                   (SELECT COUNT(*)
+                    FROM user_concerns uc
+                    JOIN users assigned_user ON assigned_user.id = uc.user_id
+                    LEFT JOIN roles assigned_role ON assigned_role.id = assigned_user.role_id
+                    WHERE uc.concern_id = c.id
+                      AND (assigned_user.role_id IS NULL OR assigned_user.role_id != 1)
+                      AND (assigned_role.slug IS NULL OR assigned_role.slug != 'super_admin')) AS assigned_users_count,
                    (SELECT COUNT(*) FROM production_units pu WHERE pu.concern_id = c.id) AS production_units_count
             FROM concerns c
             WHERE 1=1
@@ -121,6 +127,8 @@ class ConcernController {
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
             WHERE u.is_active = 1
+              AND (u.role_id IS NULL OR u.role_id != 1)
+              AND (r.slug IS NULL OR r.slug != 'super_admin')
             ORDER BY u.full_name ASC
         ");
 
@@ -132,6 +140,8 @@ class ConcernController {
             JOIN users u ON uc.user_id = u.id
             LEFT JOIN roles r ON u.role_id = r.id
             WHERE u.is_active = 1
+              AND (u.role_id IS NULL OR u.role_id != 1)
+              AND (r.slug IS NULL OR r.slug != 'super_admin')
             ORDER BY uc.is_default DESC, u.full_name ASC
         ");
         $staffByConcern = [];
@@ -276,13 +286,6 @@ class ConcernController {
             foreach (array_keys(self::$STANDARD_MODULES) as $mKey) {
                 $modStmt->execute([$concernId, $mKey]);
             }
-
-            // Authorize creator to newly created concern
-            $db->prepare("
-                INSERT INTO user_concerns (user_id, concern_id, is_default, created_at)
-                VALUES (?, ?, 0, NOW())
-                ON DUPLICATE KEY UPDATE is_default = is_default
-            ")->execute([$creatorId, $concernId]);
 
             // Auto-link/create Production Unit if production module enabled
             if (in_array('production', $selectedModules, true)) {
@@ -471,8 +474,57 @@ class ConcernController {
             return;
         }
 
-        $staffIds = array_values(array_unique(array_filter(array_map('intval', $_POST['staff_ids'] ?? []))));
-        $primaryStaffId = !empty($_POST['primary_staff_id']) ? (int)$_POST['primary_staff_id'] : ($staffIds[0] ?? null);
+        $rawStaffIds = $_POST['staff_ids'] ?? [];
+        if (!is_array($rawStaffIds)) {
+            Session::flash('error', 'Invalid staff assignment list.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $staffIds = [];
+        foreach ($rawStaffIds as $rawStaffId) {
+            $staffId = filter_var($rawStaffId, FILTER_VALIDATE_INT);
+            if ($staffId === false || $staffId < 1) {
+                Session::flash('error', 'Invalid staff assignment list.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+            $staffIds[] = $staffId;
+        }
+        $staffIds = array_values(array_unique($staffIds));
+        if (!empty($staffIds)) {
+            $inClause = implode(',', array_fill(0, count($staffIds), '?'));
+            $assignableStaff = Database::fetchAll("
+                SELECT u.id
+                FROM users u
+                LEFT JOIN roles r ON r.id = u.role_id
+                WHERE u.id IN ($inClause)
+                  AND u.is_active = 1
+                  AND (u.role_id IS NULL OR u.role_id != 1)
+                  AND (r.slug IS NULL OR r.slug != 'super_admin')
+            ", $staffIds) ?: [];
+            $assignableIds = array_map('intval', array_column($assignableStaff, 'id'));
+            if (count($assignableIds) !== count($staffIds)) {
+                Session::flash('error', 'Only active non-Global-Admin staff can be assigned to a concern.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+            $staffIds = $assignableIds;
+        }
+        $requestedPrimaryStaffId = null;
+        if (!empty($_POST['primary_staff_id'])) {
+            $requestedPrimaryStaffId = filter_var($_POST['primary_staff_id'], FILTER_VALIDATE_INT);
+            if (
+                $requestedPrimaryStaffId === false
+                || $requestedPrimaryStaffId < 1
+                || !in_array($requestedPrimaryStaffId, $staffIds, true)
+            ) {
+                Session::flash('error', 'Choose a primary staff member from the assigned staff list.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+        }
+        $primaryStaffId = $requestedPrimaryStaffId ?? ($staffIds[0] ?? null);
 
         $db = Database::getInstance();
         $db->beginTransaction();

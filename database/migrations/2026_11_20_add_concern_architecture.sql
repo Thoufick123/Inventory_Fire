@@ -86,5 +86,16 @@ INSERT IGNORE INTO `concern_modules` (`concern_id`, `module_key`, `is_enabled`) 
 (1, 'expenses', 1),
 (1, 'assets', 1);
 
-UPDATE `users` SET `default_concern_id` = 1 WHERE `default_concern_id` IS NULL;
-INSERT IGNORE INTO `user_concerns` (`user_id`, `concern_id`, `is_default`) SELECT `id`, 1, 1 FROM `users`;
+UPDATE `users` u
+LEFT JOIN `roles` r ON r.`id` = u.`role_id`
+SET u.`default_concern_id` = 1
+WHERE u.`default_concern_id` IS NULL
+  AND (u.`role_id` IS NULL OR u.`role_id` <> 1)
+  AND (r.`slug` IS NULL OR r.`slug` <> 'super_admin');
+
+INSERT IGNORE INTO `user_concerns` (`user_id`, `concern_id`, `is_default`)
+SELECT u.`id`, 1, 1
+FROM `users` u
+LEFT JOIN `roles` r ON r.`id` = u.`role_id`
+WHERE (u.`role_id` IS NULL OR u.`role_id` <> 1)
+  AND (r.`slug` IS NULL OR r.`slug` <> 'super_admin');

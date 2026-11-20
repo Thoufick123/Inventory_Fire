@@ -11,6 +11,67 @@ require_once BASE_PATH . '/app/Services/AuditService.php';
 
 class AdminController {
 
+    private function availableConcernIds(): array {
+        return array_values(array_unique(array_map(
+            'intval',
+            array_column(getAvailableUserConcerns(), 'id')
+        )));
+    }
+
+    private function normalizeConcernAssignments(array $requestedIds, ?int $defaultConcernId, ?array $existingStaff = null): ?array {
+        $allowedIds = $this->availableConcernIds();
+        if (empty($allowedIds) || empty($requestedIds)) {
+            return null;
+        }
+
+        $validatedIds = [];
+        foreach ($requestedIds as $requestedId) {
+            $validatedId = filter_var($requestedId, FILTER_VALIDATE_INT);
+            if ($validatedId === false || $validatedId < 1 || !in_array($validatedId, $allowedIds, true)) {
+                return null;
+            }
+            $validatedIds[] = $validatedId;
+        }
+        $requestedIds = array_values(array_unique($validatedIds));
+        if (!$defaultConcernId || !in_array($defaultConcernId, $requestedIds, true)) {
+            return null;
+        }
+
+        $preservedIds = [];
+        $existingDefaultId = (int)($existingStaff['default_concern_id'] ?? 0);
+        if ($existingStaff !== null) {
+            $existingIds = User::getConcernIds((int)$existingStaff['id']);
+            if ($existingDefaultId > 0 && !in_array($existingDefaultId, $existingIds, true)) {
+                $existingIds[] = $existingDefaultId;
+            }
+            $preservedIds = array_values(array_diff($existingIds, $allowedIds));
+        }
+
+        $assignedIds = array_values(array_unique(array_merge($requestedIds, $preservedIds)));
+        return [$assignedIds, $defaultConcernId];
+    }
+
+    private function staffIsWithinAvailableConcerns(array $staff): bool {
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        $allowedIds = $this->availableConcernIds();
+        $staffConcernIds = User::getConcernIds((int)$staff['id']);
+        $defaultConcernId = (int)($staff['default_concern_id'] ?? 0);
+        if ($defaultConcernId > 0 && !in_array($defaultConcernId, $staffConcernIds, true)) {
+            $staffConcernIds[] = $defaultConcernId;
+        }
+
+        return !empty($staffConcernIds) && empty(array_diff($staffConcernIds, $allowedIds));
+    }
+
+    private function isProtectedStaffAccount(array $user): bool {
+        return (int)($user['role_id'] ?? 0) === 1
+            || ($user['username'] ?? '') === 'admin'
+            || in_array(strtolower($user['role_slug'] ?? ''), ['admin', 'super_admin'], true);
+    }
+
     private function isValidGstNumber(string $gstNumber): bool {
         return $gstNumber === '' || preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/', $gstNumber) === 1;
     }
@@ -43,9 +104,29 @@ class AdminController {
             'breadcrumb'   => [['label' => 'Dashboard']],
         ];
 
+        $isGlobalAdmin = isSuperAdmin();
+        $concernId = $isGlobalAdmin ? null : currentConcernId();
+        if (!$isGlobalAdmin && !$concernId) {
+            Response::error(403, 'Select an assigned business concern to view its dashboard.');
+            return;
+        }
+
+        $concernFilter = '';
+        $concernParams = [];
+        if ($concernId !== null) {
+            $concernFilter = $concernId === 1
+                ? ' AND (concern_id = ? OR concern_id IS NULL)'
+                : ' AND concern_id = ?';
+            $concernParams[] = $concernId;
+        }
+
         // Production Units with rich metrics
         $productionUnits = ProductionUnit::getWithMetrics();
-        $managersList    = User::getAll(['is_active' => 1]);
+        $managerFilters  = ['is_active' => 1];
+        if ($concernId !== null) {
+            $managerFilters['concern_id'] = $concernId;
+        }
+        $managersList = User::getAll($managerFilters);
 
         $data['productionUnits']      = $productionUnits;
         $data['managersList']         = $managersList;
@@ -58,25 +139,30 @@ class AdminController {
 
         // Pending production programs
         $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM production_programs WHERE status IN ('DRAFT', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS')"
+            "SELECT COUNT(*) as cnt FROM production_programs
+             WHERE status IN ('DRAFT', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS'){$concernFilter}",
+            $concernParams
         );
         $data['pendingProduction'] = $result['cnt'] ?? 0;
 
         // Pending QC
         $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM qc_batches WHERE status = 'PENDING'"
+            "SELECT COUNT(*) as cnt FROM qc_batches WHERE status = 'PENDING'{$concernFilter}",
+            $concernParams
         );
         $data['pendingQC'] = $result['cnt'] ?? 0;
 
         // Active cutting batches
         $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM cutting_batches WHERE status IN ('PENDING', 'IN_PROGRESS')"
+            "SELECT COUNT(*) as cnt FROM cutting_batches WHERE status IN ('PENDING', 'IN_PROGRESS'){$concernFilter}",
+            $concernParams
         );
         $data['activeCutting'] = $result['cnt'] ?? 0;
 
         // Active stitching batches
         $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM stitching_batches WHERE status IN ('PENDING', 'IN_PROGRESS')"
+            "SELECT COUNT(*) as cnt FROM stitching_batches WHERE status IN ('PENDING', 'IN_PROGRESS'){$concernFilter}",
+            $concernParams
         );
         $data['activeStitching'] = $result['cnt'] ?? 0;
 
@@ -124,6 +210,15 @@ class AdminController {
         }
 
         $staff           = User::getAll($filters);
+        if (!isSuperAdmin()) {
+            $scopedStaff = [];
+            foreach ($staff as $staffMember) {
+                if ($this->staffIsWithinAvailableConcerns($staffMember)) {
+                    $scopedStaff[] = $staffMember;
+                }
+            }
+            $staff = $scopedStaff;
+        }
         $roles           = Role::getActive();
         $productionUnits = ProductionUnit::getWithMetrics();
 
@@ -152,7 +247,11 @@ class AdminController {
 
     public function viewStaff(string $id): void {
         $staff = User::findById((int)$id);
-        if (!$staff || (int)$staff['role_id'] === 1 || $staff['username'] === 'admin' || ($staff['role_slug'] ?? '') === 'admin') {
+        if (!$staff || $this->isProtectedStaffAccount($staff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
+        }
+        if (!$this->staffIsWithinAvailableConcerns($staff)) {
             Response::error(404, 'Staff member not found.');
             return;
         }
@@ -193,8 +292,16 @@ class AdminController {
 
         $roles            = Role::getActive();
         $productionUnits  = ProductionUnit::getWithMetrics();
-        $concerns         = Database::fetchAll("SELECT * FROM concerns WHERE is_active = 1 ORDER BY id ASC") ?: [];
-        $curConcernId     = currentConcernId() ?? (!empty($concerns) ? (int)$concerns[0]['id'] : 1);
+        $concerns         = getAvailableUserConcerns();
+        $concernIds       = array_map('intval', array_column($concerns, 'id'));
+        if (empty($concernIds)) {
+            Response::error(403, 'You must be assigned to an active concern before creating staff.');
+            return;
+        }
+        $activeConcernId  = currentConcernId();
+        $curConcernId     = $activeConcernId && in_array($activeConcernId, $concernIds, true)
+            ? $activeConcernId
+            : $concernIds[0];
 
         Response::view('admin.staff_form', [
             'pageTitle'           => 'Create Staff',
@@ -267,29 +374,18 @@ class AdminController {
 
         try {
             // Process concern assignment and default login session concern
-            $assignedConcerns = isset($_POST['concerns']) && is_array($_POST['concerns']) ? array_filter($_POST['concerns']) : [];
+            $assignedConcerns = isset($_POST['concerns']) && is_array($_POST['concerns']) ? $_POST['concerns'] : [];
             $defaultConcernId = !empty($_POST['default_concern_id']) ? (int)$_POST['default_concern_id'] : null;
 
-            if (!isSuperAdmin()) {
-                $allowedCids = array_column(Database::fetchAll("SELECT id FROM concerns WHERE is_active = 1") ?: [], 'id');
-                $assignedConcerns = array_values(array_intersect(array_map('intval', $assignedConcerns), $allowedCids));
-                if (empty($assignedConcerns)) {
-                    $assignedConcerns = [currentConcernId() ?? 1];
-                }
-                if (!$defaultConcernId || !in_array($defaultConcernId, $allowedCids)) {
-                    $defaultConcernId = $assignedConcerns[0];
-                }
+            $concernAssignment = $this->normalizeConcernAssignments(
+                $assignedConcerns,
+                $defaultConcernId
+            );
+            if ($concernAssignment === null) {
+                Response::error(403, 'Select only concerns assigned to your account and choose one as the default.');
+                return;
             }
-
-            if (empty($assignedConcerns)) {
-                $fallbackCid = currentConcernId() ?? 1;
-                $assignedConcerns = [$fallbackCid];
-                $defaultConcernId = $fallbackCid;
-            }
-
-            if (!$defaultConcernId || !in_array($defaultConcernId, array_map('intval', $assignedConcerns))) {
-                $defaultConcernId = (int)$assignedConcerns[0];
-            }
+            [$assignedConcerns, $defaultConcernId] = $concernAssignment;
 
             $_POST['concerns'] = $assignedConcerns;
             $_POST['default_concern_id'] = $defaultConcernId;
@@ -394,15 +490,29 @@ class AdminController {
         $staff = User::findById($staffId);
         if (!$staff) Response::error(404, 'Staff not found.');
 
-        if ((int)$staff['role_id'] === 1 || $staff['username'] === 'admin' || ($staff['role_slug'] ?? '') === 'admin') {
+        if ($this->isProtectedStaffAccount($staff)) {
             Response::redirect(url('admin/staff'), 'warning', 'Super Administrator account is managed under System Settings.');
+            return;
         }
 
         $roles            = Role::getActive();
         $productionUnits  = ProductionUnit::getWithMetrics();
-        $concerns         = Database::fetchAll("SELECT * FROM concerns WHERE is_active = 1 ORDER BY id ASC") ?: [];
+        if (!$this->staffIsWithinAvailableConcerns($staff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
+        }
+
+        $concerns         = getAvailableUserConcerns();
+        $availableIds     = array_map('intval', array_column($concerns, 'id'));
         $staffConcerns    = User::getConcernIds($staffId);
         $defaultConcernId = (int)($staff['default_concern_id'] ?? 0);
+        if ($defaultConcernId > 0 && !in_array($defaultConcernId, $staffConcerns, true)) {
+            $staffConcerns[] = $defaultConcernId;
+        }
+        $staffConcerns = array_values(array_intersect($staffConcerns, $availableIds));
+        if (!in_array($defaultConcernId, $availableIds, true)) {
+            $defaultConcernId = 0;
+        }
         if ($defaultConcernId === 0 && !empty($staffConcerns)) {
             $defaultConcernId = $staffConcerns[0];
         }
@@ -443,6 +553,14 @@ class AdminController {
         $staffId = (int) $id;
         $oldStaff = User::findById($staffId);
         if (!$oldStaff) Response::error(404, 'Staff not found.');
+        if ($this->isProtectedStaffAccount($oldStaff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
+        }
+        if (!$this->staffIsWithinAvailableConcerns($oldStaff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
+        }
 
         $validator = Validator::make($_POST)
             ->required('full_name')
@@ -476,30 +594,20 @@ class AdminController {
 
         try {
             // Process concern assignment and default login session concern
-            if (isset($_POST['concerns'])) {
-                $assignedConcerns = is_array($_POST['concerns']) ? array_filter($_POST['concerns']) : [];
+            if (isset($_POST['concern_assignment_submitted']) || isset($_POST['concerns'])) {
+                $assignedConcerns = isset($_POST['concerns']) && is_array($_POST['concerns']) ? $_POST['concerns'] : [];
                 $defaultConcernId = !empty($_POST['default_concern_id']) ? (int)$_POST['default_concern_id'] : null;
 
-                if (!isSuperAdmin()) {
-                    $allowedCids = array_column(Database::fetchAll("SELECT id FROM concerns WHERE is_active = 1") ?: [], 'id');
-                    $assignedConcerns = array_values(array_intersect(array_map('intval', $assignedConcerns), $allowedCids));
-                    if (empty($assignedConcerns)) {
-                        $assignedConcerns = [currentConcernId() ?? 1];
-                    }
-                    if (!$defaultConcernId || !in_array($defaultConcernId, $allowedCids)) {
-                        $defaultConcernId = $assignedConcerns[0];
-                    }
+                $concernAssignment = $this->normalizeConcernAssignments(
+                    $assignedConcerns,
+                    $defaultConcernId,
+                    $oldStaff
+                );
+                if ($concernAssignment === null) {
+                    Response::error(403, 'Select only concerns assigned to your account and choose one as the default.');
+                    return;
                 }
-
-                if (empty($assignedConcerns)) {
-                    $fallbackCid = currentConcernId() ?? 1;
-                    $assignedConcerns = [$fallbackCid];
-                    $defaultConcernId = $fallbackCid;
-                }
-
-                if (!$defaultConcernId || !in_array($defaultConcernId, array_map('intval', $assignedConcerns))) {
-                    $defaultConcernId = (int)$assignedConcerns[0];
-                }
+                [$assignedConcerns, $defaultConcernId] = $concernAssignment;
 
                 $_POST['concerns'] = $assignedConcerns;
                 $_POST['default_concern_id'] = $defaultConcernId;
@@ -611,8 +719,12 @@ class AdminController {
         $staff = User::findById($staffId);
         if (!$staff) Response::error(404, 'Staff not found.');
 
-        if ((int)$staff['role_id'] === 1 || $staff['username'] === 'admin' || ($staff['role_slug'] ?? '') === 'admin') {
+        if ($this->isProtectedStaffAccount($staff)) {
             Response::back('error', 'Super Administrator account status cannot be modified here.');
+        }
+        if (!$this->staffIsWithinAvailableConcerns($staff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
         }
 
         User::toggleActive($staffId);
@@ -658,8 +770,12 @@ class AdminController {
         $staff = User::findById($staffId);
         if (!$staff) Response::error(404, 'Staff not found.');
 
-        if ((int)$staff['role_id'] === 1 || $staff['username'] === 'admin' || ($staff['role_slug'] ?? '') === 'admin') {
+        if ($this->isProtectedStaffAccount($staff)) {
             Response::back('error', 'Super Administrator account cannot be deleted.');
+        }
+        if (!$this->staffIsWithinAvailableConcerns($staff)) {
+            Response::error(404, 'Staff member not found.');
+            return;
         }
 
         try {

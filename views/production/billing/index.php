@@ -15,7 +15,7 @@
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Total Billed Revenue</span>
+                    <span class="text-muted small fw-semibold text-uppercase"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Bills Revenue' : (($activeTab ?? 'normal') === 'all' ? 'All Billed Revenue' : 'Standard Billed Revenue') ?></span>
                     <div class="p-2 bg-success bg-opacity-10 text-success rounded-circle">
                         <i class="bi bi-currency-rupee fs-5"></i>
                     </div>
@@ -35,7 +35,7 @@
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Total Invoices / Bills</span>
+                    <span class="text-muted small fw-semibold text-uppercase"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Invoices' : (($activeTab ?? 'normal') === 'all' ? 'Total Invoices' : 'Standard Invoices') ?></span>
                     <div class="p-2 bg-primary bg-opacity-10 text-primary rounded-circle">
                         <i class="bi bi-receipt-cutoff fs-5"></i>
                     </div>
@@ -86,6 +86,49 @@
     </div>
 </div>
 
+<!-- Tabs for Normal Bills vs Direct Bills Separation -->
+<ul class="nav nav-pills mb-3 gap-2" id="billingTypeTabs">
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab ?? 'normal') === 'normal' ? 'active bg-primary' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=normal') ?>">
+            <i class="bi bi-receipt"></i>
+            <span>Standard Bills</span>
+            <span class="badge <?= ($activeTab ?? 'normal') === 'normal' ? 'bg-white text-primary' : 'bg-primary-subtle text-primary' ?> rounded-pill">
+                <?= (int)($tabCounts['normal_count'] ?? 0) ?>
+            </span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab ?? '') === 'direct' ? 'active bg-warning text-dark' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=direct') ?>">
+            <i class="bi bi-box-arrow-up-right"></i>
+            <span>Direct Bills (Separated)</span>
+            <span class="badge <?= ($activeTab ?? '') === 'direct' ? 'bg-dark text-white' : 'bg-warning-subtle text-warning-emphasis' ?> rounded-pill">
+                <?= (int)($tabCounts['direct_count'] ?? 0) ?>
+            </span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab ?? '') === 'all' ? 'active bg-secondary text-white' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=all') ?>">
+            <i class="bi bi-layers-half"></i>
+            <span>All Bills</span>
+            <span class="badge <?= ($activeTab ?? '') === 'all' ? 'bg-white text-secondary' : 'bg-secondary-subtle text-secondary' ?> rounded-pill">
+                <?= (int)($tabCounts['total_count'] ?? 0) ?>
+            </span>
+        </a>
+    </li>
+</ul>
+
+<?php if (($activeTab ?? '') === 'direct'): ?>
+    <div class="alert alert-warning border border-warning-subtle py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 rounded-3">
+        <div class="d-flex align-items-center gap-2 small">
+            <i class="bi bi-info-circle-fill text-warning fs-5"></i>
+            <span><strong>Direct Bills Tab Active:</strong> Showing only bills marked as Direct Bills. These are handled separately and excluded from normal billing counts and standard exports.</span>
+        </div>
+        <a href="<?= url('export/direct-bills-csv') ?>" class="btn btn-sm btn-outline-dark fw-semibold" target="_blank">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Direct Bills CSV
+        </a>
+    </div>
+<?php endif; ?>
+
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h6 class="fw-bold text-dark mb-0"><i class="bi bi-receipt-cutoff text-primary me-2"></i>Production Invoices &amp; Bills</h6>
@@ -112,7 +155,14 @@
                 <?php else: ?>
                     <?php foreach ($bills as $bill): ?>
                         <tr class="billing-row">
-                            <td class="fw-semibold"><?= htmlspecialchars($bill['bill_number']) ?></td>
+                            <td class="fw-semibold">
+                                <div><?= htmlspecialchars($bill['bill_number']) ?></div>
+                                <?php if (!empty($bill['is_direct_bill'])): ?>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-monospace" style="font-size: 10px;">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i>Direct Bill
+                                    </span>
+                                <?php endif; ?>
+                            </td>
                             <td><?= htmlspecialchars(date('d M Y', strtotime($bill['bill_date']))) ?></td>
                             <td>
                                 <span class="badge text-bg-light"><?= htmlspecialchars($bill['buyer_type'] ?? 'COMPANY') ?></span>

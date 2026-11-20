@@ -678,6 +678,7 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `customer_gstin` varchar(30) DEFAULT NULL,
   `bill_date` date NOT NULL,
   `payment_method` varchar(30) NOT NULL DEFAULT 'CASH',
+  `is_direct_bill` tinyint(1) NOT NULL DEFAULT 0,
   `payment_status` enum('PENDING','PAID') NOT NULL DEFAULT 'PAID',
   `tax_type` enum('CGST_SGST','IGST') NOT NULL DEFAULT 'CGST_SGST',
   `cash_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -708,6 +709,7 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   KEY `idx_production_bills_customer_phone` (`customer_phone`),
   KEY `production_bills_ibfk_1` (`created_by`),
   KEY `idx_production_bills_unit` (`production_unit_id`),
+  KEY `idx_production_bills_direct` (`is_direct_bill`),
   KEY `idx_production_bills_concern_id` (`concern_id`),
   CONSTRAINT `production_bills_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

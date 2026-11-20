@@ -9,10 +9,19 @@ class ProductionBillingController
     public function billList(): void
     {
         $cid = currentConcernId();
-        $whereSql = "";
+        $whereConditions = [];
         if ($cid) {
-            $whereSql = ($cid === 1) ? "WHERE (pb.concern_id = 1 OR pb.concern_id IS NULL)" : "WHERE pb.concern_id = " . (int)$cid;
+            $whereConditions[] = ($cid === 1) ? "(pb.concern_id = 1 OR pb.concern_id IS NULL)" : "pb.concern_id = " . (int)$cid;
         }
+
+        $activeTab = trim((string)($_GET['tab'] ?? 'normal')); // 'normal', 'direct', or 'all'
+        if ($activeTab === 'normal') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 0";
+        } elseif ($activeTab === 'direct') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 1";
+        }
+
+        $whereSql = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
         $bills = Database::fetchAll(
             "SELECT pb.*,
@@ -27,6 +36,22 @@ class ProductionBillingController
              ORDER BY pb.bill_date DESC, pb.id DESC"
         );
 
+        // Fetch counts for all tabs so badges show correct counts
+        $baseWhere = "";
+        if ($cid) {
+            $baseWhere = ($cid === 1) ? "WHERE (concern_id = 1 OR concern_id IS NULL)" : "WHERE concern_id = " . (int)$cid;
+        }
+        $tabCounts = Database::fetchOne("
+            SELECT 
+                COUNT(*) AS total_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN 1 ELSE 0 END) AS normal_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN 1 ELSE 0 END) AS direct_count,
+                COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN total_amount ELSE 0 END), 0) AS normal_revenue,
+                COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN total_amount ELSE 0 END), 0) AS direct_revenue
+            FROM production_bills
+            {$baseWhere}
+        ") ?: [];
+
         $stats = [
             'total_revenue'    => 0.0,
             'paid_revenue'     => 0.0,
@@ -35,6 +60,7 @@ class ProductionBillingController
             'unique_customers' => 0,
             'paid_count'       => 0,
             'pending_count'    => 0,
+            'tab_counts'       => $tabCounts,
         ];
 
         $customerSet = [];
@@ -61,6 +87,8 @@ class ProductionBillingController
             'activeMenu' => 'prod-billing',
             'bills' => $bills,
             'stats' => $stats,
+            'activeTab' => $activeTab,
+            'tabCounts' => $tabCounts,
         ]);
     }
 
@@ -1673,6 +1701,7 @@ class ProductionBillingController
         }
 
         $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
+        $isDirectBill = !empty($_POST['is_direct_bill']) ? 1 : 0;
         $header = [
             $productionUnitId,
             $buyerType,
@@ -1689,6 +1718,7 @@ class ProductionBillingController
             $customerGstin,
             $billDate,
             $paymentMethod,
+            $isDirectBill,
             $paymentStatus,
             $taxType,
             $cashAmount,
@@ -1721,11 +1751,11 @@ class ProductionBillingController
                     "INSERT INTO production_bills
                      (concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
-                      bill_date, payment_method, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
+                      bill_date, payment_method, is_direct_bill, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
                       upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
                       total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array_merge([$activeConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
@@ -1733,7 +1763,7 @@ class ProductionBillingController
                 Database::execute(
                     "UPDATE production_bills SET production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
-                     customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, payment_status = ?,
+                     customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, is_direct_bill = ?, payment_status = ?,
                      tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, upi_payment_screenshot_url = ?,
                      gross_amount = ?, discount_amount = ?,
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,

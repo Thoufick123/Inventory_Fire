@@ -226,6 +226,14 @@ require_once BASE_PATH . '/app/Models/Concern.php';
 Concern::ensureSchema();
 echo "  Concern architecture migration applied and verified.\n";
 
+$globalAdminConcernMigration = BASE_PATH . '/database/migrations/2026_11_20_separate_global_admin_from_concerns.sql';
+if (file_exists($globalAdminConcernMigration)) {
+    echo "  Removing global Admin concern memberships and defaults...\n";
+    $db->exec(file_get_contents($globalAdminConcernMigration));
+} else {
+    throw new RuntimeException("Global Admin concern-separation migration not found: {$globalAdminConcernMigration}");
+}
+
 // 2f. third_party_product_variants table
 if (!tableExists($db, 'third_party_product_variants')) {
     echo "  Creating table `third_party_product_variants`...\n";

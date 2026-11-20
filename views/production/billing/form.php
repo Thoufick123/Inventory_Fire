@@ -211,6 +211,19 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <!-- Separate as Direct Bill Option (Reference Box) -->
+                    <div class="p-3 border rounded-3 bg-light mb-3">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?>>
+                            <label class="form-check-label fw-bold text-dark" for="isDirectBill">
+                                Separate as Direct Bill
+                            </label>
+                        </div>
+                        <div class="small text-muted ps-4">
+                            Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.
+                        </div>
+                    </div>
                     <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
                         <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
                         <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
