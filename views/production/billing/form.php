@@ -997,16 +997,47 @@ document.addEventListener('DOMContentLoaded', () => {
             hiddenVar.value = item.variant_id || 0;
             productCell.append(hiddenVar);
 
+            const hsnLabel = document.createElement('label');
+            hsnLabel.className = 'form-label small fw-semibold text-muted mb-1 mt-2';
+            hsnLabel.textContent = 'HSN Code';
+
+            const hsnGroup = document.createElement('div');
+            hsnGroup.className = 'input-group input-group-sm';
+
             const hsnInput = document.createElement('input');
             hsnInput.type = 'text';
+            hsnInput.id = `billing-hsn-${index}`;
             hsnInput.maxLength = 20;
             hsnInput.required = true;
-            hsnInput.className = 'form-control form-control-sm mt-2';
-            hsnInput.placeholder = 'HSN (4, 6 or 8 digits)';
+            hsnInput.readOnly = true;
+            hsnInput.inputMode = 'numeric';
+            hsnInput.className = 'form-control';
+            hsnInput.placeholder = '4, 6 or 8 digits';
             hsnInput.name = `items[${index}][hsn_code]`;
             hsnInput.value = item.hsn_code || '6109';
             hsnInput.addEventListener('input', () => { item.hsn_code = hsnInput.value.trim(); });
-            productCell.append(hsnInput);
+            hsnLabel.htmlFor = hsnInput.id;
+
+            const hsnEditButton = document.createElement('button');
+            hsnEditButton.type = 'button';
+            hsnEditButton.className = 'btn btn-outline-secondary';
+            hsnEditButton.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Edit';
+            hsnEditButton.setAttribute('aria-label', 'Edit HSN code');
+            hsnEditButton.addEventListener('click', () => {
+                const startEditing = hsnInput.readOnly;
+                hsnInput.readOnly = !startEditing;
+                hsnEditButton.innerHTML = startEditing
+                    ? '<i class="bi bi-check-lg me-1"></i>Done'
+                    : '<i class="bi bi-pencil-square me-1"></i>Edit';
+                hsnEditButton.setAttribute('aria-label', startEditing ? 'Finish editing HSN code' : 'Edit HSN code');
+                if (startEditing) {
+                    hsnInput.focus();
+                    hsnInput.select();
+                }
+            });
+
+            hsnGroup.append(hsnInput, hsnEditButton);
+            productCell.append(hsnLabel, hsnGroup);
 
             // Tags badges
             const tagsWrap = document.createElement('div');
