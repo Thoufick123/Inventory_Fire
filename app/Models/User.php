@@ -129,27 +129,6 @@ class User {
                 } catch (Throwable $pe) {}
             }
 
-            // Ensure baseline master categories and subcategories exist
-            try {
-                $hasCat = Database::fetchOne("SELECT id FROM categories LIMIT 1");
-                if (!$hasCat) {
-                    Database::execute("INSERT IGNORE INTO categories (id, name, code, slug, description, hsn_code, gst_rate, is_active, sort_order) VALUES
-                        (1, 'Kids Wear', 'KW', 'kids-wear', 'Children apparel and garments', '6109', 5.00, 1, 1),
-                        (2, 'Men\'s Wear', 'MW', 'mens-wear', 'Men apparel, t-shirts, shirts, casuals', '6109', 5.00, 1, 2),
-                        (3, 'Women\'s Wear', 'WW', 'womens-wear', 'Women apparel, tops, dresses, kurtis', '6109', 5.00, 1, 3),
-                        (4, 'Baby Wear', 'BW', 'baby-wear', 'Infant clothing, rompers, baby sets', '6109', 5.00, 1, 4),
-                        (5, 'Accessories & Other', 'ACC', 'accessories-other', 'Caps, masks, bibs, socks', '6109', 5.00, 1, 5)");
-                    Database::execute("INSERT IGNORE INTO subcategories (id, category_id, name, code, slug, is_active, sort_order) VALUES
-                        (1, 1, 'Kids T-Shirt', 'KT', 'kids-t-shirt', 1, 1),
-                        (2, 1, 'Kids Shorts & Pants', 'KP', 'kids-shorts-pants', 1, 2),
-                        (3, 1, 'Kids Nightwear', 'KN', 'kids-nightwear', 1, 3),
-                        (4, 2, 'Men Polo T-Shirt', 'MPT', 'men-polo-t-shirt', 1, 1),
-                        (5, 2, 'Men Round Neck T-Shirt', 'MRT', 'men-round-neck-t-shirt', 1, 2),
-                        (6, 3, 'Women Casual Tops', 'WCT', 'women-casual-tops', 1, 1),
-                        (7, 3, 'Women Frocks & Dresses', 'WFD', 'women-frocks-dresses', 1, 2),
-                        (8, 4, 'Baby Rompers', 'BR', 'baby-rompers', 1, 1)");
-                }
-            } catch (Throwable $ce) {}
         } catch (Throwable $e) {}
     }
 

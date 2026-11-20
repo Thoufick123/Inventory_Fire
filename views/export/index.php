@@ -140,40 +140,67 @@
 
             <!-- 1b. Business Concern Scoping & Filtering -->
             <div class="mb-4 pb-3 border-bottom">
-                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                    <label class="form-label fw-bold text-dark mb-0 fs-6">
-                        <i class="bi bi-buildings-fill me-1 text-primary"></i>
-                        Filter by Business Concern / Sister Entity
-                    </label>
-                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2.5 fs-7 fw-semibold" onclick="selectConcernFilter('ALL')">
-                            <i class="bi bi-globe me-1"></i>All Concerns (Consolidated)
-                        </button>
-                        <?php if (!empty($activeConcern['id'])): ?>
-                            <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2.5 fs-7 fw-semibold" onclick="selectConcernFilter('<?= (int)$activeConcern['id'] ?>')">
-                                <i class="bi bi-check2-circle me-1"></i>Active: <?= e($activeConcern['code']) ?>
+                <div class="concern-filter-panel border rounded-3 bg-light bg-opacity-50 p-3 p-md-4">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                        <div>
+                            <label class="form-label fw-bold text-dark mb-1 fs-6">
+                                <i class="bi bi-buildings-fill me-1 text-primary"></i>
+                                Filter by Business Concern
+                            </label>
+                            <div class="small text-muted">Choose one or more entities, or leave all unselected for a consolidated export.</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="selectConcernFilter('ALL')">
+                                <i class="bi bi-globe me-1"></i>All concerns
                             </button>
-                        <?php endif; ?>
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2.5 fs-7 fw-semibold" onclick="clearConcernFilter()">
-                            Clear
-                        </button>
+                            <?php if (!empty($activeConcern['id'])): ?>
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="selectConcernFilter('<?= (int)$activeConcern['id'] ?>')">
+                                    <i class="bi bi-crosshair me-1"></i>Active: <?= e($activeConcern['code']) ?>
+                                </button>
+                            <?php endif; ?>
+                            <button type="button" class="btn btn-sm btn-link text-secondary text-decoration-none" onclick="clearConcernFilter()">
+                                Clear
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <select name="concern_ids[]" id="exportConcernSelect" class="form-select mb-1" multiple size="4" aria-describedby="concernFilterHelp" onchange="handleConcernSelectionChange()">
-                    <option value="" selected>-- All Business Concerns (Consolidated Enterprise Export) --</option>
-                    <?php foreach ($concerns as $concern): ?>
-                        <option value="<?= (int)$concern['id'] ?>"
-                                data-code="<?= e($concern['code']) ?>"
-                                data-name="<?= e($concern['name']) ?>"
-                                data-modules="<?= e($concern['enabled_modules'] ?? '') ?>">
-                            [<?= e($concern['code']) ?>] <?= e($concern['name']) ?><?= !empty($concern['legal_name']) ? ' — ' . e($concern['legal_name']) : '' ?><?= !empty($concern['gst_number']) ? ' (GSTIN: ' . e($concern['gst_number']) . ')' : '' ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <div id="concernFilterHelp" class="form-text d-flex justify-content-between align-items-center flex-wrap gap-2 mt-1">
-                    <span>Select one or more concerns to filter procurement, manufacturing, warehousing, and financial records. Leave unselected to export consolidated enterprise data across all entities.</span>
-                    <span id="concernSelectionBadge" class="badge bg-primary-subtle text-primary border">All Business Concerns (Consolidated)</span>
+                    <?php if (!empty($concerns)): ?>
+                        <div class="row g-2" id="exportConcernOptions" role="group" aria-label="Business concern filters">
+                            <?php foreach ($concerns as $concern): ?>
+                                <div class="col-sm-6 col-xl-4">
+                                    <label class="concern-filter-card d-flex align-items-start gap-3 border rounded-3 bg-white p-3 h-100" for="exportConcern<?= (int)$concern['id'] ?>">
+                                        <input type="checkbox"
+                                               class="form-check-input mt-1 concern-filter-checkbox"
+                                               name="concern_ids[]"
+                                               id="exportConcern<?= (int)$concern['id'] ?>"
+                                               value="<?= (int)$concern['id'] ?>"
+                                               data-code="<?= e($concern['code']) ?>"
+                                               data-modules="<?= e($concern['enabled_modules'] ?? '') ?>"
+                                               onchange="handleConcernSelectionChange()">
+                                        <span class="flex-grow-1">
+                                            <span class="d-flex justify-content-between align-items-center gap-2">
+                                                <span class="fw-semibold text-dark"><?= e($concern['name']) ?></span>
+                                                <span class="badge bg-primary-subtle text-primary border"><?= e($concern['code']) ?></span>
+                                            </span>
+                                            <?php if (!empty($concern['legal_name'])): ?>
+                                                <span class="d-block small text-muted mt-1"><?= e($concern['legal_name']) ?></span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($concern['gst_number'])): ?>
+                                                <span class="d-block small text-muted mt-1">GSTIN <?= e($concern['gst_number']) ?></span>
+                                            <?php endif; ?>
+                                        </span>
+                                    </label>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-light border mb-0 small">No business concerns are available to filter.</div>
+                    <?php endif; ?>
+
+                    <div id="concernFilterHelp" class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+                        <span class="small text-muted">The selected concerns scope procurement, manufacturing, warehousing, and financial records.</span>
+                        <span id="concernSelectionBadge" class="badge rounded-pill bg-primary-subtle text-primary border px-3 py-2" aria-live="polite">All Business Concerns (Consolidated)</span>
+                    </div>
                 </div>
             </div>
 
@@ -190,6 +217,7 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <div id="warehouseFilterEmpty" class="alert alert-warning d-none small mt-2 mb-0" role="status" aria-live="polite"></div>
                 <div id="warehouseFilterHelp" class="form-text">
                     Select one or more warehouses to filter the outward dispatch and detailed stock ledger data. Leave unselected to include every warehouse.
                 </div>
@@ -353,23 +381,31 @@ function submitQuickPrint() {
 }
 
 function handleConcernSelectionChange() {
-    const select = document.getElementById('exportConcernSelect');
     const badge = document.getElementById('concernSelectionBadge');
-    if (!select || !badge) return;
+    if (!badge) return;
 
-    const selectedOptions = Array.from(select.selectedOptions);
-    const selectedValues = selectedOptions.map(o => o.value).filter(v => v !== '' && v !== '0');
+    const concernCheckboxes = Array.from(document.querySelectorAll('.concern-filter-checkbox'));
+    const selectedOptions = concernCheckboxes.filter(checkbox => checkbox.checked);
+    const selectedValues = selectedOptions.map(checkbox => checkbox.value).filter(value => value !== '' && value !== '0');
 
-    if (selectedValues.length === 0 || selectedOptions.some(o => o.value === '')) {
-        badge.className = 'badge bg-primary-subtle text-primary border';
+    concernCheckboxes.forEach(checkbox => {
+        const card = checkbox.closest('.concern-filter-card');
+        if (card) {
+            card.classList.toggle('border-primary', checkbox.checked);
+            card.classList.toggle('bg-primary-subtle', checkbox.checked);
+            card.classList.toggle('shadow-sm', checkbox.checked);
+        }
+    });
+
+    if (selectedValues.length === 0) {
+        badge.className = 'badge rounded-pill bg-primary-subtle text-primary border px-3 py-2';
         badge.textContent = 'All Business Concerns (Consolidated)';
-        // Reset warehouse filter opacity
         filterWarehousesByConcerns([]);
         return;
     }
 
-    const codes = selectedOptions.map(o => o.dataset.code || o.text.trim().split(' ')[0]).filter(Boolean);
-    badge.className = 'badge bg-success-subtle text-success border';
+    const codes = selectedOptions.map(option => option.dataset.code).filter(Boolean);
+    badge.className = 'badge rounded-pill bg-success-subtle text-success border px-3 py-2';
     badge.textContent = selectedValues.length === 1 
         ? `Scoped Concern: ${codes[0] || '1 Selected'}` 
         : `Scoped: ${selectedValues.length} Concerns (${codes.join(', ')})`;
@@ -378,16 +414,10 @@ function handleConcernSelectionChange() {
 }
 
 function selectConcernFilter(val) {
-    const select = document.getElementById('exportConcernSelect');
-    if (!select) return;
-
-    if (val === 'ALL') {
-        Array.from(select.options).forEach(opt => opt.selected = (opt.value === ''));
-    } else {
-        Array.from(select.options).forEach(opt => {
-            opt.selected = (opt.value == val);
-        });
-    }
+    const concernCheckboxes = Array.from(document.querySelectorAll('.concern-filter-checkbox'));
+    concernCheckboxes.forEach(checkbox => {
+        checkbox.checked = val !== 'ALL' && checkbox.value === String(val);
+    });
     handleConcernSelectionChange();
 }
 
@@ -400,24 +430,38 @@ function filterWarehousesByConcerns(concernIds) {
     if (!whSelect) return;
 
     const cIds = concernIds.map(id => parseInt(id, 10));
-    Array.from(whSelect.options).forEach(opt => {
+    const options = Array.from(whSelect.options);
+    let visibleCount = 0;
+    options.forEach(opt => {
         const whCid = parseInt(opt.dataset.concernId || 0, 10);
         if (cIds.length === 0 || cIds.includes(whCid) || whCid === 0) {
             opt.style.display = '';
             opt.disabled = false;
+            visibleCount++;
         } else {
             opt.style.display = 'none';
             opt.disabled = true;
             opt.selected = false;
         }
     });
+
+    const emptyState = document.getElementById('warehouseFilterEmpty');
+    if (emptyState) {
+        if (visibleCount > 0) {
+            emptyState.classList.add('d-none');
+            emptyState.textContent = '';
+        } else {
+            emptyState.classList.remove('d-none');
+            emptyState.textContent = options.length === 0
+                ? 'No active warehouses are available. Create or activate a warehouse to use this filter.'
+                : 'No active warehouses are linked to the selected concern. Choose All concerns or assign a warehouse to the concern.';
+        }
+    }
 }
 
 function selectEnabledConcernModules() {
-    const select = document.getElementById('exportConcernSelect');
-    if (!select) return;
-
-    const selectedOptions = Array.from(select.selectedOptions).filter(o => o.value !== '' && o.value !== '0');
+    const selectedOptions = Array.from(document.querySelectorAll('.concern-filter-checkbox:checked'))
+        .filter(checkbox => checkbox.value !== '' && checkbox.value !== '0');
     if (selectedOptions.length === 0) {
         // If all concerns selected, check all
         toggleAllExportModules(true);
@@ -461,3 +505,15 @@ document.addEventListener('DOMContentLoaded', () => {
     handleConcernSelectionChange();
 });
 </script>
+
+<style>
+.concern-filter-card {
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.concern-filter-card:hover,
+.concern-filter-card:focus-within {
+    border-color: var(--bs-primary) !important;
+}
+</style>
