@@ -700,6 +700,58 @@ class ProductionBatch {
                 }
             }
 
+            // Directly resolve Option A sequential piece tracking QR codes if linked to a QR generation batch
+            if (empty($variantPieces) && !empty($qbRow['qr_generation_id'])) {
+                $qrPieces = Database::fetchAll(
+                    "SELECT qr_code, status FROM qr_generation_items WHERE generation_id = ? AND (variant_id = ? OR variant_id IS NULL) ORDER BY sequence_num ASC",
+                    [(int)$qbRow['qr_generation_id'], $vid]
+                );
+                foreach ($qrPieces as $qp) {
+                    $variantPieces[] = [
+                        'tag_code' => $qp['qr_code'],
+                        'status'   => $qp['status'] ?? 'APPROVED',
+                    ];
+                }
+            }
+
+            if (empty($variantPieces) && $progId > 0) {
+                $qrg = Database::fetchOne(
+                    "SELECT id FROM qr_generations WHERE program_id = ? ORDER BY id DESC LIMIT 1",
+                    [$progId]
+                );
+                if ($qrg) {
+                    $qrPieces = Database::fetchAll(
+                        "SELECT qr_code, status FROM qr_generation_items WHERE generation_id = ? AND (variant_id = ? OR variant_id IS NULL) ORDER BY sequence_num ASC",
+                        [(int)$qrg['id'], $vid]
+                    );
+                    foreach ($qrPieces as $qp) {
+                        $variantPieces[] = [
+                            'tag_code' => $qp['qr_code'],
+                            'status'   => $qp['status'] ?? 'APPROVED',
+                        ];
+                    }
+                }
+            }
+
+            // Fallback: check if piece_tags was stored directly in production_batch_items
+            if (empty($variantPieces) && !empty($it['piece_tags'])) {
+                $rawTags = is_array($it['piece_tags']) ? $it['piece_tags'] : json_decode((string)$it['piece_tags'], true);
+                if (is_array($rawTags) && !empty($rawTags)) {
+                    foreach ($rawTags as $rt) {
+                        $variantPieces[] = [
+                            'tag_code' => (string)$rt,
+                            'status'   => 'APPROVED',
+                        ];
+                    }
+                    if (!$startCode && !empty($rawTags[0])) {
+                        $startCode = (string)$rawTags[0];
+                    }
+                    if (!$endCode && !empty($rawTags[count($rawTags) - 1])) {
+                        $endCode = (string)$rawTags[count($rawTags) - 1];
+                    }
+                }
+            }
+
             if (empty($variantPieces) && $startCode) {
                 if (preg_match('/^(.*?)(\d+)$/', (string)$startCode, $m)) {
                     $prefix = $m[1];

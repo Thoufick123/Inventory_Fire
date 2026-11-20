@@ -39,9 +39,36 @@ $selectedBuyerType = $bill['buyer_type'] ?? 'COMPANY';
     <div class="row g-3">
         <div class="col-xl-4">
             <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white fw-semibold"><i class="bi bi-building-gear me-2 text-primary"></i>Production Unit</div>
+                <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between flex-wrap gap-1">
+                    <span><i class="bi bi-building-gear me-2 text-primary"></i>Issuing Concern & Facility</span>
+                    <?php if (!empty($activeConcern['name'])): ?>
+                        <span class="badge bg-primary text-white px-2 py-1 fs-7">
+                            <i class="bi bi-diagram-3 me-1"></i><?= $escape($activeConcern['name']) ?><?= !empty($activeConcern['code']) ? ' (' . $escape($activeConcern['code']) . ')' : '' ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
                 <div class="card-body">
-                    <label class="form-label" for="productionUnitSelect">Bill issued by</label>
+                    <?php if (!empty($activeConcern)): ?>
+                        <div class="mb-3 p-2 rounded bg-light border border-light-subtle small">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Active Concern:</span>
+                                <strong class="text-dark"><?= $escape($activeConcern['legal_name'] ?: $activeConcern['name']) ?></strong>
+                            </div>
+                            <?php if (!empty($activeConcern['gst_number'])): ?>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <span class="text-muted">GSTIN:</span>
+                                    <span class="fw-semibold text-uppercase font-monospace"><?= $escape($activeConcern['gst_number']) ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (!empty($activeConcern['address'])): ?>
+                                <div class="text-muted text-truncate mt-1" title="<?= $escape($activeConcern['address']) ?>">
+                                    <i class="bi bi-geo-alt me-1"></i><?= $escape($activeConcern['address']) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <label class="form-label" for="productionUnitSelect">Bill issued by (Production Facility)</label>
                     <select class="form-select" name="production_unit_id" id="productionUnitSelect" required>
                         <?php foreach ($productionUnits ?? [] as $unit): ?>
                             <option value="<?= (int)$unit['id'] ?>" <?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) === (int)$unit['id'] ? 'selected' : '' ?> data-name="<?= $escape($unit['name'] ?? '') ?>" data-code="<?= $escape($unit['code'] ?? '') ?>" data-manager="<?= $escape($unit['manager_name'] ?? '') ?>" data-address="<?= $escape($unit['address'] ?? '') ?>" data-phone="<?= $escape($unit['phone'] ?? '') ?>" data-gstin="<?= $escape($unit['gst_number'] ?? '') ?>" data-logo="<?= $escape($unit['logo_url'] ?? '') ?>">
@@ -124,27 +151,10 @@ $selectedBuyerType = $bill['buyer_type'] ?? 'COMPANY';
                             <span class="input-group-text bg-white"><i class="bi bi-qr-code text-success"></i></span>
                             <input id="inventorySearch" class="form-control" autocomplete="off" placeholder="Scan a finished-goods QR or enter product / SKU">
                             <button class="btn btn-success fw-semibold" type="button" id="scanAddButton"><i class="bi bi-plus-circle me-1"></i>Scan / Add</button>
-                            <button class="btn btn-outline-primary" type="button" id="openCameraScanner" aria-label="Scan QR with camera" title="Scan QR with camera"><i class="bi bi-camera"></i></button>
                         </div>
                     </div>
                     <div id="searchResults" class="list-group mt-2"></div>
                     <div id="cartMessage" class="small text-muted mt-2">Only unbilled, available finished-goods QR labels that passed QC can be added.</div>
-                </div>
-            </div>
-
-            <div class="modal fade" id="cameraScanModal" tabindex="-1" aria-labelledby="cameraScanModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="cameraScanModalLabel">Scan Production QR</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div id="productionBillQrReader" class="w-100"></div>
-                            <div id="cameraScanMessage" class="small text-muted mt-2" aria-live="polite">Allow camera access to scan a production label.</div>
-                        </div>
-                        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div>
-                    </div>
                 </div>
             </div>
 
@@ -232,8 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const unitDetails = document.getElementById('productionUnitDetails');
     const money = value => '₹' + Number(value || 0).toFixed(2);
     let searchTimer;
-    let cameraScanner = null;
-    let cameraScanBusy = false;
     let toastTimer = null;
     let limitModalInstance = null;
 
@@ -1088,56 +1096,6 @@ document.addEventListener('DOMContentLoaded', () => {
             handleScanOrAdd(search.value);
         }
     });
-
-    const cameraModalElement = document.getElementById('cameraScanModal');
-    const cameraModal = bootstrap.Modal.getOrCreateInstance(cameraModalElement);
-    const cameraMessage = document.getElementById('cameraScanMessage');
-    async function stopCameraScanner() {
-        if (!cameraScanner) return;
-        try {
-            if (cameraScanner.isScanning) await cameraScanner.stop();
-            await cameraScanner.clear();
-        } catch (error) {
-            cameraMessage.textContent = 'Camera stopped.';
-        }
-        cameraScanner = null;
-        cameraScanBusy = false;
-    }
-    document.getElementById('openCameraScanner').addEventListener('click', () => cameraModal.show());
-    cameraModalElement.addEventListener('shown.bs.modal', async () => {
-        cameraMessage.textContent = 'Starting camera…';
-        if (typeof Html5Qrcode === 'undefined') {
-            cameraMessage.textContent = 'Camera scanner is unavailable in this browser.';
-            return;
-        }
-        try {
-            cameraScanner = new Html5Qrcode('productionBillQrReader');
-            await cameraScanner.start(
-                {facingMode: 'environment'},
-                {fps: 10, qrbox: {width: 250, height: 250}},
-                async decodedText => {
-                    if (cameraScanBusy) return;
-                    cameraScanBusy = true;
-                    cameraMessage.textContent = 'QR detected. Processing…';
-                    try {
-                        await handleScanOrAdd(decodedText.trim());
-                        cameraMessage.textContent = 'QR processed successfully.';
-                        cameraModal.hide();
-                    } catch (err) {
-                        cameraMessage.textContent = err.message || 'QR processing failed.';
-                    } finally {
-                        cameraScanBusy = false;
-                    }
-                },
-                () => {}
-            );
-            cameraMessage.textContent = 'Point the camera at a production inventory QR label.';
-        } catch (error) {
-            cameraMessage.textContent = error.message || 'Unable to start camera. Check camera permission and use HTTPS.';
-            cameraScanner = null;
-        }
-    });
-    cameraModalElement.addEventListener('hidden.bs.modal', stopCameraScanner);
 
     unitSelect.addEventListener('change', updateProductionUnitDetails);
     document.getElementById('paymentMethod').addEventListener('change', updatePaymentFields);

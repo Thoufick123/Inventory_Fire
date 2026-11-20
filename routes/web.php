@@ -308,27 +308,38 @@ class Router {
         $this->get('production/stock-requirements', 'ProductionStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->get('production/stock-requirements/create', 'ProductionStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
         $this->post('production/stock-requirements/store', 'ProductionStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
-        $this->get('production/stock-requirements/view/{id}', 'ProductionStockRequestController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
-
-                // ==========================================
-        // GOODS INWARD (GRN)
+        // ==========================================
+        // GOODS INWARD (GRN) & PRODUCTION INWARD WORKSTATION
         // ==========================================
         $this->get('production/inwards', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('production/inwards/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
         $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
         $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('production/inwards/print/{id}', 'InwardController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->post('production/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('production/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('production/inwards/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
-        // ==========================================
-        // STOCK ADJUSTMENTS (QR-BASED)
-        // ==========================================
-        $this->get('production/stock-adjustments', 'StockAdjustmentController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->get('production/stock-adjustments/create', 'StockAdjustmentController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->post('production/stock-adjustments/store', 'StockAdjustmentController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->get('production/stock-adjustments/view/{id}', 'StockAdjustmentController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->post('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
-        $this->get('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
+        // Warehouse Inward scheme compatibility aliases
+        $this->get('warehouse/dashboard', 'ProductionController', 'dashboard', ['AuthMiddleware']);
+        $this->get('warehouse/inward', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('warehouse/inward/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->post('warehouse/inward/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->get('warehouse/inward/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->post('warehouse/inward/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('warehouse/inward/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('warehouse/inward/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+
+        // Inward Ajax APIs
+        $this->post('api/warehouse/inward/scan', 'InwardController', 'ajaxScanInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->post('api/warehouse/inward/crosscheck-scan', 'InwardController', 'ajaxCrossCheckScan', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('api/warehouse/inward/lookup/{code}', 'InwardController', 'ajaxLookupBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('api/warehouse/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+
+        // Production Inward API aliases
+        $this->post('api/production/inward/scan', 'InwardController', 'ajaxScanInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->post('api/production/inward/crosscheck-scan', 'InwardController', 'ajaxCrossCheckScan', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('api/production/inward/lookup/{code}', 'InwardController', 'ajaxLookupBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('api/production/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
         // Production Reports & CSV / Excel Export (Legacy forward to ExportController)
         $this->get('production/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
@@ -494,25 +505,7 @@ class Router {
         $this->get('production/warehouse-rework/lookup-batch/{batchId}', 'ProductionController', 'lookupBatchVariantsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
 
 
-                // ==========================================
-        // GOODS INWARD (GRN)
-        // ==========================================
-        $this->get('production/inwards', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('production/inwards/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
-        $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
-        $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('production/inwards/print/{id}', 'InwardController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
 
-        // ==========================================
-        // STOCK ADJUSTMENTS (QR-BASED)
-        // ==========================================
-        $this->get('production/stock-adjustments', 'StockAdjustmentController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->get('production/stock-adjustments/create', 'StockAdjustmentController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->post('production/stock-adjustments/store', 'StockAdjustmentController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->get('production/stock-adjustments/view/{id}', 'StockAdjustmentController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->post('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
-        $this->get('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
 
         // Production Reports
         $this->get('production/reports', 'ProductionController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);

@@ -1,418 +1,622 @@
 <?php
 /**
  * Inward Controller
- * Goods Receipt Notes (GRN), Supplier delivery inwarding, and verification
+ * Goods Receipt Notes (GRN), Production Inward Verification, and Warehouse Cross-Check Workstation
  */
 
-require_once BASE_PATH . '/app/Models/PurchaseInward.php';
-require_once BASE_PATH . '/app/Models/ProductVariant.php';
+require_once BASE_PATH . '/app/Services/WarehouseService.php';
 require_once BASE_PATH . '/app/Services/StockService.php';
+require_once BASE_PATH . '/app/Services/AuditService.php';
+require_once BASE_PATH . '/app/Models/ProductionBatch.php';
+require_once BASE_PATH . '/app/Models/ProductionOutward.php';
+require_once BASE_PATH . '/app/Models/ProductionUnit.php';
+require_once BASE_PATH . '/app/Models/Warehouse.php';
+require_once BASE_PATH . '/app/Models/WarehouseDamage.php';
+require_once BASE_PATH . '/app/Models/ProductVariant.php';
 
 class InwardController {
 
+    // =========================================================================
+    // 1. PRODUCTION INWARD LEDGER / DISPATCHES LIST (Screen 1)
+    // =========================================================================
+
     public function index(): void {
-        if (!hasPermission('inward', 'view')) {
-            Response::error(403, 'Access denied. You do not have permission to view Goods Inward.');
+        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view') && !hasPermission('production', 'view')) {
+            Session::flash('error', 'Access denied: You do not have permission to view inward shipments.');
+            Response::redirect(url('production/dashboard'));
             return;
         }
 
-        $filters = [
-            'search'    => trim($_GET['search'] ?? ''),
-            'status'    => trim($_GET['status'] ?? ''),
-            'date_from' => trim($_GET['date_from'] ?? ''),
-            'date_to'   => trim($_GET['date_to'] ?? ''),
-        ];
+        $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+        $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
 
-        $inwards = PurchaseInward::getAll($filters);
+        $warehouseId = $scopedWarehouseId ? (string)$scopedWarehouseId : ($_GET['warehouse_id'] ?? '');
+        $unitId = $scopedUnitId ? (string)$scopedUnitId : ($_GET['production_unit_id'] ?? $_GET['unit_id'] ?? '');
+        $status = $_GET['status'] ?? '';
+        $search = trim($_GET['search'] ?? '');
+
+        $sql = "SELECT pb.*, 
+                       pp.program_number, pp.target_date, pp.name as program_name, pp.production_unit_id as program_unit_id,
+                       p.name as product_name, p.code as product_code,
+                       w.name as warehouse_name, w.code as warehouse_code,
+                       po.outward_number, po.dispatch_date, po.vehicle_number, po.driver_name, po.notes as outward_notes,
+                       po.production_unit_id as outward_unit_id,
+                       COALESCE(pu_out.name, pu_prog.name, 'Main Production Facility') as production_unit_name,
+                       COALESCE(pu_out.code, pu_prog.code, 'PU1') as production_unit_code,
+                       COALESCE(pu_out.manager_name, pu_prog.manager_name, '') as production_unit_manager,
+                       COALESCE(pu_out.phone, pu_prog.phone, '') as production_unit_phone,
+                       COALESCE(pu_out.address, pu_prog.address, '') as production_unit_address,
+                       u_prep.full_name as prepared_by_name
+                FROM production_batches pb
+                JOIN production_programs pp ON pb.program_id = pp.id
+                JOIN products p ON pp.product_id = p.id
+                JOIN warehouses w ON pb.destination_warehouse_id = w.id
+                LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                LEFT JOIN production_units pu_prog ON pp.production_unit_id = pu_prog.id
+                LEFT JOIN production_units pu_out ON po.production_unit_id = pu_out.id
+                LEFT JOIN users u_prep ON pb.prepared_by = u_prep.id
+                WHERE pb.status IN ('DISPATCHED', 'RECEIVED')";
+        $params = [];
+
+        // Multi-concern isolation
+        if ($cid !== null) {
+            if ($cid === 1) {
+                $sql .= " AND (pb.concern_id = ? OR pb.concern_id IS NULL OR pp.concern_id = ? OR pp.concern_id IS NULL)";
+            } else {
+                $sql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
+            }
+            $params[] = $cid;
+            $params[] = $cid;
+        }
+
+        if (!empty($warehouseId)) {
+            $sql .= " AND pb.destination_warehouse_id = ?";
+            $params[] = (int)$warehouseId;
+        }
+
+        if (!empty($unitId)) {
+            $sql .= " AND (pp.production_unit_id = ? OR po.production_unit_id = ?)";
+            $params[] = (int)$unitId;
+            $params[] = (int)$unitId;
+        }
+
+        if (!empty($status)) {
+            $sql .= " AND pb.status = ?";
+            $params[] = $status;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (
+                pb.batch_number LIKE ? 
+                OR pp.program_number LIKE ? 
+                OR po.outward_number LIKE ? 
+                OR p.name LIKE ? 
+                OR po.vehicle_number LIKE ?
+                OR pu_prog.name LIKE ?
+                OR pu_out.name LIKE ?
+                OR pu_prog.code LIKE ?
+                OR pu_out.code LIKE ?
+            )";
+            $s = '%' . $search . '%';
+            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s]);
+        }
+
+        $sql .= " ORDER BY pb.id DESC";
+        $batches = Database::fetchAll($sql, $params);
+        $warehouses = function_exists('getScopedWarehouses') ? getScopedWarehouses() : Warehouse::getAll(['is_active' => 1]);
+        $productionUnits = function_exists('getScopedProductionUnits') ? getScopedProductionUnits() : ProductionUnit::getAll(['is_active' => 1]);
+
+        // Fetch variant items for all retrieved batches for rich batch-wise card cards UI
+        $batchIds = array_column($batches, 'id');
+        $batchItemsMap = [];
+        if (!empty($batchIds)) {
+            $placeholders = implode(',', array_fill(0, count($batchIds), '?'));
+            $itemsSql = "SELECT pbi.*, pv.sku, pv.qr_code, pv.size_id, pv.color_id, pv.selling_price,
+                                s.name as size_name, c.name as color_name, c.hex_code as color_hex,
+                                p.name as product_name, p.image_url as product_image, cat.name as category_name
+                         FROM production_batch_items pbi
+                         JOIN product_variants pv ON pbi.variant_id = pv.id
+                         JOIN products p ON pv.product_id = p.id
+                         LEFT JOIN categories cat ON p.category_id = cat.id
+                         LEFT JOIN sizes s ON pv.size_id = s.id
+                         LEFT JOIN colors c ON pv.color_id = c.id
+                         WHERE pbi.production_batch_id IN ($placeholders)
+                         ORDER BY pbi.id ASC";
+            $rawItems = Database::fetchAll($itemsSql, $batchIds);
+            foreach ($rawItems as $row) {
+                $batchItemsMap[$row['production_batch_id']][] = $row;
+            }
+        }
+
+        $pendingBatchesCount = 0;
+        $totalPendingMissingQty = 0;
+        $receivedBatchesCount = 0;
+        $totalReceivedQty = 0;
+
+        foreach ($batches as &$b) {
+            $b['items'] = $batchItemsMap[$b['id']] ?? [];
+            $b['total_variants'] = count($b['items']);
+
+            $batchExpected = (int)($b['total_qty'] ?? $b['quantity'] ?? 0);
+            $itemsExpected = 0;
+            $itemsReceived = 0;
+            $itemsDamaged = 0;
+            $itemsMissing = 0;
+
+            foreach ($b['items'] as &$item) {
+                $iExp = (int)($item['quantity'] ?? 0);
+                $iRec = (int)($item['received_qty'] ?? 0);
+                $iDmg = (int)($item['damaged_qty'] ?? 0);
+                $iMis = isset($item['missing_qty']) ? (int)$item['missing_qty'] : max(0, $iExp - ($iRec + $iDmg));
+
+                if ($b['status'] === 'RECEIVED' && $iRec === 0 && $iDmg === 0 && $iMis === 0) {
+                    $iRec = $iExp;
+                    $iMis = 0;
+                    $item['received_qty'] = $iRec;
+                    $item['missing_qty'] = 0;
+                }
+
+                $itemsExpected += $iExp;
+                $itemsReceived += $iRec;
+                $itemsDamaged += $iDmg;
+                $itemsMissing += $iMis;
+            }
+            unset($item);
+
+            if ($itemsExpected > 0) {
+                $batchExpected = $itemsExpected;
+                $b['total_qty'] = $itemsExpected;
+            }
+
+            if ($b['status'] === 'RECEIVED') {
+                $b['received_qty'] = isset($b['received_qty']) && (int)$b['received_qty'] > 0 ? (int)$b['received_qty'] : $itemsReceived;
+                $b['damaged_qty'] = isset($b['damaged_qty']) ? (int)$b['damaged_qty'] : $itemsDamaged;
+                $b['missing_qty'] = isset($b['missing_qty']) ? (int)$b['missing_qty'] : max(0, $batchExpected - ($b['received_qty'] + $b['damaged_qty']));
+
+                $receivedBatchesCount++;
+                $totalReceivedQty += $b['received_qty'];
+                if ($b['missing_qty'] > 0) {
+                    $totalPendingMissingQty += $b['missing_qty'];
+                }
+            } else {
+                $b['received_qty'] = $itemsReceived;
+                $b['damaged_qty'] = $itemsDamaged;
+                $b['missing_qty'] = max(0, $batchExpected - ($itemsReceived + $itemsDamaged));
+                $pendingBatchesCount++;
+                $totalPendingMissingQty += $b['missing_qty'];
+            }
+        }
+        unset($b);
 
         Response::view('production.inwards.index', [
-            'pageTitle'    => 'Goods Inward (GRN)',
-            'activeModule' => 'production',
-            'activeMenu'   => 'prod-inwards',
-            'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+            'pageTitle'              => 'Production Inward (GRN)',
+            'activeModule'           => 'production',
+            'activeMenu'             => 'prod-inwards',
+            'batches'                => $batches,
+            'warehouses'             => $warehouses,
+            'productionUnits'        => $productionUnits,
+            'warehouseId'            => $warehouseId,
+            'scopedWarehouseId'      => $scopedWarehouseId,
+            'unitId'                 => $unitId,
+            'status'                 => $status,
+            'search'                 => $search,
+            'pendingBatchesCount'    => $pendingBatchesCount,
+            'totalPendingMissingQty' => $totalPendingMissingQty,
+            'receivedBatchesCount'   => $receivedBatchesCount,
+            'totalReceivedQty'       => $totalReceivedQty,
+            'breadcrumb'             => [
+                ['label' => 'Production', 'url' => url('production/dashboard')],
                 ['label' => 'Goods Inward (GRN)'],
             ],
-            'inwards'      => $inwards,
-            'filters'      => $filters,
         ]);
     }
 
-    public function create(): void {
-        if (!hasPermission('inward', 'create')) {
-            Response::error(403, 'Access denied. You do not have permission to create Inward GRNs.');
+    // =========================================================================
+    // 2. INWARD SHIPMENT CROSS-CHECK WORKSTATION (Screens 2 & 3)
+    // =========================================================================
+
+    public function view(string $id): void {
+        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view') && !hasPermission('production', 'view')) {
+            Session::flash('error', 'Access denied: You do not have permission to view inward shipments.');
+            Response::redirect(url('production/dashboard'));
             return;
         }
 
-        $db = Database::getInstance();
-        $pos = $db->query("SELECT id, po_number, order_date, total_amount, status FROM purchase_orders ORDER BY id DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
-        $warehouses = $db->query("SELECT id, name FROM warehouses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
-        $nextGrn = PurchaseInward::generateGrnNumber();
+        $batchId = (int)$id;
+        $batch = ProductionBatch::find($batchId);
+        if (!$batch) {
+            Response::redirect(url('production/inwards'), 'error', 'Production batch not found.');
+            return;
+        }
 
-        // Also fetch variants for direct addition if needed
-        $variants = ProductVariant::getAllJoined();
+        // Multi-concern isolation check
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if ($cid !== null && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid && $cid !== 1) {
+            Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
+            return;
+        }
 
-        Response::view('production.inwards.create', [
-            'pageTitle'    => 'Create Goods Inward (GRN)',
-            'activeModule' => 'production',
-            'activeMenu'   => 'prod-inwards',
-            'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Goods Inward', 'url' => url('production/inwards')],
-                ['label' => 'Create GRN'],
+        $outward = ProductionOutward::findByBatchId($batchId);
+        $items = ProductionBatch::getItems($batchId);
+        $lifecycle = ProductionBatch::getLifecycleHistory($batchId);
+        $damages = WarehouseDamage::getByBatchId($batchId);
+
+        $totalExpected = 0;
+        $totalReceived = 0;
+        $totalDamaged = 0;
+        $totalMissing = 0;
+        foreach ($items as &$item) {
+            $exp = (int)($item['quantity'] ?? 0);
+            $rec = (int)($item['received_qty'] ?? 0);
+            $dmg = (int)($item['damaged_qty'] ?? 0);
+            $mis = isset($item['missing_qty']) ? (int)$item['missing_qty'] : max(0, $exp - ($rec + $dmg));
+
+            if ($batch['status'] === 'RECEIVED' && $rec === 0 && $dmg === 0 && $mis === 0) {
+                $rec = $exp;
+                $mis = 0;
+                $item['received_qty'] = $rec;
+                $item['missing_qty'] = 0;
+            }
+
+            $totalExpected += $exp;
+            $totalReceived += $rec;
+            $totalDamaged += $dmg;
+            $totalMissing += $mis;
+        }
+        unset($item);
+
+        if ($batch['status'] === 'RECEIVED') {
+            if (isset($batch['received_qty']) && (int)$batch['received_qty'] > 0) {
+                $totalReceived = (int)$batch['received_qty'];
+            }
+            if (isset($batch['damaged_qty'])) {
+                $totalDamaged = (int)$batch['damaged_qty'];
+            }
+            if (isset($batch['missing_qty'])) {
+                $totalMissing = (int)$batch['missing_qty'];
+            }
+        }
+
+        Response::view('production.inwards.view', [
+            'pageTitle'     => 'Cross-Check Inward Batch #' . $batch['batch_number'],
+            'activeModule'  => 'production',
+            'activeMenu'    => 'prod-inwards',
+            'batch'         => $batch,
+            'outward'       => $outward,
+            'items'         => $items,
+            'lifecycle'     => $lifecycle,
+            'damages'       => $damages,
+            'totalExpected' => $totalExpected,
+            'totalReceived' => $totalReceived,
+            'totalDamaged'  => $totalDamaged,
+            'totalMissing'  => $totalMissing,
+            'breadcrumb'    => [
+                ['label' => 'Production', 'url' => url('production/dashboard')],
+                ['label' => 'Goods Inward (GRN)', 'url' => url('production/inwards')],
+                ['label' => 'Cross-Check Batch #' . $batch['batch_number']],
             ],
-            'purchaseOrders' => $pos,
-            'warehouses'     => $warehouses,
-            'nextGrn'        => $nextGrn,
-            'variants'       => $variants,
         ]);
+    }
+
+    // =========================================================================
+    // 3. INWARD VERIFY & STOCK CREDITING
+    // =========================================================================
+
+    public function verifyInward(string $id): void {
+        $batchId = (int)$id;
+        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+            Session::flash('error', 'Access denied: You do not have permission to verify or inward stock.');
+            Response::redirect(url('production/inwards/view/' . $batchId));
+            return;
+        }
+
+        $batch = ProductionBatch::find($batchId);
+        if (!$batch) {
+            Response::redirect(url('production/inwards'), 'error', 'Production batch not found.');
+            return;
+        }
+
+        // Multi-concern isolation check
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if ($cid !== null && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid && $cid !== 1) {
+            Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
+            return;
+        }
+
+        $notes = trim($_POST['notes'] ?? '');
+
+        $receivedItems = null;
+        if (!empty($_POST['items']) && is_array($_POST['items'])) {
+            $receivedItems = [];
+            foreach ($_POST['items'] as $varId => $data) {
+                $receivedItems[(int)$varId] = [
+                    'received_qty'  => (float)($data['received_qty'] ?? 0),
+                    'damaged_qty'   => (float)($data['damaged_qty'] ?? 0),
+                    'received_tags' => trim($data['received_tags'] ?? ''),
+                    'damaged_tags'  => trim($data['damaged_tags'] ?? ''),
+                    'notes'         => trim($data['notes'] ?? ''),
+                ];
+            }
+        }
+
+        try {
+            $userId = Session::userId() ?? 1;
+            WarehouseService::receiveProductionBatch($batchId, $userId, $notes, $receivedItems);
+
+            $batchNum = $batch['batch_number'] ?? "#$batchId";
+            Response::redirect(url('production/inwards/view/' . $batchId), 'success', "Batch $batchNum successfully verified and credited to warehouse inventory!");
+        } catch (Exception $e) {
+            Response::redirect(url('production/inwards/view/' . $batchId), 'error', "Inward verification failed: " . $e->getMessage());
+        }
     }
 
     public function store(): void {
-        if (!hasPermission('inward', 'create')) {
-            Response::error(403, 'Access denied.');
+        $batchId = (int)($_POST['production_batch_id'] ?? $_POST['batch_id'] ?? 0);
+        if ($batchId > 0) {
+            $this->verifyInward((string)$batchId);
             return;
         }
-
-        $poIdValue      = $_POST['purchase_order_id'] ?? '';
-        if (!is_scalar($poIdValue)) {
-            Response::redirectWithError('production/inwards/create', 'Select a valid purchase order or Direct Delivery.');
-            return;
-        }
-        $poIdRaw        = trim((string)$poIdValue);
-        if ($poIdRaw !== '' && (!ctype_digit($poIdRaw) || (int)$poIdRaw <= 0)) {
-            Response::redirectWithError('production/inwards/create', 'Select a valid purchase order or Direct Delivery.');
-            return;
-        }
-        $poId           = $poIdRaw === '' ? 0 : (int)$poIdRaw;
-        $warehouseId    = (int)($_POST['warehouse_id'] ?? 1);
-        $receivedDate   = trim($_POST['received_date'] ?? date('Y-m-d'));
-        $invoiceNumber  = trim($_POST['invoice_number'] ?? '');
-        $invoiceDate    = trim($_POST['invoice_date'] ?? '');
-        $vehicleNumber  = trim($_POST['vehicle_number'] ?? '');
-        $driverName     = trim($_POST['driver_name'] ?? '');
-        $driverContact  = trim($_POST['driver_contact'] ?? '');
-        $gatePassNumber = trim($_POST['gate_pass_number'] ?? '');
-        $notes          = trim($_POST['notes'] ?? '');
-        $inwardStatus   = in_array($_POST['status'] ?? '', ['PENDING', 'INSPECTED', 'STOCKED', 'DISCREPANCY']) ? $_POST['status'] : 'STOCKED';
-
-        $scanLog = json_decode((string)($_POST['scan_log'] ?? ''), true);
-        if (!is_array($scanLog) || empty($scanLog)) {
-            Response::redirectWithError('production/inwards/create', 'Scan at least one variant QR before saving this inward.');
-            return;
-        }
-
-        $db = Database::getInstance();
-        $poItems = [];
-        if ($poId > 0) {
-            $poStmt = $db->prepare("SELECT pi.variant_id, SUM(pi.quantity) AS ordered_qty, MAX(pi.unit_price) AS unit_price
-                                    FROM purchase_items pi
-                                    WHERE pi.purchase_order_id = ?
-                                    GROUP BY pi.variant_id
-                                    ORDER BY MIN(pi.id) ASC");
-            $poStmt->execute([$poId]);
-            foreach ($poStmt->fetchAll(PDO::FETCH_ASSOC) as $poItem) {
-                $poItems[(int)$poItem['variant_id']] = [
-                    'ordered_qty' => (int)$poItem['ordered_qty'],
-                    'unit_price'  => (float)$poItem['unit_price'],
-                ];
-            }
-            if (empty($poItems)) {
-                Response::redirectWithError('production/inwards/create', 'The selected purchase order has no variant items to receive.');
-                return;
-            }
-        }
-
-        $variantCache = [];
-        $scanCounts = [];
-        foreach ($scanLog as $scan) {
-            if (!is_array($scan)) {
-                Response::redirectWithError('production/inwards/create', 'The QR scan list is invalid. Please scan the items again.');
-                return;
-            }
-
-            $variantIdValue = $scan['variant_id'] ?? 0;
-            $scannedQrValue = $scan['qr_code'] ?? '';
-            if (!is_scalar($variantIdValue) || !is_scalar($scannedQrValue)) {
-                Response::redirectWithError('production/inwards/create', 'The QR scan list contains an invalid variant.');
-                return;
-            }
-            $variantId = (int)$variantIdValue;
-            $scannedQr = strtoupper(trim((string)$scannedQrValue));
-            if ($variantId <= 0 || $scannedQr === '') {
-                Response::redirectWithError('production/inwards/create', 'The QR scan list contains an invalid variant.');
-                return;
-            }
-
-            if (!array_key_exists($variantId, $variantCache)) {
-                $variantStmt = $db->prepare("SELECT id, sku, qr_code, mrp FROM product_variants WHERE id = ?");
-                $variantStmt->execute([$variantId]);
-                $variantCache[$variantId] = $variantStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-            }
-            $variant = $variantCache[$variantId];
-            if (!$variant) {
-                Response::redirectWithError('production/inwards/create', 'A scanned product variant no longer exists.');
-                return;
-            }
-
-            $canonicalQr = strtoupper(trim((string)($variant['qr_code'] ?: $variant['sku'])));
-            if ($canonicalQr === '' || $scannedQr !== $canonicalQr) {
-                Response::redirectWithError('production/inwards/create', 'A scanned QR does not match its product variant.');
-                return;
-            }
-            if ($poId > 0 && !isset($poItems[$variantId])) {
-                Response::redirectWithError('production/inwards/create', 'A scanned variant is not included in the selected purchase order.');
-                return;
-            }
-
-            $scanCounts[$variantId] = ($scanCounts[$variantId] ?? 0) + 1;
-        }
-
-        $itemsRaw = $_POST['items'] ?? [];
-        if (!is_array($itemsRaw)) {
-            Response::redirectWithError('production/inwards/create', 'The inward item list is invalid.');
-            return;
-        }
-
-        $formItems = [];
-        foreach ($itemsRaw as $row) {
-            if (!is_array($row)) {
-                Response::redirectWithError('production/inwards/create', 'The inward item list contains an invalid row.');
-                return;
-            }
-            $variantIdValue = $row['variant_id'] ?? 0;
-            if (!is_scalar($variantIdValue)) {
-                Response::redirectWithError('production/inwards/create', 'The inward item list contains an invalid variant.');
-                return;
-            }
-            $variantId = (int)$variantIdValue;
-            if ($variantId <= 0 || isset($formItems[$variantId])) {
-                Response::redirectWithError('production/inwards/create', 'The inward item list contains an invalid or duplicate variant.');
-                return;
-            }
-            $formItems[$variantId] = $row;
-        }
-
-        foreach ($formItems as $variantId => $row) {
-            if ($poId > 0 && !isset($poItems[$variantId])) {
-                Response::redirectWithError('production/inwards/create', 'An inward variant is not included in the selected purchase order.');
-                return;
-            }
-
-            if (!array_key_exists($variantId, $variantCache)) {
-                $variantStmt = $db->prepare("SELECT id, sku, qr_code, mrp FROM product_variants WHERE id = ?");
-                $variantStmt->execute([$variantId]);
-                $variantCache[$variantId] = $variantStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-            }
-            $variant = $variantCache[$variantId];
-            $submittedQrValue = $row['qr_code'] ?? '';
-            if (!is_scalar($submittedQrValue)) {
-                Response::redirectWithError('production/inwards/create', 'An inward row contains an invalid variant QR.');
-                return;
-            }
-            $submittedQr = strtoupper(trim((string)$submittedQrValue));
-            $canonicalQr = $variant ? strtoupper(trim((string)($variant['qr_code'] ?: $variant['sku']))) : '';
-            if (!$variant || $canonicalQr === '' || $submittedQr !== $canonicalQr) {
-                Response::redirectWithError('production/inwards/create', 'An inward row does not match its product variant QR.');
-                return;
-            }
-        }
-
-        $itemVariantIds = $poId > 0 ? array_keys($poItems) : array_keys($scanCounts);
-        if ($poId === 0 && array_diff($itemVariantIds, array_keys($formItems))) {
-            Response::redirectWithError('production/inwards/create', 'A scanned variant is missing from the inward item list.');
-            return;
-        }
-
-        $items = [];
-        $totalRec = 0;
-        $totalAcc = 0;
-        $totalRej = 0;
-
-        foreach ($itemVariantIds as $variantId) {
-            $row = $formItems[$variantId] ?? [];
-            $variant = $variantCache[$variantId] ?? null;
-            if (!$variant) {
-                $variantStmt = $db->prepare("SELECT id, sku, qr_code, mrp FROM product_variants WHERE id = ?");
-                $variantStmt->execute([$variantId]);
-                $variantCache[$variantId] = $variantStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-                $variant = $variantCache[$variantId];
-            }
-            if (!$variant) {
-                Response::redirectWithError('production/inwards/create', 'A purchase-order variant no longer exists.');
-                return;
-            }
-
-            $ordered  = $poItems[$variantId]['ordered_qty'] ?? 0;
-            $received = $scanCounts[$variantId] ?? 0;
-            $damagedValue = $row['damaged_qty'] ?? '0';
-            $reasonValue = $row['rejection_reason'] ?? '';
-            if (!is_scalar($damagedValue) || !is_scalar($reasonValue)) {
-                Response::redirectWithError('production/inwards/create', 'Damage quantity or reason is invalid.');
-                return;
-            }
-            $damagedRaw = trim((string)$damagedValue);
-            if ($damagedRaw === '' || !preg_match('/^\d+$/', $damagedRaw)) {
-                Response::redirectWithError('production/inwards/create', 'Damaged quantities must be whole numbers.');
-                return;
-            }
-            $damaged = (int)$damagedRaw;
-            if ($damaged > $received) {
-                Response::redirectWithError('production/inwards/create', 'Damaged quantity cannot exceed the number of scanned units.');
-                return;
-            }
-            if ($poId === 0 && $received <= 0) {
-                Response::redirectWithError('production/inwards/create', 'Direct inward items must have at least one valid QR scan.');
-                return;
-            }
-            $accepted = max(0, $received - $damaged);
-
-            $totalRec += $received;
-            $totalAcc += $accepted;
-            $totalRej += $damaged;
-
-            $items[] = [
-                'variant_id'       => $variantId,
-                'ordered_qty'      => $ordered,
-                'received_qty'     => $received,
-                'damaged_qty'      => $damaged,
-                'accepted_qty'     => $accepted,
-                'rejection_reason' => trim((string)$reasonValue),
-                'mrp'              => $poItems[$variantId]['unit_price'] ?? (float)($variant['mrp'] ?? 0),
-                'batch_lot_no'     => trim($row['batch_lot_no'] ?? ''),
-                'notes'            => trim($row['notes'] ?? ''),
-            ];
-        }
-
-        if (empty($items)) {
-            Response::redirectWithError('production/inwards/create', 'No valid line items found.');
-            return;
-        }
-
-        $grnNumber = PurchaseInward::generateGrnNumber();
-        $userId = Auth::id() ?? 1;
-
-        Database::beginTransaction();
-        try {
-            $inwardId = PurchaseInward::create([
-                'concern_id'         => currentConcernId(),
-                'purchase_order_id'  => $poId > 0 ? $poId : null,
-                'grn_number'         => $grnNumber,
-                'warehouse_id'       => $warehouseId,
-                'received_date'      => $receivedDate,
-                'received_by'        => $userId,
-                'verified_by'        => $userId,
-                'notes'              => $notes,
-                'invoice_number'     => $invoiceNumber,
-                'invoice_date'       => $invoiceDate ?: null,
-                'status'             => $inwardStatus,
-                'total_received_qty' => $totalRec,
-                'total_accepted_qty' => $totalAcc,
-                'total_rejected_qty' => $totalRej,
-                'vehicle_number'     => $vehicleNumber,
-                'driver_name'        => $driverName,
-                'driver_contact'     => $driverContact,
-                'gate_pass_number'   => $gatePassNumber,
-            ], $items);
-
-            // If STOCKED, increase inventory for all accepted quantities
-            if ($inwardStatus === 'STOCKED' && $totalAcc > 0) {
-                foreach ($items as $item) {
-                    if ($item['accepted_qty'] > 0) {
-                        StockService::increase(
-                            $item['variant_id'],
-                            'WAREHOUSE',
-                            $warehouseId,
-                            'AVAILABLE',
-                            (float)$item['accepted_qty'],
-                            'INWARD',
-                            'PURCHASE_INWARD',
-                            $inwardId,
-                            $userId,
-                            "GRN Inward #{$grnNumber}"
-                        );
-                    }
-                }
-            }
-
-            Database::commit();
-            Response::redirectWithSuccess('production/inwards/view/' . $inwardId, "Goods Receipt Note {$grnNumber} created successfully!");
-        } catch (Exception $e) {
-            Database::rollback();
-            Response::redirectWithError('production/inwards/create', 'Failed to save GRN: ' . $e->getMessage());
-        }
+        Response::redirect(url('production/inwards'));
     }
 
-    public function view(string $id): void {
-        if (!hasPermission('inward', 'view')) {
-            Response::error(403, 'Access denied.');
+    public function create(): void {
+        Response::redirect(url('production/inwards'));
+    }
+
+    // =========================================================================
+    // 4. PRINTING LABELS & GATE PASS
+    // =========================================================================
+
+    public function printBatchQRLabel(string $id): void {
+        if (!hasPermission('inward', 'print') && !hasPermission('inward', 'view') && !hasPermission('wh_labels', 'print') && !hasPermission('warehouse', 'view')) {
+            Session::flash('error', 'Access denied: You do not have permission to print batch labels.');
+            Response::redirect(url('production/inwards'));
             return;
         }
-
-        $inward = PurchaseInward::find((int)$id);
-        if (!$inward) {
-            Response::error(404, 'Inward GRN not found.');
+        $batchId = (int)$id;
+        $batch = ProductionBatch::find($batchId);
+        if (!$batch) {
+            Response::error(404, 'Production batch not found.');
             return;
         }
-
-        $items = PurchaseInward::getItems((int)$id);
-
-        Response::view('production.inwards.view', [
-            'pageTitle'    => 'GRN: ' . $inward['grn_number'],
-            'activeModule' => 'production',
-            'activeMenu'   => 'prod-inwards',
-            'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Goods Inward', 'url' => url('production/inwards')],
-                ['label' => $inward['grn_number']],
-            ],
-            'inward'       => $inward,
-            'items'        => $items,
+        $items = ProductionBatch::getItems($batchId);
+        Response::viewOnly('production.inwards.label', [
+            'batch' => $batch,
+            'items' => $items,
         ]);
     }
 
-    public function print(string $id): void {
-        if (!hasPermission('inward', 'view')) {
-            Response::error(403, 'Access denied.');
+    public function printOutwardGatePass(string $id): void {
+        if (!hasPermission('inward', 'print') && !hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+            Session::flash('error', 'Access denied: You do not have permission to print outward gatepasses.');
+            Response::redirect(url('production/inwards'));
             return;
         }
-
-        $inward = PurchaseInward::find((int)$id);
-        if (!$inward) {
-            Response::error(404, 'Inward GRN not found.');
+        $batchId = (int)$id;
+        $batch = ProductionBatch::find($batchId);
+        if (!$batch) {
+            Response::error(404, 'Production batch not found.');
             return;
         }
-
-        $items = PurchaseInward::getItems((int)$id);
-
-        Response::viewOnly('production.inwards.print', [
-            'inward' => $inward,
-            'items'  => $items,
-        ]);
-    }
-
-    public function apiPoItems(string $poId): void {
-        $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT pi.variant_id, SUM(pi.quantity) AS quantity, MAX(pi.unit_price) AS unit_price,
-                                     pv.sku AS variant_sku, pv.variant_code, pv.qr_code AS variant_qr,
-                                     p.name AS product_name, p.code AS parent_sku,
-                                     c.name AS color_name, d.name AS design_name, s.name AS size_name
-                              FROM purchase_items pi
-                              JOIN product_variants pv ON pv.id = pi.variant_id
-                              JOIN products p ON p.id = pv.product_id
-                              LEFT JOIN colors c ON c.id = pv.color_id
-                              LEFT JOIN designs d ON d.id = pv.design_id
-                              LEFT JOIN sizes s ON s.id = pv.size_id
-                              WHERE pi.purchase_order_id = ?
-                              GROUP BY pi.variant_id, pv.sku, pv.variant_code, pv.qr_code,
-                                       p.name, p.code, c.name, d.name, s.name
-                              ORDER BY MIN(pi.id) ASC");
-        $stmt->execute([(int)$poId]);
-        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        Response::json([
-            'success' => true,
+        $outward = ProductionOutward::findByBatchId($batchId);
+        $items = ProductionBatch::getItems($batchId);
+        Response::viewOnly('production.inwards.gatepass', [
+            'batch'   => $batch,
+            'outward' => $outward,
             'items'   => $items,
         ]);
+    }
+
+    // =========================================================================
+    // 5. SCAN & CROSS-CHECK AJAX ENDPOINTS
+    // =========================================================================
+
+    public function ajaxCrossCheckScan(): void {
+        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+            Response::jsonError('Access denied: You do not have permission to verify inward scans.', [], 403);
+            return;
+        }
+        $batchId = (int)($_POST['batch_id'] ?? 0);
+        $scannedCode = trim($_POST['qr_code'] ?? '');
+        $rawScannedMap = $_POST['scanned_map'] ?? [];
+
+        if (is_string($rawScannedMap)) {
+            $scannedMap = json_decode($rawScannedMap, true) ?? [];
+        } else {
+            $scannedMap = (array)$rawScannedMap;
+        }
+
+        if ($batchId <= 0) {
+            Response::jsonError("Invalid batch identifier.");
+            return;
+        }
+
+        if (empty($scannedCode)) {
+            Response::jsonError("QR code or SKU cannot be empty.");
+            return;
+        }
+
+        // Multi-concern validation
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if ($cid !== null && $cid !== 1) {
+            $batch = ProductionBatch::find($batchId);
+            if ($batch && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid) {
+                Response::jsonError("Batch belongs to another concern and cannot be accessed.", [], 403);
+                return;
+            }
+        }
+
+        if (str_starts_with($scannedCode, '{') && str_ends_with($scannedCode, '}')) {
+            $json = json_decode($scannedCode, true);
+            if (!empty($json['sku'])) {
+                $scannedCode = $json['sku'];
+            } elseif (!empty($json['qr_code'])) {
+                $scannedCode = $json['qr_code'];
+            } elseif (!empty($json['batch_number'])) {
+                $scannedCode = $json['batch_number'];
+            }
+        }
+
+        try {
+            $result = WarehouseService::processCrossCheckScan($batchId, $scannedCode, $scannedMap);
+            if (!$result['success']) {
+                Response::jsonError($result['message'], $result, 404);
+                return;
+            }
+            Response::jsonSuccess($result['message'], $result);
+        } catch (Exception $e) {
+            Response::jsonError("Cross-check scan error: " . $e->getMessage());
+        }
+    }
+
+    public function ajaxLookupBatch(string $code): void {
+        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+            Response::jsonError('Access denied: You do not have permission to look up batches.', [], 403);
+            return;
+        }
+        $code = trim($code);
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+        $sql = "SELECT pb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name, p.code as product_code,
+                       w.name as warehouse_name, w.code as warehouse_code,
+                       po.outward_number, po.dispatch_date, po.vehicle_number
+                FROM production_batches pb
+                JOIN production_programs pp ON pb.program_id = pp.id
+                LEFT JOIN products p ON pp.product_id = p.id
+                JOIN warehouses w ON pb.destination_warehouse_id = w.id
+                LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                WHERE (pb.batch_number = ? OR po.outward_number = ?)";
+        $params = [$code, $code];
+
+        if ($cid !== null && $cid !== 1) {
+            $sql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
+            $params[] = $cid;
+            $params[] = $cid;
+        }
+
+        $batch = Database::fetchOne($sql, $params);
+
+        if (!$batch) {
+            Response::jsonError("No batch found matching '$code' for the active concern. Please check QR/Batch code.", [], 404);
+            return;
+        }
+
+        $items = ProductionBatch::getItems((int)$batch['id']);
+        Response::jsonSuccess("Batch found.", [
+            'batch'    => $batch,
+            'items'    => $items,
+            'viewUrl'  => url('production/inwards/view/' . $batch['id']),
+            'labelUrl' => url('production/inwards/label/' . $batch['id']),
+        ]);
+    }
+
+    public function ajaxScanInward(): void {
+        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+            Response::jsonError('Access denied: You do not have permission to receive or inward stock via scan.', [], 403);
+            return;
+        }
+        $code = trim($_POST['qr_code'] ?? '');
+        $autoReceive = isset($_POST['auto_receive']) && ($_POST['auto_receive'] === '1' || $_POST['auto_receive'] === 'true');
+        $notes = trim($_POST['notes'] ?? 'Scanned & Received via Inward QR Scanner');
+
+        if (empty($code)) {
+            Response::jsonError("QR code or batch identifier cannot be empty.");
+            return;
+        }
+
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+        // Clean code and handle JSON / Pipe formats
+        $parsedCode = $code;
+        $extractedSku = '';
+        $extractedTag = '';
+
+        if (str_starts_with($code, '{') && str_ends_with($code, '}')) {
+            $json = json_decode($code, true);
+            if (!empty($json['batch_number'])) {
+                $parsedCode = $json['batch_number'];
+            } elseif (!empty($json['outward_number'])) {
+                $parsedCode = $json['outward_number'];
+            } elseif (!empty($json['sku'])) {
+                $extractedSku = trim($json['sku']);
+            }
+        } elseif (str_contains($code, '|')) {
+            $parts = explode('|', $code);
+            $extractedTag = trim($parts[0]);
+            if (!empty($parts[1])) {
+                $extractedSku = trim($parts[1]);
+            }
+        }
+
+        // Search for matching batch
+        $batchSql = "SELECT pb.*, pp.program_number, p.name as product_name, w.name as warehouse_name, w.code as warehouse_code
+                     FROM production_batches pb
+                     JOIN production_programs pp ON pb.program_id = pp.id
+                     JOIN products p ON pp.product_id = p.id
+                     JOIN warehouses w ON pb.destination_warehouse_id = w.id
+                     LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                     LEFT JOIN production_batch_items pbi ON pbi.production_batch_id = pb.id
+                     LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+                     WHERE (
+                         pb.batch_number = ?
+                         OR po.outward_number = ?
+                         OR pv.sku = ?
+                         OR pv.qr_code = ?
+                         OR p.code = ?
+                         OR ? IN (pb.batch_number, po.outward_number)
+                     )";
+        $params = [$code, $code, $parsedCode, $parsedCode, $parsedCode, $parsedCode];
+
+        if ($cid !== null && $cid !== 1) {
+            $batchSql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
+            $params[] = $cid;
+            $params[] = $cid;
+        }
+
+        $batchSql .= " ORDER BY pb.id DESC LIMIT 1";
+        $batch = Database::fetchOne($batchSql, $params);
+
+        if (!$batch) {
+            Response::jsonError("No production batch found matching code '$code' in this concern.", [], 404);
+            return;
+        }
+
+        $batchId = (int)$batch['id'];
+
+        if ($autoReceive) {
+            try {
+                $userId = Session::userId() ?? 1;
+                WarehouseService::receiveProductionBatch($batchId, $userId, $notes);
+                Response::jsonSuccess("Batch #{$batch['batch_number']} scanned & successfully received into warehouse!", [
+                    'batch'     => $batch,
+                    'viewUrl'   => url('production/inwards/view/' . $batchId),
+                    'received'  => true,
+                ]);
+                return;
+            } catch (Exception $e) {
+                Response::jsonError("Failed to auto-receive batch: " . $e->getMessage());
+                return;
+            }
+        }
+
+        Response::jsonSuccess("Batch identified. Redirecting to cross-check workstation...", [
+            'batch'    => $batch,
+            'viewUrl'  => url('production/inwards/view/' . $batchId),
+            'received' => false,
+        ]);
+    }
+
+    public function ajaxBatchHistory(string $id): void {
+        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+            Response::jsonError('Access denied: You do not have permission to view batch history.', [], 403);
+            return;
+        }
+        $history = ProductionBatch::getLifecycleHistory($id);
+        if (!$history) {
+            Response::jsonError('Batch not found or no traceability history recorded.', [], 404);
+            return;
+        }
+        Response::jsonSuccess('Batch lifecycle history loaded successfully', $history);
     }
 }

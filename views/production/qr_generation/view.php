@@ -31,41 +31,41 @@
         ?>
         <?php if ($isProduction): ?>
             <?php if ($isQcPassed): ?>
-                <span class="btn btn-success fw-bold disabled" title="Quality Control inspection passed">
+                <span class="btn btn-success fw-bold disabled qr-square-action" title="Quality Control inspection passed">
                     <i class="bi bi-patch-check-fill me-1"></i> Passed QC & Added to Finished Goods
                 </span>
-                <a href="<?= url('production/inventory') ?>" class="btn btn-outline-success fw-bold">
+                <a href="<?= url('production/inventory') ?>" class="btn btn-outline-success fw-bold qr-square-action">
                     <i class="bi bi-boxes me-1"></i> Finished Goods Inventory
                 </a>
             <?php else: ?>
                 <?php if ($qcBatchId > 0): ?>
-                    <a href="<?= url('production/qc/inspect/' . $qcBatchId) ?>" class="btn btn-warning text-dark fw-bold">
+                    <a href="<?= url('production/qc/inspect/' . $qcBatchId) ?>" class="btn btn-warning text-dark fw-bold qr-square-action">
                         <i class="bi bi-shield-check me-1"></i> Inspect in Quality Control (QC)
                     </a>
                 <?php endif; ?>
             <?php endif; ?>
         <?php elseif ($canAddToStock): ?>
             <?php if ($alreadyAdded): ?>
-                <span class="btn btn-success fw-bold disabled" title="Stock already added">
+                <span class="btn btn-success fw-bold disabled qr-square-action" title="Stock already added">
                     <i class="bi bi-check2-circle me-1"></i> Moved to Purchased Stock
                 </span>
-                <a href="<?= url('production/purchased-stock') ?>" class="btn btn-outline-success fw-bold">
+                <a href="<?= url('production/purchased-stock') ?>" class="btn btn-outline-success fw-bold qr-square-action">
                     <i class="bi bi-boxes me-1"></i> Purchased Stock
                 </a>
             <?php else: ?>
                 <form method="POST" action="<?= url('production/qr-generations/add-to-stock/' . $batch['id']) ?>" class="d-inline" onsubmit="return confirm('Add <?= count($batch['items']) ?> pieces from this QR batch to purchased warehouse inventory?');">
                     <?= csrf_field() ?>
                     <input type="hidden" name="tab" value="<?= e($activeTab) ?>">
-                    <button type="submit" class="btn btn-success fw-bold">
+                    <button type="submit" class="btn btn-success fw-bold qr-square-action">
                         <i class="bi bi-box-arrow-in-down me-1"></i> Add to Purchased Stock
                     </button>
                 </form>
             <?php endif; ?>
         <?php endif; ?>
-        <button type="button" class="btn btn-outline-dark fw-bold" data-bs-toggle="modal" data-bs-target="#printerSettingsModal">
+        <button type="button" class="btn btn-outline-dark fw-bold qr-square-action" data-bs-toggle="modal" data-bs-target="#printerSettingsModal">
             <i class="bi bi-sliders me-1 text-primary"></i> QR Format Config
         </button>
-        <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-primary fw-bold">
+        <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-primary fw-bold qr-square-action">
             <i class="bi bi-printer-fill me-1"></i> Print All <?= count($batch['items']) ?> Labels
         </a>
         <a href="<?= url('production/qr-generations?tab=' . e($activeTab)) ?>" class="btn btn-outline-secondary">
