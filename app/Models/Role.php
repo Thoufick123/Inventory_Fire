@@ -340,6 +340,14 @@ class Role {
             ['catalog', 'edit', 'Edit Style Codes & BOM Configurations', 'catalog.edit', null],
             ['catalog', 'delete', 'Delete Catalog Entries & BOMs', 'catalog.delete', null],
 
+            ['variants', 'view', 'View Product Variants & SKUs', 'variants.view', null],
+            ['variants', 'create', 'Create Product Variants & SKUs', 'variants.create', null],
+            ['variants', 'edit', 'Edit Product Variants & SKUs', 'variants.edit', null],
+
+            ['qr_generation', 'view', 'View QR Generation Batches', 'qr_generation.view', null],
+            ['qr_generation', 'create', 'Create QR Generation Batches & Labels', 'qr_generation.create', null],
+            ['qr_generation', 'delete', 'Delete QR Generation Batches', 'qr_generation.delete', null],
+
             ['programs', 'view', 'View Cutting Programs & Work Orders', 'programs.view', null],
             ['programs', 'create', 'Create Cutting Programs & Size Breakdowns', 'programs.create', null],
             ['programs', 'edit', 'Edit Programs & Work Order Releases', 'programs.edit', null],
