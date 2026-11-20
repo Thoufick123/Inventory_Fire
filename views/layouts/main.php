@@ -134,7 +134,7 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if ($modWarehouse && hasPermission('inventory', 'view')): ?>
                             <li><a href="<?= url('production/inventory') ?>" class="<?= ($activeMenu ?? '') === 'prod-inventory' ? 'active' : '' ?>">Finished Goods Inventory</a></li>
                             <?php endif; ?>
-                            <?php if ($modWarehouse && (hasPermission('inward', 'view') || hasPermission('inventory', 'view'))): ?>
+                            <?php if ($modWarehouse && hasPermission('inward', 'view')): ?>
                             <li><a href="<?= url('production/inwards') ?>" class="<?= in_array($activeMenu ?? '', ['inwards', 'prod-inwards']) ? 'active' : '' ?>">Goods Inward (GRN)</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && (hasPermission('production_stock_requests', 'view') || hasPermission('stock_requests', 'view') || hasPermission('inventory', 'view'))): ?>

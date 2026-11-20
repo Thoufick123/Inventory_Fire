@@ -7,9 +7,9 @@ $rolePermIds = Role::filterCrudPermissionIds(array_map('intval', $rolePermission
 $totalPossiblePerms = 0;
 foreach ($hierarchicalModules as $m) {
     foreach ($m['submodules'] as $s) {
-        $totalPossiblePerms += count(array_intersect_key(
-            $s['permissions'] ?? [],
-            array_flip(['view', 'create', 'edit', 'delete'])
+        $totalPossiblePerms += array_sum(array_map(
+            'count',
+            Role::getCrudPermissionsByAction($s['permissions'] ?? [])
         ));
     }
 }
@@ -71,11 +71,13 @@ foreach ($hierarchicalModules as $m) {
                                 <li><h6 class="dropdown-header text-uppercase small fw-bold">Toggle Column-Wide</h6></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnSelectAllView"><i class="bi bi-eye text-primary me-2"></i>Select All View</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnSelectAllCreate"><i class="bi bi-plus-circle text-success me-2"></i>Select All Create</a></li>
+                                <li><a class="dropdown-item py-1.5" href="#" id="btnSelectAllVerify"><i class="bi bi-check2-circle text-info me-2"></i>Select All Verify</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnSelectAllEdit"><i class="bi bi-pencil-square text-warning me-2"></i>Select All Edit</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnSelectAllDelete"><i class="bi bi-trash text-danger me-2"></i>Select All Delete</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnDeselectAllView"><i class="bi bi-eye-slash text-muted me-2"></i>Clear All View</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnDeselectAllCreate"><i class="bi bi-dash-circle text-muted me-2"></i>Clear All Create</a></li>
+                                <li><a class="dropdown-item py-1.5" href="#" id="btnDeselectAllVerify"><i class="bi bi-x-circle text-muted me-2"></i>Clear All Verify</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnDeselectAllEdit"><i class="bi bi-dash-square text-muted me-2"></i>Clear All Edit</a></li>
                                 <li><a class="dropdown-item py-1.5" href="#" id="btnDeselectAllDelete"><i class="bi bi-trash-fill text-muted me-2"></i>Clear All Delete</a></li>
                             </ul>
@@ -185,19 +187,22 @@ foreach ($hierarchicalModules as $m) {
                                 <thead class="table-light">
                                     <tr class="text-uppercase small text-muted font-monospace">
                                         <th class="ps-4 py-3" style="min-width: 260px; width: 30%;">Submodule & Description</th>
-                                        <th class="text-center py-3" style="width: 12%;">
+                                        <th class="text-center py-3" style="width: 10%;">
                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">View</span>
                                         </th>
-                                        <th class="text-center py-3" style="width: 12%;">
+                                        <th class="text-center py-3" style="width: 10%;">
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Create</span>
                                         </th>
-                                        <th class="text-center py-3" style="width: 12%;">
+                                        <th class="text-center py-3" style="width: 10%;">
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">Verify</span>
+                                        </th>
+                                        <th class="text-center py-3" style="width: 10%;">
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">Edit</span>
                                         </th>
-                                        <th class="text-center py-3" style="width: 12%;">
+                                        <th class="text-center py-3" style="width: 10%;">
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Delete</span>
                                         </th>
-                                        <th class="text-center py-3" style="width: 12%;">
+                                        <th class="text-center py-3" style="width: 10%;">
                                             <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">Adjust</span>
                                         </th>
                                         <th class="text-center pe-4 py-3" style="width: 10%;">
@@ -232,7 +237,7 @@ foreach ($hierarchicalModules as $m) {
                                                 </div>
                                             </td>
 
-                                            <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
+                                            <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
                                                 <td class="text-center py-3">
                                                     <?php $columnPermissions = $crudColumns[$crudAction]; ?>
                                                     <?php if (!empty($columnPermissions)): ?>
@@ -506,6 +511,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('btnSelectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-create', true); });
     document.getElementById('btnDeselectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-create', false); });
+
+    document.getElementById('btnSelectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-verify', true); });
+    document.getElementById('btnDeselectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-verify', false); });
 
     document.getElementById('btnSelectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-edit', true); });
     document.getElementById('btnDeselectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); setColumnState('.perm-edit', false); });

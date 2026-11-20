@@ -288,6 +288,8 @@ class Router {
         $this->get('production/returns/create', 'ProductionReturnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
         $this->get('production/returns/lookup', 'ProductionReturnController', 'ajaxLookupBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
         $this->post('production/returns/store', 'ProductionReturnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->post('production/returns/triage-item', 'ProductionReturnController', 'triageItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->post('production/returns/bulk-triage', 'ProductionReturnController', 'bulkTriage', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
         $this->get('production/returns/view/{id}', 'ProductionReturnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
         $this->get('production/returns/print/{id}', 'ProductionReturnController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
 
@@ -310,7 +312,7 @@ class Router {
         // ==========================================
         $this->get('production/inwards', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('production/inwards/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
-        $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->post('production/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('production/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
@@ -320,7 +322,7 @@ class Router {
         $this->get('warehouse/dashboard', 'ProductionController', 'dashboard', ['AuthMiddleware']);
         $this->get('warehouse/inward', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('warehouse/inward/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
-        $this->post('warehouse/inward/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->post('warehouse/inward/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('warehouse/inward/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->post('warehouse/inward/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('warehouse/inward/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);

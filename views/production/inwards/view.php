@@ -81,7 +81,7 @@ $displayDmg = $batch['status'] === 'RECEIVED' ? (int) ($totalDamaged ?? ($batch[
 $displayMis = $batch['status'] === 'RECEIVED' ? (int) ($totalMissing ?? ($batch['missing_qty'] ?? 0)) : $totalExpected;
 $displayPct = $totalExpected > 0 ? round(($displayRec / $totalExpected) * 100) : ($batch['status'] === 'RECEIVED' ? 100 : 0);
 
-// Can scan or edit only if user has inward verify or create permission AND batch is not fully received
+// Scanning, damage reporting, and receipt confirmation require inward verification permission.
 $canVerify = hasPermission('inward', 'verify');
 $isFullyReceived = ($batch['status'] === 'RECEIVED' && $displayMis === 0 && ($displayRec + $displayDmg) >= $totalExpected);
 $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyReceived);

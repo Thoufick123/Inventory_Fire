@@ -1,5 +1,10 @@
 <?php
 
+require_once BASE_PATH . '/app/Services/StockService.php';
+require_once BASE_PATH . '/app/Models/WarehouseDamage.php';
+require_once BASE_PATH . '/app/Models/ProductionUnit.php';
+require_once BASE_PATH . '/app/Services/SettingsService.php';
+
 class ProductionReturnController
 {
     public function index(): void
@@ -13,10 +18,19 @@ class ProductionReturnController
         $where = ['1=1'];
         $params = [];
 
+        // Multi-concern isolation
+        if (function_exists('currentConcernId')) {
+            $scopedConcernId = currentConcernId();
+            if ($scopedConcernId !== null) {
+                $where[] = '(pr.concern_id = ? OR pr.concern_id IS NULL)';
+                $params[] = $scopedConcernId;
+            }
+        }
+
         if ($search !== '') {
-            $where[] = '(pr.return_number LIKE ? OR pr.bill_number LIKE ? OR pr.customer_name LIKE ? OR pr.customer_phone LIKE ?)';
+            $where[] = '(pr.return_number LIKE ? OR pr.bill_number LIKE ? OR pr.customer_name LIKE ? OR pr.customer_phone LIKE ? OR EXISTS (SELECT 1 FROM production_return_items pri WHERE pri.return_id = pr.id AND (pri.tag_code LIKE ? OR pri.sku LIKE ? OR pri.product_name LIKE ?)))';
             $wild = '%' . $search . '%';
-            $params = array_merge($params, [$wild, $wild, $wild, $wild]);
+            $params = array_merge($params, [$wild, $wild, $wild, $wild, $wild, $wild, $wild]);
         }
 
         if ($status !== '') {
@@ -40,7 +54,10 @@ class ProductionReturnController
         }
 
         $sql = "SELECT pr.*, 
-                       (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id) AS item_count
+                       (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id) AS item_count,
+                       (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'PENDING_INSPECTION') AS pending_triage_count,
+                       (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'RESTOCKED') AS restocked_count,
+                       (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'DAMAGED') AS damaged_count
                 FROM production_returns pr
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY pr.id DESC";
@@ -48,13 +65,40 @@ class ProductionReturnController
         $returns = Database::fetchAll($sql, $params);
 
         // Stats summary
+        $statsWhere = ['1=1'];
+        $statsParams = [];
+        if (function_exists('currentConcernId')) {
+            $scopedConcernId = currentConcernId();
+            if ($scopedConcernId !== null) {
+                $statsWhere[] = '(concern_id = ? OR concern_id IS NULL)';
+                $statsParams[] = $scopedConcernId;
+            }
+        }
+        $statsWhereSql = implode(' AND ', $statsWhere);
+
         $allStats = Database::fetchOne(
             "SELECT COUNT(*) AS total_returns,
                     COALESCE(SUM(total_returned_qty), 0) AS total_pieces,
                     COALESCE(SUM(net_amount), 0) AS total_amount,
                     COALESCE(SUM(gst_reversal_amount), 0) AS total_gst_reversal
-             FROM production_returns"
+             FROM production_returns
+             WHERE {$statsWhereSql}",
+            $statsParams
         ) ?: [];
+
+        // Additional triage stats
+        $triageStats = Database::fetchOne(
+            "SELECT 
+                COALESCE(SUM(CASE WHEN pri.action_taken = 'PENDING_INSPECTION' THEN pri.quantity ELSE 0 END), 0) AS pending_pieces,
+                COALESCE(SUM(CASE WHEN pri.action_taken = 'RESTOCKED' THEN pri.quantity ELSE 0 END), 0) AS restocked_pieces,
+                COALESCE(SUM(CASE WHEN pri.action_taken = 'DAMAGED' THEN pri.quantity ELSE 0 END), 0) AS damaged_pieces
+             FROM production_return_items pri
+             JOIN production_returns pr ON pri.return_id = pr.id
+             WHERE {$statsWhereSql}",
+            $statsParams
+        ) ?: [];
+
+        $allStats = array_merge($allStats, $triageStats);
 
         Response::view('production.returns.index', [
             'pageTitle'    => 'Customer Returns & Exchanges | Production Unit',
@@ -79,23 +123,105 @@ class ProductionReturnController
         ]);
     }
 
+    /**
+     * Universal Live Scanner & Bill Lookup
+     * Handles scanning:
+     * 1. Individual piece tracking QR code (e.g., PRD2611-0001, KBD1126101)
+     * 2. Variant Barcode / SKU / QR code
+     * 3. Bill number (e.g. PB-2026-...) or Customer Phone
+     */
     public function ajaxLookupBill(): void
     {
         $query = trim((string)($_GET['q'] ?? ''));
         if ($query === '') {
-            Response::json(['success' => false, 'message' => 'Please enter a bill number or customer phone.']);
+            Response::json(['success' => false, 'message' => 'Please enter a piece QR tag, barcode, SKU, or bill number.']);
             return;
         }
 
-        $bill = Database::fetchOne(
-            "SELECT * FROM production_bills 
-             WHERE bill_number = ? OR customer_phone = ? OR company_phone = ? 
-             ORDER BY id DESC LIMIT 1",
-            [$query, $query, $query]
-        );
+        $scannedTag = null;
+        $scannedSku = null;
+        $matchedBillId = null;
 
+        // 1. Check if the scanned string is an individual piece tag code in production_bill_item_tags
+        $tagRow = Database::fetchOne(
+            "SELECT pbit.bill_id, pbit.tag_code, pbit.bill_item_id, pb.bill_number 
+             FROM production_bill_item_tags pbit
+             JOIN production_bills pb ON pbit.bill_id = pb.id
+             WHERE UPPER(TRIM(pbit.tag_code)) = UPPER(?) LIMIT 1",
+            [$query]
+        );
+        if ($tagRow) {
+            $scannedTag = $tagRow['tag_code'];
+            $matchedBillId = (int)$tagRow['bill_id'];
+        } else {
+            // Also check if tag was already recorded in previous production_return_items
+            $retTagRow = Database::fetchOne(
+                "SELECT pr.bill_id, pri.tag_code, pb.bill_number
+                 FROM production_return_items pri
+                 JOIN production_returns pr ON pri.return_id = pr.id
+                 JOIN production_bills pb ON pr.bill_id = pb.id
+                 WHERE UPPER(TRIM(pri.tag_code)) = UPPER(?) LIMIT 1",
+                [$query]
+            );
+            if ($retTagRow) {
+                $scannedTag = $retTagRow['tag_code'];
+                $matchedBillId = (int)$retTagRow['bill_id'];
+            }
+        }
+
+        // 2. If not a specific piece tag, check if it matches a product variant SKU, Barcode, or QR code in billed items
+        if (!$matchedBillId) {
+            $skuRow = Database::fetchOne(
+                "SELECT pbi.bill_id, pbi.sku
+                 FROM production_bill_items pbi
+                 JOIN production_bills pb ON pbi.bill_id = pb.id
+                 LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+                 WHERE UPPER(TRIM(pbi.sku)) = UPPER(?) 
+                    OR UPPER(TRIM(pv.sku)) = UPPER(?) 
+                    OR UPPER(TRIM(pv.qr_code)) = UPPER(?) 
+                    OR UPPER(TRIM(pv.barcode)) = UPPER(?)
+                 ORDER BY pb.id DESC LIMIT 1",
+                [$query, $query, $query, $query]
+            );
+            if ($skuRow) {
+                $scannedSku = $skuRow['sku'];
+                $matchedBillId = (int)$skuRow['bill_id'];
+            }
+        }
+
+        // 3. If still not matched, check Bill Number or Customer Phone
+        if (!$matchedBillId) {
+            $bill = Database::fetchOne(
+                "SELECT id FROM production_bills 
+                 WHERE bill_number = ? OR customer_phone = ? OR company_phone = ? 
+                 ORDER BY id DESC LIMIT 1",
+                [$query, $query, $query]
+            );
+            if (!$bill) {
+                // Try fuzzy like search on bill_number
+                $bill = Database::fetchOne(
+                    "SELECT id FROM production_bills 
+                     WHERE bill_number LIKE ? 
+                     ORDER BY id DESC LIMIT 1",
+                    ['%' . $query . '%']
+                );
+            }
+            if ($bill) {
+                $matchedBillId = (int)$bill['id'];
+            }
+        }
+
+        if (!$matchedBillId) {
+            Response::json([
+                'success' => false, 
+                'message' => 'No production bill or sold piece found matching scan: ' . htmlspecialchars($query)
+            ]);
+            return;
+        }
+
+        $bill = Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [$matchedBillId]);
         if (!$bill) {
-            Response::json(['success' => false, 'message' => 'No production bill found for query: ' . $query]);
+            Response::json(['success' => false, 'message' => 'Production bill record could not be loaded.']);
             return;
         }
 
@@ -191,7 +317,7 @@ class ProductionReturnController
         }
         unset($bi);
 
-        // Fetch previous credit notes for this bill
+        // Fetch previous returns for this bill
         $prevReturns = Database::fetchAll(
             "SELECT id, return_number, return_type, total_returned_qty, net_amount, status, created_at
              FROM production_returns
@@ -204,6 +330,8 @@ class ProductionReturnController
             'success'            => true,
             'bill'               => $bill,
             'items'              => $billItems,
+            'scanned_tag'        => $scannedTag,
+            'scanned_sku'        => $scannedSku,
             'is_fully_returned'  => !$hasReturnablePieces,
             'total_bill_pieces'  => $totalBillPieces,
             'total_returned'     => $totalReturnedPieces,
@@ -211,6 +339,16 @@ class ProductionReturnController
         ]);
     }
 
+    /**
+     * Store Return & Exchange Record
+     * Only 2 Flows:
+     * 1. FULL_REFUND (Fully Refunded)
+     * 2. PRODUCT_EXCHANGE (Return Product Options)
+     * 
+     * IMPORTANT: Returned goods are NOT directly added to active inventory here.
+     * They are stored in Staging (PENDING_INSPECTION) so warehouse/production staff
+     * can inspect them and choose: Add to Stock or Move to Damage Module.
+     */
     public function store(): void
     {
         $billId = (int)($_POST['bill_id'] ?? 0);
@@ -221,10 +359,16 @@ class ProductionReturnController
             return;
         }
 
-        $returnType = strtoupper(trim((string)($_POST['return_type'] ?? 'CREDIT_NOTE')));
-        $disposition = strtoupper(trim((string)($_POST['disposition'] ?? 'RESTOCK_INVENTORY')));
+        // Flow: Fully Refunded (REFUND) vs Return Product Options (EXCHANGE)
+        $rawFlow = strtoupper(trim((string)($_POST['return_type'] ?? 'REFUND')));
+        $returnType = ($rawFlow === 'EXCHANGE' || $rawFlow === 'PRODUCT_EXCHANGE') ? 'EXCHANGE' : 'REFUND';
+
         $refundMode = strtoupper(trim((string)($_POST['refund_mode'] ?? 'STORE_CREDIT')));
         $notes = trim((string)($_POST['notes'] ?? ''));
+        $exchangeNotes = trim((string)($_POST['exchange_notes'] ?? ''));
+        if ($returnType === 'EXCHANGE' && !empty($exchangeNotes)) {
+            $notes = trim("[Exchange Requirement]: " . $exchangeNotes . ($notes ? "\n" . $notes : ''));
+        }
 
         // Selected tags and selected non-tagged items
         $selectedTags = $_POST['selected_tags'] ?? [];
@@ -269,7 +413,6 @@ class ProductionReturnController
             $gstReversal = 0.0;
             $netAmount = 0.0;
             $itemsToInsert = [];
-            $tagsToRestock = [];
 
             // 1. Process strictly selected piece tags
             if (!empty($selectedTags) && is_array($selectedTags)) {
@@ -290,7 +433,6 @@ class ProductionReturnController
                     $tagInfo = $tagsData[$tagCode] ?? [];
                     $billItemId = (int)($tagInfo['bill_item_id'] ?? 0);
 
-                    // If bill_item_id wasn't in post, lookup from production_bill_item_tags
                     if ($billItemId <= 0) {
                         $pbitRow = Database::fetchOne("SELECT bill_item_id FROM production_bill_item_tags WHERE bill_id = ? AND tag_code = ?", [$billId, $tagCode]);
                         if ($pbitRow) {
@@ -306,9 +448,7 @@ class ProductionReturnController
                         return;
                     }
 
-                    $reason = trim((string)($tagInfo['reason'] ?? 'Customer Return'));
-                    $condition = strtoupper(trim((string)($tagInfo['condition'] ?? 'GOOD')));
-                    $itemAction = ($condition === 'GOOD' && $disposition === 'RESTOCK_INVENTORY') ? 'RESTOCKED' : (($condition === 'DAMAGED') ? 'SCRAPPED' : 'SENT_TO_REWORK');
+                    $reason = trim((string)($tagInfo['reason'] ?? ($returnType === 'EXCHANGE' ? 'Size/Product Exchange' : 'Customer Return')));
 
                     $unitPrice = (float)$bi['unit_price'];
                     $gstPct = (float)$bi['gst_percentage'];
@@ -321,6 +461,7 @@ class ProductionReturnController
                     $gstReversal += $itemTax;
                     $netAmount += $itemTotal;
 
+                    // Items start as PENDING_INSPECTION - not directly in stock
                     $itemsToInsert[] = [
                         'bill_item_id'   => (int)$bi['id'],
                         'qc_item_id'     => (int)$bi['qc_item_id'],
@@ -336,13 +477,9 @@ class ProductionReturnController
                         'tax_amount'     => $itemTax,
                         'total_amount'   => $itemTotal,
                         'reason'         => $reason,
-                        'item_condition' => $condition,
-                        'action_taken'   => $itemAction,
+                        'item_condition' => 'GOOD',
+                        'action_taken'   => 'PENDING_INSPECTION',
                     ];
-
-                    if ($itemAction === 'RESTOCKED') {
-                        $tagsToRestock[] = $tagCode;
-                    }
                 }
             }
 
@@ -371,9 +508,7 @@ class ProductionReturnController
                         return;
                     }
 
-                    $reason = trim((string)($itemInfo['reason'] ?? 'Customer Return'));
-                    $condition = strtoupper(trim((string)($itemInfo['condition'] ?? 'GOOD')));
-                    $itemAction = ($condition === 'GOOD' && $disposition === 'RESTOCK_INVENTORY') ? 'RESTOCKED' : (($condition === 'DAMAGED') ? 'SCRAPPED' : 'SENT_TO_REWORK');
+                    $reason = trim((string)($itemInfo['reason'] ?? ($returnType === 'EXCHANGE' ? 'Size/Product Exchange' : 'Customer Return')));
 
                     $unitPrice = (float)$bi['unit_price'];
                     $gstPct = (float)$bi['gst_percentage'];
@@ -401,8 +536,8 @@ class ProductionReturnController
                         'tax_amount'     => $itemTax,
                         'total_amount'   => $itemTotal,
                         'reason'         => $reason,
-                        'item_condition' => $condition,
-                        'action_taken'   => $itemAction,
+                        'item_condition' => 'GOOD',
+                        'action_taken'   => 'PENDING_INSPECTION',
                     ];
                 }
             }
@@ -414,23 +549,25 @@ class ProductionReturnController
                 return;
             }
 
-            // Generate Return Number: PR-CRN-YYYY-XXXX
+            // Generate Return Number: PR-RET-YYYY-XXXX (or PR-CRN-YYYY-XXXX)
             $count = (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_returns")['c'] ?? 0);
-            $returnNumber = 'PR-CRN-' . date('Y') . '-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
+            $prefix = ($returnType === 'EXCHANGE') ? 'PR-EXC-' : 'PR-RET-';
+            $returnNumber = $prefix . date('Y') . '-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
             Database::execute(
                 "INSERT INTO production_returns 
-                 (return_number, bill_id, bill_number, customer_name, customer_phone, return_type, disposition,
+                 (return_number, bill_id, bill_number, production_unit_id, concern_id, customer_name, customer_phone, return_type, disposition,
                   total_returned_qty, subtotal, gst_reversal_amount, net_amount, status, refund_mode, notes, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_INSPECTION', ?, ?, ?, ?, 'PENDING_INSPECTION', ?, ?, ?)",
                 [
                     $returnNumber,
                     $billId,
                     $bill['bill_number'],
+                    $bill['production_unit_id'] ?? null,
+                    $bill['concern_id'] ?? 1,
                     $bill['customer_name'] ?: ($bill['company_name'] ?? 'B2B Client'),
                     $bill['customer_phone'] ?: ($bill['company_phone'] ?? ''),
                     $returnType,
-                    $disposition,
                     $totalQty,
                     $subtotal,
                     $gstReversal,
@@ -459,23 +596,347 @@ class ProductionReturnController
                 );
             }
 
-            // Execute stock release for restocked tags: remove from bill tags so they can be sold again!
-            if (!empty($tagsToRestock)) {
-                $placeholders = implode(',', array_fill(0, count($tagsToRestock), '?'));
-                Database::execute(
-                    "DELETE FROM production_bill_item_tags WHERE bill_id = ? AND tag_code IN ({$placeholders})",
-                    array_merge([$billId], $tagsToRestock)
-                );
-            }
+            // NOTE: We DO NOT delete from production_bill_item_tags and DO NOT add to stock here!
+            // Items are held in Staging until the warehouse manager inspects them and decides Add to Stock vs Damage.
 
             Database::commit();
-            Session::setFlash('success', "Return processed successfully! Credit Note #{$returnNumber} issued for ₹" . number_format($netAmount, 2));
+            $flowLabel = ($returnType === 'EXCHANGE') ? 'Product Exchange' : 'Fully Refunded Return';
+            Session::setFlash('success', "{$flowLabel} #{$returnNumber} recorded successfully! {$totalQty} piece(s) held in Return Staging. Please inspect below to Add to Stock or Move to Damage.");
             Response::redirect(url('production/returns/view/' . $returnId));
         } catch (Throwable $e) {
             Database::rollBack();
             error_log('ProductionReturnController::store failed: ' . $e->getMessage());
             Session::setFlash('error', 'Error processing return: ' . $e->getMessage());
             Response::redirect(url('production/returns/create'));
+        }
+    }
+
+    /**
+     * Triage Single Return Item:
+     * - Decision: 'ADD_TO_STOCK' -> Restocks into active inventory, releases tag code
+     * - Decision: 'DAMAGE_MODULE' -> Logs case in warehouse_damages and quarantines stock
+     */
+    public function triageItem(): void
+    {
+        $returnId = (int)($_POST['return_id'] ?? 0);
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        $decision = strtoupper(trim((string)($_POST['decision'] ?? '')));
+        $damageReason = trim((string)($_POST['damage_reason'] ?? ''));
+        $defectNotes = trim((string)($_POST['defect_notes'] ?? ''));
+
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest' || (!empty($_GET['ajax']));
+
+        $return = Database::fetchOne("SELECT * FROM production_returns WHERE id = ?", [$returnId]);
+        if (!$return) {
+            $msg = 'Return record not found.';
+            if ($isAjax) { Response::json(['success' => false, 'message' => $msg]); return; }
+            Session::setFlash('error', $msg);
+            Response::redirect(url('production/returns'));
+            return;
+        }
+
+        $item = Database::fetchOne("SELECT * FROM production_return_items WHERE id = ? AND return_id = ?", [$itemId, $returnId]);
+        if (!$item) {
+            $msg = 'Return item record not found.';
+            if ($isAjax) { Response::json(['success' => false, 'message' => $msg]); return; }
+            Session::setFlash('error', $msg);
+            Response::redirect(url('production/returns/view/' . $returnId));
+            return;
+        }
+
+        if ($item['action_taken'] !== 'PENDING_INSPECTION') {
+            $msg = 'This piece has already been triaged (' . $item['action_taken'] . ').';
+            if ($isAjax) { Response::json(['success' => false, 'message' => $msg]); return; }
+            Session::setFlash('warning', $msg);
+            Response::redirect(url('production/returns/view/' . $returnId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $variantId = (int)($item['variant_id'] ?? 0);
+            $prodUnitId = (int)($return['production_unit_id'] ?? 0);
+            if ($prodUnitId <= 0 && $return['bill_id']) {
+                $pb = Database::fetchOne("SELECT production_unit_id FROM production_bills WHERE id = ?", [$return['bill_id']]);
+                $prodUnitId = (int)($pb['production_unit_id'] ?? 1);
+            }
+            if ($prodUnitId <= 0) {
+                $prodUnitId = 1;
+            }
+
+            if ($decision === 'ADD_TO_STOCK') {
+                // 1. Release piece tag so it can be scanned and billed again
+                if (!empty($item['tag_code']) && $return['bill_id']) {
+                    Database::execute(
+                        "DELETE FROM production_bill_item_tags WHERE bill_id = ? AND tag_code = ?",
+                        [$return['bill_id'], $item['tag_code']]
+                    );
+                }
+
+                // 2. Add back to AVAILABLE stock via Central StockService
+                if ($variantId > 0) {
+                    try {
+                        StockService::increase(
+                            $variantId,
+                            'PRODUCTION_UNIT',
+                            $prodUnitId,
+                            'AVAILABLE',
+                            (float)$item['quantity'],
+                            'PRODUCTION_RETURN',
+                            'production_returns',
+                            $returnId,
+                            (int)(Auth::id() ?? 0) ?: null,
+                            "Returned garment added to stock from Return #{$return['return_number']}" . (!empty($item['tag_code']) ? " (Tag: {$item['tag_code']})" : "")
+                        );
+                    } catch (Throwable $se) {
+                        error_log("StockService::increase failed in return triage: " . $se->getMessage());
+                    }
+                }
+
+                Database::execute(
+                    "UPDATE production_return_items 
+                     SET action_taken = 'RESTOCKED', item_condition = 'GOOD', triaged_at = NOW(), triaged_by = ?
+                     WHERE id = ?",
+                    [(int)(Auth::id() ?? 0) ?: null, $itemId]
+                );
+
+                $msg = "Garment '{$item['product_name']}' successfully verified and added to active stock!";
+
+            } elseif ($decision === 'DAMAGE_MODULE') {
+                // 1. Get warehouse for damage routing
+                $whId = function_exists('currentWarehouseId') ? (currentWarehouseId() ?: 1) : 1;
+                if ($whId <= 0) {
+                    $wh = Database::fetchOne("SELECT id FROM warehouses LIMIT 1");
+                    $whId = (int)($wh['id'] ?? 1);
+                }
+
+                $reason = $damageReason !== '' ? $damageReason : 'Customer Return Defect';
+                $notes = $defectNotes !== '' ? $defectNotes : ("Defective return from Return #{$return['return_number']}" . (!empty($item['tag_code']) ? " (Tag: {$item['tag_code']})" : ""));
+
+                // 2. Create damage record in warehouse_damages
+                $damageId = WarehouseDamage::create([
+                    'warehouse_id'       => $whId,
+                    'variant_id'         => $variantId > 0 ? $variantId : 1,
+                    'tag_code'           => !empty($item['tag_code']) ? $item['tag_code'] : null,
+                    'source_type'        => 'CUSTOMER_RETURN',
+                    'reference_id'       => $returnId,
+                    'quantity'           => (int)$item['quantity'],
+                    'cost_per_unit'      => (float)$item['unit_price'],
+                    'total_loss'         => (float)$item['total_amount'],
+                    'damage_reason'      => $reason,
+                    'defect_notes'       => $notes,
+                    'status'             => 'LOGGED',
+                    'reported_by'        => (int)(Auth::id() ?? 1),
+                    'production_unit_id' => $prodUnitId,
+                ]);
+
+                // 3. Track in DAMAGED stock state
+                if ($variantId > 0) {
+                    try {
+                        StockService::increase(
+                            $variantId,
+                            'PRODUCTION_UNIT',
+                            $prodUnitId,
+                            'DAMAGED',
+                            (float)$item['quantity'],
+                            'PRODUCTION_RETURN',
+                            'production_returns',
+                            $returnId,
+                            (int)(Auth::id() ?? 0) ?: null,
+                            "Customer return quarantined to Damage Module (Case #{$damageId})"
+                        );
+                    } catch (Throwable $se) {
+                        error_log("StockService::increase DAMAGED in return triage: " . $se->getMessage());
+                    }
+                }
+
+                Database::execute(
+                    "UPDATE production_return_items 
+                     SET action_taken = 'DAMAGED', item_condition = 'DAMAGED', damage_id = ?, triaged_at = NOW(), triaged_by = ?
+                     WHERE id = ?",
+                    [$damageId, (int)(Auth::id() ?? 0) ?: null, $itemId]
+                );
+
+                $msg = "Garment '{$item['product_name']}' routed to Damage Module (Case #{$damageId})!";
+            } else {
+                throw new InvalidArgumentException("Invalid triage decision: '{$decision}'");
+            }
+
+            // Check if all items in this return are triaged
+            $remaining = (int)(Database::fetchOne(
+                "SELECT COUNT(*) AS c FROM production_return_items WHERE return_id = ? AND action_taken = 'PENDING_INSPECTION'",
+                [$returnId]
+            )['c'] ?? 0);
+
+            if ($remaining === 0) {
+                $hasRestocked = Database::fetchOne("SELECT id FROM production_return_items WHERE return_id = ? AND action_taken = 'RESTOCKED' LIMIT 1", [$returnId]);
+                $hasDamaged = Database::fetchOne("SELECT id FROM production_return_items WHERE return_id = ? AND action_taken = 'DAMAGED' LIMIT 1", [$returnId]);
+                $finalDisp = ($hasRestocked && $hasDamaged) ? 'MIXED' : ($hasDamaged ? 'SCRAP_DAMAGE' : 'RESTOCK_INVENTORY');
+
+                Database::execute(
+                    "UPDATE production_returns SET status = 'COMPLETED', disposition = ?, updated_at = NOW() WHERE id = ?",
+                    [$finalDisp, $returnId]
+                );
+            }
+
+            Database::commit();
+
+            if ($isAjax) {
+                Response::json([
+                    'success'   => true, 
+                    'message'   => $msg, 
+                    'remaining' => $remaining,
+                    'decision'  => $decision,
+                    'damage_id' => $damageId ?? null
+                ]);
+                return;
+            }
+
+            Session::setFlash('success', $msg);
+            Response::redirect(url('production/returns/view/' . $returnId));
+        } catch (Throwable $e) {
+            Database::rollBack();
+            error_log('ProductionReturnController::triageItem failed: ' . $e->getMessage());
+            $errMsg = 'Error triaging item: ' . $e->getMessage();
+            if ($isAjax) { Response::json(['success' => false, 'message' => $errMsg]); return; }
+            Session::setFlash('error', $errMsg);
+            Response::redirect(url('production/returns/view/' . $returnId));
+        }
+    }
+
+    /**
+     * Bulk Triage:
+     * Restock All Pending or Move All Pending to Damage
+     */
+    public function bulkTriage(): void
+    {
+        $returnId = (int)($_POST['return_id'] ?? 0);
+        $decision = strtoupper(trim((string)($_POST['decision'] ?? 'ADD_TO_STOCK')));
+        $damageReason = trim((string)($_POST['damage_reason'] ?? 'Bulk Customer Return Defect'));
+        $defectNotes = trim((string)($_POST['defect_notes'] ?? ''));
+
+        $return = Database::fetchOne("SELECT * FROM production_returns WHERE id = ?", [$returnId]);
+        if (!$return) {
+            Session::setFlash('error', 'Return record not found.');
+            Response::redirect(url('production/returns'));
+            return;
+        }
+
+        $pendingItems = Database::fetchAll(
+            "SELECT * FROM production_return_items WHERE return_id = ? AND action_taken = 'PENDING_INSPECTION'",
+            [$returnId]
+        );
+
+        if (empty($pendingItems)) {
+            Session::setFlash('info', 'No pending items found in staging for this return.');
+            Response::redirect(url('production/returns/view/' . $returnId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $prodUnitId = (int)($return['production_unit_id'] ?? 0);
+            if ($prodUnitId <= 0 && $return['bill_id']) {
+                $pb = Database::fetchOne("SELECT production_unit_id FROM production_bills WHERE id = ?", [$return['bill_id']]);
+                $prodUnitId = (int)($pb['production_unit_id'] ?? 1);
+            }
+            if ($prodUnitId <= 0) {
+                $prodUnitId = 1;
+            }
+
+            $count = 0;
+            foreach ($pendingItems as $item) {
+                $variantId = (int)($item['variant_id'] ?? 0);
+                $itemId = (int)$item['id'];
+
+                if ($decision === 'ADD_TO_STOCK') {
+                    if (!empty($item['tag_code']) && $return['bill_id']) {
+                        Database::execute(
+                            "DELETE FROM production_bill_item_tags WHERE bill_id = ? AND tag_code = ?",
+                            [$return['bill_id'], $item['tag_code']]
+                        );
+                    }
+                    if ($variantId > 0) {
+                        try {
+                            StockService::increase(
+                                $variantId,
+                                'PRODUCTION_UNIT',
+                                $prodUnitId,
+                                'AVAILABLE',
+                                (float)$item['quantity'],
+                                'PRODUCTION_RETURN',
+                                'production_returns',
+                                $returnId,
+                                (int)(Auth::id() ?? 0) ?: null,
+                                "Bulk restocked from Return #{$return['return_number']}"
+                            );
+                        } catch (Throwable $e) {}
+                    }
+                    Database::execute(
+                        "UPDATE production_return_items 
+                         SET action_taken = 'RESTOCKED', item_condition = 'GOOD', triaged_at = NOW(), triaged_by = ?
+                         WHERE id = ?",
+                        [(int)(Auth::id() ?? 0) ?: null, $itemId]
+                    );
+                } else {
+                    $whId = function_exists('currentWarehouseId') ? (currentWarehouseId() ?: 1) : 1;
+                    $damageId = WarehouseDamage::create([
+                        'warehouse_id'       => $whId,
+                        'variant_id'         => $variantId > 0 ? $variantId : 1,
+                        'tag_code'           => !empty($item['tag_code']) ? $item['tag_code'] : null,
+                        'source_type'        => 'CUSTOMER_RETURN',
+                        'reference_id'       => $returnId,
+                        'quantity'           => (int)$item['quantity'],
+                        'cost_per_unit'      => (float)$item['unit_price'],
+                        'total_loss'         => (float)$item['total_amount'],
+                        'damage_reason'      => $damageReason,
+                        'defect_notes'       => $defectNotes ?: "Bulk return inspection damage",
+                        'status'             => 'LOGGED',
+                        'reported_by'        => (int)(Auth::id() ?? 1),
+                        'production_unit_id' => $prodUnitId,
+                    ]);
+                    if ($variantId > 0) {
+                        try {
+                            StockService::increase(
+                                $variantId,
+                                'PRODUCTION_UNIT',
+                                $prodUnitId,
+                                'DAMAGED',
+                                (float)$item['quantity'],
+                                'PRODUCTION_RETURN',
+                                'production_returns',
+                                $returnId,
+                                (int)(Auth::id() ?? 0) ?: null,
+                                "Customer return bulk quarantined to Damage Module"
+                            );
+                        } catch (Throwable $e) {}
+                    }
+                    Database::execute(
+                        "UPDATE production_return_items 
+                         SET action_taken = 'DAMAGED', item_condition = 'DAMAGED', damage_id = ?, triaged_at = NOW(), triaged_by = ?
+                         WHERE id = ?",
+                        [$damageId, (int)(Auth::id() ?? 0) ?: null, $itemId]
+                    );
+                }
+                $count++;
+            }
+
+            // Finalize status
+            $finalDisp = ($decision === 'ADD_TO_STOCK') ? 'RESTOCK_INVENTORY' : 'SCRAP_DAMAGE';
+            Database::execute(
+                "UPDATE production_returns SET status = 'COMPLETED', disposition = ?, updated_at = NOW() WHERE id = ?",
+                [$finalDisp, $returnId]
+            );
+
+            Database::commit();
+            $actionLabel = ($decision === 'ADD_TO_STOCK') ? 'added to stock' : 'routed to Damage Module';
+            Session::setFlash('success', "All {$count} pending piece(s) successfully {$actionLabel}!");
+            Response::redirect(url('production/returns/view/' . $returnId));
+        } catch (Throwable $e) {
+            Database::rollBack();
+            error_log('ProductionReturnController::bulkTriage failed: ' . $e->getMessage());
+            Session::setFlash('error', 'Error in bulk triage: ' . $e->getMessage());
+            Response::redirect(url('production/returns/view/' . $returnId));
         }
     }
 
@@ -492,13 +953,29 @@ class ProductionReturnController
         $items = Database::fetchAll("SELECT * FROM production_return_items WHERE return_id = ? ORDER BY id", [$returnId]);
         $bill = $return['bill_id'] ? Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [$return['bill_id']]) : null;
 
+        $pendingCount = 0;
+        $restockedCount = 0;
+        $damagedCount = 0;
+        foreach ($items as $it) {
+            if ($it['action_taken'] === 'PENDING_INSPECTION') {
+                $pendingCount += (int)$it['quantity'];
+            } elseif ($it['action_taken'] === 'RESTOCKED') {
+                $restockedCount += (int)$it['quantity'];
+            } elseif ($it['action_taken'] === 'DAMAGED') {
+                $damagedCount += (int)$it['quantity'];
+            }
+        }
+
         Response::view('production.returns.view', [
-            'pageTitle'    => 'Credit Note ' . $return['return_number'],
-            'activeModule' => 'production',
-            'activeMenu'   => 'prod-returns',
-            'return'       => $return,
-            'items'        => $items,
-            'bill'         => $bill,
+            'pageTitle'      => 'Return ' . $return['return_number'],
+            'activeModule'   => 'production',
+            'activeMenu'     => 'prod-returns',
+            'return'         => $return,
+            'items'          => $items,
+            'bill'           => $bill,
+            'pendingCount'   => $pendingCount,
+            'restockedCount' => $restockedCount,
+            'damagedCount'   => $damagedCount,
         ]);
     }
 
