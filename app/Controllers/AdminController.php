@@ -469,6 +469,21 @@ class AdminController {
         }
 
         try {
+            // Support operational concern selection & reset removed production unit / staff role
+            if (!empty($_POST['operational_concern_id'])) {
+                $opCid = (int)$_POST['operational_concern_id'];
+                if (empty($_POST['default_concern_id'])) {
+                    $_POST['default_concern_id'] = $opCid;
+                }
+                if (!isset($_POST['concerns']) || !is_array($_POST['concerns'])) {
+                    $_POST['concerns'] = [$opCid];
+                } elseif (!in_array($opCid, array_map('intval', $_POST['concerns']), true)) {
+                    $_POST['concerns'][] = $opCid;
+                }
+            }
+            $_POST['production_unit_id'] = null;
+            $_POST['staff_role'] = null;
+
             // Process concern assignment and default login session concern
             $assignedConcerns = isset($_POST['concerns']) && is_array($_POST['concerns']) ? $_POST['concerns'] : [];
             $defaultConcernId = !empty($_POST['default_concern_id']) ? (int)$_POST['default_concern_id'] : null;
@@ -689,6 +704,21 @@ class AdminController {
         }
 
         try {
+            // Support operational concern selection & reset removed production unit / staff role
+            if (!empty($_POST['operational_concern_id'])) {
+                $opCid = (int)$_POST['operational_concern_id'];
+                if (empty($_POST['default_concern_id'])) {
+                    $_POST['default_concern_id'] = $opCid;
+                }
+                if (!isset($_POST['concerns']) || !is_array($_POST['concerns'])) {
+                    $_POST['concerns'] = [$opCid];
+                } elseif (!in_array($opCid, array_map('intval', $_POST['concerns']), true)) {
+                    $_POST['concerns'][] = $opCid;
+                }
+            }
+            $_POST['production_unit_id'] = null;
+            $_POST['staff_role'] = null;
+
             // Process concern assignment and default login session concern
             if (isset($_POST['concern_assignment_submitted']) || isset($_POST['concerns'])) {
                 $assignedConcerns = isset($_POST['concerns']) && is_array($_POST['concerns']) ? $_POST['concerns'] : [];

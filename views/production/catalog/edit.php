@@ -1,6 +1,14 @@
 <?php
+$productAttributes = json_decode((string)($product['attributes'] ?? ''), true);
+$savedVariantOptions = is_array($productAttributes) ? ($productAttributes['production_variant_options'] ?? []) : [];
 $existingSizeIds = array_filter(array_unique(array_column($variants ?? [], 'size_id')));
 $existingColorIds = array_filter(array_unique(array_column($variants ?? [], 'color_id')));
+if (empty($existingSizeIds)) {
+    $existingSizeIds = $savedVariantOptions['size_ids'] ?? [];
+}
+if (empty($existingColorIds)) {
+    $existingColorIds = $savedVariantOptions['color_ids'] ?? [];
+}
 ?>
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
@@ -280,6 +288,9 @@ $existingColorIds = array_filter(array_unique(array_column($variants ?? [], 'col
                         <h5 class="card-title mb-0 fw-bold text-dark">
                             <i class="bi bi-palette2 me-2 text-primary"></i> 2. Product Attributes
                         </h5>
+                        <?php if (!empty($product['variants_deferred'])): ?>
+                            <small class="text-muted">Variants are created after stitching is completed and QR codes are generated; they appear in the variant list after stock is posted.</small>
+                        <?php endif; ?>
                      </div>
                 </div>
                 <div class="card-body">

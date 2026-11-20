@@ -144,7 +144,7 @@ class VariantService {
     /**
      * Create a new Variant record.
      */
-    public static function createVariant(array $data): array {
+    public static function createVariant(array $data, bool $allowDeferredProduction = false): array {
         $productId = (int)($data['product_id'] ?? 0);
         if ($productId <= 0) {
             throw new InvalidArgumentException("Please select a valid Parent Catalog.");
@@ -156,6 +156,9 @@ class VariantService {
         );
         if (!$product) {
             throw new InvalidArgumentException("Parent Catalog not found.");
+        }
+        if ((int)($product['variants_deferred'] ?? 0) === 1 && !$allowDeferredProduction) {
+            throw new RuntimeException('Variants for this production style are created after stitching is completed and QR codes are generated.');
         }
 
         $colorId = !empty($data['color_id']) ? (int)$data['color_id'] : null;
@@ -426,6 +429,10 @@ class VariantService {
             $params[] = (int)$filters['product_id'];
         }
 
+        if (!empty($filters['hide_unstocked_deferred'])) {
+            $sql .= " AND (COALESCE(p.variants_deferred, 0) = 0 OR pv.is_active = 1)";
+        }
+
         if (!empty($filters['color_id'])) {
             $sql .= " AND pv.color_id = ?";
             $params[] = (int)$filters['color_id'];
@@ -499,7 +506,14 @@ class VariantService {
      * Find an existing variant matching catalog + attributes, or create a brand new one.
      * Enforces the single stable QR per variant requirement.
      */
-    public static function findOrCreateVariantForInward(int $productId, array $attrs = []): array {
+    public static function findOrCreateVariantForInward(int $productId, array $attrs = [], bool $allowDeferredProduction = false): array {
+        if (!$allowDeferredProduction) {
+            $product = Database::fetchOne("SELECT * FROM products WHERE id = ?", [$productId]);
+            if ((int)($product['variants_deferred'] ?? 0) === 1) {
+                throw new RuntimeException('Variants for this production style are created after stitching is completed and QR codes are generated.');
+            }
+        }
+
         $colorId = !empty($attrs['color_id']) ? (int)$attrs['color_id'] : self::findOrCreateColor($attrs['color'] ?? null);
         $sizeId = !empty($attrs['size_id']) ? (int)$attrs['size_id'] : self::findOrCreateSize($attrs['size'] ?? null);
         $designId = !empty($attrs['design_id']) ? (int)$attrs['design_id'] : self::findOrCreateDesign($attrs['design_name'] ?? null);
@@ -541,7 +555,7 @@ class VariantService {
             'selling_price'  => $attrs['selling_price'] ?? 0,
             'purchase_price' => $attrs['unit_price'] ?? 0,
             'production_cost'=> $attrs['unit_price'] ?? 0,
-            'is_active'      => 1
-        ]);
+            'is_active'      => isset($attrs['is_active']) ? (int)$attrs['is_active'] : 1
+        ], $allowDeferredProduction);
     }
 }

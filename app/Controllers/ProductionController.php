@@ -57,6 +57,7 @@ class ProductionController {
             if (!$productConcern) {
                 Database::execute("ALTER TABLE products ADD COLUMN concern_id INT DEFAULT NULL AFTER seller_id");
             }
+            Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
             $productConcernIndex = Database::fetchOne("SHOW INDEX FROM products WHERE Key_name = 'idx_products_concern_id'");
             if (!$productConcernIndex) {
                 Database::execute("ALTER TABLE products ADD INDEX idx_products_concern_id (concern_id)");
@@ -7988,6 +7989,39 @@ class ProductionController {
         ]);
     }
 
+    private static function encodeProductionVariantOptions(array $sizeIds, array $colorIds, ?string $currentAttributes = null): string {
+        $attributes = json_decode((string)$currentAttributes, true);
+        if (!is_array($attributes)) {
+            $attributes = [];
+            if ($currentAttributes !== null && trim($currentAttributes) !== '') {
+                $attributes['legacy_attributes'] = $currentAttributes;
+            }
+        }
+
+        $sizeIds = array_values(array_unique(array_filter(array_map('intval', $sizeIds), static fn($id) => $id > 0)));
+        $colorIds = array_values(array_unique(array_filter(array_map('intval', $colorIds), static fn($id) => $id > 0)));
+        $sizes = [];
+        $colors = [];
+
+        if (!empty($sizeIds)) {
+            $placeholders = implode(',', array_fill(0, count($sizeIds), '?'));
+            $sizes = Database::fetchAll("SELECT id, name FROM sizes WHERE id IN ($placeholders)", $sizeIds);
+        }
+        if (!empty($colorIds)) {
+            $placeholders = implode(',', array_fill(0, count($colorIds), '?'));
+            $colors = Database::fetchAll("SELECT id, name FROM colors WHERE id IN ($placeholders)", $colorIds);
+        }
+
+        $attributes['production_variant_options'] = [
+            'size_ids' => array_map('intval', array_column($sizes, 'id')),
+            'sizes' => array_values(array_column($sizes, 'name')),
+            'color_ids' => array_map('intval', array_column($colors, 'id')),
+            'colors' => array_values(array_column($colors, 'name')),
+        ];
+
+        return json_encode($attributes, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
     public function storeCatalog(): void {
         self::ensureDatabaseSchema();
         $name = mb_strtoupper(trim($_POST['name'] ?? ''));
@@ -8051,6 +8085,9 @@ class ProductionController {
         $subSubcategoryCode = mb_strtoupper(trim($_POST['sub_subcategory_code'] ?? ''));
         $qrCodePrefix = mb_strtoupper(trim($_POST['qr_code_prefix'] ?? ''));
         $activeConcernId = currentConcernId() ?: 1;
+        $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
+        $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
+        $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors);
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
@@ -8065,8 +8102,8 @@ class ProductionController {
         }
 
         Database::execute(
-            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, image_url, cloudinary_public_id, is_active, concern_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, image_url, cloudinary_public_id, is_active, concern_id, attributes, variants_deferred)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1)",
             [
                 $name,
                 $code,
@@ -8086,113 +8123,16 @@ class ProductionController {
                 $maxStock,
                 $imageUrl,
                 $cloudinaryPublicId,
-                $activeConcernId
+                $activeConcernId,
+                $attributes
             ]
         );
 
         $productId = (int)Database::lastInsertId();
 
-        // Process variants matrix or attributes
-        $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
-        $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
+        AuditService::log('production', 'create', 'products', (int)$productId, null, ['name' => $name, 'code' => $code, 'variants_deferred' => true]);
 
-        $variantCount = 0;
-        if (!empty($_POST['variants']) && is_array($_POST['variants'])) {
-            foreach ($_POST['variants'] as $v) {
-                $sizeId = !empty($v['size_id']) ? (int)$v['size_id'] : null;
-                $colorId = !empty($v['color_id']) ? (int)$v['color_id'] : null;
-                $sku = mb_strtoupper(trim($v['sku'] ?? ''));
-                $prodCost = max(0.0, (float)($v['production_cost'] ?? 0));
-                $mrp = max(0.0, (float)($v['mrp'] ?? 0));
-                $sellingPrice = max(0.0, (float)($v['selling_price'] ?? 0));
-
-                if (empty($sku)) {
-                    $sku = $code;
-                    if ($sizeId) {
-                        $sCode = Database::fetchOne("SELECT code FROM sizes WHERE id = ?", [$sizeId])['code'] ?? $sizeId;
-                        $sku .= '-' . $sCode;
-                    }
-                    if ($colorId) {
-                        $cName = Database::fetchOne("SELECT name FROM colors WHERE id = ?", [$colorId])['name'] ?? $colorId;
-                        $sku .= '-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $cName)), 0, 4);
-                    }
-                }
-
-                Database::execute(
-                    "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
-                    [
-                        $productId,
-                        $sizeId,
-                        $colorId,
-                        $sku,
-                        $mrp,
-                        $prodCost,
-                        $prodCost,
-                        $sellingPrice
-                    ]
-                );
-                $variantCount++;
-            }
-        } elseif (!empty($selectedSizes) || !empty($selectedColors)) {
-            $sizesList = !empty($selectedSizes) ? $selectedSizes : [null];
-            $colorsList = !empty($selectedColors) ? $selectedColors : [null];
-
-            foreach ($sizesList as $sizeId) {
-                $sCode = '';
-                if ($sizeId) {
-                    $sCode = Database::fetchOne("SELECT code FROM sizes WHERE id = ?", [$sizeId])['code'] ?? ('SZ' . $sizeId);
-                }
-
-                foreach ($colorsList as $colorId) {
-                    $cCode = '';
-                    if ($colorId) {
-                        $cRow = Database::fetchOne("SELECT name FROM colors WHERE id = ?", [$colorId]);
-                        $cCode = $cRow ? substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $cRow['name'])), 0, 4) : ('COL' . $colorId);
-                    }
-
-                    $skuParts = [$code];
-                    if ($sCode) $skuParts[] = $sCode;
-                    if ($cCode) $skuParts[] = $cCode;
-                    $sku = implode('-', $skuParts);
-
-                    Database::execute(
-                        "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                         VALUES (?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)",
-                        [
-                            $productId,
-                            $sizeId,
-                            $colorId,
-                            $sku
-                        ]
-                    );
-                    $variantCount++;
-                }
-            }
-        } else {
-            // Default variant
-            $defaultCost = max(0.0, (float)($_POST['default_production_cost'] ?? 0));
-            $defaultMrp = max(0.0, (float)($_POST['default_mrp'] ?? 0));
-            $defaultSelling = max(0.0, (float)($_POST['default_selling_price'] ?? 0));
-
-            Database::execute(
-                "INSERT INTO product_variants (product_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, 1)",
-                [
-                    $productId,
-                    $code . '-STD',
-                    $defaultMrp,
-                    $defaultCost,
-                    $defaultCost,
-                    $defaultSelling
-                ]
-            );
-            $variantCount = 1;
-        }
-
-        AuditService::log('production', 'create', 'products', (int)$productId, null, ['name' => $name, 'code' => $code, 'variants' => $variantCount]);
-
-        Session::flash('success', "Product style '{$name}' with {$variantCount} variant(s) created successfully.");
+        Session::flash('success', "Product style '{$name}' created. Variants will be generated after stitching is completed and will appear after stock is posted.");
         Response::redirect(url('production/catalog'));
     }
 
@@ -8444,6 +8384,16 @@ class ProductionController {
         $subcategoryCode = mb_strtoupper(trim($_POST['subcategory_code'] ?? ''));
         $subSubcategoryCode = mb_strtoupper(trim($_POST['sub_subcategory_code'] ?? ''));
         $qrCodePrefix = mb_strtoupper(trim($_POST['qr_code_prefix'] ?? ''));
+        $isDeferredVariants = (int)($product['variants_deferred'] ?? 0) === 1;
+        $productAttributes = json_decode((string)($product['attributes'] ?? ''), true);
+        $savedOptions = is_array($productAttributes) ? ($productAttributes['production_variant_options'] ?? []) : [];
+        $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
+        $selectedColors = isset($_POST['colors']) && is_array($_POST['colors'])
+            ? array_filter(array_map('intval', $_POST['colors']))
+            : ($savedOptions['color_ids'] ?? []);
+        $attributes = $isDeferredVariants
+            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null)
+            : ($product['attributes'] ?? null);
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
@@ -8458,7 +8408,7 @@ class ProductionController {
         }
 
         Database::execute(
-            "UPDATE products SET name = ?, code = ?, category_id = ?, subcategory_id = ?, sub_subcategory_id = ?, category_code = ?, subcategory_code = ?, sub_subcategory_code = ?, qr_code_prefix = ?, brand_id = ?, material = ?, description = ?, hsn_code = ?, gst_percentage = ?, min_stock = ?, max_stock = ?, image_url = ?, cloudinary_public_id = ?, updated_at = NOW()
+            "UPDATE products SET name = ?, code = ?, category_id = ?, subcategory_id = ?, sub_subcategory_id = ?, category_code = ?, subcategory_code = ?, sub_subcategory_code = ?, qr_code_prefix = ?, brand_id = ?, material = ?, description = ?, hsn_code = ?, gst_percentage = ?, min_stock = ?, max_stock = ?, image_url = ?, cloudinary_public_id = ?, attributes = ?, variants_deferred = ?, updated_at = NOW()
              WHERE id = ?",
             [
                 $name,
@@ -8479,15 +8429,14 @@ class ProductionController {
                 $maxStock,
                 $imageUrl,
                 $cloudinaryPublicId,
+                $attributes,
+                (int)$isDeferredVariants,
                 $id
             ]
         );
 
         // Sync variants from submitted variants or selected attributes
-        $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
-        $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
-
-        if (!empty($_POST['variants']) && is_array($_POST['variants'])) {
+        if (!$isDeferredVariants && !empty($_POST['variants']) && is_array($_POST['variants'])) {
             try {
                 Database::execute("DELETE FROM product_variants WHERE product_id = ?", [$id]);
             } catch (Exception $e) {
@@ -8522,7 +8471,7 @@ class ProductionController {
                     ]
                 );
             }
-        } elseif (!empty($selectedSizes) || !empty($selectedColors)) {
+        } elseif (!$isDeferredVariants && (!empty($selectedSizes) || !empty($selectedColors))) {
             // First, if specific sizes were submitted, deactivate any variant belonging to deselected sizes
             if (!empty($selectedSizes)) {
                 $placeholders = implode(',', array_fill(0, count($selectedSizes), '?'));
@@ -10944,6 +10893,21 @@ class ProductionController {
                         }
                     } else {
                         if (!in_array($cName, $parsedColors, true)) $parsedColors[] = $cName;
+                    }
+                }
+
+                $productAttributes = json_decode((string)($product['attributes'] ?? ''), true);
+                $savedOptions = is_array($productAttributes) ? ($productAttributes['production_variant_options'] ?? []) : [];
+                foreach (($savedOptions['sizes'] ?? []) as $sizeName) {
+                    $sizeName = trim((string)$sizeName);
+                    if ($sizeName !== '' && !in_array($sizeName, $parsedSizes, true)) {
+                        $parsedSizes[] = $sizeName;
+                    }
+                }
+                foreach (($savedOptions['colors'] ?? []) as $colorName) {
+                    $colorName = trim((string)$colorName);
+                    if ($colorName !== '' && !in_array($colorName, $parsedColors, true)) {
+                        $parsedColors[] = $colorName;
                     }
                 }
             }
@@ -15767,6 +15731,16 @@ class ProductionController {
             $batchId = $it['qc_batch_id'];
             if (!isset($batches[$batchId])) {
                 $batches[$batchId] = [
+                    'inventory_type'      => 'QC',
+                    'is_fabric'           => false,
+                    'is_product'          => false,
+                    'is_qc'               => true,
+                    'is_supply'           => false,
+                    'supply_item_id'      => 0,
+                    'purchase_id'         => 0,
+                    'unit'                => 'Pcs',
+                    'roll_number'         => '',
+                    'material_type'       => '',
                     'qc_batch_id'         => $batchId,
                     'program_id'          => $it['program_id'],
                     'program_number'      => $it['program_number'],
@@ -15898,24 +15872,38 @@ class ProductionController {
         }
         unset($batch);
 
-        // Include Inwarded Garment Supplies from Supply QR / Production Purchases
+        // Include All Inwarded Inventory from Purchases (Fabric Rolls, Raw Materials, Normal Garments/Products, Supplies)
         $supplyProductIds = [];
         try {
             $supplySql = "SELECT ppi.id AS supply_item_id, ppi.purchase_id, ppi.item_name, ppi.quantity, ppi.inwarded_qty,
                                  ppi.unit, ppi.unit_price, ppi.total_price, ppi.hsn_code, ppi.product_id, ppi.variant_id,
-                                 ppi.is_inwarded, ppi.inwarded_at,
-                                 pp.purchase_number, pp.purchase_date,
+                                 ppi.item_type, ppi.color, ppi.design_name, ppi.weight_kg, ppi.roll_number,
+                                 ppi.seller_roll_id, ppi.is_inwarded, ppi.inwarded_at,
+                                 pp.purchase_number, pp.purchase_date, pp.concern_id,
                                  s.name AS supplier_name, s.company AS supplier_company,
                                  p.name AS catalog_product_name, p.code AS product_sku, p.category_id,
-                                 c.name AS category_name
+                                 COALESCE(c_p.name, c_pi.name) AS category_name,
+                                 sr.roll_number AS sr_roll_number, sr.material_type AS sr_material_type,
+                                 sr.weight AS sr_weight, sr.color AS sr_color, sr.design_name AS sr_design_name,
+                                 sr.qr_code AS sr_qr_code, sr.quantity AS sr_quantity
                           FROM production_purchase_items ppi
                           JOIN production_purchases pp ON ppi.purchase_id = pp.id
                           LEFT JOIN sellers s ON pp.seller_id = s.id
+                          LEFT JOIN seller_rolls sr ON ppi.seller_roll_id = sr.id
                           LEFT JOIN products p ON ppi.product_id = p.id
-                          LEFT JOIN categories c ON p.category_id = c.id
-                          WHERE ppi.item_type = 'GENERAL_SUPPLY'
-                            AND (ppi.is_inwarded = 1 OR ppi.inwarded_qty > 0 OR pp.is_inwarded = 1)";
+                          LEFT JOIN categories c_p ON p.category_id = c_p.id
+                          LEFT JOIN categories c_pi ON ppi.mapped_category_id = c_pi.id
+                          WHERE 1=1";
             $supplyParams = [];
+
+            if ($cid) {
+                if ($cid === 1) {
+                    $supplySql .= " AND (pp.concern_id = ? OR pp.concern_id IS NULL)";
+                } else {
+                    $supplySql .= " AND pp.concern_id = ?";
+                }
+                $supplyParams[] = $cid;
+            }
 
             if (!empty($search)) {
                 $supplySql .= " AND (
@@ -15926,23 +15914,40 @@ class ProductionController {
                     OR p.name LIKE ?
                     OR p.code LIKE ?
                     OR ppi.hsn_code LIKE ?
+                    OR ppi.color LIKE ?
+                    OR sr.color LIKE ?
+                    OR ppi.roll_number LIKE ?
+                    OR sr.roll_number LIKE ?
+                    OR sr.material_type LIKE ?
                 )";
                 $sp = '%' . $search . '%';
-                $supplyParams = array_merge($supplyParams, [$sp, $sp, $sp, $sp, $sp, $sp, $sp]);
+                $supplyParams = array_merge($supplyParams, [$sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp]);
             }
 
             if ($categoryFilter) {
-                $supplySql .= " AND (p.category_id = ?)";
+                $supplySql .= " AND (p.category_id = ? OR ppi.mapped_category_id = ?)";
+                $supplyParams[] = $categoryFilter;
                 $supplyParams[] = $categoryFilter;
             }
 
-            $supplySql .= " ORDER BY ppi.inwarded_at DESC, ppi.id DESC";
+            $supplySql .= " ORDER BY COALESCE(ppi.inwarded_at, pp.purchase_date, pp.created_at) DESC, ppi.id DESC";
 
             $supplyRows = Database::fetchAll($supplySql, $supplyParams);
 
             foreach ($supplyRows as $sup) {
                 $supplyItemId = (int)$sup['supply_item_id'];
-                $rawInwardQty = (float)($sup['inwarded_qty'] > 0 ? $sup['inwarded_qty'] : ($sup['is_inwarded'] ? $sup['quantity'] : 0));
+                $itemType = strtoupper(trim((string)($sup['item_type'] ?? '')));
+                $unit = trim((string)($sup['unit'] ?? ''));
+                $unitLower = strtolower($unit);
+                
+                // Classify: Fabric vs Normal Product
+                $isFabric = in_array($itemType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'FABRIC'], true)
+                    || !empty($sup['seller_roll_id'])
+                    || !empty($sup['sr_roll_number'])
+                    || !empty($sup['roll_number'])
+                    || in_array($unitLower, ['mtr', 'meter', 'meters', 'kg', 'roll', 'rolls'], true);
+
+                $rawInwardQty = (float)($sup['inwarded_qty'] > 0 ? $sup['inwarded_qty'] : ($sup['is_inwarded'] ? $sup['quantity'] : $sup['quantity']));
                 if ($rawInwardQty <= 0 && !empty($sup['variant_id'])) {
                     $inwardedQrCnt = (int)(Database::fetchOne(
                         "SELECT COUNT(*) as cnt FROM warehouse_qr_codes WHERE variant_id = ? AND inwarded_at IS NOT NULL",
@@ -15951,7 +15956,7 @@ class ProductionController {
                     $rawInwardQty = $inwardedQrCnt > 0 ? (float)$inwardedQrCnt : (float)$sup['quantity'];
                 }
                 if ($rawInwardQty <= 0) {
-                    $rawInwardQty = (float)$sup['quantity'];
+                    $rawInwardQty = max(1.0, (float)$sup['quantity']);
                 }
 
                 // Query current stock in stock_balances for this variant
@@ -15965,6 +15970,18 @@ class ProductionController {
                         $currentAvailable = (float)$sbRow['cnt'];
                     }
                 }
+                // Check if fabric roll has been consumed in cutting/production programs
+                if ($isFabric && !empty($sup['seller_roll_id'])) {
+                    $usedCnt = (int)(Database::fetchOne(
+                        "SELECT COUNT(*) AS cnt FROM production_program_rolls ppr
+                         JOIN production_programs pp ON (pp.id = ppr.production_program_id OR pp.id = ppr.program_id)
+                         WHERE ppr.seller_roll_id = ? AND pp.status NOT IN ('CANCELLED')",
+                        [(int)$sup['seller_roll_id']]
+                    )['cnt'] ?? 0);
+                    if ($usedCnt > 0 && $currentAvailable === null) {
+                        $currentAvailable = 0.0;
+                    }
+                }
                 if ($currentAvailable === null) {
                     $currentAvailable = $rawInwardQty;
                 }
@@ -15972,23 +15989,39 @@ class ProductionController {
                 $remainingQty = max(0.0, $currentAvailable);
                 $outwardQty = max(0.0, $rawInwardQty - $remainingQty);
                 $unitPrice = (float)($sup['unit_price'] ?? 0);
+                if ($unitPrice <= 0 && $rawInwardQty > 0 && (float)($sup['total_price'] ?? 0) > 0) {
+                    $unitPrice = (float)$sup['total_price'] / $rawInwardQty;
+                }
                 $remainingVal = $remainingQty * $unitPrice;
                 $passedVal = $rawInwardQty * $unitPrice;
-                $unitName = !empty($sup['unit']) ? $sup['unit'] : 'Pcs';
+
+                $displayUnit = !empty($unit) ? $unit : ($isFabric ? 'Mtr' : 'Pcs');
+                $displayRollNo = $sup['sr_roll_number'] ?: ($sup['roll_number'] ?: '');
+                $displayColor = $sup['color'] ?: ($sup['sr_color'] ?: 'Standard');
+                $displayMaterial = $sup['sr_material_type'] ?: ($sup['design_name'] ?: ($sup['sr_design_name'] ?: ''));
+                $displayWeight = (float)($sup['sr_weight'] > 0 ? $sup['sr_weight'] : ($sup['weight_kg'] ?? 0));
+
+                $productDisplayName = !empty($sup['catalog_product_name']) 
+                    ? $sup['catalog_product_name'] 
+                    : (!empty($sup['item_name']) ? $sup['item_name'] : ($isFabric ? 'Fabric Roll ' . ($displayRollNo ?: '#' . $supplyItemId) : 'Finished Product'));
 
                 $batchKey = 'sup_' . $supplyItemId;
                 $batches[$batchKey] = [
+                    'inventory_type'        => $isFabric ? 'FABRIC' : 'PRODUCT',
+                    'is_fabric'             => $isFabric,
+                    'is_product'            => !$isFabric,
+                    'is_qc'                 => false,
                     'is_supply'             => true,
                     'supply_item_id'        => $supplyItemId,
                     'purchase_id'           => (int)$sup['purchase_id'],
-                    'qc_batch_id'           => 'SUP-' . $supplyItemId,
+                    'qc_batch_id'           => ($isFabric ? 'FAB-' : 'PRD-') . $supplyItemId,
                     'program_id'            => 0,
-                    'program_number'        => $sup['purchase_number'],
+                    'program_number'        => $sup['purchase_number'] ?: ('PO-' . $sup['purchase_id']),
                     'product_id'            => $sup['product_id'] ?? null,
-                    'product_name'          => !empty($sup['catalog_product_name']) ? $sup['catalog_product_name'] : $sup['item_name'],
-                    'category_name'         => !empty($sup['category_name']) ? $sup['category_name'] : 'Garment Supplies',
+                    'product_name'          => $productDisplayName,
+                    'category_name'         => !empty($sup['category_name']) ? $sup['category_name'] : ($isFabric ? 'Fabric & Raw Materials' : 'Normal Products'),
                     'category_id'           => $sup['category_id'] ?? null,
-                    'inspector_name'        => !empty($sup['supplier_name']) ? $sup['supplier_name'] : ($sup['supplier_company'] ?: 'Supplier Inward'),
+                    'inspector_name'        => !empty($sup['supplier_name']) ? $sup['supplier_name'] : ($sup['supplier_company'] ?: 'Purchased Inward'),
                     'batch_created_at'      => $sup['inwarded_at'] ?: $sup['purchase_date'],
                     'total_passed_pieces'   => (int)round($rawInwardQty),
                     'total_rework_pieces'   => 0,
@@ -16002,11 +16035,14 @@ class ProductionController {
                     'outward_history'       => [],
                     'outward_count'         => 0,
                     'stock_status'          => ($remainingQty > 0 ? ($outwardQty > 0 ? 'PARTIALLY_OUTWARDED' : 'IN_STOCK') : 'FULLY_OUTWARDED'),
-                    'unit'                  => $unitName,
+                    'unit'                  => $displayUnit,
+                    'roll_number'           => $displayRollNo,
+                    'material_type'         => $displayMaterial,
+                    'weight_kg'             => $displayWeight,
                     'variants'              => [
                         [
-                            'size_name'     => $unitName,
-                            'color_name'    => 'Standard',
+                            'size_name'     => $displayWeight > 0 ? ($displayWeight . ' kg') : ($displayRollNo ? ('Roll ' . $displayRollNo) : $displayUnit),
+                            'color_name'    => $displayColor,
                             'passed_qty'    => (int)round($rawInwardQty),
                             'outward_qty'   => (int)round($outwardQty),
                             'remaining_qty' => (int)round($remainingQty),
@@ -16017,8 +16053,186 @@ class ProductionController {
                     $supplyProductIds[] = (int)$sup['product_id'];
                 }
             }
+
+            // Also include standalone seller_rolls (rolls received from suppliers)
+            $existingRollNumbers = array_filter(array_column($batches, 'roll_number'));
+            $sellerRollSql = "SELECT sr.*, s.name AS supplier_name, s.company AS supplier_company
+                              FROM seller_rolls sr
+                              LEFT JOIN sellers s ON sr.seller_id = s.id
+                              WHERE 1=1";
+            $srParams = [];
+            if (!empty($search)) {
+                $sellerRollSql .= " AND (sr.roll_number LIKE ? OR sr.material_type LIKE ? OR sr.color LIKE ? OR sr.design_name LIKE ? OR s.name LIKE ?)";
+                $srs = '%' . $search . '%';
+                $srParams = [$srs, $srs, $srs, $srs, $srs];
+            }
+            $sellerRollSql .= " ORDER BY sr.id DESC LIMIT 200";
+            $standaloneRolls = Database::fetchAll($sellerRollSql, $srParams);
+            foreach ($standaloneRolls as $sRoll) {
+                if (!empty($sRoll['roll_number']) && in_array($sRoll['roll_number'], $existingRollNumbers, true)) {
+                    continue;
+                }
+                $rId = (int)$sRoll['id'];
+                $rQty = max(1.0, (float)($sRoll['quantity'] > 0 ? $sRoll['quantity'] : ($sRoll['weight'] ?? 1)));
+                $rPrice = (float)($sRoll['price'] ?? 0);
+                $rVal = $rQty * ($rPrice > 0 ? $rPrice : 0);
+
+                $isConsumed = (bool)Database::fetchOne(
+                    "SELECT ppr.id FROM production_program_rolls ppr
+                     JOIN production_programs pp ON (pp.id = ppr.production_program_id OR pp.id = ppr.program_id)
+                     WHERE ppr.seller_roll_id = ? AND pp.status NOT IN ('CANCELLED') LIMIT 1",
+                    [$rId]
+                );
+                $rRemQty = $isConsumed ? 0.0 : $rQty;
+                $rOutQty = $isConsumed ? $rQty : 0.0;
+                $rRemVal = $rRemQty * ($rPrice > 0 ? $rPrice : 0);
+
+                $rollKey = 'sr_' . $rId;
+                $batches[$rollKey] = [
+                    'inventory_type'        => 'FABRIC',
+                    'is_fabric'             => true,
+                    'is_product'            => false,
+                    'is_qc'                 => false,
+                    'is_supply'             => false,
+                    'supply_item_id'        => 0,
+                    'purchase_id'           => 0,
+                    'qc_batch_id'           => 'ROLL-' . $rId,
+                    'program_id'            => 0,
+                    'program_number'        => 'Roll #' . ($sRoll['roll_number'] ?: $rId),
+                    'product_name'          => !empty($sRoll['material_type']) ? $sRoll['material_type'] : ('Fabric Roll ' . ($sRoll['roll_number'] ?: '#' . $rId)),
+                    'category_name'         => 'Fabric & Raw Materials',
+                    'category_id'           => null,
+                    'inspector_name'        => !empty($sRoll['supplier_name']) ? $sRoll['supplier_name'] : ($sRoll['supplier_company'] ?: 'Supplier Roll'),
+                    'batch_created_at'      => $sRoll['created_at'] ?? 'now',
+                    'total_passed_pieces'   => (int)round($rQty),
+                    'total_rework_pieces'   => 0,
+                    'total_rejected_pieces' => 0,
+                    'total_pieces'          => (int)round($rQty),
+                    'total_value'           => $rVal,
+                    'total_outward_pieces'  => (int)round($rOutQty),
+                    'remaining_pieces'      => (int)round($rRemQty),
+                    'remaining_value'       => $rRemVal,
+                    'total_passed_value'    => $rVal,
+                    'outward_history'       => [],
+                    'outward_count'         => 0,
+                    'stock_status'          => ($rRemQty > 0 ? 'IN_STOCK' : 'FULLY_OUTWARDED'),
+                    'unit'                  => 'Mtr',
+                    'roll_number'           => $sRoll['roll_number'] ?: '',
+                    'material_type'         => $sRoll['material_type'] ?: '',
+                    'weight_kg'             => (float)($sRoll['weight'] ?? 0),
+                    'variants'              => [
+                        [
+                            'size_name'     => (float)($sRoll['weight'] ?? 0) > 0 ? ($sRoll['weight'] . ' kg') : ($sRoll['roll_number'] ? 'Roll ' . $sRoll['roll_number'] : 'Mtr'),
+                            'color_name'    => $sRoll['color'] ?: 'Standard',
+                            'passed_qty'    => (int)round($rQty),
+                            'outward_qty'   => (int)round($rOutQty),
+                            'remaining_qty' => (int)round($rRemQty),
+                        ]
+                    ],
+                ];
+            }
+
+            // Also check active catalog products with available stock in stock_balances
+            $prodStockSql = "SELECT p.id AS product_id, p.name AS product_name, p.code AS product_sku,
+                                    p.category_id, c.name AS category_name, p.base_price,
+                                    pv.id AS variant_id, pv.sku AS variant_sku,
+                                    COALESCE(NULLIF(pv.price, 0), p.base_price, 0) AS variant_price,
+                                    co.name AS color_name, sz.name AS size_name,
+                                    COALESCE(SUM(sb.quantity), 0) AS available_stock
+                             FROM products p
+                             JOIN product_variants pv ON pv.product_id = p.id
+                             LEFT JOIN categories c ON p.category_id = c.id
+                             LEFT JOIN colors co ON pv.color_id = co.id
+                             LEFT JOIN sizes sz ON pv.size_id = sz.id
+                             LEFT JOIN stock_balances sb ON sb.variant_id = pv.id AND sb.stock_state = 'AVAILABLE'
+                             WHERE p.is_active = 1";
+            $prodStockParams = [];
+            if ($cid) {
+                if ($cid === 1) {
+                    $prodStockSql .= " AND (p.concern_id = ? OR p.concern_id IS NULL)";
+                } else {
+                    $prodStockSql .= " AND p.concern_id = ?";
+                }
+                $prodStockParams[] = $cid;
+            }
+            if (!empty($search)) {
+                $prodStockSql .= " AND (p.name LIKE ? OR p.code LIKE ? OR pv.sku LIKE ? OR co.name LIKE ? OR sz.name LIKE ?)";
+                $psp = '%' . $search . '%';
+                $prodStockParams = array_merge($prodStockParams, [$psp, $psp, $psp, $psp, $psp]);
+            }
+            if ($categoryFilter) {
+                $prodStockSql .= " AND p.category_id = ?";
+                $prodStockParams[] = $categoryFilter;
+            }
+            $prodStockSql .= " GROUP BY pv.id HAVING available_stock > 0 ORDER BY p.name ASC LIMIT 100";
+            $catalogStock = Database::fetchAll($prodStockSql, $prodStockParams);
+            foreach ($catalogStock as $cProd) {
+                $pId = (int)$cProd['product_id'];
+                $vId = (int)$cProd['variant_id'];
+                $pStock = (float)$cProd['available_stock'];
+                $pPrice = (float)$cProd['variant_price'];
+                $pVal = $pStock * $pPrice;
+
+                $prodKey = 'cat_prod_' . $vId;
+                if (!isset($batches[$prodKey])) {
+                    $batches[$prodKey] = [
+                        'inventory_type'        => 'PRODUCT',
+                        'is_fabric'             => false,
+                        'is_product'            => true,
+                        'is_qc'                 => false,
+                        'is_supply'             => false,
+                        'supply_item_id'        => 0,
+                        'purchase_id'           => 0,
+                        'qc_batch_id'           => 'PRD-' . $vId,
+                        'program_id'            => 0,
+                        'program_number'        => $cProd['product_sku'] ?: ('SKU-' . $pId),
+                        'product_name'          => $cProd['product_name'],
+                        'category_name'         => $cProd['category_name'] ?: 'Catalog Products',
+                        'category_id'           => $cProd['category_id'] ?? null,
+                        'inspector_name'        => 'Catalog Stock',
+                        'batch_created_at'      => 'now',
+                        'total_passed_pieces'   => (int)round($pStock),
+                        'total_rework_pieces'   => 0,
+                        'total_rejected_pieces' => 0,
+                        'total_pieces'          => (int)round($pStock),
+                        'total_value'           => $pVal,
+                        'total_outward_pieces'  => 0,
+                        'remaining_pieces'      => (int)round($pStock),
+                        'remaining_value'       => $pVal,
+                        'total_passed_value'    => $pVal,
+                        'outward_history'       => [],
+                        'outward_count'         => 0,
+                        'stock_status'          => 'IN_STOCK',
+                        'unit'                  => 'Pcs',
+                        'roll_number'           => '',
+                        'material_type'         => '',
+                        'weight_kg'             => 0,
+                        'variants'              => [
+                            [
+                                'size_name'     => $cProd['size_name'] ?: 'Standard',
+                                'color_name'    => $cProd['color_name'] ?: 'Standard',
+                                'passed_qty'    => (int)round($pStock),
+                                'outward_qty'   => 0,
+                                'remaining_qty' => (int)round($pStock),
+                            ]
+                        ],
+                    ];
+                    $supplyProductIds[] = $pId;
+                }
+            }
         } catch (\Throwable $e) {
-            error_log('Error loading supply inventory: ' . $e->getMessage());
+            error_log('Error loading fabric and normal product inventory: ' . $e->getMessage());
+        }
+
+        // Apply type filter if specified in URL query
+        $typeFilter = strtolower(trim($_GET['type'] ?? ''));
+        if (!empty($typeFilter) && in_array($typeFilter, ['fabric', 'product', 'qc'], true)) {
+            $batches = array_filter($batches, function($b) use ($typeFilter) {
+                if ($typeFilter === 'fabric') return !empty($b['is_fabric']);
+                if ($typeFilter === 'product') return !empty($b['is_product']);
+                if ($typeFilter === 'qc') return !empty($b['is_qc']);
+                return true;
+            });
         }
 
         // Overall stats reflecting remaining inventory & outward history
@@ -16033,6 +16247,9 @@ class ProductionController {
             'unique_batches_count'      => count($batches),
             'in_stock_batches_count'    => count(array_filter($batches, fn($b) => ($b['remaining_pieces'] ?? 0) > 0)),
             'unique_products_count'     => count(array_unique(array_filter(array_merge(array_column($items, 'product_id'), $supplyProductIds)))),
+            'fabric_count'              => count(array_filter($batches, fn($b) => !empty($b['is_fabric']))),
+            'product_count'             => count(array_filter($batches, fn($b) => !empty($b['is_product']))),
+            'qc_count'                  => count(array_filter($batches, fn($b) => !empty($b['is_qc']))),
         ];
 
         // Fetch categories for filter dropdown
@@ -16043,6 +16260,14 @@ class ProductionController {
 
         Response::view('production.inventory.index', [
             'pageTitle'      => 'Production Inventory',
+            'activeModule'   => 'production',
+            'activeMenu'     => 'prod-inventory',
+            'batches'        => array_values($batches),
+            'stats'          => $stats,
+            'categories'     => $categories,
+            'search'         => $search,
+            'categoryFilter' => $categoryFilter,
+            'typeFilter'     => $typeFilter,
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-inventory',
             'batches'        => array_values($batches),

@@ -64,7 +64,7 @@ class QrGenerationService {
         if ($done) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && (int)($_SESSION['_qr_schema_ensured'] ?? 0) >= 2) {
+        if (session_status() === PHP_SESSION_ACTIVE && (int)($_SESSION['_qr_schema_ensured'] ?? 0) >= 3) {
             $done = true;
             return;
         }
@@ -78,6 +78,7 @@ class QrGenerationService {
         Database::ensureColumn('qr_generations', 'stock_added', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER qc_batch_id');
         Database::ensureColumn('qr_generations', 'stock_added_at', 'DATETIME DEFAULT NULL AFTER stock_added');
         Database::ensureColumn('qr_generations', 'stock_added_by', 'INT UNSIGNED DEFAULT NULL AFTER stock_added_at');
+        Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
 
         Database::ensureColumn('stitching_batches', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER status');
         Database::ensureColumn('stitching_batches', 'qr_batch_code', 'VARCHAR(50) DEFAULT NULL AFTER qr_generation_id');
@@ -111,7 +112,7 @@ class QrGenerationService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_qr_schema_ensured'] = 2;
+            $_SESSION['_qr_schema_ensured'] = 3;
         }
         $done = true;
     }
@@ -839,6 +840,7 @@ class QrGenerationService {
         $stitchingBatch = Database::fetchOne("
             SELECT sb.*, pp.program_number, pp.name AS program_name, pp.product_id AS prog_product_id,
                    p.name AS product_name, p.code AS product_code, p.gst_percentage,
+                   COALESCE(p.variants_deferred, 0) AS variants_deferred,
                    c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
             FROM stitching_batches sb
             INNER JOIN production_programs pp ON pp.id = sb.program_id
@@ -851,6 +853,10 @@ class QrGenerationService {
 
         if (!$stitchingBatch) {
             throw new InvalidArgumentException('Stitching batch record not found.');
+        }
+
+        if (strtoupper(trim((string)($stitchingBatch['status'] ?? ''))) !== 'COMPLETED') {
+            throw new RuntimeException('Complete the stitching batch before generating QR codes.');
         }
 
         if (!empty($stitchingBatch['qr_generation_id'])) {
@@ -874,6 +880,9 @@ class QrGenerationService {
         }
         if ($totalQty <= 0) {
             $totalQty = max(1, (int)($stitchingBatch['stitched_qty'] ?: $stitchingBatch['received_qty']));
+        }
+        if (!empty($stitchingBatch['variants_deferred']) && empty($items)) {
+            throw new RuntimeException('Add size and color quantities to the completed stitching batch before generating garment variants.');
         }
 
         $batchCode = self::generateBatchCode();
@@ -923,6 +932,7 @@ class QrGenerationService {
                         'sequence' => $sequence,
                         'status' => 'ACTIVE',
                         'variant_id' => $variantId ?: null,
+                        'stitching_item_id' => (int)$it['id'],
                         'size_name' => $sizeName ?: null,
                         'color_name' => $colorName ?: null,
                         'mrp' => $mrp,
@@ -943,6 +953,7 @@ class QrGenerationService {
                     'sequence' => $sequence,
                     'status' => 'ACTIVE',
                     'variant_id' => null,
+                    'stitching_item_id' => null,
                     'size_name' => null,
                     'color_name' => null,
                     'mrp' => 0.0,
@@ -955,10 +966,64 @@ class QrGenerationService {
             throw new RuntimeException('No stitched pieces are available for QR generation.');
         }
         $totalQty = count($codes);
-        $batchVariantId = count($uniqueVariants) === 1 ? (int)array_key_first($uniqueVariants) : null;
-
         Database::beginTransaction();
         try {
+            if (!empty($stitchingBatch['variants_deferred'])) {
+                $productId = (int)($stitchingBatch['prog_product_id'] ?? 0);
+                if ($productId <= 0) {
+                    throw new RuntimeException('The completed stitching batch is not linked to a product style.');
+                }
+
+                foreach ($items as $index => $it) {
+                    $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
+                    if ($itemQty <= 0) {
+                        continue;
+                    }
+
+                    $variantId = (int)($it['variant_id'] ?? 0);
+                    if ($variantId > 0 && (int)($it['variant_product_id'] ?? 0) !== $productId) {
+                        throw new RuntimeException('A stitching item is linked to a variant from a different product style.');
+                    }
+
+                    $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
+                    $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
+                    if (in_array(strtoupper($sizeName), ['STANDARD', 'ALL'], true)) {
+                        $sizeName = '';
+                    }
+                    if (in_array(strtoupper($colorName), ['STANDARD', 'ASSORTED', 'ALL'], true)) {
+                        $colorName = '';
+                    }
+                    $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? ($it['variant_mrp'] ?? 0) : ($it['base_price'] ?? 0));
+                    $sellingPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? ($it['variant_selling_price'] ?? 0) : ($it['discount_price'] ?? 0));
+
+                    if ($variantId <= 0) {
+                        $variant = VariantService::findOrCreateVariantForInward($productId, [
+                            'size' => $sizeName ?: null,
+                            'color' => $colorName ?: null,
+                            'mrp' => $mrp,
+                            'selling_price' => $sellingPrice,
+                            'is_active' => 0,
+                        ], true);
+                        $variantId = (int)($variant['id'] ?? 0);
+                        if ($variantId <= 0) {
+                            throw new RuntimeException('Unable to create a variant for a completed stitching item.');
+                        }
+                        Database::execute("UPDATE stitching_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$it['id']]);
+                    }
+
+                    $items[$index]['variant_id'] = $variantId;
+                    $items[$index]['variant_product_id'] = $productId;
+                    $uniqueVariants[$variantId] = true;
+                    foreach ($codes as $codeIndex => $codeItem) {
+                        if ((int)($codeItem['stitching_item_id'] ?? 0) === (int)$it['id']) {
+                            $codes[$codeIndex]['variant_id'] = $variantId;
+                        }
+                    }
+                }
+                $firstProductId = $productId;
+            }
+
+            $batchVariantId = count($uniqueVariants) === 1 ? (int)array_key_first($uniqueVariants) : null;
             Database::execute("
                 INSERT INTO qr_generations (
                     batch_code, generation_type, qr_source, stitching_batch_id, program_id,
@@ -1016,6 +1081,17 @@ class QrGenerationService {
             if ($existingQc) {
                 $qcBatchId = (int)$existingQc['id'];
                 Database::execute("UPDATE qc_batches SET qr_generation_id = ? WHERE id = ?", [$generationId, $qcBatchId]);
+                if (!empty($stitchingBatch['variants_deferred'])) {
+                    Database::execute("
+                        UPDATE qc_items qi
+                        JOIN stitching_items si
+                          ON si.stitching_batch_id = ?
+                         AND UPPER(TRIM(COALESCE(qi.size_name, ''))) = UPPER(TRIM(COALESCE(si.size_name, '')))
+                         AND UPPER(TRIM(COALESCE(qi.color_name, ''))) = UPPER(TRIM(COALESCE(si.color_name, '')))
+                        SET qi.variant_id = si.variant_id
+                        WHERE qi.qc_batch_id = ? AND qi.variant_id IS NULL AND si.variant_id IS NOT NULL
+                    ", [$stitchingBatchId, $qcBatchId]);
+                }
             } else {
                 $qcBatchNum = 'QC-' . date('Ymd') . '-' . str_pad((string)$stitchingBatchId, 4, '0', STR_PAD_LEFT);
                 Database::execute("

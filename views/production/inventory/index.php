@@ -23,8 +23,8 @@
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
                     <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Remaining</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Available in production unit</small>
+                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">units</span></h3>
+                    <small class="text-muted d-block mt-1"><?= number_format($stats['in_stock_batches_count'] ?? 0) ?> active in-stock lots</small>
                 </div>
                 <div class="bg-success text-white rounded-3 p-3">
                     <i class="bi bi-box-seam-fill fs-4"></i>
@@ -39,7 +39,7 @@
                 <div>
                     <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Valuation</span>
                     <h3 class="fw-bold text-primary mb-0 mt-1">₹<?= number_format($stats['total_remaining_valuation'] ?? 0, 2) ?></h3>
-                    <small class="text-muted d-block mt-1">Current available value</small>
+                    <small class="text-muted d-block mt-1">Fabric &amp; product valuation</small>
                 </div>
                 <div class="bg-primary text-white rounded-3 p-3">
                     <i class="bi bi-currency-rupee fs-4"></i>
@@ -52,9 +52,9 @@
         <div class="card border-0 shadow-sm bg-danger bg-opacity-10 h-100">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward Dispatched</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Dispatched to warehouses</small>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward / Consumed</span>
+                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">units</span></h3>
+                    <small class="text-muted d-block mt-1">Dispatched or cut into production</small>
                 </div>
                 <div class="bg-danger text-white rounded-3 p-3">
                     <i class="bi bi-truck fs-4"></i>
@@ -67,30 +67,50 @@
         <div class="card border-0 shadow-sm bg-info bg-opacity-10 h-100">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Total QC Passed</span>
-                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format($stats['total_passed_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1"><?= number_format($stats['unique_batches_count'] ?? 0) ?> Total QC Batches</small>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Inventory Categories</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format(count($batches)) ?> <span class="fs-6 fw-normal text-muted">lots</span></h3>
                     <div class="d-flex flex-wrap gap-1 mt-2">
-                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                            Rework: <?= number_format($stats['total_rework_pieces'] ?? 0) ?>
+                        <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
+                            Fabric: <?= number_format($stats['fabric_count'] ?? 0) ?>
                         </span>
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
-                            Rejected: <?= number_format($stats['total_rejected_pieces'] ?? 0) ?>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            Products: <?= number_format($stats['product_count'] ?? 0) ?>
+                        </span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                            QC: <?= number_format($stats['qc_count'] ?? 0) ?>
                         </span>
                     </div>
                 </div>
                 <div class="bg-info text-dark rounded-3 p-3">
-                    <i class="bi bi-patch-check-fill fs-4"></i>
+                    <i class="bi bi-layers-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Quick Stock Type Filter Pills -->
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <span class="text-muted small fw-semibold me-1"><i class="bi bi-funnel me-1"></i>Stock Type:</span>
+    <button type="button" class="btn btn-sm <?= (empty($typeFilter) || $typeFilter === 'all') ? 'btn-dark' : 'btn-outline-secondary' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('all')">
+        All Stock (<?= count($batches) ?>)
+    </button>
+    <button type="button" class="btn btn-sm <?= ($typeFilter === 'fabric') ? 'btn-purple text-white' : 'btn-outline-purple' ?> rounded-pill px-3 shadow-xs inv-type-btn" style="<?= ($typeFilter === 'fabric') ? 'background-color:#7e22ce;color:#fff;' : 'color:#7e22ce;border:1px solid #d8b4fe;' ?>" onclick="filterByInvType('fabric')">
+        <i class="bi bi-palette me-1"></i>Fabric Rolls (<?= $stats['fabric_count'] ?? 0 ?>)
+    </button>
+    <button type="button" class="btn btn-sm <?= ($typeFilter === 'product') ? 'btn-primary' : 'btn-outline-primary' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('product')">
+        <i class="bi bi-tag me-1"></i>Normal Products (<?= $stats['product_count'] ?? 0 ?>)
+    </button>
+    <button type="button" class="btn btn-sm <?= ($typeFilter === 'qc') ? 'btn-success' : 'btn-outline-success' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('qc')">
+        <i class="bi bi-patch-check me-1"></i>QC Batches (<?= $stats['qc_count'] ?? 0 ?>)
+    </button>
+</div>
+
 <!-- Filters & Search -->
 <div class="card mb-4 border-0 shadow-sm">
     <div class="card-body">
         <form method="GET" action="<?= url('production/inventory') ?>" class="row g-3 align-items-end" id="inventoryFilterForm">
+            <input type="hidden" name="type" id="filterInvTypeInput" value="<?= e($typeFilter ?? 'all') ?>">
             <div class="col-md-5">
                 <label for="inventorySearchInput" class="form-label small text-muted fw-semibold">Search Inventory</label>
                 <div class="input-group">
@@ -99,7 +119,7 @@
                            name="search" 
                            id="inventorySearchInput" 
                            class="form-control border-start-0" 
-                           placeholder="Search product name, program #, batch #, size, color, outward #..." 
+                           placeholder="Search fabric, roll #, product name, program #, batch #, color..." 
                            value="<?= e($search ?? '') ?>"
                            autocomplete="off">
                     <?php if (!empty($search)): ?>
@@ -124,7 +144,7 @@
                 <button type="submit" class="btn btn-primary flex-grow-1">
                     <i class="bi bi-funnel me-1"></i> Filter
                 </button>
-                <?php if (!empty($search) || !empty($categoryFilter)): ?>
+                <?php if (!empty($search) || !empty($categoryFilter) || (!empty($typeFilter) && $typeFilter !== 'all')): ?>
                     <a href="<?= url('production/inventory') ?>" class="btn btn-outline-danger" title="Reset All Filters">
                         <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
                     </a>
@@ -227,37 +247,91 @@ $inventoryVariantCount = array_sum(array_map(
                 <tr class="batch-list-row"
                     data-batch-id="<?= e($batch['qc_batch_id']) ?>"
                     data-category-id="<?= (int)($batch['category_id'] ?? 0) ?>"
+                    data-inv-type="<?= e($batch['inventory_type'] ?? 'QC') ?>"
                     data-search-text="<?= e($variantSearchText) ?>"
                     data-filter-match="true">
                     <td class="text-nowrap">
-                        <?php if (!empty($batch['is_supply'])): ?>
+                        <?php if (!empty($batch['is_fabric'])): ?>
+                            <div class="fw-semibold" style="color: #7e22ce;">
+                                <?php if (!empty($batch['supply_item_id'])): ?>
+                                    <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none" style="color: #7e22ce;">
+                                        <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
+                                <?php endif; ?>
+                            </div>
+                            <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important; font-size: 10px;">Fabric Stock</span>
+                        <?php elseif (!empty($batch['is_product'])): ?>
+                            <div class="fw-semibold text-primary">
+                                <?php if (!empty($batch['supply_item_id'])): ?>
+                                    <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none text-primary">
+                                        <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                    </a>
+                                <?php elseif (!empty($batch['product_id'])): ?>
+                                    <a href="<?= url('production/products/view/' . $batch['product_id']) ?>" class="text-decoration-none text-primary">
+                                        <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                <?php endif; ?>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 10px;">Normal Product</span>
+                        <?php elseif (!empty($batch['is_supply'])): ?>
                             <div class="fw-semibold text-success">
                                 <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none text-success">
                                     <i class="bi bi-box-seam me-1"></i>Supply Inward #<?= (int)($batch['supply_item_id'] ?? 0) ?>
                                 </a>
                             </div>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">Supply Item</span>
                         <?php else: ?>
-                            <div class="fw-semibold">QC Batch #<?= (int)$batch['qc_batch_id'] ?></div>
+                            <div class="fw-semibold text-dark">
+                                <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>" class="text-decoration-none text-dark">
+                                    <i class="bi bi-patch-check-fill me-1 text-success"></i>QC Batch #<?= (int)$batch['qc_batch_id'] ?>
+                                </a>
+                            </div>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">QC Finished</span>
                         <?php endif; ?>
-                        <small class="text-muted"><?= (new DateTime($batch['batch_created_at'] ?? 'now'))->format('d M Y, g:i A') ?></small>
+                        <small class="text-muted d-block"><?= (new DateTime($batch['batch_created_at'] ?? 'now'))->format('d M Y, g:i A') ?></small>
                     </td>
                     <td>
-                        <?php if (!empty($batch['is_supply'])): ?>
+                        <?php if (!empty($batch['purchase_id'])): ?>
                             <a href="<?= url('production/purchases/supply-qr/' . $batch['purchase_id']) ?>" class="text-decoration-none fw-semibold text-primary">
                                 <?= e($batch['program_number']) ?>
                             </a>
-                        <?php else: ?>
+                        <?php elseif (!empty($batch['program_id'])): ?>
                             <a href="<?= url('production/programs/view/' . $batch['program_id']) ?>" class="text-decoration-none fw-semibold">
                                 <?= e($batch['program_number']) ?>
                             </a>
+                        <?php else: ?>
+                            <span class="fw-semibold text-secondary"><?= e($batch['program_number']) ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($batch['inspector_name'])): ?>
+                            <small class="text-muted d-block text-truncate" style="max-width: 150px;"><?= e($batch['inspector_name']) ?></small>
                         <?php endif; ?>
                     </td>
                     <td>
                         <div class="fw-semibold text-dark"><?= e($batch['product_name']) ?></div>
                         <div class="d-flex flex-wrap gap-1 mt-1">
-                            <?php if (!empty($batch['is_supply'])): ?>
-                                <span class="badge bg-success-subtle text-success border">Supply Item</span>
-                                <span class="badge bg-secondary-subtle text-secondary border">Unit: <?= e($variant['size_name']) ?></span>
+                            <?php if (!empty($batch['is_fabric'])): ?>
+                                <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">Fabric</span>
+                                <?php if (!empty($batch['roll_number'])): ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border">Roll: <?= e($batch['roll_number']) ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($variant['color_name'])): ?>
+                                    <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($variant['size_name'])): ?>
+                                    <span class="badge bg-light text-dark border"><?= e($variant['size_name']) ?></span>
+                                <?php endif; ?>
+                            <?php elseif (!empty($batch['is_product'])): ?>
+                                <span class="badge bg-primary-subtle text-primary border">Product</span>
+                                <?php if (!empty($variant['size_name'])): ?>
+                                    <span class="badge bg-secondary-subtle text-secondary border">Size: <?= e($variant['size_name']) ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($variant['color_name'])): ?>
+                                    <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="badge bg-secondary-subtle text-secondary border">Size: <?= e($variant['size_name']) ?></span>
                                 <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
@@ -267,9 +341,9 @@ $inventoryVariantCount = array_sum(array_map(
                             <small class="text-muted d-block mt-1"><?= e($batch['category_name']) ?></small>
                         <?php endif; ?>
                     </td>
-                    <td class="text-center fw-semibold"><?= number_format($variant['passed_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : 'pcs' ?></td>
-                    <td class="text-center fw-semibold text-success"><?= number_format($variant['remaining_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : 'pcs' ?></td>
-                    <td class="text-center fw-semibold text-danger"><?= number_format($variant['outward_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : 'pcs' ?></td>
+                    <td class="text-center fw-semibold"><?= number_format($variant['passed_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
+                    <td class="text-center fw-semibold text-success"><?= number_format($variant['remaining_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
+                    <td class="text-center fw-semibold text-danger"><?= number_format($variant['outward_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
                     <td>
                         <?php if ($variant['remaining_qty'] === 0): ?>
                             <span class="badge bg-secondary-subtle text-secondary border">Fully Outwarded</span>
@@ -400,12 +474,20 @@ $inventoryVariantCount = array_sum(array_map(
                 <div class="d-flex align-items-start justify-content-between mb-3 batch-list-header">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-1">
-                            <?php if (!empty($batch['is_supply'])): ?>
+                            <?php if (!empty($batch['is_fabric'])): ?>
+                                <span class="badge border px-3 py-2 fs-6 fw-bold text-nowrap" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
+                                    <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
+                                </span>
+                            <?php elseif (!empty($batch['is_product'])): ?>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
+                                    <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                </span>
+                            <?php elseif (!empty($batch['is_supply'])): ?>
                                 <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 fw-bold text-nowrap text-decoration-none">
                                     <i class="bi bi-box-seam me-1"></i>Supply Inward #<?= (int)($batch['supply_item_id'] ?? 0) ?>
                                 </a>
                             <?php else: ?>
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
                                     <i class="bi bi-patch-check-fill me-1"></i>QC Batch #<?= $batch['qc_batch_id'] ?>
                                 </span>
                             <?php endif; ?>
@@ -945,6 +1027,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+function filterByInvType(type) {
+    const input = document.getElementById('filterInvTypeInput');
+    if (input) input.value = type;
+    const form = document.getElementById('inventoryFilterForm');
+    if (form) form.submit();
+}
 
 function openEditSupplyStockModal(data) {
     if (!data) return;

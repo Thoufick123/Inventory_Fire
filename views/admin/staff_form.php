@@ -173,78 +173,44 @@ foreach ($hierarchicalModules as $m) {
                                 </div>
                             </div>
 
-                            <!-- Department Selection Cards (5 Distinct Operational Concerns) -->
+                            <input type="hidden" name="department" id="selected_department" value="<?= e($dept ?: 'PRODUCTION') ?>">
+
+                            <!-- Dynamic Operational Concern Selection Cards -->
                             <div class="col-12 pt-3 border-top">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <label class="form-label fw-bold text-dark mb-0">
-                                        <i class="bi bi-diagram-3 text-primary me-2"></i>Select Department / Operational Concern <span class="text-danger">*</span>
+                                        <i class="bi bi-buildings-fill text-primary me-2"></i>Select Department / Operational Concern <span class="text-danger">*</span>
                                     </label>
-                                    <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Auto-scoped based on assigned role</span>
+                                    <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Dynamic list of registered business concerns</span>
                                 </div>
-                                <div class="row row-cols-1 row-cols-sm-2 g-2.5" id="departmentCards">
-                                    <!-- 1. Production -->
+                                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-2.5" id="departmentCards">
+                                    <?php 
+                                    $activeOpConcernId = (int)($defaultConcernId ?? 0);
+                                    if ($activeOpConcernId <= 0 && !empty($concerns)) {
+                                        $activeOpConcernId = (int)$concerns[0]['id'];
+                                    }
+                                    foreach (($concerns ?? []) as $cIdx => $c): 
+                                        $cId = (int)$c['id'];
+                                        $isActiveOp = ($cId === $activeOpConcernId);
+                                    ?>
                                     <div class="col">
-                                        <input type="radio" class="btn-check dept-radio" name="department" id="dept_production" value="PRODUCTION" <?= $dept === 'PRODUCTION' ? 'checked' : '' ?>>
-                                        <label class="btn btn-outline-primary w-100 p-2.5 text-start d-flex align-items-center h-100 dept-card rounded-3 shadow-xs" for="dept_production" id="label_dept_production">
+                                        <input type="radio" class="btn-check dept-concern-radio" name="operational_concern_id" id="dept_concern_<?= $cId ?>" value="<?= $cId ?>" <?= $isActiveOp ? 'checked' : '' ?> onchange="handleOperationalConcernSelection(<?= $cId ?>)">
+                                        <label class="btn btn-outline-primary w-100 p-2.5 text-start d-flex align-items-center h-100 dept-card rounded-3 shadow-xs <?= $isActiveOp ? 'active' : '' ?>" for="dept_concern_<?= $cId ?>" id="label_dept_concern_<?= $cId ?>">
                                             <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-2 text-primary flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                                <i class="bi bi-gear-wide-connected fs-5"></i>
+                                                <i class="bi bi-buildings fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1 min-w-0">
                                                 <div class="d-flex align-items-center justify-content-between">
-                                                    <span class="fw-bold text-truncate" style="font-size: 13.5px;">Production</span>
-                                                    <span class="dept-badge badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small d-none" style="font-size: 9px;">Auto</span>
+                                                    <span class="fw-bold text-truncate" style="font-size: 13.5px;"><?= e($c['name']) ?></span>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small" style="font-size: 9.5px;"><?= e($c['code']) ?></span>
                                                 </div>
-                                                <div class="text-muted small text-truncate" style="font-size: 11px;">Manufacturing &amp; Facilities</div>
+                                                <div class="text-muted small text-truncate" style="font-size: 11px;"><?= e($c['legal_name'] ?: 'Operational Concern') ?></div>
                                             </div>
                                         </label>
                                     </div>
-
-                                    <!-- 2. Administration -->
-                                    <div class="col">
-                                        <input type="radio" class="btn-check dept-radio" name="department" id="dept_general" value="GENERAL" <?= $dept === 'GENERAL' ? 'checked' : '' ?>>
-                                        <label class="btn btn-outline-dark w-100 p-2.5 text-start d-flex align-items-center h-100 dept-card rounded-3 shadow-xs" for="dept_general" id="label_dept_general">
-                                            <div class="rounded-circle bg-dark bg-opacity-10 p-2 me-2 text-dark flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                                <i class="bi bi-shield-lock fs-5"></i>
-                                            </div>
-                                            <div class="flex-grow-1 min-w-0">
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <span class="fw-bold text-truncate" style="font-size: 13.5px;">Administration</span>
-                                                    <span class="dept-badge badge bg-dark-subtle text-dark border border-dark-subtle rounded-pill small d-none" style="font-size: 9px;">Auto</span>
-                                                </div>
-                                                <div class="text-muted small text-truncate" style="font-size: 11px;">System &amp; Administration</div>
-                                            </div>
-                                        </label>
-                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
-
-                            <!-- Dynamic Facility Dropdown Block -->
-                            <div class="col-12 pt-2">
-                                <!-- Production Unit Block -->
-                                <div class="dept-unit-block" id="block_production">
-                                    <label for="production_unit_id" class="form-label fw-semibold">Assigned Production Unit</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light"><i class="bi bi-gear-wide"></i></span>
-                                        <select id="production_unit_id" name="production_unit_id" class="form-select">
-                                            <option value="">-- All Production Units --</option>
-                                            <?php foreach ($productionUnits as $pu): ?>
-                                                <option value="<?= $pu['id'] ?>" <?= (string)($staff['production_unit_id'] ?? '') === (string)$pu['id'] ? 'selected' : '' ?>>
-                                                    <?= e($pu['name']) ?> (<?= e($pu['code']) ?>)
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="mt-3">
-                                        <label for="staff_role" class="form-label fw-semibold">Production Staff Designation</label>
-                                        <select id="staff_role" name="staff_role" class="form-select">
-                                            <option value="">-- General Staff / Supervisor / Manager --</option>
-                                            <option value="CUTTING_MASTER" <?= ($staff['staff_role'] ?? '') === 'CUTTING_MASTER' ? 'selected' : '' ?>>Cutting Master / Operator</option>
-                                            <option value="TAILOR" <?= ($staff['staff_role'] ?? '') === 'TAILOR' ? 'selected' : '' ?>>Tailor / Stitching Master</option>
-                                            <option value="QC_INSPECTOR" <?= ($staff['staff_role'] ?? '') === 'QC_INSPECTOR' ? 'selected' : '' ?>>QC Inspector</option>
-                                        </select>
-                                        <small class="text-muted">Designates which production operation dropdown (Cutting, Stitching, or QC) this staff member appears in.</small>
-                                    </div>
-                                </div>
 
                                 <!-- Status Toggle (Only on Edit) -->
                             <?php if ($isEdit): ?>
@@ -707,130 +673,42 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // =========================================================================
-    // Department & Role Auto-Choose Logic
+    // Operational Concern & Role Auto-Choose Logic
     // =========================================================================
-    const deptRadios = document.querySelectorAll('.dept-radio');
     const roleSelect = document.getElementById('role_id');
     const warningBox = document.getElementById('role_mismatch_warning');
     const warningMsg = document.getElementById('role_mismatch_msg');
     const staffForm  = document.getElementById('staffForm');
 
-    function syncRoleAndDepartment(autoSelect = true) {
-        const selectedOption = roleSelect ? roleSelect.options[roleSelect.selectedIndex] : null;
-        const depts = ['PRODUCTION', 'GENERAL'];
-
-        if (!selectedOption || !selectedOption.value) {
-            depts.forEach(d => {
-                const radio = document.getElementById('dept_' + d.toLowerCase());
-                const label = document.getElementById('label_dept_' + d.toLowerCase());
-                const badge = label?.querySelector('.dept-badge');
-                if (radio) radio.disabled = false;
-                if (label) label.classList.remove('dept-card-disabled');
-                if (badge) badge.classList.add('d-none');
-            });
-            updateFacilityBlocks();
-            if (warningBox) warningBox.classList.add('d-none');
-            return;
+    window.handleOperationalConcernSelection = function(concernId) {
+        const chk = document.getElementById('concern_' + concernId);
+        if (chk && !chk.checked) {
+            chk.checked = true;
+            syncDefaultConcernOptions();
         }
-
-        const rolePrimaryDept = (selectedOption.getAttribute('data-primary-dept') || 'ALL').toUpperCase();
-        let roleDepts = [];
-        try {
-            roleDepts = JSON.parse(selectedOption.getAttribute('data-departments') || '[]').map(d => d.toUpperCase());
-        } catch (e) {}
-
-        let allowedDepts = [];
-        if (rolePrimaryDept === 'ALL' || (roleDepts.length === 0 && rolePrimaryDept === 'ALL')) {
-            allowedDepts = ['PRODUCTION', 'GENERAL'];
-        } else if (roleDepts.length > 0) {
-            allowedDepts = roleDepts.filter(d => depts.includes(d));
-            if (allowedDepts.length === 0 && depts.includes(rolePrimaryDept)) {
-                allowedDepts = [rolePrimaryDept];
-            }
-        } else if (depts.includes(rolePrimaryDept)) {
-            allowedDepts = [rolePrimaryDept];
-        } else {
-            allowedDepts = ['PRODUCTION', 'GENERAL'];
+        const defSelect = document.getElementById('default_concern_id');
+        if (defSelect) {
+            defSelect.value = concernId;
         }
-
-        let currentlyChecked = document.querySelector('.dept-radio:checked')?.value;
-        let targetDept = currentlyChecked;
-        if (!allowedDepts.includes(currentlyChecked) || (allowedDepts.length === 1 && autoSelect)) {
-            targetDept = allowedDepts.includes(rolePrimaryDept) ? rolePrimaryDept : allowedDepts[0];
-        }
-
-        depts.forEach(d => {
-            const radio = document.getElementById('dept_' + d.toLowerCase());
-            const label = document.getElementById('label_dept_' + d.toLowerCase());
-            const badge = label?.querySelector('.dept-badge');
-            const isAllowed = allowedDepts.includes(d);
-
-            if (radio) {
-                if (d === targetDept && isAllowed) {
-                    radio.checked = true;
-                    radio.disabled = false;
-                } else {
-                    radio.disabled = !isAllowed;
-                }
-            }
-
-            if (label) {
-                if (isAllowed) {
-                    label.classList.remove('dept-card-disabled');
-                    if (badge) {
-                        if (allowedDepts.length === 1 && d === targetDept) {
-                            badge.innerHTML = '<i class="bi bi-shield-check me-1"></i>Auto Selected';
-                            badge.className = 'dept-badge badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small';
-                            badge.classList.remove('d-none');
-                        } else {
-                            badge.classList.add('d-none');
-                        }
-                    }
-                } else {
-                    label.classList.add('dept-card-disabled');
-                    if (badge) {
-                        badge.innerHTML = '<i class="bi bi-slash-circle me-1"></i>Disabled for Role';
-                        badge.className = 'dept-badge badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill small';
-                        badge.classList.remove('d-none');
-                    }
-                }
+        document.querySelectorAll('.dept-concern-radio').forEach(r => {
+            const lbl = document.getElementById('label_dept_concern_' + r.value);
+            if (lbl) {
+                lbl.classList.toggle('active', r.checked);
             }
         });
+    };
 
-        updateFacilityBlocks();
+    function syncRoleAndDepartment(autoSelect = true) {
+        const selectedOption = roleSelect ? roleSelect.options[roleSelect.selectedIndex] : null;
+        const targetDept = document.getElementById('selected_department')?.value || 'PRODUCTION';
+
         syncPermissionsScopeWithDepartment(targetDept);
         if (warningBox) warningBox.classList.add('d-none');
     }
 
-    function updateFacilityBlocks() {
-        const selectedDept = document.querySelector('.dept-radio:checked')?.value || 'PRODUCTION';
-        
-        document.getElementById('block_production')?.classList.toggle('d-none', selectedDept !== 'PRODUCTION');
-        document.getElementById('block_warehouse')?.classList.toggle('d-none', selectedDept !== 'WAREHOUSE');
-        document.getElementById('block_whatsapp')?.classList.toggle('d-none', selectedDept !== 'WHATSAPP');
-        document.getElementById('block_website')?.classList.toggle('d-none', selectedDept !== 'WEBSITE');
-        document.getElementById('block_shop')?.classList.toggle('d-none', selectedDept !== 'SHOP');
-    }
-
-    deptRadios.forEach(radio => radio.addEventListener('change', function () {
-        updateFacilityBlocks();
-        syncPermissionsScopeWithDepartment(this.value);
-    }));
-
-    // =========================================================================
-    // Dynamic Permissions Matrix Synchronization & Scoped Editing
-    // =========================================================================
-    const allPermCheckboxes = document.querySelectorAll('.perm-checkbox');
-    const activePermCountEl = document.getElementById('activePermCount');
-    const permSyncBadge = document.getElementById('permSyncBadge');
-    const syncRoleName = document.getElementById('syncRoleName');
-    const permModuleFilter = document.getElementById('permModuleFilter');
-    const permModuleBlocks = document.querySelectorAll('.perm-module-block');
-    const btnResetToRole = document.getElementById('btnResetToRole');
-
     function syncPermissionsScopeWithDepartment(selectedDept) {
         if (!selectedDept) {
-            selectedDept = document.querySelector('.dept-radio:checked')?.value || 'PRODUCTION';
+            selectedDept = document.getElementById('selected_department')?.value || 'PRODUCTION';
         }
         selectedDept = selectedDept.toUpperCase();
 
@@ -1206,7 +1084,33 @@ document.addEventListener('DOMContentLoaded', function () {
             opt.textContent = '-- Select at least one authorized concern above --';
             select.appendChild(opt);
         }
+
+        const activeCid = select.value;
+        if (activeCid) {
+            const rad = document.getElementById('dept_concern_' + activeCid);
+            if (rad && !rad.checked) {
+                rad.checked = true;
+            }
+            document.querySelectorAll('.dept-concern-radio').forEach(r => {
+                const lbl = document.getElementById('label_dept_concern_' + r.value);
+                if (lbl) {
+                    lbl.classList.toggle('active', r.checked);
+                }
+            });
+        }
     };
+
+    const defConcernSelect = document.getElementById('default_concern_id');
+    if (defConcernSelect) {
+        defConcernSelect.addEventListener('change', function() {
+            const val = this.value;
+            const rad = document.getElementById('dept_concern_' + val);
+            if (rad) {
+                rad.checked = true;
+                handleOperationalConcernSelection(val);
+            }
+        });
+    }
 
     // Initialize concern dropdown options
     syncDefaultConcernOptions();

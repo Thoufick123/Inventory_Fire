@@ -1273,6 +1273,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `brand_id` int(10) unsigned DEFAULT NULL,
   `seller_id` int(10) unsigned DEFAULT NULL,
   `concern_id` int(11) DEFAULT NULL,
+  `variants_deferred` tinyint(1) NOT NULL DEFAULT 0,
   `source_type` enum('OWN_PRODUCTION','EXTERNAL_PURCHASE') NOT NULL DEFAULT 'OWN_PRODUCTION',
   `is_complementary` tinyint(1) NOT NULL DEFAULT 0,
   `material` varchar(200) DEFAULT NULL,

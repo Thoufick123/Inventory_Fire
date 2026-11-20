@@ -14,6 +14,7 @@ class VariantController {
      * List all variants with rich filtering and stock levels.
      */
     public function index(): void {
+        Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
         $filters = [
             'search'         => trim($_GET['search'] ?? ''),
             'category_id'    => !empty($_GET['category_id']) ? (int)$_GET['category_id'] : null,
@@ -23,6 +24,7 @@ class VariantController {
             'design_id'      => !empty($_GET['design_id']) ? (int)$_GET['design_id'] : null,
             'size_id'        => !empty($_GET['size_id']) ? (int)$_GET['size_id'] : null,
             'is_active'      => isset($_GET['is_active']) && $_GET['is_active'] !== '' ? (int)$_GET['is_active'] : null,
+            'hide_unstocked_deferred' => true,
         ];
 
         $variants = VariantService::listVariants($filters);

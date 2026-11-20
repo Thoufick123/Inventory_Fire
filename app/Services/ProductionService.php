@@ -1382,6 +1382,10 @@ class ProductionService {
     public static function findOrCreateVariant(int $productId, ?string $sizeName = null, ?string $colorName = null, ?string $sku = null): int {
         $sizeName = trim($sizeName ?? '');
         $colorName = trim($colorName ?? '');
+        $product = Database::fetchOne("SELECT * FROM products WHERE id = ?", [$productId]);
+        if ((int)($product['variants_deferred'] ?? 0) === 1) {
+            throw new RuntimeException('Variants for this production style are created after stitching is completed and QR codes are generated.');
+        }
 
         $sizeId = null;
         if ($sizeName !== '' && $sizeName !== 'Standard' && $sizeName !== 'All') {
@@ -1446,7 +1450,6 @@ class ProductionService {
         }
 
         // Generate SKU if needed
-        $product = Database::fetchOne("SELECT code, name FROM products WHERE id = ?", [$productId]);
         $prodCode = $product['code'] ?? ('PRD-' . $productId);
 
         $skuParts = [$prodCode];

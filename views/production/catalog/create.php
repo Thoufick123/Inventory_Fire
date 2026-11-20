@@ -268,6 +268,7 @@
                         <h5 class="card-title mb-0 fw-bold text-dark">
                             <i class="bi bi-palette2 me-2 text-primary"></i> 2. Product Attributes
                         </h5>
+                        <small class="text-muted">Garment variants are created after stitching is completed and QR codes are generated; they appear in the variant list after stock is posted.</small>
                      </div>
                 </div>
                 <div class="card-body">

@@ -333,6 +333,7 @@ class QrGenerationController {
             LEFT JOIN subcategories sc ON sc.id = COALESCE(sb.subcategory_id, p.subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(sb.sub_subcategory_id, p.sub_subcategory_id)
             WHERE (sb.qr_generation_id IS NULL OR sb.qr_generation_id = 0)
+              AND UPPER(COALESCE(sb.status, '')) = 'COMPLETED'
               {$concernWhere}
             ORDER BY sb.id DESC
             LIMIT 200

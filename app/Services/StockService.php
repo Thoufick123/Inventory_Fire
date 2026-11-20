@@ -13,6 +13,7 @@ require_once BASE_PATH . '/app/Models/StockBalance.php';
 require_once BASE_PATH . '/app/Models/StockTransaction.php';
 
 class StockService {
+    private static ?bool $deferredVariantColumnAvailable = null;
 
     /**
      * Increase stock at a location.
@@ -32,6 +33,11 @@ class StockService {
     ): bool {
         if ($quantity <= 0) {
             throw new InvalidArgumentException("Increase quantity must be positive. Got: $quantity");
+        }
+        if (self::$deferredVariantColumnAvailable === null) {
+            self::$deferredVariantColumnAvailable = Database::fetchOne(
+                "SHOW COLUMNS FROM products LIKE 'variants_deferred'"
+            ) !== null;
         }
 
         Database::beginTransaction();
@@ -57,6 +63,16 @@ class StockService {
                 'user_id'          => $userId,
                 'notes'            => $notes,
             ]);
+
+            if (self::$deferredVariantColumnAvailable && strtoupper($stockState) === 'AVAILABLE') {
+                Database::execute(
+                    "UPDATE product_variants pv
+                     JOIN products p ON p.id = pv.product_id
+                     SET pv.is_active = 1
+                     WHERE pv.id = ? AND p.variants_deferred = 1",
+                    [$variantId]
+                );
+            }
 
             Database::commit();
 
