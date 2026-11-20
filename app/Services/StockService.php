@@ -364,41 +364,6 @@ class StockService {
         }
     }
 
-    /**
-     * Adjust stock (increase or decrease with reason).
-     * Used for: Approved stock adjustments
-     */
-    public static function adjust(
-        int $variantId,
-        string $locationType,
-        int $locationId,
-        string $adjustmentType,
-        float $quantity,
-        string $reason,
-        ?int $userId = null,
-        ?string $notes = null
-    ): bool {
-        if ($quantity <= 0) {
-            throw new InvalidArgumentException("Adjustment quantity must be positive.");
-        }
-
-        $transactionType = $adjustmentType === 'INCREASE' ? 'ADJUSTMENT_INCREASE' : 'ADJUSTMENT_DECREASE';
-
-        if ($adjustmentType === 'INCREASE') {
-            return self::increase(
-                $variantId, $locationType, $locationId, 'AVAILABLE',
-                $quantity, $transactionType, 'stock_adjustments', null,
-                $userId, "ADJUSTMENT: $reason. $notes"
-            );
-        } else {
-            return self::decrease(
-                $variantId, $locationType, $locationId, 'AVAILABLE',
-                $quantity, $transactionType, 'stock_adjustments', null,
-                $userId, "ADJUSTMENT: $reason. $notes"
-            );
-        }
-    }
-
     // ====================================================
     // QUERY METHODS
     // ====================================================

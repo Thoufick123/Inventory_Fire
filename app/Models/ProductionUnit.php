@@ -194,10 +194,13 @@ class ProductionUnit {
             } while (true);
         }
 
+        $cid = isset($data['concern_id']) ? (!empty($data['concern_id']) ? (int)$data['concern_id'] : null) : (function_exists('currentConcernId') ? currentConcernId() : null);
+
         Database::execute(
-            "INSERT INTO production_units (name, code, manager_name, address, phone, gst_number, logo_url, manager_id, is_active, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+            "INSERT INTO production_units (concern_id, name, code, manager_name, address, phone, gst_number, logo_url, manager_id, is_active, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
             [
+                $cid,
                 trim($data['name']),
                 $code,
                 trim($data['manager_name'] ?? ''),
@@ -217,23 +220,25 @@ class ProductionUnit {
      */
     public static function update(int $id, array $data): bool {
         self::ensureSchema();
-        return Database::execute(
-            "UPDATE production_units 
-             SET name = ?, code = ?, manager_name = ?, address = ?, phone = ?, gst_number = ?, logo_url = ?, manager_id = ?, is_active = ?, updated_at = NOW()
-             WHERE id = ?",
-            [
-                trim($data['name']),
-                strtoupper(trim($data['code'])),
-                trim($data['manager_name'] ?? ''),
-                $data['address'] ?? null,
-                trim($data['phone'] ?? ''),
-                $data['gst_number'] ?? null,
-                $data['logo_url'] ?? null,
-                !empty($data['manager_id']) ? (int)$data['manager_id'] : null,
-                isset($data['is_active']) ? (int)$data['is_active'] : 1,
-                $id
-            ]
-        ) >= 0;
+        $fields = [
+            'name = ?'         => trim($data['name']),
+            'code = ?'         => strtoupper(trim($data['code'])),
+            'manager_name = ?' => trim($data['manager_name'] ?? ''),
+            'address = ?'      => $data['address'] ?? null,
+            'phone = ?'        => trim($data['phone'] ?? ''),
+            'gst_number = ?'   => $data['gst_number'] ?? null,
+            'logo_url = ?'     => $data['logo_url'] ?? null,
+            'manager_id = ?'   => !empty($data['manager_id']) ? (int)$data['manager_id'] : null,
+            'is_active = ?'    => isset($data['is_active']) ? (int)$data['is_active'] : 1,
+        ];
+        if (array_key_exists('concern_id', $data)) {
+            $fields['concern_id = ?'] = !empty($data['concern_id']) ? (int)$data['concern_id'] : null;
+        }
+        $setClauses = implode(', ', array_keys($fields)) . ', updated_at = NOW()';
+        $params = array_values($fields);
+        $params[] = $id;
+
+        return Database::execute("UPDATE production_units SET {$setClauses} WHERE id = ?", $params) >= 0;
     }
 
     /**

@@ -426,7 +426,7 @@ function hasPermission(string $module, ?string $action = null): bool {
         }
     }
     if ($module === 'production_stock_requests' || $module === 'stock_requests' || $module === 'stock_requirements') {
-        if (in_array('production_stock_requests.' . $action, $userPermissions, true) || in_array('stock_requests.' . $action, $userPermissions, true) || in_array('stock_adjustments.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
+        if (in_array('production_stock_requests.' . $action, $userPermissions, true) || in_array('stock_requests.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
             return true;
         }
     }
@@ -452,11 +452,6 @@ function hasPermission(string $module, ?string $action = null): bool {
     }
     if ($module === 'inward' || $module === 'inwards') {
         if (in_array('inward.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
-            return true;
-        }
-    }
-    if ($module === 'stock_adjustments') {
-        if (in_array('stock_adjustments.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
             return true;
         }
     }
@@ -562,21 +557,6 @@ function hasPermission(string $module, ?string $action = null): bool {
             return true;
         }
         if ($action === 'edit' && in_array('backup.restore', $userPermissions, true)) {
-            return true;
-        }
-    }
-
-    // Warehouse: Stock Adjustments aliases & backward-compatibility
-    if ($module === 'stock_adjustments') {
-        if (in_array('stock_adjustments.' . $action, $userPermissions, true)) {
-            return true;
-        }
-        if (($action === 'create' || $action === 'edit') && in_array('stock.adjust', $userPermissions, true)) {
-            return true;
-        }
-    }
-    if ($module === 'stock' && $action === 'adjust') {
-        if (in_array('stock_adjustments.create', $userPermissions, true) || in_array('stock_adjustments.edit', $userPermissions, true)) {
             return true;
         }
     }

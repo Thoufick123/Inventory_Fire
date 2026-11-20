@@ -414,11 +414,6 @@ class Role {
             ['stock', 'edit', 'Edit Stock Records & Bin Assignments', 'stock.edit', null],
             ['stock', 'delete', 'Delete Stock Records & Bin Entries', 'stock.delete', null],
 
-            ['stock_adjustments', 'view', 'View Stock Adjustments & Physical Count History', 'stock_adjustments.view', null],
-            ['stock_adjustments', 'create', 'Create & Apply Stock Adjustments', 'stock_adjustments.create', null],
-            ['stock_adjustments', 'edit', 'Edit Stock Adjustment Metadata & Reason Notes', 'stock_adjustments.edit', null],
-            ['stock_adjustments', 'delete', 'Delete & Reject Pending Stock Adjustments', 'stock_adjustments.delete', null],
-
             ['wh_sellers', 'view', 'View Warehouse Suppliers & Vendor Ledgers', 'wh_sellers.view', null],
             ['wh_sellers', 'create', 'Add Warehouse Suppliers & Procurement Logs', 'wh_sellers.create', null],
             ['wh_sellers', 'edit', 'Edit Supplier Details & Vendor Contracts', 'wh_sellers.edit', null],
@@ -771,7 +766,6 @@ class Role {
                     'qc'                        => ['name' => 'QC', 'icon' => 'bi-shield-check', 'desc' => 'AQL inspections, passed/failed piece audits, and rework queues', 'department' => 'PRODUCTION'],
                     'inventory'                 => ['name' => 'Inventory', 'icon' => 'bi-boxes', 'desc' => 'Unassigned lot staging bays and finished goods floor storage', 'department' => 'PRODUCTION'],
                     'inward'                    => ['name' => 'Goods Inward (GRN)', 'icon' => 'bi-box-arrow-in-down', 'desc' => 'Inward finished goods from production units and suppliers', 'department' => 'PRODUCTION'],
-                    'stock_adjustments'         => ['name' => 'Stock Adjustments (QR)', 'icon' => 'bi-arrow-left-right', 'desc' => 'Scan QR to reconcile physical vs system stock balances', 'department' => 'PRODUCTION'],
                     'production_expenses'       => ['name' => 'Expenses', 'icon' => 'bi-currency-rupee', 'desc' => 'Machine maintenance, repair costs, threads, needles, and daily floor expenses', 'department' => 'PRODUCTION'],
                     'production_billing'        => ['name' => 'Billing', 'icon' => 'bi-receipt-cutoff', 'desc' => 'Production client orders, sales bills, GST invoicing, and payment receipts', 'department' => 'PRODUCTION'],
                     'production_returns'        => ['name' => 'Returns & Exchanges', 'icon' => 'bi-arrow-left-right', 'desc' => 'Production client customer returns, piece exchanges, and credit notes', 'department' => 'PRODUCTION'],

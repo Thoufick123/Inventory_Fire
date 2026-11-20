@@ -338,18 +338,6 @@ class Router {
         $this->get('api/production/inward/lookup/{code}', 'InwardController', 'ajaxLookupBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('api/production/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
-        // ==========================================
-        // STOCK ADJUSTMENTS (QR-BASED)
-        // ==========================================
-        $this->get('production/stock-adjustments', 'StockAdjustmentController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->get('production/stock-adjustments/create', 'StockAdjustmentController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->post('production/stock-adjustments/store', 'StockAdjustmentController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'create']]);
-        $this->get('production/stock-adjustments/view/{id}', 'StockAdjustmentController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'stock_adjustments', 'view']]);
-        $this->post('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
-        $this->get('api/stock-adjustments/resolve-item', 'StockAdjustmentController', 'apiResolveItem', ['AuthMiddleware']);
-
-
-
         // Production Reports & CSV / Excel Export (Legacy forward to ExportController)
         $this->get('production/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
         $this->post('production/reports/export', 'ExportController', 'download', ['AuthMiddleware']);

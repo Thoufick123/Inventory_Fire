@@ -697,23 +697,74 @@ class ProductionBillingController
     private function renderForm(?array $bill, array $preloadedItems = [], ?int $overrideUnitId = null): void
     {
         $billItems = $bill ? $this->loadBillItems((int)$bill['id']) : $preloadedItems;
-        $productionUnits = function_exists('getScopedProductionUnits')
-            ? getScopedProductionUnits()
-            : ProductionUnit::getAll(['is_active' => 1]);
+        $activeConcern = function_exists('currentConcern') ? currentConcern() : null;
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+        // Fetch production units scoped to active concern
+        $productionUnits = [];
+        if ($cid !== null) {
+            $productionUnits = Database::fetchAll(
+                "SELECT * FROM production_units WHERE is_active = 1 AND concern_id = ? ORDER BY name ASC",
+                [$cid]
+            );
+        }
+
+        // If no units specifically allocated to this concern, also include shared units (concern_id IS NULL)
+        if (empty($productionUnits)) {
+            $productionUnits = Database::fetchAll(
+                "SELECT * FROM production_units WHERE is_active = 1 AND concern_id IS NULL ORDER BY name ASC"
+            );
+        }
+
+        // If still empty and we have an active concern, auto-provision a default facility for the concern
+        if (empty($productionUnits) && $activeConcern) {
+            $puCode = 'PU-' . (!empty($activeConcern['code']) ? $activeConcern['code'] : '01');
+            $suffix = 1;
+            while (Database::fetchOne("SELECT id FROM production_units WHERE code = ?", [$puCode])) {
+                $puCode = 'PU-' . (!empty($activeConcern['code']) ? $activeConcern['code'] : '01') . '-' . (++$suffix);
+            }
+            $puName = ($activeConcern['name'] ?: 'Production Unit') . ' (Plant)';
+            try {
+                $newPuId = ProductionUnit::create([
+                    'concern_id' => $cid,
+                    'name'       => $puName,
+                    'code'       => $puCode,
+                    'address'    => $activeConcern['address'] ?: 'Primary Production Facility',
+                    'phone'      => $activeConcern['phone'] ?: null,
+                    'gst_number' => $activeConcern['gst_number'] ?: null,
+                    'is_active'  => 1,
+                ]);
+                $productionUnits = Database::fetchAll(
+                    "SELECT * FROM production_units WHERE is_active = 1 AND (id = ? OR concern_id = ?)",
+                    [$newPuId, $cid]
+                );
+            } catch (\Throwable $e) {
+                // If creation fails, fallback to all active production units
+                $productionUnits = Database::fetchAll("SELECT * FROM production_units WHERE is_active = 1 ORDER BY id ASC");
+            }
+        }
+
+        // Ultimate fallback to ensure dropdown is never empty
+        if (empty($productionUnits)) {
+            $productionUnits = Database::fetchAll("SELECT * FROM production_units WHERE is_active = 1 ORDER BY id ASC");
+        }
+
         $targetUnitId = !empty($bill['production_unit_id']) ? (int)$bill['production_unit_id'] : ($overrideUnitId ?: 0);
         $savedUnit = $targetUnitId > 0 ? ProductionUnit::find($targetUnitId) : null;
-        $prodUnit = $savedUnit ?: ProductionUnit::getActiveFacility();
+        $prodUnit = $savedUnit ?: (!empty($productionUnits) ? $productionUnits[0] : ProductionUnit::getActiveFacility());
         if ($savedUnit && !array_filter($productionUnits, static fn(array $unit): bool => (int)$unit['id'] === (int)$savedUnit['id'])) {
             $productionUnits[] = $savedUnit;
         }
+
         Response::view('production.billing.form', [
-            'pageTitle' => $bill ? 'Edit Production Bill' : 'Create Production Bill',
-            'activeModule' => 'production',
-            'activeMenu' => 'prod-billing',
-            'bill' => $bill,
-            'billItems' => $billItems,
-            'prodUnit' => $prodUnit,
+            'pageTitle'       => $bill ? 'Edit Production Bill' : 'Create Production Bill',
+            'activeModule'    => 'production',
+            'activeMenu'      => 'prod-billing',
+            'bill'            => $bill,
+            'billItems'       => $billItems,
+            'prodUnit'        => $prodUnit,
             'productionUnits' => $productionUnits,
+            'activeConcern'   => $activeConcern,
         ]);
     }
 
@@ -1093,6 +1144,18 @@ class ProductionBillingController
         $productionUnit = $productionUnitId > 0
             ? Database::fetchOne("SELECT id, is_active FROM production_units WHERE id = ?", [$productionUnitId])
             : null;
+        if (!$productionUnit || (int)$productionUnit['is_active'] !== 1) {
+            $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+            if ($cid) {
+                $productionUnit = Database::fetchOne("SELECT id, is_active FROM production_units WHERE concern_id = ? AND is_active = 1 ORDER BY id ASC LIMIT 1", [$cid]);
+            }
+            if (!$productionUnit) {
+                $productionUnit = Database::fetchOne("SELECT id, is_active FROM production_units WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+            }
+            if ($productionUnit) {
+                $productionUnitId = (int)$productionUnit['id'];
+            }
+        }
         if (!$productionUnit || (int)$productionUnit['is_active'] !== 1) {
             Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Select an active production unit for this bill.');
             return;

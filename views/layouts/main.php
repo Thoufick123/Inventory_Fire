@@ -77,7 +77,7 @@ if (!empty($authUser['production_unit_name'])) {
                     $canViewProduction = (
                         ($modPurchases && (hasPermission('sellers', 'view') || hasPermission('production_purchases', 'view') || hasPermission('production_purchase_mapping', 'view') || hasPermission('purchases', 'view')))
                         || ($modProduction && (hasPermission('production', 'view') || hasPermission('damages', 'view') || hasPermission('catalog', 'view') || hasPermission('variants', 'view') || hasPermission('qr_generation', 'view') || hasPermission('programs', 'view') || hasPermission('cutting', 'view') || hasPermission('wastage', 'view') || hasPermission('stitching', 'view') || hasPermission('stitching_wastage', 'view') || hasPermission('qc', 'view')))
-                        || ($modWarehouse && (hasPermission('inventory', 'view') || hasPermission('inward', 'view') || hasPermission('stock_adjustments', 'view') || hasPermission('batches', 'view') || hasPermission('outward', 'view') || hasPermission('production_stock_requests', 'view') || hasPermission('warehouse_rework', 'view')))
+                        || ($modWarehouse && (hasPermission('inventory', 'view') || hasPermission('inward', 'view') || hasPermission('batches', 'view') || hasPermission('outward', 'view') || hasPermission('production_stock_requests', 'view') || hasPermission('warehouse_rework', 'view')))
                         || ($modExpenses && hasPermission('production_expenses', 'view'))
                         || ($modRetailPos && hasPermission('production_billing', 'view'))
                         || ($modReturns && hasPermission('production_returns', 'view'))
