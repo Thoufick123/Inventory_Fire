@@ -64,7 +64,7 @@ class QrGenerationService {
         if ($done) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_qr_schema_ensured'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && (int)($_SESSION['_qr_schema_ensured'] ?? 0) >= 2) {
             $done = true;
             return;
         }
@@ -85,8 +85,19 @@ class QrGenerationService {
         Database::ensureColumn('qr_generation_items', 'variant_id', 'INT UNSIGNED DEFAULT NULL AFTER generation_id');
         Database::ensureColumn('qr_generation_items', 'size_name', 'VARCHAR(100) DEFAULT NULL AFTER variant_id');
         Database::ensureColumn('qr_generation_items', 'color_name', 'VARCHAR(100) DEFAULT NULL AFTER size_name');
+        Database::ensureColumn('qr_generation_items', 'design_name', 'VARCHAR(150) DEFAULT NULL AFTER color_name');
+        Database::ensureColumn('qr_generation_items', 'sequence_num', 'INT NOT NULL DEFAULT 0 AFTER qr_code');
+        Database::ensureColumn('qr_generation_items', 'status', "ENUM('ACTIVE','USED','DAMAGED','CANCELLED') DEFAULT 'ACTIVE' AFTER sequence_num");
         Database::ensureColumn('qr_generation_items', 'mrp', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER color_name');
         Database::ensureColumn('qr_generation_items', 'selling_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER mrp');
+
+        foreach (Database::fetchAll("SHOW COLUMNS FROM qr_generation_items") as $column) {
+            if ($column['Field'] === 'item_code' && $column['Null'] === 'NO') {
+                Database::execute("ALTER TABLE qr_generation_items MODIFY item_code VARCHAR(100) NULL DEFAULT NULL");
+            } elseif ($column['Field'] === 'sequence_number' && $column['Null'] === 'NO') {
+                Database::execute("ALTER TABLE qr_generation_items MODIFY sequence_number INT UNSIGNED NULL DEFAULT NULL");
+            }
+        }
 
         foreach ([
             'ALTER TABLE qr_generations ADD KEY idx_qrg_source (qr_source)',
@@ -100,7 +111,7 @@ class QrGenerationService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_qr_schema_ensured'] = 1;
+            $_SESSION['_qr_schema_ensured'] = 2;
         }
         $done = true;
     }
@@ -748,19 +759,43 @@ class QrGenerationService {
             $generationId = (int)Database::lastInsertId();
 
             $inserted = 0;
+            $qrItemColumns = array_column(Database::fetchAll("SHOW COLUMNS FROM qr_generation_items"), 'Field');
+            $insertColumns = ['generation_id', 'qr_code', 'sequence_num', 'status', 'color_name', 'design_name', 'size_name'];
+            if (in_array('item_code', $qrItemColumns, true)) {
+                $insertColumns[] = 'item_code';
+            }
+            if (in_array('sequence_number', $qrItemColumns, true)) {
+                $insertColumns[] = 'sequence_number';
+            }
+            $insertSql = "INSERT INTO qr_generation_items (`" . implode('`, `', $insertColumns) . "`) VALUES ("
+                . implode(', ', array_fill(0, count($insertColumns), '?')) . ")";
             foreach ($codes as $codeRow) {
                 try {
                     Database::execute(
-                        "INSERT INTO qr_generation_items (generation_id, qr_code, sequence_num, status, color_name, design_name, size_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [$generationId, $codeRow['code'], (int)$codeRow['sequence'], $codeRow['status'], $item['color'] ?? null, $item['design_name'] ?? null, $item['size'] ?? null]
+                        $insertSql,
+                        array_merge(
+                            [
+                                $generationId,
+                                $codeRow['code'],
+                                (int)$codeRow['sequence'],
+                                $codeRow['status'],
+                                $item['color'] ?? null,
+                                $item['design_name'] ?? null,
+                                $item['size'] ?? null,
+                            ],
+                            in_array('item_code', $qrItemColumns, true) ? [$codeRow['code']] : [],
+                            in_array('sequence_number', $qrItemColumns, true) ? [(int)$codeRow['sequence']] : []
+                        )
                     );
                     $inserted++;
-                } catch (Throwable $e) {
-                    // A code already used by another batch is skipped.
+                } catch (PDOException $e) {
+                    if ((int)($e->errorInfo[1] ?? 0) !== 1062) {
+                        throw $e;
+                    }
                 }
             }
             if ($inserted === 0) {
-                throw new RuntimeException('All QR codes for this item were already generated.');
+                throw new RuntimeException("No QR labels were inserted. Every label in this purchase item's code range already exists; verify the purchase item and QR range.");
             }
 
             Database::execute("UPDATE qr_generations SET quantity = ? WHERE id = ?", [$inserted, $generationId]);

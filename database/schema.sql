@@ -1550,6 +1550,7 @@ CREATE TABLE IF NOT EXISTS `qr_generation_items` (
   `variant_id` int(10) unsigned DEFAULT NULL,
   `size_name` varchar(100) DEFAULT NULL,
   `color_name` varchar(100) DEFAULT NULL,
+  `design_name` varchar(150) DEFAULT NULL,
   `mrp` decimal(10,2) DEFAULT NULL,
   `selling_price` decimal(10,2) DEFAULT NULL,
   `qr_code` varchar(100) NOT NULL,
