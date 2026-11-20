@@ -847,49 +847,70 @@ class QrGenerationService {
         $cid = function_exists('currentConcernId') ? currentConcernId() : ($stitchingBatch['concern_id'] ?? null);
         $userId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : 1;
 
-        // Generate variant-wise sequential codes, matching catalog/variant QR behavior.
+        // Option A: Unified Sequential Tracking QR for Production Pieces
+        // Unified batch prefix (e.g. PRD2611) across all sizes/variants.
+        // Piece codes run sequentially: PRD2611-0001, PRD2611-0002...
+        // Each piece item in qr_generation_items stores its exact variant_id, size_name, color_name, mrp, selling_price.
+        $cleanPrefix = strtoupper(trim(preg_replace('/[^A-Za-z0-9_-]+/', '', $prefix)));
+        if ($cleanPrefix === '') {
+            $cleanPrefix = 'PRD' . date('ym');
+        }
+
         $codes = [];
-        $sequence = self::nextSequence($prefix);
+        $sequence = self::nextSequence($cleanPrefix);
         $uniqueVariants = [];
         $firstProductId = 0;
-        foreach ($items as $it) {
-            $variantId = (int)($it['variant_id'] ?? 0);
-            $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
-            if ($itemQty <= 0) continue;
+        if (!empty($items)) {
+            foreach ($items as $it) {
+                $variantId = (int)($it['variant_id'] ?? 0);
+                $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
+                if ($itemQty <= 0) continue;
 
-            $variantSku = trim((string)($it['sku'] ?? ''));
-            $variantCode = trim((string)($it['variant_code'] ?? ''));
-            $variantPrefix = $variantSku ?: $variantCode;
-            $itemPrefix = $variantPrefix !== ''
-                ? strtoupper($brandName) . '-' . strtoupper(preg_replace('/[^A-Za-z0-9]+/', '-', $variantPrefix))
-                : strtoupper($prefix);
-            $itemPrefix = rtrim($itemPrefix, '-');
+                $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
+                $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
+                $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? ($it['variant_mrp'] ?? 0) : ($it['base_price'] ?? 0));
+                $sellingPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? ($it['variant_selling_price'] ?? 0) : ($it['discount_price'] ?? 0));
 
-            $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
-            $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
-            $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? ($it['variant_mrp'] ?? 0) : ($it['base_price'] ?? 0));
-            $sellingPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? ($it['variant_selling_price'] ?? 0) : ($it['discount_price'] ?? 0));
+                if ($variantId > 0) {
+                    $uniqueVariants[$variantId] = true;
+                    if (!$firstProductId) $firstProductId = (int)($it['variant_product_id'] ?? 0);
+                }
 
-            if ($variantId > 0) {
-                $uniqueVariants[$variantId] = true;
-                if (!$firstProductId) $firstProductId = (int)($it['variant_product_id'] ?? 0);
+                for ($i = 0; $i < $itemQty; $i++) {
+                    $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+                    while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$code])) {
+                        $sequence++;
+                        $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+                    }
+                    $codes[] = [
+                        'code' => $code,
+                        'sequence' => $sequence,
+                        'status' => 'ACTIVE',
+                        'variant_id' => $variantId ?: null,
+                        'size_name' => $sizeName ?: null,
+                        'color_name' => $colorName ?: null,
+                        'mrp' => $mrp,
+                        'selling_price' => $sellingPrice,
+                    ];
+                    $sequence++;
+                }
             }
-
-            for ($i = 0; $i < $itemQty; $i++) {
-                $code = $itemPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+        } else {
+            for ($i = 0; $i < $totalQty; $i++) {
+                $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
                 while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$code])) {
                     $sequence++;
-                    $code = $itemPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+                    $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
                 }
                 $codes[] = [
                     'code' => $code,
                     'sequence' => $sequence,
                     'status' => 'ACTIVE',
-                    'variant_id' => $variantId ?: null,
-                    'size_name' => $sizeName ?: null,
-                    'color_name' => $colorName ?: null,
-                    'mrp' => $mrp,
-                    'selling_price' => $sellingPrice,
+                    'variant_id' => null,
+                    'size_name' => null,
+                    'color_name' => null,
+                    'mrp' => 0.0,
+                    'selling_price' => 0.0,
                 ];
                 $sequence++;
             }
@@ -920,7 +941,7 @@ class QrGenerationService {
                 $stitchingBatch['sub_subcategory_name'] ?? null,
                 $brandName,
                 $totalQty,
-                $prefix,
+                $cleanPrefix,
                 $notes,
                 $userId,
                 $cid
@@ -981,25 +1002,32 @@ class QrGenerationService {
                 if (!empty($items)) {
                     $qcItemStmt = Database::getInstance()->prepare("
                         INSERT INTO qc_items (
-                            qc_batch_id, variant_id, size_name, color_name, total_qty,
-                            passed_qty, rejected_qty, rework_qty, inspected_qty
-                        ) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0)
+                            qc_batch_id, variant_id, size_name, color_name, quantity, inspected_qty,
+                            passed_qty, rejected_qty, rework_qty, base_price, discount_price
+                        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
                     ");
                     foreach ($items as $it) {
                         $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
+                        $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
+                        $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
+                        $basePrice = (float)(($it['variant_mrp'] ?? 0) > 0 ? $it['variant_mrp'] : ($it['base_price'] ?? 0));
+                        $discountPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? $it['variant_selling_price'] : ($it['discount_price'] ?? 0));
                         $qcItemStmt->execute([
                             $qcBatchId,
                             !empty($it['variant_id']) ? (int)$it['variant_id'] : null,
-                            $it['size_name'] ?? null,
-                            $it['color_name'] ?? null,
-                            $itemQty ?: $totalQty
+                            $sizeName ?: null,
+                            $colorName ?: null,
+                            $itemQty ?: $totalQty,
+                            $itemQty ?: $totalQty,
+                            $basePrice,
+                            $discountPrice
                         ]);
                     }
                 } else {
                     Database::execute("
-                        INSERT INTO qc_items (qc_batch_id, total_qty, passed_qty, rejected_qty, rework_qty, inspected_qty)
-                        VALUES (?, ?, 0, 0, 0, 0)
-                    ", [$qcBatchId, $totalQty]);
+                        INSERT INTO qc_items (qc_batch_id, quantity, inspected_qty, passed_qty, rejected_qty, rework_qty)
+                        VALUES (?, ?, ?, 0, 0, 0)
+                    ", [$qcBatchId, $totalQty, $totalQty]);
                 }
             }
 
@@ -1262,8 +1290,12 @@ class QrGenerationService {
                 ORDER BY si.id ASC
             ", [$stitchingBatchId]);
 
+            $variantMap = [];
             $remainingByItem = [];
             foreach ($stitchingItems as $si) {
+                if (!empty($si['variant_id'])) {
+                    $variantMap[(int)$si['variant_id']] = $si;
+                }
                 $remainingByItem[] = max(0, (int)$si['stitched_qty']);
             }
 
@@ -1271,13 +1303,19 @@ class QrGenerationService {
             $usedInCursor = 0;
             $variantIds = [];
             foreach ($items as &$item) {
-                while ($itemCursor < count($stitchingItems)
-                    && $usedInCursor >= (int)$remainingByItem[$itemCursor]) {
-                    $itemCursor++;
-                    $usedInCursor = 0;
+                $itemVariantId = (int)($item['variant_id'] ?? 0);
+                if ($itemVariantId > 0 && isset($variantMap[$itemVariantId])) {
+                    $si = $variantMap[$itemVariantId];
+                } else {
+                    while ($itemCursor < count($stitchingItems)
+                        && $usedInCursor >= (int)$remainingByItem[$itemCursor]) {
+                        $itemCursor++;
+                        $usedInCursor = 0;
+                    }
+                    $si = $stitchingItems[$itemCursor] ?? null;
+                    $usedInCursor++;
                 }
 
-                $si = $stitchingItems[$itemCursor] ?? null;
                 if (!$si) continue;
 
                 $variantId = (int)($item['variant_id'] ?: $si['variant_id']);

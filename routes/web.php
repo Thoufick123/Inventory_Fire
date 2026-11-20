@@ -315,7 +315,7 @@ class Router {
         $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
         $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('production/inwards/print/{id}', 'InwardController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
 
         // ==========================================
         // STOCK ADJUSTMENTS (QR-BASED)
@@ -499,7 +499,7 @@ class Router {
         $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
         $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('production/inwards/print/{id}', 'InwardController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('api/inwards/po-items/{poId}', 'InwardController', 'apiPoItems', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
 
         // ==========================================
         // STOCK ADJUSTMENTS (QR-BASED)

@@ -1333,7 +1333,7 @@ CREATE TABLE IF NOT EXISTS `purchase_inward_items` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `purchase_inwards` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `purchase_order_id` int(10) unsigned NOT NULL,
+  `purchase_order_id` int(10) unsigned DEFAULT NULL,
   `grn_number` varchar(50) NOT NULL,
   `warehouse_id` int(10) unsigned NOT NULL,
   `received_date` date NOT NULL,

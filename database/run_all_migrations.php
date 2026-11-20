@@ -103,6 +103,15 @@ if (file_exists($mysqlBin)) {
     echo "  Import completed via PDO.\n";
 }
 
+// Keep direct Goods Inward receipts compatible with the optional PO selection.
+$directInwardMigration = BASE_PATH . '/database/migrations/2026_11_20_allow_direct_goods_inward.sql';
+if (file_exists($directInwardMigration)) {
+    echo "  Allowing direct Goods Inward receipts without a purchase order...\n";
+    $db->exec(file_get_contents($directInwardMigration));
+} else {
+    throw new RuntimeException("Direct Goods Inward migration not found: {$directInwardMigration}");
+}
+
 // -------------------------------------------------------------
 // STEP 2: CREATE NEW TABLES REQUIRED BY APPLICATION
 // -------------------------------------------------------------

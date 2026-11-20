@@ -138,7 +138,7 @@ class PurchaseInward {
         $stmt = $db->prepare($sql);
         $stmt->execute([
             ':concern_id'          => $concernId,
-            ':purchase_order_id'   => $inwardData['purchase_order_id'],
+            ':purchase_order_id'   => !empty($inwardData['purchase_order_id']) ? (int)$inwardData['purchase_order_id'] : null,
             ':grn_number'          => $inwardData['grn_number'],
             ':warehouse_id'        => $inwardData['warehouse_id'] ?? 1,
             ':received_date'       => $inwardData['received_date'] ?? date('Y-m-d'),
