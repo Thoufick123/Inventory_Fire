@@ -235,9 +235,8 @@ function onStitchingBatchChanged() {
     const firstVariant = (batch.items || []).find(it => it.variant_id || it.sku || it.variant_code);
     const variantEl = document.getElementById('prodStickerVariant');
     if (variantEl) {
-        variantEl.textContent = firstVariant
-            ? ('VARIANT #' + (firstVariant.variant_id || '—') + ' · ' + (firstVariant.sku || firstVariant.variant_code || '—'))
-            : 'VARIANT';
+        const sizeStr = firstVariant ? (firstVariant.variant_size_name || firstVariant.size_name || '') : '';
+        variantEl.textContent = sizeStr ? ('SIZE: ' + sizeStr) : 'PIECE';
     }
     const mrpEl = document.getElementById('prodStickerMrp');
     if (mrpEl) {
@@ -251,10 +250,8 @@ function onStitchingBatchChanged() {
     }
 
     const prefixInput = document.getElementById('prodQrPrefix');
-    if (prefixInput && firstVariant) {
-        const sku = firstVariant.sku || firstVariant.variant_code;
-        if (sku) prefixInput.value = ((document.getElementById('prodBrandName').value.trim() || 'GRM APPARELS').toUpperCase()
-            + '-' + sku.toString().replace(/[^A-Za-z0-9]+/g, '-')).replace(/-+$/, '');
+    if (prefixInput && (!prefixInput.value || prefixInput.value.trim() === '')) {
+        prefixInput.value = 'PRD<?= date('ym') ?>';
     }
 
     updateProdPreview();

@@ -196,10 +196,10 @@
         <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-3">
             <?php foreach ($batch['items'] as $item): ?>
             <?php
-                $displayQrLabel = $isFabricBatch ? $fabricMonthYear : trim((string)($batch['variant_code'] ?? ''));
-                if (!$isFabricBatch && $displayQrLabel === '') {
-                    $displayQrLabel = (string)($item['qr_code'] ?? '');
-                }
+                $itemQrCode = (string)($item['qr_code'] ?? '');
+                $displayQrLabel = $isFabricBatch ? ($fabricMonthYear ?: $itemQrCode) : $itemQrCode;
+                $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
+                $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
             ?>
             <div class="col">
                 <div class="p-3 border rounded bg-white text-center shadow-sm h-100 d-flex flex-direction-column justify-content-between align-items-center">
@@ -213,9 +213,9 @@
                         <div class="font-monospace fw-bold text-primary text-truncate" style="font-size: 11px;">
                             <?= e($displayQrLabel) ?>
                         </div>
-                        <?php if (!empty($item['color_name']) || !empty($item['size_name'])): ?>
+                        <?php if ($colorName !== '' || $sizeName !== ''): ?>
                         <div class="small text-muted mt-1">
-                            <?= e($item['color_name'] ?: '') ?><?= !empty($item['color_name']) && !empty($item['size_name']) ? ' / ' : '' ?><?= e($item['size_name'] ?: '') ?>
+                            <?= e($colorName) ?><?= $colorName !== '' && $sizeName !== '' ? ' · ' : '' ?><?php if ($sizeName !== ''): ?><span class="badge bg-dark text-white px-2 py-0" style="font-size: 10px;"><?= e($sizeName) ?></span><?php endif; ?>
                         </div>
                         <?php endif; ?>
                         <?php if ((float)($item['mrp'] ?? 0) > 0 || (float)($item['selling_price'] ?? 0) > 0): ?>

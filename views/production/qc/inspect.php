@@ -79,6 +79,13 @@
         }
     }
 
+    // Linked QR codes from QR generation batch if available
+    $linkedQrCodes = [];
+    if (!empty($batch['qr_generation_id'])) {
+        $qrRows = Database::fetchAll("SELECT qr_code FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num ASC", [(int)$batch['qr_generation_id']]);
+        $linkedQrCodes = array_column($qrRows, 'qr_code');
+    }
+
     $allPieces = [];
     $pieceIndex = 1;
 
@@ -91,7 +98,9 @@
         $itemHierarchy = $it['catalog_hierarchy'] ?? 'General Apparel';
         $catalogPrefix = $getPieceCatalogAbbr($it, $batch);
         for ($p = 1; $p <= $inspectedQty; $p++) {
-            $pieceTagCode = $catalogPrefix . $monthStr . $yearStr . sprintf("%02d", $pieceIndex);
+            $pieceTagCode = !empty($linkedQrCodes[$pieceIndex - 1])
+                ? $linkedQrCodes[$pieceIndex - 1]
+                : ($catalogPrefix . $monthStr . $yearStr . sprintf("%02d", $pieceIndex));
 
             $initialStatus = 'PENDING';
             $isReinspected = false;

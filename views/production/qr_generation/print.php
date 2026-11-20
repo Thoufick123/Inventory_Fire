@@ -165,10 +165,11 @@
         <div class="labels-grid">
             <?php foreach ($batch['items'] as $item): ?>
             <?php
-                $displayQrLabel = $isFabricBatch ? $fabricMonthYear : trim((string)($batch['variant_code'] ?? ''));
-                if (!$isFabricBatch && $displayQrLabel === '') {
-                    $displayQrLabel = (string)($item['qr_code'] ?? '');
-                }
+                $itemQrCode = (string)($item['qr_code'] ?? '');
+                $displayQrLabel = $isFabricBatch ? ($fabricMonthYear ?: $itemQrCode) : $itemQrCode;
+                $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
+                $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
+                $variantSku = trim((string)($item['variant_code'] ?? ($item['sku'] ?? ($item['variant_sku'] ?? ''))));
             ?>
             <div class="garment-label-card">
                 <!-- Top Brand Header: Given Brand Name Print -->
@@ -186,23 +187,20 @@
                 <div class="qr-row">
                     <div class="qr-canvas-box print-qr-item" data-code="<?= e($item['qr_code']) ?>"></div>
                     <div class="label-meta flex-grow-1">
-                        <div class="font-monospace fw-bold text-dark" style="font-size: 10px; word-break: break-all;">
+                        <div class="font-monospace fw-bold text-dark" style="font-size: 11px; word-break: break-all;">
                             <?= e($displayQrLabel) ?>
                         </div>
-                        <?php if (!empty($batch['color_name'])): ?>
-                        <div><strong>Col:</strong> <?= e($batch['color_name']) ?></div>
+                        <?php if ($variantSku !== '' && $variantSku !== $displayQrLabel): ?>
+                        <div class="font-monospace text-muted" style="font-size: 8.5px;"><?= e($variantSku) ?></div>
+                        <?php endif; ?>
+                        <?php if ($colorName !== ''): ?>
+                        <div><strong>Col:</strong> <?= e($colorName) ?></div>
                         <?php endif; ?>
                         <?php if (!empty($batch['design_name'])): ?>
                         <div><strong>Des:</strong> <?= e($batch['design_name']) ?></div>
                         <?php endif; ?>
-                        <?php if (!empty($batch['size_name'])): ?>
-                        <div><strong>Size:</strong> <span class="badge bg-dark text-white px-1 py-0"><?= e($batch['size_name']) ?></span></div>
-                        <?php endif; ?>
-                        <?php if (!empty($item['color_name'])): ?>
-                        <div><strong>Col:</strong> <?= e($item['color_name']) ?></div>
-                        <?php endif; ?>
-                        <?php if (!empty($item['size_name'])): ?>
-                        <div><strong>Size:</strong> <?= e($item['size_name']) ?></div>
+                        <?php if ($sizeName !== ''): ?>
+                        <div class="mt-1"><strong>Size:</strong> <span class="badge bg-dark text-white px-2 py-0" style="font-size: 10px; font-weight: 800;"><?= e($sizeName) ?></span></div>
                         <?php endif; ?>
                         <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
                         <div class="label-mrp"><strong>MRP:</strong> <del>₹<?= number_format((float)$item['mrp'], 2) ?></del></div>
