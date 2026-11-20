@@ -250,6 +250,9 @@ class Router {
 
         // Purchased Stock Sub-Module (Fabric Rolls, Raw Materials, Third-Party)
         $this->get('production/purchased-stock', 'ProductionController', 'purchasedStockIndex', ['AuthMiddleware']);
+        $this->get('production/purchased-stock/details/{id}', 'ProductionController', 'ajaxPurchasedStockDetails', ['AuthMiddleware']);
+        $this->post('production/purchased-stock/update/{id}', 'ProductionController', 'ajaxPurchasedStockUpdate', ['AuthMiddleware']);
+        $this->post('production/purchased-stock/delete/{id}', 'ProductionController', 'ajaxPurchasedStockDelete', ['AuthMiddleware']);
 
         // Common Purchases Clean Aliases
         $this->get('purchases', 'ProductionController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
