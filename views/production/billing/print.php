@@ -595,6 +595,19 @@ if (!empty($billItems[0])) {
         <span style="font-size: 16px;">₹ <?= number_format($totalAmount, 2) ?></span>
     </div>
 
+    <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
+    <div class="info-grid" style="margin-top: 4px;">
+        <div class="summary-row">
+            <span class="summary-label">Cash Tendered :</span>
+            <span class="summary-val">₹ <?= number_format((float)$bill['cash_given'], 2) ?></span>
+        </div>
+        <div class="summary-row">
+            <span class="summary-label">Change Returned :</span>
+            <span class="summary-val">₹ <?= number_format((float)($bill['change_returned'] ?? 0), 2) ?></span>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="dashed-line"></div>
 
     <!-- 8. Terms & Conditions -->

@@ -285,6 +285,8 @@ class Router {
         $this->post('production/billing/delete/{id}', 'ProductionBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
         $this->get('production/billing/print/{id}', 'ProductionBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
                 $this->get('api/production/billing/search', 'ProductionBillingController', 'searchInventory', ['AuthMiddleware']);
+        $this->get('api/production/billing/customer-search', 'ProductionBillingController', 'searchCustomer', ['AuthMiddleware']);
+        $this->get('api/production/billing/customer-history', 'ProductionBillingController', 'customerHistory', ['AuthMiddleware']);
 
         // Production Customer Returns & Exchanges
         $this->get('production/returns', 'ProductionReturnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);

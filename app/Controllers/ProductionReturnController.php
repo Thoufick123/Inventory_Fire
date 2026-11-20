@@ -128,13 +128,14 @@ class ProductionReturnController
      * Handles scanning:
      * 1. Individual piece tracking QR code (e.g., PRD2611-0001, KBD1126101)
      * 2. Variant Barcode / SKU / QR code
-     * 3. Bill number (e.g. PB-2026-...) or Customer Phone
+     * 3. Explicit invoice-number and customer-phone searches
      */
     public function ajaxLookupBill(): void
     {
         $query = trim((string)($_GET['q'] ?? ''));
-        if ($query === '') {
-            Response::json(['success' => false, 'message' => 'Please enter a piece QR tag, barcode, SKU, or bill number.']);
+        $lookupType = strtolower(trim((string)($_GET['type'] ?? 'scan')));
+        if ($lookupType !== 'select' && $query === '') {
+            Response::json(['success' => false, 'message' => 'Enter a value to search.']);
             return;
         }
 
@@ -142,6 +143,67 @@ class ProductionReturnController
         $scannedSku = null;
         $matchedBillId = null;
 
+        if ($lookupType === 'bill' || $lookupType === 'phone') {
+            $where = [];
+            $params = [];
+
+            if ($lookupType === 'bill') {
+                $where[] = 'pb.bill_number LIKE ?';
+                $params[] = '%' . $query . '%';
+            } else {
+                $phoneDigits = preg_replace('/\D+/', '', $query);
+                if (strlen($phoneDigits) < 7) {
+                    Response::json(['success' => false, 'message' => 'Enter at least 7 phone digits to search.']);
+                    return;
+                }
+                $phoneSuffix = strlen($phoneDigits) > 10 ? substr($phoneDigits, -10) : $phoneDigits;
+                $customerPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.customer_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
+                $companyPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.company_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
+                $where[] = "({$customerPhone} LIKE ? OR {$companyPhone} LIKE ?)";
+                $params[] = '%' . $phoneSuffix;
+                $params[] = '%' . $phoneSuffix;
+            }
+
+            if (function_exists('currentConcernId') && currentConcernId() !== null) {
+                $where[] = '(pb.concern_id = ? OR pb.concern_id IS NULL)';
+                $params[] = currentConcernId();
+            }
+
+            $billOptions = Database::fetchAll(
+                "SELECT pb.id, pb.bill_number, pb.bill_date, pb.customer_name, pb.company_name,
+                        pb.customer_phone, pb.company_phone, pb.total_amount,
+                        (SELECT pr.id FROM production_returns pr
+                         WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
+                         ORDER BY pr.id DESC LIMIT 1) AS active_return_id,
+                        (SELECT pr.return_number FROM production_returns pr
+                         WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
+                         ORDER BY pr.id DESC LIMIT 1) AS active_return_number
+                 FROM production_bills pb
+                 WHERE " . implode(' AND ', $where) . "
+                 ORDER BY pb.id DESC
+                 LIMIT 50",
+                $params
+            );
+
+            if (!$billOptions) {
+                Response::json(['success' => false, 'message' => 'No invoices found for that search.']);
+                return;
+            }
+
+            Response::json([
+                'success' => true,
+                'bill_options' => $billOptions,
+            ]);
+            return;
+        }
+
+        if ($lookupType === 'select') {
+            $matchedBillId = (int)($_GET['bill_id'] ?? 0);
+            if ($matchedBillId <= 0) {
+                Response::json(['success' => false, 'message' => 'Select a valid invoice.']);
+                return;
+            }
+        } else {
         // 1. Check if the scanned string is an individual piece tag code in production_bill_item_tags
         $tagRow = Database::fetchOne(
             "SELECT pbit.bill_id, pbit.tag_code, pbit.bill_item_id, pb.bill_number 
@@ -189,26 +251,18 @@ class ProductionReturnController
             }
         }
 
-        // 3. If still not matched, check Bill Number or Customer Phone
+        // Keep exact bill-number scans supported; use the explicit search modes for phone lookup.
         if (!$matchedBillId) {
             $bill = Database::fetchOne(
                 "SELECT id FROM production_bills 
-                 WHERE bill_number = ? OR customer_phone = ? OR company_phone = ? 
+                 WHERE bill_number = ?
                  ORDER BY id DESC LIMIT 1",
-                [$query, $query, $query]
+                [$query]
             );
-            if (!$bill) {
-                // Try fuzzy like search on bill_number
-                $bill = Database::fetchOne(
-                    "SELECT id FROM production_bills 
-                     WHERE bill_number LIKE ? 
-                     ORDER BY id DESC LIMIT 1",
-                    ['%' . $query . '%']
-                );
-            }
             if ($bill) {
                 $matchedBillId = (int)$bill['id'];
             }
+        }
         }
 
         if (!$matchedBillId) {
@@ -219,13 +273,32 @@ class ProductionReturnController
             return;
         }
 
-        $bill = Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [$matchedBillId]);
+        $billSql = "SELECT * FROM production_bills WHERE id = ?";
+        $billParams = [$matchedBillId];
+        if (function_exists('currentConcernId') && currentConcernId() !== null) {
+            $billSql .= " AND (concern_id = ? OR concern_id IS NULL)";
+            $billParams[] = currentConcernId();
+        }
+        $bill = Database::fetchOne($billSql, $billParams);
         if (!$bill) {
             Response::json(['success' => false, 'message' => 'Production bill record could not be loaded.']);
             return;
         }
 
         $billId = (int)$bill['id'];
+        $activeReturn = Database::fetchOne(
+            "SELECT id, return_number FROM production_returns
+             WHERE bill_id = ? AND status <> 'CANCELLED'
+             ORDER BY id DESC LIMIT 1",
+            [$billId]
+        );
+        if ($activeReturn) {
+            Response::json([
+                'success' => false,
+                'message' => "This invoice already has a return/exchange recorded ({$activeReturn['return_number']}).",
+            ]);
+            return;
+        }
 
         $billItems = Database::fetchAll(
             "SELECT * FROM production_bill_items WHERE bill_id = ? ORDER BY id",
@@ -352,9 +425,8 @@ class ProductionReturnController
     public function store(): void
     {
         $billId = (int)($_POST['bill_id'] ?? 0);
-        $bill = Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [$billId]);
-        if (!$bill) {
-            Session::setFlash('error', 'Original Production Bill not found.');
+        if ($billId <= 0) {
+            Session::setFlash('error', 'Select a valid original production bill.');
             Response::redirect(url('production/returns/create'));
             return;
         }
@@ -382,32 +454,57 @@ class ProductionReturnController
             return;
         }
 
-        // Fetch existing returned tags for this bill to prevent duplicates
-        $returnedTagRows = Database::fetchAll(
-            "SELECT pri.tag_code 
-             FROM production_return_items pri 
-             JOIN production_returns pr ON pr.id = pri.return_id 
-             WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'",
-            [$billId]
-        );
-        $alreadyReturnedTags = array_fill_keys(array_map('strtoupper', array_column($returnedTagRows, 'tag_code')), true);
-
-        // Fetch returned quantities for non-tagged items
-        $returnedQtyRows = Database::fetchAll(
-            "SELECT pri.bill_item_id, SUM(pri.quantity) as total_returned_qty
-             FROM production_return_items pri 
-             JOIN production_returns pr ON pr.id = pri.return_id 
-             WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'
-             GROUP BY pri.bill_item_id",
-            [$billId]
-        );
-        $returnedQtyByItem = [];
-        foreach ($returnedQtyRows as $rqr) {
-            $returnedQtyByItem[(int)$rqr['bill_item_id']] = (int)$rqr['total_returned_qty'];
-        }
-
         Database::beginTransaction();
         try {
+            $billSql = "SELECT * FROM production_bills WHERE id = ?";
+            $billParams = [$billId];
+            if (function_exists('currentConcernId') && currentConcernId() !== null) {
+                $billSql .= " AND (concern_id = ? OR concern_id IS NULL)";
+                $billParams[] = currentConcernId();
+            }
+            $bill = Database::fetchOne($billSql . " FOR UPDATE", $billParams);
+            if (!$bill) {
+                Database::rollBack();
+                Session::setFlash('error', 'Original Production Bill not found in the active concern.');
+                Response::redirect(url('production/returns/create'));
+                return;
+            }
+
+            $existingReturn = Database::fetchOne(
+                "SELECT id, return_number FROM production_returns
+                 WHERE bill_id = ? AND status <> 'CANCELLED'
+                 ORDER BY id DESC LIMIT 1 FOR UPDATE",
+                [$billId]
+            );
+            if ($existingReturn) {
+                Database::rollBack();
+                Session::setFlash('error', "This bill already has a return/exchange record ({$existingReturn['return_number']}).");
+                Response::redirect(url('production/returns/view/' . $existingReturn['id']));
+                return;
+            }
+
+            $returnedTagRows = Database::fetchAll(
+                "SELECT pri.tag_code
+                 FROM production_return_items pri
+                 JOIN production_returns pr ON pr.id = pri.return_id
+                 WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'",
+                [$billId]
+            );
+            $alreadyReturnedTags = array_fill_keys(array_map('strtoupper', array_column($returnedTagRows, 'tag_code')), true);
+
+            $returnedQtyRows = Database::fetchAll(
+                "SELECT pri.bill_item_id, SUM(pri.quantity) as total_returned_qty
+                 FROM production_return_items pri
+                 JOIN production_returns pr ON pr.id = pri.return_id
+                 WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'
+                 GROUP BY pri.bill_item_id",
+                [$billId]
+            );
+            $returnedQtyByItem = [];
+            foreach ($returnedQtyRows as $rqr) {
+                $returnedQtyByItem[(int)$rqr['bill_item_id']] = (int)$rqr['total_returned_qty'];
+            }
+
             $totalQty = 0;
             $subtotal = 0.0;
             $gstReversal = 0.0;
