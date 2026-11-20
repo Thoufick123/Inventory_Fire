@@ -1,3 +1,41 @@
+<style>
+/* Remove spinner arrows from number inputs */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.no-spinner,
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Breathable styling for Catalog Pricing inputs */
+.pricing-input-group {
+    min-width: 175px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.pricing-input-group .input-group-text {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.4rem 0.65rem;
+    border-color: #dee2e6;
+}
+.pricing-input-group .form-control {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.5rem;
+    border-color: #dee2e6;
+}
+.pricing-input-group .form-control:focus {
+    border-color: #198754;
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.15);
+}
+</style>
+
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-threads me-2 text-warning"></i>Edit Stitching Batch — <?= e($batch['name'] ?: $batch['batch_number']) ?></h2>
@@ -159,13 +197,13 @@
                 </div>
 
                 <!-- Catalog Dynamic Price Loader Bar -->
-                <div id="catalogPriceLoaderBar" class="px-3 py-2 bg-light-subtle border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
-                        <span class="small fw-bold text-dark d-flex align-items-center">
-                            <i class="bi bi-tag-fill text-success me-1"></i> Catalog Pricing:
+                <div id="catalogPriceLoaderBar" class="px-3 py-3 bg-white border-bottom shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-3 flex-wrap flex-grow-1">
+                        <span class="small fw-bold text-dark d-flex align-items-center me-1">
+                            <i class="bi bi-tags-fill text-success me-2 fs-6"></i> Catalog Pricing:
                         </span>
-                        <div style="min-width: 220px; max-width: 320px;" class="flex-grow-1">
-                            <select id="quickPriceCatalogSelect" class="form-select form-select-sm fw-semibold shadow-sm border-success-subtle" onchange="onCatalogPriceDropdownChange(this.value)">
+                        <div style="min-width: 230px; max-width: 320px;" class="flex-grow-1">
+                            <select id="quickPriceCatalogSelect" class="form-select form-select-sm fw-semibold shadow-sm border-success-subtle py-1.5" onchange="onCatalogPriceDropdownChange(this.value)">
                                 <option value="ALL">All Catalogs in Batch (<?= count($items) ?> items)</option>
                                 <?php if (!empty($distinctCatalogs)): ?>
                                     <?php foreach ($distinctCatalogs as $dCat): ?>
@@ -174,23 +212,39 @@
                                 <?php endif; ?>
                             </select>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <div class="input-group input-group-sm" style="width: 145px;">
-                                <span class="input-group-text bg-white fw-bold text-muted">Base ₹</span>
-                                <input type="number" id="quickBulkBasePrice" class="form-control form-control-sm text-center fw-bold" placeholder="0.00" min="0.01" step="0.01" title="Base Price (₹)">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm shadow-sm pricing-input-group" style="width: 175px;">
+                                <span class="input-group-text bg-light text-dark fw-bold border-end-0 px-2.5">
+                                    <i class="bi bi-tag-fill text-primary me-1"></i>Base ₹
+                                </span>
+                                <input type="number" id="quickBulkBasePrice" 
+                                       class="form-control form-control-sm text-center fw-bold no-spinner" 
+                                       placeholder="0.00" min="0.01" step="0.01" title="Base Price (₹)"
+                                       oninput="handleBulkPriceInput(this); validateBulkPriceBar();"
+                                       onchange="validateBulkPriceBar();">
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <div class="input-group input-group-sm" style="width: 145px;">
-                                <span class="input-group-text bg-white fw-bold text-muted">Disc ₹</span>
-                                <input type="number" id="quickBulkDiscPrice" class="form-control form-control-sm text-center fw-bold" placeholder="0.00" min="0.01" step="0.01" title="Discount Price (₹)">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm shadow-sm pricing-input-group" style="width: 175px;">
+                                <span class="input-group-text bg-light text-dark fw-bold border-end-0 px-2.5">
+                                    <i class="bi bi-percent text-success me-1"></i>Disc ₹
+                                </span>
+                                <input type="number" id="quickBulkDiscPrice" 
+                                       class="form-control form-control-sm text-center fw-bold no-spinner" 
+                                       placeholder="0.00" min="0.01" step="0.01" title="Discount Price (₹)"
+                                       oninput="handleBulkPriceInput(this); validateBulkPriceBar();"
+                                       onchange="validateBulkPriceBar();">
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-success fw-semibold shadow-sm px-3" onclick="applyQuickPricesFromBar()" title="Load and set prices for the selected catalog into the table">
-                            <i class="bi bi-arrow-down-circle-fill me-1"></i> Set Prices to Table
+                        <button type="button" class="btn btn-sm btn-success fw-semibold shadow-sm px-3 py-1.5 ms-1" id="btnApplyQuickPrices" onclick="applyQuickPricesFromBar()" title="Load and set prices for the selected catalog into the table">
+                            <i class="bi bi-arrow-down-circle-fill me-1.5"></i> Set Prices to Table
                         </button>
                     </div>
-                    <div id="quickPriceStatusMsg" class="small fw-semibold text-success" style="display: none;"></div>
+                    <div id="quickPriceStatusMsg" class="small fw-semibold text-success ms-auto" style="display: none;"></div>
+                    <div id="quickPriceErrorMsg" class="w-100 text-danger small fw-semibold d-flex align-items-center gap-1 mt-1 ps-1" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span id="quickPriceErrorText">Discount Price must be lower than Base Price.</span>
+                    </div>
                 </div>
 
                 <!-- Catalog Filter Navigation Tabs (if multiple catalogs) -->
@@ -315,29 +369,34 @@
                                         <td>
                                             <input type="number" name="items[<?= $idx ?>][stitched_qty]" 
                                                 class="form-control form-control-sm text-center fw-bold stitching-qty-input border-primary" 
-                                                min="1" value="<?= $stitchedQtyVal ?>" placeholder="Qty" required oninput="onRowQtyOrUnitWeightChange(this.closest('tr'))">
+                                                min="1" value="<?= $stitchedQtyVal ?>" placeholder="Qty" required 
+                                                oninput="onRowQtyChange(this.closest('tr'))" onchange="onRowQtyChange(this.closest('tr'))">
                                         </td>
                                         <td>
                                             <input type="number" name="items[<?= $idx ?>][weight_per_piece]" 
                                                 class="form-control form-control-sm text-center stitching-unit-weight-input" 
-                                                min="0.0001" step="any" value="<?= $unitWeightVal ?>" placeholder="0.0000" required oninput="onRowQtyOrUnitWeightChange(this.closest('tr'))">
+                                                min="0.0001" step="any" value="<?= $unitWeightVal ?>" placeholder="0.0000" required 
+                                                oninput="onRowUnitWeightChange(this.closest('tr'))" onchange="onRowUnitWeightChange(this.closest('tr'))">
                                         </td>
                                         <td>
                                             <input type="number" name="items[<?= $idx ?>][weight]" 
                                                 class="form-control form-control-sm text-center fw-bold stitching-weight-input border-info" 
-                                                min="0.01" step="0.01" value="<?= $totalItemWeightVal ?>" placeholder="0.00" required oninput="onRowTotalWeightChange(this.closest('tr'))">
+                                                min="0.01" step="0.01" value="<?= $totalItemWeightVal ?>" placeholder="0.00" required 
+                                                oninput="onRowTotalWeightChange(this.closest('tr'))" onchange="onRowTotalWeightChange(this.closest('tr'))">
                                             <input type="hidden" name="items[<?= $idx ?>][rejected_qty]" value="<?= e($it['rejected_qty'] ?? 0) ?>">
                                             <input type="hidden" name="items[<?= $idx ?>][rework_qty]" value="<?= e($it['rework_qty'] ?? 0) ?>">
                                         </td>
                                         <td>
                                             <input type="number" name="items[<?= $idx ?>][base_price]" 
                                                 class="form-control form-control-sm text-center stitching-base-price-input" 
-                                                min="0.01" step="0.01" value="<?= $basePriceVal ?>" placeholder="0.00" required oninput="validateStitchingPricePair(this.closest('tr'))">
+                                                min="0.01" step="0.01" value="<?= $basePriceVal ?>" placeholder="0.00" required 
+                                                oninput="validateStitchingPricePair(this.closest('tr'))" onchange="validateStitchingPricePair(this.closest('tr'))">
                                         </td>
                                         <td>
                                             <input type="number" name="items[<?= $idx ?>][discount_price]" 
                                                 class="form-control form-control-sm text-center stitching-discount-price-input" 
-                                                min="0.01" step="0.01" value="<?= $discountPriceVal ?>" placeholder="0.00" required oninput="validateStitchingPricePair(this.closest('tr'))">
+                                                min="0.01" step="0.01" value="<?= $discountPriceVal ?>" placeholder="0.00" required 
+                                                oninput="validateStitchingPricePair(this.closest('tr'))" onchange="validateStitchingPricePair(this.closest('tr'))">
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -360,13 +419,43 @@
 </form>
 
 <script>
-function onRowQtyOrUnitWeightChange(row) {
+function onRowQtyChange(row) {
     if (!row) return;
     const qtyInp = row.querySelector('.stitching-qty-input');
     const unitWeightInp = row.querySelector('.stitching-unit-weight-input');
     const totalWeightInp = row.querySelector('.stitching-weight-input');
 
     if (qtyInp && parseFloat(qtyInp.value) > 0) qtyInp.classList.remove('is-invalid', 'border-danger');
+
+    const qty = parseInt(qtyInp?.value) || 0;
+    const unitWeight = parseFloat(unitWeightInp?.value) || 0;
+    const totalWeight = parseFloat(totalWeightInp?.value) || 0;
+
+    if (qty > 0 && unitWeight > 0) {
+        // When Qty changes and Per Pc Wt is available, recalculate Total Wt
+        const total = Math.round(qty * unitWeight * 100) / 100;
+        if (totalWeightInp) {
+            totalWeightInp.value = total.toFixed(2);
+            totalWeightInp.classList.remove('is-invalid', 'border-danger');
+        }
+    } else if (qty > 0 && totalWeight > 0 && unitWeight === 0) {
+        // If Total Wt is already set but unit weight is not, recalculate Per Pc Wt
+        if (unitWeightInp) {
+            unitWeightInp.value = parseFloat((totalWeight / qty).toFixed(4)).toString();
+            unitWeightInp.classList.remove('is-invalid', 'border-danger');
+        }
+    } else if (qty === 0 && totalWeightInp) {
+        totalWeightInp.value = '';
+    }
+    calcStitchingTotals();
+}
+
+function onRowUnitWeightChange(row) {
+    if (!row) return;
+    const qtyInp = row.querySelector('.stitching-qty-input');
+    const unitWeightInp = row.querySelector('.stitching-unit-weight-input');
+    const totalWeightInp = row.querySelector('.stitching-weight-input');
+
     if (unitWeightInp && parseFloat(unitWeightInp.value) > 0) unitWeightInp.classList.remove('is-invalid', 'border-danger');
 
     const qty = parseInt(qtyInp?.value) || 0;
@@ -378,8 +467,6 @@ function onRowQtyOrUnitWeightChange(row) {
             totalWeightInp.value = total.toFixed(2);
             totalWeightInp.classList.remove('is-invalid', 'border-danger');
         }
-    } else if (unitWeight === 0 && totalWeightInp && !totalWeightInp.dataset.manual) {
-        totalWeightInp.value = '';
     }
     calcStitchingTotals();
 }
@@ -403,6 +490,49 @@ function onRowTotalWeightChange(row) {
         unitWeightInp.classList.remove('is-invalid', 'border-danger');
     }
     calcStitchingTotals();
+}
+
+function onRowQtyOrUnitWeightChange(row) {
+    onRowQtyChange(row);
+}
+
+function handleBulkPriceInput(input) {
+    if (!input) return;
+    let val = input.value.replace(/[^0-9.]/g, '');
+    const parts = val.split('.');
+    if (parts.length > 2) {
+        val = parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (input.value !== val) {
+        input.value = val;
+    }
+}
+
+function validateBulkPriceBar() {
+    const baseInp = document.getElementById('quickBulkBasePrice');
+    const discInp = document.getElementById('quickBulkDiscPrice');
+    const errorBox = document.getElementById('quickPriceErrorMsg');
+    const errorText = document.getElementById('quickPriceErrorText');
+    if (!baseInp || !discInp) return true;
+
+    const baseVal = parseFloat(baseInp.value) || 0;
+    const discVal = parseFloat(discInp.value) || 0;
+
+    discInp.classList.remove('is-invalid', 'border-danger');
+    baseInp.classList.remove('is-invalid', 'border-danger');
+    if (errorBox) errorBox.style.display = 'none';
+
+    if (baseInp.value.trim() !== '' && discInp.value.trim() !== '') {
+        if (discVal >= baseVal && baseVal > 0) {
+            discInp.classList.add('is-invalid', 'border-danger');
+            if (errorBox && errorText) {
+                errorText.textContent = `Validation Alert: Discount Price (₹${discVal}) must be lower than Base Price (₹${baseVal}). Base price amount must be higher!`;
+                errorBox.style.display = 'flex';
+            }
+            return false;
+        }
+    }
+    return true;
 }
 
 let currentCuttingUsableWeight = <?= (float)($cuttingUsableWeight ?? 0) ?>;
@@ -591,6 +721,7 @@ function onCatalogPriceDropdownChange(targetCatalog) {
             break;
         }
     }
+    validateBulkPriceBar();
 }
 
 function validateStitchingPricePair(row) {
@@ -628,14 +759,19 @@ function applyQuickPricesFromBar() {
     let discVal = parseFloat(discInp?.value) || 0;
 
     if (baseVal <= 0 || discVal <= 0) {
-        alert('Enter both prices. Discount Price must be less than Base Price.');
-        if (baseInp) baseInp.focus();
+        alert('Please enter both Base Price and Discount Price. Discount Price must be less than Base Price.');
+        if (baseVal <= 0 && baseInp) baseInp.focus();
+        else if (discInp) discInp.focus();
         return;
     }
 
     if (discVal >= baseVal) {
-        alert('Discount Price must be less than Base Price.');
-        if (discInp) discInp.focus();
+        alert(`Validation Error: Discount Price (₹${discVal.toFixed(2)}) must be lower than Base Price (₹${baseVal.toFixed(2)}). Base price amount must be higher!`);
+        if (discInp) {
+            discInp.classList.add('is-invalid', 'border-danger');
+            discInp.focus();
+        }
+        validateBulkPriceBar();
         return;
     }
 
@@ -707,6 +843,9 @@ function applyQuickPriceToCatalog(catalogName, baseInputId, discInputId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initial calculation of stitching totals and weight matching
+    calcStitchingTotals();
+
     // Pre-populate quick price bar with existing prices if available
     const catSelect = document.getElementById('quickPriceCatalogSelect');
     if (catSelect) {

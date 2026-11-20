@@ -404,6 +404,24 @@ function hasPermission(string $module, ?string $action = null): bool {
         }
     }
 
+    if ($module === 'stitching_wastage') {
+        if (in_array('stitching_wastage.' . $action, $userPermissions, true) || 
+            in_array('wastage.' . $action, $userPermissions, true) || 
+            in_array('stitching.' . $action, $userPermissions, true) ||
+            $roleId === 2 || $roleSlug === 'admin' ||
+            str_contains($roleSlug, 'production')) {
+            return true;
+        }
+    }
+    if ($module === 'wastage') {
+        if (in_array('wastage.' . $action, $userPermissions, true) || 
+            in_array('cutting.' . $action, $userPermissions, true) ||
+            $roleId === 2 || $roleSlug === 'admin' ||
+            str_contains($roleSlug, 'production')) {
+            return true;
+        }
+    }
+
     // Module alias fallbacks for legacy/alternative naming strictly within the same module
     if ($module === 'production_purchases') {
         if (in_array('production_purchases.' . $action, $userPermissions, true)) {

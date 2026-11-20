@@ -67,8 +67,14 @@
                             </div>
                             <div class="row g-2 mb-2">
                                 <div class="col-6">
-                                    <label class="form-label small fw-semibold text-dark mb-1">Phone Number (Optional)</label>
-                                    <input type="text" id="quickInspectorPhone" class="form-control form-control-sm" placeholder="e.g. 9876543210" maxlength="15" autocomplete="off" onkeyup="if(event.key==='Enter') saveQuickQcInspector()">
+                                    <label class="form-label small fw-semibold text-dark mb-1">
+                                        Phone Number (Optional) <small class="text-muted">(10 digits)</small>
+                                    </label>
+                                    <input type="tel" id="quickInspectorPhone" class="form-control form-control-sm" 
+                                           placeholder="10-digit mobile" maxlength="10" inputmode="numeric" 
+                                           pattern="[0-9]{10}"
+                                           oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);" 
+                                           autocomplete="off" onkeyup="if(event.key==='Enter') saveQuickQcInspector()">
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label small fw-semibold text-dark mb-1">Emp / ID Code (Optional)</label>
@@ -271,6 +277,22 @@ function saveQuickQcInspector() {
         return;
     }
 
+    // Phone validation: optional, but if entered, must be strictly 10 digits only (no characters)
+    if (phone !== '') {
+        if (!/^[0-9]{10}$/.test(phone)) {
+            alertEl.className = 'small mt-2 text-danger fw-semibold';
+            alertEl.textContent = 'Phone Number must be a valid 10-digit number (numbers only, no characters allowed).';
+            alertEl.style.display = 'block';
+            phoneInput.classList.add('is-invalid', 'border-danger');
+            phoneInput.focus();
+            return;
+        } else {
+            phoneInput.classList.remove('is-invalid', 'border-danger');
+        }
+    } else {
+        phoneInput.classList.remove('is-invalid', 'border-danger');
+    }
+
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving...';
     alertEl.style.display = 'none';
@@ -293,7 +315,12 @@ function saveQuickQcInspector() {
         },
         body: formData
     })
-    .then(res => res.json())
+    .then(async res => {
+        if (res.status === 401) {
+            throw new Error('Your session has expired. Please refresh the page and log in again.');
+        }
+        return res.json();
+    })
     .then(data => {
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Save &amp; Select';
@@ -332,7 +359,7 @@ function saveQuickQcInspector() {
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Save &amp; Select';
         alertEl.className = 'small mt-2 text-danger fw-semibold';
-        alertEl.textContent = 'Network or server error while adding inspector.';
+        alertEl.textContent = err.message || 'Network or server error while adding inspector.';
         alertEl.style.display = 'block';
         console.error('Error adding QC inspector:', err);
     });

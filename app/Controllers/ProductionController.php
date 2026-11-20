@@ -14794,15 +14794,18 @@ class ProductionController {
             return;
         }
 
-        // Clean phone
+        // Clean and validate phone (optional, but if provided must be strictly 10 digits without letters or characters)
         $cleanPhone = null;
         if (!empty($phone)) {
             $digits = preg_replace('/\D+/', '', $phone);
-            if (strlen($digits) >= 10) {
-                $cleanPhone = substr($digits, -10);
-            } else {
-                $cleanPhone = $phone;
+            if (strlen($digits) !== 10 || preg_match('/[a-zA-Z]/', $phone)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Phone number must be a valid 10-digit number (characters/letters not allowed).'
+                ]);
+                return;
             }
+            $cleanPhone = $digits;
         }
 
         // Generate clean username from full name
@@ -16360,13 +16363,26 @@ class ProductionController {
         $params = [];
 
         $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $isSuper = function_exists('isSuperAdmin') ? isSuperAdmin() : false;
+        $userId = (int)(Session::get('user_id') ?? 0);
+
+        $concernWhere = "";
+        $concernParams = [];
+
         if ($activeCid) {
+            // Both Admin and Staff can see all sales in this active concern,
+            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
+            // or sales linked to this concern's cutting batches/programs,
+            // or sales created by this user.
             if ($activeCid === 1) {
-                $sql .= " AND (ws.concern_id = ? OR ws.concern_id IS NULL)";
+                $concernWhere = " AND (ws.concern_id = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ?)";
+                $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $sql .= " AND ws.concern_id = ?";
+                $concernWhere = " AND (ws.concern_id = ? OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR ws.concern_id = 1)";
+                $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
-            $params[] = $activeCid;
+            $sql .= $concernWhere;
+            $params = array_merge($params, $concernParams);
         }
 
         if ($search !== '') {
@@ -16407,8 +16423,13 @@ class ProductionController {
         $sql .= " ORDER BY ws.sale_date DESC, ws.id DESC";
         $sales = Database::fetchAll($sql, $params);
 
-        // Overall summary stats
-        $allSales = Database::fetchAll("SELECT weight, total_amount, paid_amount, payment_status, wastage_type FROM wastage_sales");
+        // Overall summary stats (scoped consistently with concern filter)
+        $statsSql = "SELECT ws.weight, ws.total_amount, ws.paid_amount, ws.payment_status, ws.wastage_type 
+                     FROM wastage_sales ws
+                     LEFT JOIN cutting_batches cb ON ws.cutting_batch_id = cb.id
+                     LEFT JOIN production_programs pp ON ws.program_id = pp.id
+                     WHERE 1=1" . $concernWhere;
+        $allSales = Database::fetchAll($statsSql, $concernParams);
         $totalWeight = (float)array_sum(array_column($allSales, 'weight'));
         $totalAmount = (float)array_sum(array_column($allSales, 'total_amount'));
         $totalPaid = (float)array_sum(array_column($allSales, 'paid_amount'));
@@ -16431,6 +16452,7 @@ class ProductionController {
         $cuttingBatches = Database::fetchAll("
             SELECT cb.id, cb.batch_number, cb.name, cb.program_id, cb.seller_roll_id,
                    cb.roll_weight, cb.roll_price, cb.wastage_weight, cb.wastage_cost, cb.used_weight,
+                   cb.concern_id,
                    pp.program_number, pp.name as program_name,
                    s.name as seller_name,
                    sr.color, sr.design_name,
@@ -16545,7 +16567,7 @@ class ProductionController {
         $batches = [];
         $totalAvailableWastage = 0.0;
         foreach ($cuttingBatchIds as $cid) {
-            $cb = Database::fetchOne("SELECT id, batch_number, name, program_id, wastage_weight FROM cutting_batches WHERE id = ?", [$cid]);
+            $cb = Database::fetchOne("SELECT id, batch_number, name, program_id, wastage_weight, concern_id FROM cutting_batches WHERE id = ?", [$cid]);
             if (!$cb) continue;
 
             $soldRow = Database::fetchOne(
@@ -16684,11 +16706,16 @@ class ProductionController {
                 $bStatus = ($bPaid >= $bAmount && $bAmount > 0) ? 'PAID' : (($bPaid > 0) ? 'PARTIAL' : 'PENDING');
                 $bProgId = !empty($b['program_id']) ? (int)$b['program_id'] : $programId;
 
+                $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+                $batchConcernId = !empty($b['concern_id']) ? (int)$b['concern_id'] : null;
+                $saleConcernId = $activeConcernId ?: ($batchConcernId ?: 1);
+
                 Database::execute(
                     "INSERT INTO wastage_sales 
-                        (sale_number, buyer_name, buyer_phone, buyer_company, cutting_batch_id, program_id, wastage_type, weight, rate_per_kg, total_amount, paid_amount, payment_status, payment_method, payment_reference, invoice_number, sale_date, photo_url, notes, created_by, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        (concern_id, sale_number, buyer_name, buyer_phone, buyer_company, cutting_batch_id, program_id, wastage_type, weight, rate_per_kg, total_amount, paid_amount, payment_status, payment_method, payment_reference, invoice_number, sale_date, photo_url, notes, created_by, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
+                        $saleConcernId,
                         $saleNumber,
                         $buyerName,
                         $buyerPhone,
@@ -16803,7 +16830,7 @@ class ProductionController {
         }
 
         // Validate cutting batch available wastage balance (excluding current sale being updated)
-        $cb = Database::fetchOne("SELECT id, batch_number, name, program_id, wastage_weight FROM cutting_batches WHERE id = ?", [$cuttingBatchId]);
+        $cb = Database::fetchOne("SELECT id, batch_number, name, program_id, wastage_weight, concern_id FROM cutting_batches WHERE id = ?", [$cuttingBatchId]);
         if (!$cb) {
             Session::flash('error', 'Selected cutting batch not found.');
             Response::back();
@@ -16901,8 +16928,12 @@ class ProductionController {
         }
 
         try {
+            $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+            $updateConcernId = $activeConcernId ?: (!empty($cb['concern_id']) ? (int)$cb['concern_id'] : ($existing['concern_id'] ?? 1));
+
             Database::execute(
                 "UPDATE wastage_sales SET
+                    concern_id = ?,
                     buyer_name = ?,
                     buyer_phone = ?,
                     buyer_company = ?,
@@ -16923,6 +16954,7 @@ class ProductionController {
                     updated_at = NOW()
                  WHERE id = ?",
                 [
+                    $updateConcernId,
                     $buyerName,
                     $buyerPhone,
                     $buyerCompany,
@@ -17040,13 +17072,26 @@ class ProductionController {
         $params = [];
 
         $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $isSuper = function_exists('isSuperAdmin') ? isSuperAdmin() : false;
+        $userId = (int)(Session::get('user_id') ?? 0);
+
+        $concernWhere = "";
+        $concernParams = [];
+
         if ($activeCid) {
+            // Both Admin and Staff can see all sales in this active concern,
+            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
+            // or sales linked to this concern's stitching batches/programs,
+            // or sales created by this user.
             if ($activeCid === 1) {
-                $sql .= " AND (sws.concern_id = ? OR sws.concern_id IS NULL)";
+                $concernWhere = " AND (sws.concern_id = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ?)";
+                $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $sql .= " AND sws.concern_id = ?";
+                $concernWhere = " AND (sws.concern_id = ? OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sws.concern_id = 1)";
+                $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
-            $params[] = $activeCid;
+            $sql .= $concernWhere;
+            $params = array_merge($params, $concernParams);
         }
 
         if ($search !== '') {
@@ -17092,8 +17137,13 @@ class ProductionController {
         $sql .= " ORDER BY sws.sale_date DESC, sws.id DESC";
         $sales = Database::fetchAll($sql, $params);
 
-        // Overall summary stats
-        $allSales = Database::fetchAll("SELECT quantity, unit_type, total_amount, paid_amount, payment_status, waste_type FROM stitching_wastage_sales");
+        // Overall summary stats (scoped consistently with concern filter)
+        $statsSql = "SELECT sws.quantity, sws.unit_type, sws.total_amount, sws.paid_amount, sws.payment_status, sws.waste_type 
+                     FROM stitching_wastage_sales sws
+                     LEFT JOIN stitching_batches sb ON sws.stitching_batch_id = sb.id
+                     LEFT JOIN production_programs pp ON sws.program_id = pp.id
+                     WHERE 1=1" . $concernWhere;
+        $allSales = Database::fetchAll($statsSql, $concernParams);
         $totalQty = (float)array_sum(array_column($allSales, 'quantity'));
         $totalAmount = (float)array_sum(array_column($allSales, 'total_amount'));
         $totalPaid = (float)array_sum(array_column($allSales, 'paid_amount'));
@@ -17214,7 +17264,7 @@ class ProductionController {
                  WHERE stitching_batch_id = ?",
                 [$sid]
             );
-            $sb = Database::fetchOne("SELECT id, batch_number, name, program_id, total_weight, stitched_qty FROM stitching_batches WHERE id = ?", [$sid]);
+            $sb = Database::fetchOne("SELECT id, batch_number, name, program_id, total_weight, stitched_qty, concern_id FROM stitching_batches WHERE id = ?", [$sid]);
             if (!$sb) continue;
 
             if ($alreadySold) {
@@ -17287,10 +17337,10 @@ class ProductionController {
             return;
         }
 
+        $sbRow = Database::fetchOne("SELECT program_id, concern_id FROM stitching_batches WHERE id = ?", [$stitchingBatchId]);
         if ($stitchingBatchId && !$programId) {
-            $sb = Database::fetchOne("SELECT program_id FROM stitching_batches WHERE id = ?", [$stitchingBatchId]);
-            if ($sb && !empty($sb['program_id'])) {
-                $programId = (int)$sb['program_id'];
+            if ($sbRow && !empty($sbRow['program_id'])) {
+                $programId = (int)$sbRow['program_id'];
             }
         }
 
@@ -17363,11 +17413,16 @@ class ProductionController {
                 $bStatus = ($bPaid >= $bAmount && $bAmount > 0) ? 'PAID' : (($bPaid > 0) ? 'PARTIAL' : 'PENDING');
                 $bProgId = !empty($b['program_id']) ? (int)$b['program_id'] : $programId;
 
+                $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+                $batchConcernId = !empty($b['concern_id']) ? (int)$b['concern_id'] : null;
+                $saleConcernId = $activeConcernId ?: ($batchConcernId ?: 1);
+
                 Database::execute(
                     "INSERT INTO stitching_wastage_sales 
-                        (sale_number, buyer_name, buyer_phone, buyer_company, stitching_batch_id, program_id, waste_type, unit_type, quantity, rate_per_unit, total_amount, paid_amount, payment_status, payment_method, payment_reference, invoice_number, sale_date, photo_url, notes, created_by, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        (concern_id, sale_number, buyer_name, buyer_phone, buyer_company, stitching_batch_id, program_id, waste_type, unit_type, quantity, rate_per_unit, total_amount, paid_amount, payment_status, payment_method, payment_reference, invoice_number, sale_date, photo_url, notes, created_by, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                     [
+                        $saleConcernId,
                         $saleNumber,
                         $buyerName,
                         $buyerPhone ?: null,
@@ -17519,10 +17574,10 @@ class ProductionController {
             return;
         }
 
+        $sbRow = Database::fetchOne("SELECT program_id, concern_id FROM stitching_batches WHERE id = ?", [$stitchingBatchId]);
         if ($stitchingBatchId && !$programId) {
-            $sb = Database::fetchOne("SELECT program_id FROM stitching_batches WHERE id = ?", [$stitchingBatchId]);
-            if ($sb && !empty($sb['program_id'])) {
-                $programId = (int)$sb['program_id'];
+            if ($sbRow && !empty($sbRow['program_id'])) {
+                $programId = (int)$sbRow['program_id'];
             }
         }
 
@@ -17554,8 +17609,12 @@ class ProductionController {
         }
 
         try {
+            $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+            $updateConcernId = $activeConcernId ?: (!empty($sbRow['concern_id']) ? (int)$sbRow['concern_id'] : ($existing['concern_id'] ?? 1));
+
             Database::execute(
                 "UPDATE stitching_wastage_sales SET
+                    concern_id = ?,
                     buyer_name = ?,
                     buyer_phone = ?,
                     buyer_company = ?,
@@ -17577,6 +17636,7 @@ class ProductionController {
                     updated_at = NOW()
                  WHERE id = ?",
                 [
+                    $updateConcernId,
                     $buyerName,
                     $buyerPhone ?: null,
                     $buyerCompany ?: null,
@@ -20204,12 +20264,15 @@ class ProductionController {
                    qrg.selling_price,
                    ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
                    ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   ppi.seller_roll_id,
                    pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
                    s.name AS seller_name, s.company AS seller_company,
                    COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
                    COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
                    COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
-                   u.full_name AS stock_added_by_name
+                   u.full_name AS stock_added_by_name,
+                   used_prog.program_number AS used_program_number,
+                   used_prog.program_name AS used_program_name
             FROM qr_generations qrg
             INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
@@ -20221,6 +20284,13 @@ class ProductionController {
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
             LEFT JOIN users u ON u.id = qrg.stock_added_by
+            LEFT JOIN (
+                SELECT ppr.seller_roll_id, MAX(pp.program_number) AS program_number, MAX(pp.name) AS program_name
+                FROM production_program_rolls ppr
+                JOIN production_programs pp ON (pp.id = ppr.production_program_id OR pp.id = ppr.program_id)
+                WHERE (pp.is_active = 1 OR pp.is_active IS NULL) AND pp.status != 'CANCELLED'
+                GROUP BY ppr.seller_roll_id
+            ) used_prog ON used_prog.seller_roll_id = ppi.seller_roll_id
             WHERE {$whereSql}
             ORDER BY qrg.stock_added_at DESC, qrg.id DESC
         ", $params);
@@ -20277,6 +20347,92 @@ class ProductionController {
     }
 
     /**
+     * Helper to detect if a roll or its QR codes are taken/used in any active production program.
+     */
+    private function resolveProgramUsage(int $sellerRollId, array &$items): array {
+        $progInfo = [
+            'is_used'        => false,
+            'label'          => '',
+            'program_number' => '',
+            'program_name'   => '',
+        ];
+
+        $progRolls = [];
+        if ($sellerRollId > 0) {
+            $progRolls = Database::fetchAll("
+                SELECT ppr.seller_roll_id, ppr.allocated_qr_codes, ppr.roll_qty,
+                       pp.id as program_id, pp.program_number, pp.name as program_name, pp.status as program_status
+                FROM production_program_rolls ppr
+                JOIN production_programs pp ON (pp.id = ppr.production_program_id OR pp.id = ppr.program_id)
+                WHERE ppr.seller_roll_id = ? AND (pp.is_active = 1 OR pp.is_active IS NULL) AND pp.status != 'CANCELLED'
+            ", [$sellerRollId]);
+
+            if (empty($progRolls)) {
+                $progRolls = Database::fetchAll("
+                    SELECT pp.seller_roll_id, '' as allocated_qr_codes, 1 as roll_qty,
+                           pp.id as program_id, pp.program_number, pp.name as program_name, pp.status as program_status
+                    FROM production_programs pp
+                    WHERE pp.seller_roll_id = ? AND (pp.is_active = 1 OR pp.is_active IS NULL) AND pp.status != 'CANCELLED'
+                ", [$sellerRollId]);
+            }
+
+            if (empty($progRolls)) {
+                $cRolls = Database::fetchAll("
+                    SELECT cbr.seller_roll_id, '' as allocated_qr_codes, 1 as roll_qty,
+                           cb.id as program_id, cb.batch_number as program_number, 'Cutting' as program_name, cb.status as program_status
+                    FROM cutting_batch_rolls cbr
+                    JOIN cutting_batches cb ON cb.id = cbr.cutting_batch_id
+                    WHERE cbr.seller_roll_id = ? AND (cb.is_active = 1 OR cb.is_active IS NULL)
+                ", [$sellerRollId]);
+                if (!empty($cRolls)) {
+                    $progRolls = $cRolls;
+                }
+            }
+        }
+
+        $isRollUsed = !empty($progRolls);
+        $allocatedQrMap = [];
+        $mainLabel = '';
+        if ($isRollUsed) {
+            $first = $progRolls[0];
+            $mainLabel = $first['program_number'] . (!empty($first['program_name']) ? ' (' . $first['program_name'] . ')' : '');
+            $progInfo['is_used'] = true;
+            $progInfo['label'] = $mainLabel;
+            $progInfo['program_number'] = $first['program_number'];
+            $progInfo['program_name'] = $first['program_name'] ?? '';
+
+            foreach ($progRolls as $pr) {
+                if (!empty($pr['allocated_qr_codes'])) {
+                    $codes = array_filter(array_map('trim', explode(',', $pr['allocated_qr_codes'])));
+                    foreach ($codes as $c) {
+                        $allocatedQrMap[strtoupper($c)] = $pr['program_number'];
+                    }
+                }
+            }
+        }
+
+        foreach ($items as &$it) {
+            $codeUpper = strtoupper(trim((string)($it['qr_code'] ?? '')));
+            $it['is_used_in_program'] = false;
+            $it['used_program_label'] = '';
+
+            if (($it['status'] ?? '') === 'USED') {
+                $it['is_used_in_program'] = true;
+                $it['used_program_label'] = $mainLabel ?: 'Used in Program';
+            } elseif (isset($allocatedQrMap[$codeUpper])) {
+                $it['is_used_in_program'] = true;
+                $it['used_program_label'] = 'Program ' . $allocatedQrMap[$codeUpper];
+            } elseif ($isRollUsed) {
+                $it['is_used_in_program'] = true;
+                $it['used_program_label'] = $mainLabel ?: 'Used in Program';
+            }
+        }
+        unset($it);
+
+        return $progInfo;
+    }
+
+    /**
      * PAGE: View Purchased Stock Details & Generated QR Barcodes.
      */
     public function purchasedStockView(string $id): void {
@@ -20294,6 +20450,7 @@ class ProductionController {
                    qrg.notes, qrg.qr_prefix,
                    ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
                    ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   ppi.seller_roll_id,
                    pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
                    s.name AS seller_name, s.company AS seller_company,
                    COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
@@ -20330,12 +20487,15 @@ class ProductionController {
             ORDER BY sequence_num ASC, id ASC
         ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
 
+        $progInfo = $this->resolveProgramUsage((int)($stock['seller_roll_id'] ?? 0), $items);
+
         Response::view('production.purchased_stock.view', [
             'pageTitle'    => 'Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-purchased-stock',
             'stock'        => $stock,
             'items'        => $items,
+            'progInfo'     => $progInfo,
             'printUrl'     => url('production/qr-generations/print/' . $genId),
             'editUrl'      => url('production/purchased-stock/edit/' . $genId),
             'listUrl'      => url('production/purchased-stock'),
@@ -20366,6 +20526,7 @@ class ProductionController {
                    qrg.notes, qrg.qr_prefix,
                    ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
                    ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   ppi.seller_roll_id,
                    pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
                    s.name AS seller_name, s.company AS seller_company,
                    COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
@@ -20402,12 +20563,15 @@ class ProductionController {
             ORDER BY sequence_num ASC, id ASC
         ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
 
+        $progInfo = $this->resolveProgramUsage((int)($stock['seller_roll_id'] ?? 0), $items);
+
         Response::view('production.purchased_stock.edit', [
             'pageTitle'    => 'Edit Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-purchased-stock',
             'stock'        => $stock,
             'items'        => $items,
+            'progInfo'     => $progInfo,
             'viewUrl'      => url('production/purchased-stock/view/' . $genId),
             'listUrl'      => url('production/purchased-stock'),
             'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),

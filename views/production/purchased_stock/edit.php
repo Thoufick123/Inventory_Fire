@@ -3,12 +3,8 @@
         <div class="d-flex align-items-center gap-2">
             <h2 class="mb-1"><i class="bi bi-pencil-square text-warning me-2"></i>Edit QR &amp; Stock Details: <span class="font-monospace text-primary"><?= e($stock['batch_code']) ?></span></h2>
         </div>
-        <p class="text-muted small mb-0">Update roll color and design pattern for individual QR items.</p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        <a href="<?= e($viewUrl) ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-eye me-1"></i> View Details
-        </a>
         <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to List
         </a>
@@ -96,7 +92,7 @@
                         <tr>
                             <td class="text-muted small fw-semibold"><?= (int)$item['sequence_num'] ?></td>
                             <td>
-                                <div class="d-flex flex-column align-items-center p-2 border rounded bg-white text-center shadow-xs" style="width: 110px; min-width: 110px;">
+                                <div class="d-flex flex-column align-items-center p-2 border rounded bg-white text-center shadow-xs" style="width: 120px; min-width: 120px;">
                                     <div class="fw-bold text-dark text-uppercase mb-1" style="font-size: 9px; letter-spacing: 0.03em;">
                                         <?= e($brandDisplay) ?>
                                     </div>
@@ -110,13 +106,33 @@
                                             <?= e($item['qr_code']) ?>
                                         </div>
                                     <?php endif; ?>
+
+                                    <!-- Used Roll / In Stock indicator in second column -->
+                                    <?php if (!empty($item['is_used_in_program'])): ?>
+                                        <div class="mt-1">
+                                            <span class="badge bg-success text-white px-2 py-1" style="font-size: 10px; font-weight: 600;">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Used Roll
+                                            </span>
+                                            <?php if (!empty($item['used_program_label'])): ?>
+                                                <div class="text-success fw-bold mt-1 text-truncate" style="font-size: 9px; max-width: 110px;" title="<?= e($item['used_program_label']) ?>">
+                                                    <?= e($item['used_program_label']) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="mt-1">
+                                            <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 9px;">
+                                                In Stock
+                                            </span>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                             <td>
-                                <input type="text" name="qr_items[<?= (int)$item['id'] ?>][color_name]" class="form-control form-control-sm" value="<?= e($itemColor) ?>" placeholder="Color">
+                                <span class="fw-semibold text-dark"><?= e($itemColor ?: '—') ?></span>
                             </td>
                             <td>
-                                <input type="text" name="qr_items[<?= (int)$item['id'] ?>][design_name]" class="form-control form-control-sm" value="<?= e($itemDesign) ?>" placeholder="Design / Pattern Name">
+                                <span class="fw-semibold text-dark"><?= e($itemDesign ?: '—') ?></span>
                             </td>
                         </tr>
                     <?php endforeach; ?>
