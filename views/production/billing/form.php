@@ -1367,15 +1367,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const exactMatch = res.data.items.find(it => {
                     const available = Array.isArray(it.available_tags) ? it.available_tags : [];
-                    return available.some(t => t.toUpperCase() === needle.toUpperCase());
+                    const vCode = (it.variant_code || '').toUpperCase();
+                    const vId = String(it.variant_id || '');
+                    const uNeedle = needle.toUpperCase();
+                    return available.some(t => t.toUpperCase() === uNeedle)
+                        || (vCode !== '' && vCode === uNeedle)
+                        || (vId !== '0' && (vId === uNeedle || vId === uNeedle.replace('#', '')));
                 });
 
                 if (exactMatch) {
-                    addResult(exactMatch, needle);
+                    addResult(exactMatch, exactMatch.matched_tag || (exactMatch.available_tags && exactMatch.available_tags[0]) || needle);
                     search.value = '';
                     resultBox.innerHTML = '';
                 } else if (res.data.items.length === 1) {
-                    addResult(res.data.items[0], null);
+                    const single = res.data.items[0];
+                    addResult(single, single.matched_tag || (single.available_tags && single.available_tags[0]) || null);
                     search.value = '';
                     resultBox.innerHTML = '';
                 } else {

@@ -451,18 +451,24 @@ class ProductionBillingController
 
         $items = $this->getAvailableInventory($billId, $productionUnitId);
         $exactAvailableItems = [];
+        $cleanNeedle = ltrim($needle, '#');
+
         foreach ($items as $item) {
-            $exactTag = array_values(array_filter(
-                $item['available_tags'],
-                static fn(string $tag): bool => strtoupper(trim($tag)) === $needle
-            ));
-            if ($exactTag) {
-                $item['matched_tag'] = $exactTag[0];
+            $tagsUpper = array_map('strtoupper', array_map('trim', $item['available_tags']));
+            $vCodeUpper = strtoupper(trim((string)($item['variant_code'] ?? '')));
+            $vIdStr = (string)($item['variant_id'] ?? 0);
+
+            $isExactMatch = in_array($needle, $tagsUpper, true)
+                || ($vCodeUpper !== '' && $vCodeUpper === $needle)
+                || ($vIdStr !== '0' && ($vIdStr === $needle || $vIdStr === $cleanNeedle));
+
+            if ($isExactMatch) {
+                $item['matched_tag'] = in_array($needle, $tagsUpper, true) ? $needle : ($item['available_tags'][0] ?? $needle);
                 $otherTags = array_values(array_filter(
                     $item['available_tags'],
                     static fn(string $tag): bool => strtoupper(trim($tag)) !== $needle
                 ));
-                $item['available_tags'] = array_merge([$exactTag[0]], $otherTags);
+                $item['available_tags'] = array_merge([$item['matched_tag']], $otherTags);
                 $exactAvailableItems[] = $item;
             }
         }
@@ -471,7 +477,10 @@ class ProductionBillingController
             return;
         }
 
-        // Check if scanned input matches a Variant QR Code, Variant SKU, or Variant ID
+        // Check if scanned input matches a Variant QR Code, Variant SKU, Variant Code, or Variant ID
+        $cleanId = preg_replace('/[^0-9]/', '', $needle);
+        $variantIdParam = ($cleanId !== '' && (str_starts_with($needle, '#') || is_numeric($needle))) ? (int)$cleanId : 0;
+
         $variantMatch = Database::fetchOne(
             "SELECT pv.*, p.name as product_name, p.code as parent_sku, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
                     p.is_complementary as prod_is_comp,
@@ -484,8 +493,11 @@ class ProductionBillingController
              LEFT JOIN colors col ON col.id = pv.color_id
              LEFT JOIN designs d ON d.id = pv.design_id
              LEFT JOIN sizes sz ON sz.id = pv.size_id
-             WHERE UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ? OR UPPER(TRIM(pv.variant_code)) = ?",
-            [$needle, $needle, $needle]
+             WHERE UPPER(TRIM(pv.qr_code)) = ? 
+                OR UPPER(TRIM(pv.sku)) = ? 
+                OR UPPER(TRIM(pv.variant_code)) = ?
+                OR (? > 0 AND pv.id = ?)",
+            [$needle, $needle, $needle, $variantIdParam, $variantIdParam]
         );
 
         if ($variantMatch) {
@@ -497,10 +509,16 @@ class ProductionBillingController
                 return;
             }
 
+            $varId = (int)$variantMatch['id'];
+            $varCode = strtoupper(trim((string)$variantMatch['variant_code']));
+            $varSku = strtoupper(trim((string)$variantMatch['sku']));
+
             // Find matching item in available inventory from QC batches
             $variantItems = [];
             foreach ($items as $item) {
-                if ((int)($item['variant_id'] ?? 0) === (int)$variantMatch['id']) {
+                if ((int)($item['variant_id'] ?? 0) === $varId
+                    || (!empty($item['variant_code']) && strtoupper($item['variant_code']) === $varCode)
+                    || (!empty($item['sku']) && strtoupper($item['sku']) === $varSku)) {
                     $variantItems[] = $item;
                 }
             }
@@ -508,59 +526,111 @@ class ProductionBillingController
             if ($variantItems) {
                 Response::jsonSuccess('Variant QR item found.', ['items' => $variantItems]);
                 return;
-            } else {
-                // If not in a specific QC batch piece list, check available stock balance at this facility
-                $balance = Database::fetchOne(
-                    "SELECT COALESCE(SUM(quantity), 0) AS quantity
-                     FROM stock_balances
-                     WHERE variant_id = ? AND location_type = 'PRODUCTION_UNIT'
-                       AND location_id = ? AND stock_state = 'AVAILABLE'",
-                    [(int)$variantMatch['id'], $productionUnitId]
-                );
-                $availableQty = (float)($balance['quantity'] ?? 0);
+            }
 
-                if ($availableQty > 0) {
-                    $mrp = max(0.0, (float)$variantMatch['mrp']);
-                    $sellingPrice = max(0.0, (float)$variantMatch['selling_price']);
+            // Direct fallback: check QC items for this variant across active batches
+            $directQcRows = Database::fetchAll("
+                SELECT qi.id as qc_item_id, qi.qc_batch_id, qi.variant_id, qi.size_name, qi.color_name,
+                       qi.base_price, qi.discount_price, qi.passed_qty,
+                       pp.program_number, pp.name as program_name,
+                       p.name as product_name, p.code as product_code, p.gst_percentage, p.hsn_code,
+                       p.is_complementary as prod_is_comp,
+                       pv.sku, pv.mrp as variant_mrp, pv.selling_price, pv.variant_code
+                FROM qc_items qi
+                JOIN qc_batches qb ON qb.id = qi.qc_batch_id
+                JOIN production_programs pp ON pp.id = qb.program_id
+                JOIN products p ON p.id = pp.product_id
+                JOIN product_variants pv ON pv.id = ?
+                WHERE (qi.variant_id = ? OR (qi.variant_id IS NULL AND qi.product_id = pv.product_id))
+                  AND qi.passed_qty > 0
+                ORDER BY qb.id DESC
+            ", [$varId, $varId]);
+
+            if (!empty($directQcRows)) {
+                foreach ($directQcRows as $dRow) {
+                    $mrp = max(0.0, (float)($dRow['variant_mrp'] ?: ($dRow['base_price'] ?: $variantMatch['mrp'])));
+                    $sellingPrice = max(0.0, (float)($dRow['selling_price'] ?: ($dRow['discount_price'] ?: $variantMatch['selling_price'])));
                     if ($sellingPrice <= 0) $sellingPrice = $mrp;
 
-                    $isComp = (!empty($variantMatch['is_complementary']) || !empty($variantMatch['prod_is_comp']));
-                    if ($isComp) {
-                        $sellingPrice = 0.00;
+                    $vTags = [];
+                    $qCount = max(1, (int)$dRow['passed_qty']);
+                    for ($t = 1; $t <= $qCount; $t++) {
+                        $vTags[] = ($varCode ?: 'V' . $varId) . '-' . sprintf('%03d', $t);
                     }
 
-                    $vCode = $variantMatch['variant_code'] ?: $variantMatch['sku'];
-                    $vTags = [];
-                    for ($t = 1; $t <= (int)$availableQty; $t++) {
-                        $vTags[] = $vCode . '-' . sprintf('%03d', $t);
-                    }
                     $variantItems[] = [
-                        'qc_item_id' => 0,
-                        'qc_batch_id' => 0,
-                        'variant_id' => (int)$variantMatch['id'],
-                        'product_name' => (string)$variantMatch['product_name'],
-                        'program_number' => (string)$variantMatch['parent_sku'],
-                        'sku' => (string)$variantMatch['sku'],
-                        'variant_code' => (string)$variantMatch['variant_code'],
-                        'size_name' => (string)($variantMatch['size_name'] ?? 'STD'),
-                        'color_name' => (string)($variantMatch['color_name'] ?? 'STD'),
-                        'mrp' => $mrp,
-                        'unit_price' => $sellingPrice,
-                        'is_complementary' => $isComp ? 1 : 0,
-                        'gst_percentage' => max(0, (float)($variantMatch['gst_rate'] ?? $variantMatch['prod_gst'] ?? 0)),
-                        'hsn_code' => (string)($variantMatch['hsn_code'] ?? $variantMatch['prod_hsn'] ?? '6109'),
-                        'available_tags' => $vTags,
+                        'qc_item_id'       => (int)$dRow['qc_item_id'],
+                        'qc_batch_id'      => (int)$dRow['qc_batch_id'],
+                        'variant_id'       => $varId,
+                        'product_name'     => (string)$dRow['product_name'],
+                        'program_number'   => (string)$dRow['program_number'],
+                        'sku'              => (string)($dRow['sku'] ?: $dRow['product_code']),
+                        'variant_code'     => $varCode,
+                        'size_name'        => (string)($dRow['size_name'] ?: ($variantMatch['size_name'] ?? 'STD')),
+                        'color_name'       => (string)($dRow['color_name'] ?: ($variantMatch['color_name'] ?? 'STD')),
+                        'mrp'              => $mrp,
+                        'unit_price'       => $sellingPrice,
+                        'is_complementary' => !empty($dRow['prod_is_comp']) ? 1 : 0,
+                        'gst_percentage'   => max(0, (float)($dRow['gst_percentage'] ?? 0)),
+                        'hsn_code'         => (string)($dRow['hsn_code'] ?? '6109'),
+                        'available_tags'   => $vTags,
                     ];
-                    Response::jsonSuccess('Variant stock found.', ['items' => $variantItems]);
-                    return;
                 }
-                Response::jsonSuccess('No available variant stock.', [
-                    'items' => [],
-                    'stock_limit_reached' => true,
-                    'message' => 'No available stock remains for this product variant at the selected production unit.',
-                ]);
+                Response::jsonSuccess('Variant QC inventory found.', ['items' => $variantItems]);
                 return;
             }
+
+            // Fallback: check available stock balances across facilities
+            $balance = Database::fetchOne(
+                "SELECT COALESCE(SUM(quantity), 0) AS quantity
+                 FROM stock_balances
+                 WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
+                [$varId]
+            );
+            $availableQty = (float)($balance['quantity'] ?? 0);
+
+            if ($availableQty > 0) {
+                $mrp = max(0.0, (float)$variantMatch['mrp']);
+                $sellingPrice = max(0.0, (float)$variantMatch['selling_price']);
+                if ($sellingPrice <= 0) $sellingPrice = $mrp;
+
+                $isComp = (!empty($variantMatch['is_complementary']) || !empty($variantMatch['prod_is_comp']));
+                if ($isComp) {
+                    $sellingPrice = 0.00;
+                }
+
+                $vCode = $variantMatch['variant_code'] ?: $variantMatch['sku'];
+                $vTags = [];
+                for ($t = 1; $t <= (int)$availableQty; $t++) {
+                    $vTags[] = $vCode . '-' . sprintf('%03d', $t);
+                }
+                $variantItems[] = [
+                    'qc_item_id' => 0,
+                    'qc_batch_id' => 0,
+                    'variant_id' => $varId,
+                    'product_name' => (string)$variantMatch['product_name'],
+                    'program_number' => (string)$variantMatch['parent_sku'],
+                    'sku' => (string)$variantMatch['sku'],
+                    'variant_code' => (string)$variantMatch['variant_code'],
+                    'size_name' => (string)($variantMatch['size_name'] ?? 'STD'),
+                    'color_name' => (string)($variantMatch['color_name'] ?? 'STD'),
+                    'mrp' => $mrp,
+                    'unit_price' => $sellingPrice,
+                    'is_complementary' => $isComp ? 1 : 0,
+                    'gst_percentage' => max(0, (float)($variantMatch['gst_rate'] ?? $variantMatch['prod_gst'] ?? 0)),
+                    'hsn_code' => (string)($variantMatch['hsn_code'] ?? $variantMatch['prod_hsn'] ?? '6109'),
+                    'available_tags' => $vTags,
+                ];
+                Response::jsonSuccess('Variant stock found.', ['items' => $variantItems]);
+                return;
+            }
+
+            Response::jsonSuccess('No available variant stock.', [
+                'items' => [],
+                'stock_limit_reached' => true,
+                'message' => 'No available stock remains for this product variant at the selected facility.',
+            ]);
+            return;
         }
 
         // Check if scanned QR / roll has already been outwarded to warehouse
@@ -1114,15 +1184,31 @@ class ProductionBillingController
 
     private function getAvailableInventory(int $excludeBillId = 0, int $productionUnitId = 0): array
     {
-        $unitFilter = $productionUnitId > 0 ? ' AND pp.production_unit_id = ?' : '';
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if ($productionUnitId > 0) {
+            $unitRow = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [$productionUnitId]);
+            if (!empty($unitRow['concern_id'])) {
+                $cid = (int)$unitRow['concern_id'];
+            }
+        }
+
+        $concernFilter = '';
+        $params = [];
+        if ($cid) {
+            $concernFilter = ' AND (qb.concern_id = ? OR pp.concern_id = ? OR qb.concern_id IS NULL OR pp.concern_id IS NULL)';
+            $params = [$cid, $cid];
+        }
+
         $rows = Database::fetchAll(
             "SELECT qi.id AS qc_item_id, qi.qc_batch_id, qi.variant_id, qi.size_name, qi.color_name,
+                    qi.passed_qty,
                     qi.base_price AS qc_base_price, qi.discount_price AS qc_discount_price,
                     pp.program_number, pp.name AS program_name,
                     COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
+                    p.id AS product_id,
                     p.code AS product_code, p.gst_percentage, p.hsn_code,
                     p.is_complementary AS prod_is_comp,
-                    pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
+                    pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
                     pv.is_complementary AS var_is_comp,
                     c.name AS color_from_variant, sz.name AS size_from_variant
              FROM qc_items qi
@@ -1132,10 +1218,38 @@ class ProductionBillingController
              LEFT JOIN product_variants pv ON pv.id = qi.variant_id
              LEFT JOIN colors c ON c.id = pv.color_id
              LEFT JOIN sizes sz ON sz.id = pv.size_id
-             WHERE qi.passed_qty > 0{$unitFilter}
+             WHERE qi.passed_qty > 0{$concernFilter}
              ORDER BY qb.created_at DESC, qi.id DESC",
-            $productionUnitId > 0 ? [$productionUnitId] : []
+            $params
         );
+
+        // Resolve variant_id for rows if missing
+        foreach ($rows as &$row) {
+            $vId = (int)($row['variant_id'] ?? 0);
+            if ($vId <= 0 && !empty($row['product_id'])) {
+                $sizeName = trim((string)($row['size_name'] ?: ($row['size_from_variant'] ?? '')));
+                $colorName = trim((string)($row['color_name'] ?: ($row['color_from_variant'] ?? '')));
+                if ($sizeName !== '' || $colorName !== '') {
+                    try {
+                        $vMatch = VariantService::findOrCreateVariantForInward((int)$row['product_id'], [
+                            'size' => $sizeName ?: null,
+                            'color' => $colorName ?: null,
+                            'mrp' => (float)($row['qc_base_price'] ?? 0),
+                            'selling_price' => (float)($row['qc_discount_price'] ?? 0),
+                            'is_active' => 1
+                        ], true);
+                        if (!empty($vMatch['id'])) {
+                            $vId = (int)$vMatch['id'];
+                            $row['variant_id'] = $vId;
+                            $row['variant_code'] = $vMatch['variant_code'] ?? null;
+                            $row['sku'] = $vMatch['sku'] ?? $row['sku'];
+                            Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$row['qc_item_id']]);
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+        }
+        unset($row);
 
         $batchIds = array_values(array_unique(array_map(
             static fn(array $row): int => (int)$row['qc_batch_id'],
@@ -1143,7 +1257,10 @@ class ProductionBillingController
         )));
         $tagsByItem = [];
         foreach ($batchIds as $batchId) {
-            $tagsByItem += ProductionService::getAvailableQCPieceTags($batchId);
+            $batchTags = ProductionService::getAvailableQCPieceTags($batchId);
+            foreach ($batchTags as $itemId => $tags) {
+                $tagsByItem[(int)$itemId] = $tags;
+            }
         }
 
         $soldRows = $excludeBillId > 0
@@ -1198,6 +1315,37 @@ class ProductionBillingController
                     && !isset($damagedTags[strtoupper(trim($tag))])
                     && !isset($outwardedTags[strtoupper(trim($tag))])
             ));
+
+            // If piece tags empty, fetch from qr_generation_items
+            if (empty($tags)) {
+                $genItems = Database::fetchAll("
+                    SELECT qri.qr_code
+                    FROM qr_generation_items qri
+                    JOIN qr_generations qrg ON qrg.id = qri.generation_id
+                    WHERE (qrg.qc_batch_id = ? OR qrg.id = (SELECT qr_generation_id FROM qc_batches WHERE id = ?))
+                      AND (qri.variant_id = ? OR (? = 0 AND UPPER(TRIM(COALESCE(qri.size_name, ''))) = UPPER(TRIM(COALESCE(?, '')))))
+                    ORDER BY qri.sequence_num ASC
+                ", [(int)$row['qc_batch_id'], (int)$row['qc_batch_id'], (int)($row['variant_id'] ?? 0), (int)($row['variant_id'] ?? 0), (string)($row['size_name'] ?? '')]);
+                foreach ($genItems as $gi) {
+                    $t = strtoupper(trim((string)$gi['qr_code']));
+                    if ($t !== '' && !isset($soldTags[$t]) && !isset($damagedTags[$t]) && !isset($outwardedTags[$t])) {
+                        $tags[] = $gi['qr_code'];
+                    }
+                }
+            }
+
+            // Fallback generation of piece tags if still empty but passed_qty > 0
+            if (empty($tags) && (int)($row['passed_qty'] ?? 0) > 0) {
+                $remQty = (int)$row['passed_qty'];
+                $vPrefix = !empty($row['variant_code']) ? $row['variant_code'] : ('QC' . $row['qc_batch_id']);
+                for ($p = 1; $p <= $remQty; $p++) {
+                    $cand = $vPrefix . '-' . sprintf('%03d', $p);
+                    if (!isset($soldTags[strtoupper($cand)]) && !isset($damagedTags[strtoupper($cand)]) && !isset($outwardedTags[strtoupper($cand)])) {
+                        $tags[] = $cand;
+                    }
+                }
+            }
+
             if (!$tags) {
                 continue;
             }
@@ -1223,6 +1371,7 @@ class ProductionBillingController
                 'qc_item_id' => $qcItemId,
                 'qc_batch_id' => (int)$row['qc_batch_id'],
                 'variant_id' => (int)($row['variant_id'] ?? 0),
+                'variant_code' => (string)($row['variant_code'] ?? ''),
                 'product_name' => (string)$row['product_name'],
                 'program_number' => (string)($row['program_number'] ?? ''),
                 'sku' => (string)(!empty($row['sku']) ? $row['sku'] : ($row['product_code'] ?? '')),
