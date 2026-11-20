@@ -791,7 +791,12 @@ function currentConcernId(): ?int {
     $isSuper = isSuperAdmin();
 
     if (Session::has('active_concern_id')) {
-        $cid = (int)Session::get('active_concern_id');
+        $rawCid = Session::get('active_concern_id');
+        // If super admin explicitly chose Global Admin (0 or 'all')
+        if ($isSuper && ($rawCid === 0 || $rawCid === '0' || $rawCid === 'all')) {
+            return null;
+        }
+        $cid = (int)$rawCid;
         if ($cid > 0) {
             if ($isSuper) {
                 return $cid;
@@ -831,7 +836,7 @@ function currentConcernId(): ?int {
         }
     }
 
-    // Super admin fallback to first available active concern
+    // Super admin default: return active_concern_id if valid, or fallback to first active concern
     if ($isSuper && class_exists('Database')) {
         $first = Database::fetchOne("SELECT id FROM concerns WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
         if ($first) {
@@ -847,7 +852,20 @@ function currentConcernId(): ?int {
  */
 function currentConcern(): ?array {
     $cid = currentConcernId();
-    if (!$cid) return null;
+    if ($cid === null) {
+        if (isSuperAdmin()) {
+            return [
+                'id'           => 0,
+                'name'         => 'Global Admin',
+                'code'         => 'ADMIN',
+                'legal_name'   => 'System Administrator (All Concerns)',
+                'concern_type' => 'HEAD_OFFICE',
+                'is_active'    => 1,
+                'is_global'    => true
+            ];
+        }
+        return null;
+    }
     static $cachedConcern = [];
     if (!isset($cachedConcern[$cid])) {
         if (class_exists('Database')) {
@@ -1074,6 +1092,16 @@ function getAvailableUserConcerns(?int $userId = null): array {
  */
 function switchConcern(int $concernId): bool {
     if (!class_exists('Database')) return false;
+
+    // Support Global Admin mode (0) for super admins
+    if ($concernId === 0) {
+        if (isSuperAdmin()) {
+            Session::set('active_concern_id', 0);
+            return true;
+        }
+        return false;
+    }
+
     $concern = Database::fetchOne("SELECT id, name, code FROM concerns WHERE id = ? AND is_active = 1", [$concernId]);
     if (!$concern) return false;
 

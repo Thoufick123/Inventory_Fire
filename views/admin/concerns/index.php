@@ -33,9 +33,15 @@
     <div class="col-md-3 col-sm-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Currently Active Concern</div>
-                <div class="fs-4 fw-bold text-primary text-truncate"><?= e(currentConcern()['name'] ?? 'Not Selected') ?></div>
-                <div class="small text-muted font-monospace"><span class="badge bg-primary text-white"><?= e(currentConcern()['code'] ?? 'CN-01') ?></span> Scoped Session Context</div>
+                <div class="text-muted small text-uppercase fw-semibold">Currently Active Context</div>
+                <?php $curC = currentConcern(); ?>
+                <?php if (!empty($curC['is_global'])): ?>
+                    <div class="fs-4 fw-bold text-dark text-truncate"><i class="bi bi-shield-lock-fill text-warning me-1"></i>Global Super Admin</div>
+                    <div class="small text-muted font-monospace"><span class="badge bg-dark text-white">ADMIN</span> All Concerns (Global Context)</div>
+                <?php else: ?>
+                    <div class="fs-4 fw-bold text-primary text-truncate"><?= e($curC['name'] ?? 'Not Selected') ?></div>
+                    <div class="small text-muted font-monospace"><span class="badge bg-primary text-white"><?= e($curC['code'] ?? 'CN-01') ?></span> Scoped Session Context</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

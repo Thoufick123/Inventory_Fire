@@ -222,42 +222,63 @@ if (!empty($authUser['production_unit_name'])) {
 
                     <li class="nav-divider"></li>
 
-                    <!-- Concerns & Staff Module -->
+                    <!-- Admin & Concerns Module -->
                     <?php 
+                    $canViewAdmin = isSuperAdmin() 
+                        || hasPermission('settings', 'view') 
+                        || hasPermission('concerns', 'view') 
+                        || hasPermission('staff', 'view') 
+                        || hasPermission('roles', 'view') 
+                        || hasPermission('staff', 'create')
+                        || hasPermission('audit', 'view')
+                        || hasPermission('backup', 'view');
                     $canViewConcerns = isSuperAdmin() || hasPermission('settings', 'view') || hasPermission('concerns', 'view');
-                    $canViewStaff = hasPermission('staff', 'view') || hasPermission('roles', 'view') || hasPermission('staff', 'create');
+                    $canViewStaff    = isSuperAdmin() || hasPermission('staff', 'view') || hasPermission('roles', 'view') || hasPermission('staff', 'create');
+                    $canViewSystem   = isSuperAdmin() || hasPermission('settings', 'view') || hasPermission('audit', 'view') || hasPermission('backup', 'view');
                     ?>
-                    <?php if ($canViewConcerns || $canViewStaff): ?>
+                    <?php if ($canViewAdmin): ?>
                     <li class="nav-item has-submenu">
-                        <a href="#" class="nav-link <?= in_array(($activeModule ?? ''), ['concerns', 'staff']) ? 'active' : '' ?>">
-                            <i class="bi bi-buildings"></i>
-                            <span>Concerns</span>
+                        <a href="#" class="nav-link <?= in_array(($activeModule ?? ''), ['admin', 'concerns', 'staff', 'system']) ? 'active' : '' ?>">
+                            <i class="bi bi-shield-lock"></i>
+                            <span>Admin</span>
                             <i class="bi bi-chevron-down submenu-arrow"></i>
                         </a>
-                        <ul class="submenu <?= in_array(($activeModule ?? ''), ['concerns', 'staff']) ? 'show' : '' ?>">
+                        <ul class="submenu <?= in_array(($activeModule ?? ''), ['admin', 'concerns', 'staff', 'system']) ? 'show' : '' ?>">
                             <?php if ($canViewConcerns): ?>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Business Concerns</li>
                             <li><a href="<?= url('admin/concerns') ?>" class="<?= in_array(($activeMenu ?? ''), ['concerns', 'admin-concerns', 'concerns-list']) ? 'active' : '' ?>">All Concerns</a></li>
                             <li><a href="<?= url('admin/concerns/create') ?>" class="<?= ($activeMenu ?? '') === 'concerns-create' ? 'active' : '' ?>">Add New Concern</a></li>
                             <?php endif; ?>
 
                             <?php if ($canViewStaff): ?>
                             <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Staff &amp; Permissions</li>
-                            <?php if (hasPermission('staff', 'create')): ?>
-                            <li><a href="<?= url('admin/staff/create') ?>" class="<?= ($activeMenu ?? '') === 'staff-create' ? 'active' : '' ?>">Add Staff</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('staff', 'view')): ?>
                             <li><a href="<?= url('admin/staff?department=all') ?>" class="<?= in_array(($activeMenu ?? ''), ['staff', 'staff-all', 'staff-production', 'staff-general']) ? 'active' : '' ?>">Total Staffs</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('roles', 'view')): ?>
+                            <li><a href="<?= url('admin/staff/create') ?>" class="<?= ($activeMenu ?? '') === 'staff-create' ? 'active' : '' ?>">Add Staff</a></li>
                             <li><a href="<?= url('admin/roles') ?>" class="<?= ($activeMenu ?? '') === 'roles' ? 'active' : '' ?>">Role Assign / Permissions</a></li>
                             <?php endif; ?>
+
+                            <?php if ($canViewSystem): ?>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">System &amp; Settings</li>
+                            <li><a href="<?= url('system/audit') ?>" class="<?= ($activeMenu ?? '') === 'audit' ? 'active' : '' ?>">Audit Logs</a></li>
+                            <li><a href="<?= url('system/settings') ?>" class="<?= ($activeMenu ?? '') === 'settings' ? 'active' : '' ?>">Settings</a></li>
+                            <li><a href="<?= url('system/backup') ?>" class="<?= ($activeMenu ?? '') === 'backup' ? 'active' : '' ?>">Backup</a></li>
                             <?php endif; ?>
 
                             <?php 
                             $sideConcerns = getAvailableUserConcerns();
                             if (!empty($sideConcerns)):
                             ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Switch Entity</li>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Switch Context</li>
+                            <?php if (isSuperAdmin()): 
+                                $isGlobalSide = (currentConcernId() === null);
+                            ?>
+                            <li>
+                                <a href="<?= url('system/concerns/switch/0') ?>" class="d-flex align-items-center justify-content-between py-1 px-3 <?= $isGlobalSide ? 'active text-primary fw-bold' : '' ?>" title="Switch context to Global Admin (All Concerns)">
+                                    <span class="text-truncate" style="max-width: 130px;"><i class="bi bi-shield-lock-fill me-1.5 text-warning"></i>Global Admin</span>
+                                    <span class="badge <?= $isGlobalSide ? 'bg-dark text-white' : 'bg-light text-secondary border' ?>" style="font-size: 9px;">ADMIN</span>
+                                </a>
+                            </li>
+                            <?php endif; ?>
                             <?php foreach ($sideConcerns as $sc): 
                                 $isCurSc = ((int)currentConcernId() === (int)$sc['id']);
                             ?>
@@ -272,38 +293,6 @@ if (!empty($authUser['production_unit_name'])) {
                     </li>
 
                     <li class="nav-divider"></li>
-                    <?php endif; ?>
-
-                    <li class="nav-divider"></li>
-
-                    <!-- System -->
-                    <?php 
-                    $canViewSystem = hasPermission('settings', 'view') 
-                        || hasPermission('audit', 'view')
-                        || hasPermission('backup', 'view');
-                    ?>
-                    <?php if ($canViewSystem): ?>
-                    <li class="nav-item has-submenu">
-                        <a href="#" class="nav-link <?= ($activeModule ?? '') === 'system' ? 'active' : '' ?>">
-                            <i class="bi bi-sliders"></i>
-                            <span>System</span>
-                            <i class="bi bi-chevron-down submenu-arrow"></i>
-                        </a>
-                        <ul class="submenu <?= ($activeModule ?? '') === 'system' ? 'show' : '' ?>">
-                            <?php if (isSuperAdmin() || hasPermission('settings', 'view')): ?>
-                            <li><a href="<?= url('admin/concerns') ?>" class="<?= in_array($activeMenu ?? '', ['concerns', 'admin-concerns']) ? 'active' : '' ?>"><i class="bi bi-buildings me-2 text-primary"></i>Business Concerns</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('audit', 'view')): ?>
-                            <li><a href="<?= url('system/audit') ?>">Audit Logs</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('settings', 'view')): ?>
-                            <li><a href="<?= url('system/settings') ?>">Settings</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('backup', 'view')): ?>
-                            <li><a href="<?= url('system/backup') ?>">Backup</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
                     <?php endif; ?>
                 </ul>
             </nav>
@@ -341,16 +330,33 @@ if (!empty($authUser['production_unit_name'])) {
                     <?php 
                     $currConcern = currentConcern();
                     $availConcerns = getAvailableUserConcerns();
+                    $isGlobalActive = (currentConcernId() === null);
                     ?>
                     <div class="dropdown me-1">
                         <button class="btn btn-sm btn-outline-primary dropdown-toggle d-flex align-items-center gap-2 shadow-xs fw-semibold"
                                 type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Business Concern">
-                            <i class="bi bi-buildings"></i>
-                            <span class="d-none d-sm-inline"><?= e($currConcern['name'] ?? 'Select Concern') ?></span>
-                            <span class="badge bg-primary text-white ms-1 font-monospace"><?= e($currConcern['code'] ?? 'CN-01') ?></span>
+                            <?php if ($isGlobalActive): ?>
+                                <i class="bi bi-shield-lock-fill text-warning"></i>
+                                <span class="d-none d-sm-inline">Global Admin</span>
+                                <span class="badge bg-dark text-white ms-1 font-monospace">ADMIN</span>
+                            <?php else: ?>
+                                <i class="bi bi-buildings"></i>
+                                <span class="d-none d-sm-inline"><?= e($currConcern['name'] ?? 'Select Concern') ?></span>
+                                <span class="badge bg-primary text-white ms-1 font-monospace"><?= e($currConcern['code'] ?? 'CN-01') ?></span>
+                            <?php endif; ?>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border py-2" style="min-width: 270px;">
-                            <li><h6 class="dropdown-header text-uppercase small fw-bold text-muted py-1"><i class="bi bi-shuffle me-1"></i>Switch Business Concern</h6></li>
+                            <li><h6 class="dropdown-header text-uppercase small fw-bold text-muted py-1"><i class="bi bi-shuffle me-1"></i>Switch Context / Concern</h6></li>
+                            <?php if (isSuperAdmin()): ?>
+                                <li>
+                                    <a class="dropdown-item d-flex justify-content-between align-items-center py-2 px-3 <?= $isGlobalActive ? 'active bg-dark text-white fw-bold' : '' ?>"
+                                       href="<?= url('system/concerns/switch/0') ?>">
+                                        <span class="text-truncate me-2"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Global Admin (All Concerns)</span>
+                                        <span class="badge <?= $isGlobalActive ? 'bg-light text-dark' : 'bg-secondary text-white' ?> font-monospace">ADMIN</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider my-1"></li>
+                            <?php endif; ?>
                             <?php foreach ($availConcerns as $c): 
                                 $isActiveC = ((int)currentConcernId() === (int)$c['id']);
                             ?>
