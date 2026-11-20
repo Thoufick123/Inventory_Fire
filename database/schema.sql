@@ -1,7 +1,7 @@
 -- ============================================================
 -- GRM INVENTORY SOFTWARE - SAFE ADDITIVE MASTER SCHEMA
 -- Generated: 2026-11-20
--- Tables: 91 (includes shop damages and production purchase documents)
+-- Tables: 93 (Master Complete Database Schema & Safe Migration)
 -- Existing-database upgrade: creates missing tables and adds missing columns/indexes.
 -- Does not drop tables, delete rows, or insert seed/demo users.
 -- Review and back up the live database before importing.
@@ -2602,7 +2602,7 @@ CREATE TABLE IF NOT EXISTS `shop_damages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ------------------------------------------------------------
--- [91/91] Table structure for `production_purchase_documents`
+-- [91/93] Table structure for `production_purchase_documents`
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `production_purchase_documents` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -2614,6 +2614,64 @@ CREATE TABLE IF NOT EXISTS `production_purchase_documents` (
   `created_at` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_pp_docs_purchase` (`purchase_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- [92/93] Table structure for `label_batches`
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `label_batches` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `program_id` int(10) unsigned NOT NULL,
+  `stitching_batch_id` int(10) unsigned DEFAULT NULL,
+  `batch_number` varchar(50) NOT NULL,
+  `required_qty` int(11) NOT NULL DEFAULT 0,
+  `printed_qty` int(11) DEFAULT 0,
+  `used_qty` int(11) DEFAULT 0,
+  `damaged_qty` int(11) DEFAULT 0,
+  `status` enum('PENDING','IN_PROGRESS','COMPLETED') DEFAULT 'PENDING',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_qty` int(11) NOT NULL DEFAULT 0,
+  `applied_qty` int(11) DEFAULT 0,
+  `session_data` longtext DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `batch_number` (`batch_number`),
+  KEY `program_id` (`program_id`),
+  KEY `fk_label_batches_stitching` (`stitching_batch_id`),
+  CONSTRAINT `fk_label_batches_stitching` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `label_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- [93/93] Table structure for `label_items`
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `label_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `label_batch_id` int(10) unsigned NOT NULL,
+  `variant_id` int(10) unsigned DEFAULT NULL,
+  `category_id` int(10) unsigned DEFAULT NULL,
+  `subcategory_id` int(10) unsigned DEFAULT NULL,
+  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `catalog_hierarchy` varchar(255) DEFAULT NULL,
+  `size_name` varchar(100) DEFAULT NULL,
+  `color_name` varchar(100) DEFAULT NULL,
+  `base_price` decimal(10,2) DEFAULT 0.00,
+  `discount_price` decimal(10,2) DEFAULT 0.00,
+  `required_qty` int(11) NOT NULL DEFAULT 0,
+  `printed_qty` int(11) DEFAULT 0,
+  `used_qty` int(11) DEFAULT 0,
+  `damaged_qty` int(11) DEFAULT 0,
+  `start_seq` int(11) DEFAULT 1,
+  `end_seq` int(11) DEFAULT 1,
+  `start_code` varchar(50) DEFAULT NULL,
+  `end_code` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `label_batch_id` (`label_batch_id`),
+  KEY `variant_id` (`variant_id`),
+  CONSTRAINT `label_items_ibfk_1` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `label_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -2840,6 +2898,70 @@ SET @schema_sql = IF(
   EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_concern'),
   'SELECT 1',
   'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_concern` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'is_direct_bill'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `is_direct_bill` tinyint(1) NOT NULL DEFAULT 0'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'upi_payment_screenshot_url'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `upi_payment_screenshot_url` varchar(500) DEFAULT NULL'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'cash_given'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `cash_given` decimal(12,2) DEFAULT 0.00'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'change_returned'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `change_returned` decimal(12,2) DEFAULT 0.00'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'staff_id'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `staff_id` int(10) unsigned DEFAULT NULL'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'staff_name'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD COLUMN `staff_name` varchar(150) DEFAULT NULL'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_direct'),
+  'SELECT 1',
+  'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_direct` (`is_direct_bill`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'concerns' AND COLUMN_NAME = 'logo_url'),
+  'SELECT 1',
+  'ALTER TABLE `concerns` ADD COLUMN `logo_url` varchar(255) DEFAULT NULL'
 );
 PREPARE schema_stmt FROM @schema_sql;
 EXECUTE schema_stmt;
