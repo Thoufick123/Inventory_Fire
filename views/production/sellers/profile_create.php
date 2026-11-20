@@ -347,14 +347,17 @@
         const val = emailInput.value.trim();
         if (val.length === 0) {
             emailInput.classList.remove('is-invalid');
+            updateSubmitStatus();
             return true;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
             emailInput.classList.add('is-invalid');
             if (emailFeedback) emailFeedback.textContent = 'Please enter a valid email address.';
+            updateSubmitStatus();
             return false;
         }
         emailInput.classList.remove('is-invalid');
+        updateSubmitStatus();
         return true;
     }
 
@@ -485,9 +488,11 @@
         const val = addressInput.value.trim();
         if (val.length < 6 || !/[a-zA-Z]/.test(val)) {
             addressInput.classList.add('is-invalid');
+            updateSubmitStatus();
             return false;
         }
         addressInput.classList.remove('is-invalid');
+        updateSubmitStatus();
         return true;
     }
     if (addressInput) {
@@ -578,6 +583,7 @@
         alertContainer.style.display = 'block';
         if (markCity) cityInput.classList.add('is-invalid');
         if (markState) stateInput.classList.add('is-invalid');
+        updateSubmitStatus();
     }
 
     function clearAlert() {
@@ -585,6 +591,7 @@
         alertText.innerHTML = '';
         cityInput.classList.remove('is-invalid');
         stateInput.classList.remove('is-invalid');
+        updateSubmitStatus();
     }
 
     cityInput.addEventListener('input', checkCityState);
