@@ -154,6 +154,26 @@
                                         <?= e($cName) ?><?= ($cName !== '' && $dName !== '') ? ' · ' : '' ?><?= e($dName) ?>
                                     </div>
                                 <?php endif; ?>
+
+                                <!-- Used Roll / In Stock Status -->
+                                <?php if (!empty($item['is_used_in_program'])): ?>
+                                    <div class="mt-2">
+                                        <span class="badge bg-success text-white px-2 py-1" style="font-size: 10px; font-weight: 600;">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Used Roll
+                                        </span>
+                                        <?php if (!empty($item['used_program_label'])): ?>
+                                            <div class="text-success fw-bold mt-1 text-truncate" style="font-size: 9.5px;" title="<?= e($item['used_program_label']) ?>">
+                                                <?= e($item['used_program_label']) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="mt-2">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0" style="font-size: 10px;">
+                                            In Stock
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="w-100 d-flex justify-content-between align-items-center mt-2 pt-1 border-top" style="font-size: 10px;">
                                 <span class="badge bg-light text-muted border">#<?= $item['sequence_num'] ?></span>

@@ -164,6 +164,16 @@
                             <td>
                                 <span class="badge bg-light text-dark border font-monospace"><?= e($item['batch_code']) ?></span>
                                 <div class="small text-muted mt-1"><?= (int)$item['qr_quantity'] ?> QR Labels</div>
+                                <?php if (!empty($item['used_program_number'])): ?>
+                                    <div class="mt-1">
+                                        <span class="badge bg-success text-white" style="font-size: 10px; font-weight: 600;">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Used Roll
+                                        </span>
+                                        <div class="small text-success fw-semibold mt-0 text-truncate" style="font-size: 10.5px; max-width: 140px;" title="<?= e($item['used_program_number'] . (!empty($item['used_program_name']) ? ' - ' . $item['used_program_name'] : '')) ?>">
+                                            <?= e($item['used_program_number']) ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td class="text-end" id="cell-qty-<?= (int)$item['generation_id'] ?>">
                                 <div class="fw-bold text-dark"><?= number_format((float)$item['purchase_qty'], 2) ?> <?= e($item['unit'] ?: 'PCS') ?></div>
