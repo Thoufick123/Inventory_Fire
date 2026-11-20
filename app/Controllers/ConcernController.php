@@ -82,7 +82,13 @@ class ConcernController {
         $sql = "
             SELECT c.*,
                    (SELECT COUNT(*) FROM concern_modules cm WHERE cm.concern_id = c.id AND cm.is_enabled = 1) AS enabled_modules_count,
-                   (SELECT COUNT(*) FROM user_concerns uc WHERE uc.concern_id = c.id) AS assigned_users_count,
+                   (SELECT COUNT(*)
+                    FROM user_concerns uc
+                    JOIN users assigned_user ON assigned_user.id = uc.user_id
+                    LEFT JOIN roles assigned_role ON assigned_role.id = assigned_user.role_id
+                    WHERE uc.concern_id = c.id
+                      AND (assigned_user.role_id IS NULL OR assigned_user.role_id != 1)
+                      AND (assigned_role.slug IS NULL OR assigned_role.slug != 'super_admin')) AS assigned_users_count,
                    (SELECT COUNT(*) FROM production_units pu WHERE pu.concern_id = c.id) AS production_units_count
             FROM concerns c
             WHERE 1=1
@@ -121,6 +127,8 @@ class ConcernController {
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
             WHERE u.is_active = 1
+              AND (u.role_id IS NULL OR u.role_id != 1)
+              AND (r.slug IS NULL OR r.slug != 'super_admin')
             ORDER BY u.full_name ASC
         ");
 
@@ -132,6 +140,8 @@ class ConcernController {
             JOIN users u ON uc.user_id = u.id
             LEFT JOIN roles r ON u.role_id = r.id
             WHERE u.is_active = 1
+              AND (u.role_id IS NULL OR u.role_id != 1)
+              AND (r.slug IS NULL OR r.slug != 'super_admin')
             ORDER BY uc.is_default DESC, u.full_name ASC
         ");
         $staffByConcern = [];
@@ -197,11 +207,7 @@ class ConcernController {
 
         $name = trim($_POST['name'] ?? '');
         $code = strtoupper(trim($_POST['code'] ?? ''));
-        $validTypes = ['HEAD_OFFICE', 'PRODUCTION', 'WAREHOUSE', 'RETAIL'];
-        $concernType = strtoupper(trim($_POST['concern_type'] ?? 'HEAD_OFFICE'));
-        if (!in_array($concernType, $validTypes, true)) {
-            $concernType = 'HEAD_OFFICE';
-        }
+        $concernType = 'HEAD_OFFICE';
         $legalName = trim($_POST['legal_name'] ?? '');
         $gstNumber = strtoupper(trim($_POST['gst_number'] ?? ''));
         $panNumber = strtoupper(trim($_POST['pan_number'] ?? ''));
@@ -236,6 +242,15 @@ class ConcernController {
             return;
         }
 
+        $logoUrl = null;
+        try {
+            $logoUrl = $this->handleLogoUpload(null);
+        } catch (Exception $e) {
+            Session::flash('error', $e->getMessage());
+            Response::redirect(url('admin/concerns/create'));
+            return;
+        }
+
         $creatorId = Auth::id() ?? 1;
 
         $db = Database::getInstance();
@@ -246,19 +261,19 @@ class ConcernController {
                 INSERT INTO concerns (
                     name, code, concern_type, legal_name, gst_number, pan_number,
                     phone, email, address, city, state, pincode,
-                    invoice_prefix, po_prefix, dispatch_prefix,
+                    logo_url, invoice_prefix, po_prefix, dispatch_prefix,
                     is_active, created_by, created_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?, ?, ?,
                     1, ?, NOW()
                 )
             ");
             $stmt->execute([
                 $name, $code, $concernType, $legalName ?: null, $gstNumber ?: null, $panNumber ?: null,
                 $phone ?: null, $email ?: null, $address ?: null, $city ?: null, $state ?: null, $pincode ?: null,
-                $invoicePrefix, $poPrefix, $dispatchPrefix,
+                $logoUrl, $invoicePrefix, $poPrefix, $dispatchPrefix,
                 $creatorId
             ]);
             $concernId = (int)$db->lastInsertId();
@@ -271,13 +286,6 @@ class ConcernController {
             foreach (array_keys(self::$STANDARD_MODULES) as $mKey) {
                 $modStmt->execute([$concernId, $mKey]);
             }
-
-            // Authorize creator to newly created concern
-            $db->prepare("
-                INSERT INTO user_concerns (user_id, concern_id, is_default, created_at)
-                VALUES (?, ?, 0, NOW())
-                ON DUPLICATE KEY UPDATE is_default = is_default
-            ")->execute([$creatorId, $concernId]);
 
             // Auto-link/create Production Unit if production module enabled
             if (in_array('production', $selectedModules, true)) {
@@ -409,6 +417,15 @@ class ConcernController {
             return;
         }
 
+        $logoUrl = $concern['logo_url'] ?? null;
+        try {
+            $logoUrl = $this->handleLogoUpload($concern['logo_url'] ?? null);
+        } catch (Exception $e) {
+            Session::flash('error', $e->getMessage());
+            Response::redirect(url("admin/concerns/edit/{$concernId}"));
+            return;
+        }
+
         $db = Database::getInstance();
         $db->beginTransaction();
 
@@ -417,14 +434,14 @@ class ConcernController {
                 UPDATE concerns SET
                     name = ?, code = ?, concern_type = ?, legal_name = ?, gst_number = ?, pan_number = ?,
                     phone = ?, email = ?, address = ?, city = ?, state = ?, pincode = ?,
-                    invoice_prefix = ?, po_prefix = ?, dispatch_prefix = ?, is_active = ?,
+                    logo_url = ?, invoice_prefix = ?, po_prefix = ?, dispatch_prefix = ?, is_active = ?,
                     updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
                 $name, $code, $concernType, $legalName ?: null, $gstNumber ?: null, $panNumber ?: null,
                 $phone ?: null, $email ?: null, $address ?: null, $city ?: null, $state ?: null, $pincode ?: null,
-                $invoicePrefix, $poPrefix, $dispatchPrefix, $isActive,
+                $logoUrl, $invoicePrefix, $poPrefix, $dispatchPrefix, $isActive,
                 $concernId
             ]);
 
@@ -457,8 +474,57 @@ class ConcernController {
             return;
         }
 
-        $staffIds = array_values(array_unique(array_filter(array_map('intval', $_POST['staff_ids'] ?? []))));
-        $primaryStaffId = !empty($_POST['primary_staff_id']) ? (int)$_POST['primary_staff_id'] : ($staffIds[0] ?? null);
+        $rawStaffIds = $_POST['staff_ids'] ?? [];
+        if (!is_array($rawStaffIds)) {
+            Session::flash('error', 'Invalid staff assignment list.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $staffIds = [];
+        foreach ($rawStaffIds as $rawStaffId) {
+            $staffId = filter_var($rawStaffId, FILTER_VALIDATE_INT);
+            if ($staffId === false || $staffId < 1) {
+                Session::flash('error', 'Invalid staff assignment list.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+            $staffIds[] = $staffId;
+        }
+        $staffIds = array_values(array_unique($staffIds));
+        if (!empty($staffIds)) {
+            $inClause = implode(',', array_fill(0, count($staffIds), '?'));
+            $assignableStaff = Database::fetchAll("
+                SELECT u.id
+                FROM users u
+                LEFT JOIN roles r ON r.id = u.role_id
+                WHERE u.id IN ($inClause)
+                  AND u.is_active = 1
+                  AND (u.role_id IS NULL OR u.role_id != 1)
+                  AND (r.slug IS NULL OR r.slug != 'super_admin')
+            ", $staffIds) ?: [];
+            $assignableIds = array_map('intval', array_column($assignableStaff, 'id'));
+            if (count($assignableIds) !== count($staffIds)) {
+                Session::flash('error', 'Only active non-Global-Admin staff can be assigned to a concern.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+            $staffIds = $assignableIds;
+        }
+        $requestedPrimaryStaffId = null;
+        if (!empty($_POST['primary_staff_id'])) {
+            $requestedPrimaryStaffId = filter_var($_POST['primary_staff_id'], FILTER_VALIDATE_INT);
+            if (
+                $requestedPrimaryStaffId === false
+                || $requestedPrimaryStaffId < 1
+                || !in_array($requestedPrimaryStaffId, $staffIds, true)
+            ) {
+                Session::flash('error', 'Choose a primary staff member from the assigned staff list.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+        }
+        $primaryStaffId = $requestedPrimaryStaffId ?? ($staffIds[0] ?? null);
 
         $db = Database::getInstance();
         $db->beginTransaction();
@@ -733,5 +799,63 @@ class ConcernController {
         $msg = $newStatus ? "Concern '{$concern['name']}' activated." : "Concern '{$concern['name']}' deactivated.";
         Session::flash('success', $msg);
         Response::redirect(url('admin/concerns'));
+    }
+
+    /**
+     * Handle logo file upload for concern branding.
+     */
+    private function handleLogoUpload(?string $existingLogo = null): ?string {
+        if (!empty($_POST['remove_logo'])) {
+            if ($existingLogo) {
+                $clean = ltrim(str_replace('public/', '', $existingLogo), '/');
+                $target = BASE_PATH . '/public/' . $clean;
+                if (file_exists($target) && is_file($target)) {
+                    @unlink($target);
+                }
+            }
+            return null;
+        }
+
+        if (!isset($_FILES['logo']) || empty($_FILES['logo']['name']) || $_FILES['logo']['error'] === UPLOAD_ERR_NO_FILE) {
+            return $existingLogo;
+        }
+
+        $file = $_FILES['logo'];
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            throw new Exception('Image upload error (Code: ' . $file['error'] . ')');
+        }
+
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts, true)) {
+            throw new Exception('Invalid logo file format. Allowed types: PNG, JPG, JPEG, WEBP, SVG.');
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            throw new Exception('Logo image file exceeds 5MB size limit.');
+        }
+
+        $uploadDir = BASE_PATH . '/public/uploads/concerns';
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0777, true);
+        }
+
+        $newFileName = 'concern_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $targetPath = $uploadDir . '/' . $newFileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            throw new Exception('Failed to save uploaded concern logo.');
+        }
+
+        // Clean up previous logo file if replacing
+        if ($existingLogo) {
+            $cleanOld = ltrim(str_replace('public/', '', $existingLogo), '/');
+            $oldPath = BASE_PATH . '/public/' . $cleanOld;
+            if (file_exists($oldPath) && is_file($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        return 'uploads/concerns/' . $newFileName;
     }
 }

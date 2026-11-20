@@ -9642,7 +9642,39 @@ class ProductionController {
         ]);
     }
 
+    private function getActiveConcernSellerRollScope(string $rollAlias, string $sellerAlias): array {
+        $concernId = function_exists('currentConcernId') ? currentConcernId() : null;
+        if (!$concernId) {
+            return ['', []];
+        }
+
+        if ($concernId === 1) {
+            return [
+                " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL)"
+                    . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL)",
+                [$concernId, $concernId],
+            ];
+        }
+
+        return [
+            " AND {$rollAlias}.concern_id = ? AND {$sellerAlias}.concern_id = ?",
+            [$concernId, $concernId],
+        ];
+    }
+
+    private function getSellerRollForCurrentConcern(int $rollId): ?array {
+        [$concernSql, $concernParams] = $this->getActiveConcernSellerRollScope('sr', 's');
+        return Database::fetchOne(
+            "SELECT sr.seller_id, sr.weight, sr.price, sr.color, sr.design_name, sr.quantity
+             FROM seller_rolls sr
+             JOIN sellers s ON s.id = sr.seller_id
+             WHERE sr.id = ? AND s.is_active = 1{$concernSql}",
+            array_merge([$rollId], $concernParams)
+        );
+    }
+
     private function getAvailableSellerRollsWithPieces(int $excludeProgramId = 0): array {
+        [$concernSql, $concernParams] = $this->getActiveConcernSellerRollScope('sr', 's');
         $rolls = Database::fetchAll(
             "SELECT sr.*, s.name as seller_name, s.company as seller_company, s.material_type,
                     COALESCE(u.used_quantity, 0) as used_quantity,
@@ -9679,8 +9711,9 @@ class ProductionController {
                  WHERE rd.status NOT IN ('CLOSED', 'CANCELLED')
                  GROUP BY rd.seller_roll_id
              ) dmg ON sr.id = dmg.seller_roll_id
-             WHERE s.is_active = 1
-             ORDER BY sr.id DESC"
+             WHERE s.is_active = 1{$concernSql}
+             ORDER BY sr.id DESC",
+            $concernParams
         );
 
         $deletedLabels = Database::fetchAll("SELECT seller_roll_id, sequence FROM seller_roll_deleted_labels");
@@ -9961,7 +9994,12 @@ class ProductionController {
             $rSubcatId = !empty($r['subcategory_id']) ? (int)$r['subcategory_id'] : (!empty($_POST['subcategory_id']) ? (int)$_POST['subcategory_id'] : null);
             $rSubSubcatId = !empty($r['sub_subcategory_id']) ? (int)$r['sub_subcategory_id'] : (!empty($_POST['sub_subcategory_id']) ? (int)$_POST['sub_subcategory_id'] : null);
 
-            $sellerData = Database::fetchOne("SELECT seller_id, weight, price, color, design_name, quantity FROM seller_rolls WHERE id = ?", [$rId]);
+            $sellerData = $this->getSellerRollForCurrentConcern($rId);
+            if (!$sellerData) {
+                Session::flash('error', 'A selected raw material roll is not available in the active concern.');
+                Response::back();
+                return;
+            }
 
             if ($sellerData) {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
@@ -9990,7 +10028,7 @@ class ProductionController {
         // Fallback to single roll selection if rolls array was empty
         if (empty($validRolls) && !empty($_POST['seller_roll_id'])) {
             $singleRollId = (int)$_POST['seller_roll_id'];
-            $sellerData = Database::fetchOne("SELECT seller_id, weight, price, color, design_name, quantity FROM seller_rolls WHERE id = ?", [$singleRollId]);
+            $sellerData = $this->getSellerRollForCurrentConcern($singleRollId);
             if ($sellerData) {
                 $rQty = max(0, (int)($_POST['roll_qty'] ?? ($sellerData['quantity'] ?? 0)));
                 $rWeight = max(0.0, (float)($_POST['roll_weight'] ?? $sellerData['weight']));
@@ -10148,6 +10186,7 @@ class ProductionController {
         $subSubcategories = $program['subcategory_id'] ? Database::fetchAll("SELECT * FROM sub_subcategories WHERE subcategory_id = ? AND is_active = 1 ORDER BY name ASC", [$program['subcategory_id']]) : [];
         $assignedStaffId = (int)($program['assigned_to'] ?? 0);
         $users = Database::fetchAll("SELECT id, full_name FROM users WHERE is_active = 1 AND ((staff_role IS NULL OR staff_role NOT IN ('CUTTING_MASTER', 'TAILOR', 'QC_INSPECTOR'))" . ($assignedStaffId > 0 ? " OR id = $assignedStaffId" : "") . ") ORDER BY full_name ASC");
+        [$concernSql, $concernParams] = $this->getActiveConcernSellerRollScope('sr', 's');
         $rolls = Database::fetchAll(
             "SELECT sr.*, s.name as seller_name, s.company as seller_company, s.material_type,
                     COALESCE(u.used_quantity, 0) as used_quantity,
@@ -10184,9 +10223,9 @@ class ProductionController {
                  WHERE rd.status NOT IN ('CLOSED', 'CANCELLED')
                  GROUP BY rd.seller_roll_id
              ) dmg ON sr.id = dmg.seller_roll_id
-             WHERE s.is_active = 1
+             WHERE s.is_active = 1{$concernSql}
              ORDER BY sr.id DESC",
-            [(int)$id]
+            array_merge([(int)$id], $concernParams)
         );
         $programRolls = ProductionProgram::getRolls((int)$id);
 
@@ -10282,7 +10321,12 @@ class ProductionController {
             $rSubcatId = !empty($r['subcategory_id']) ? (int)$r['subcategory_id'] : (!empty($_POST['subcategory_id']) ? (int)$_POST['subcategory_id'] : null);
             $rSubSubcatId = !empty($r['sub_subcategory_id']) ? (int)$r['sub_subcategory_id'] : (!empty($_POST['sub_subcategory_id']) ? (int)$_POST['sub_subcategory_id'] : null);
 
-            $sellerData = Database::fetchOne("SELECT seller_id, weight, price, color, design_name, quantity FROM seller_rolls WHERE id = ?", [$rId]);
+            $sellerData = $this->getSellerRollForCurrentConcern($rId);
+            if (!$sellerData) {
+                Session::flash('error', 'A selected raw material roll is not available in the active concern.');
+                Response::back();
+                return;
+            }
 
             if ($sellerData) {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
@@ -10310,7 +10354,7 @@ class ProductionController {
 
         if (empty($validRolls) && !empty($_POST['seller_roll_id'])) {
             $singleRollId = (int)$_POST['seller_roll_id'];
-            $sellerData = Database::fetchOne("SELECT seller_id, weight, price, color, design_name, quantity FROM seller_rolls WHERE id = ?", [$singleRollId]);
+            $sellerData = $this->getSellerRollForCurrentConcern($singleRollId);
             if ($sellerData) {
                 $rQty = max(0, (int)($_POST['roll_qty'] ?? ($sellerData['quantity'] ?? 0)));
                 $rWeight = max(0.0, (float)($_POST['roll_weight'] ?? $sellerData['weight']));

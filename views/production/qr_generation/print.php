@@ -24,83 +24,65 @@
 
         .labels-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+            grid-template-columns: repeat(2, 40mm);
+            grid-auto-rows: 25mm;
+            gap: 2mm;
+            width: max-content;
         }
 
-        @media (max-width: 1100px) {
-            .labels-grid {
-                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            }
-        }
-
-        /* 50x30mm Standard Garment Thermal Sticker Card */
         .garment-label-card {
+            position: relative;
+            box-sizing: border-box;
+            width: 40mm;
+            height: 25mm;
             background: #fff;
-            border: 2px solid #000;
-            border-radius: 0;
-            padding: 8px 10px;
+            border: 0.3mm solid #000;
             box-shadow: 0 2px 6px rgba(0,0,0,0.05);
             page-break-inside: avoid;
             break-inside: avoid;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .label-header {
-            border-bottom: 1.5px solid #000;
-            padding-bottom: 3px;
-            margin-bottom: 5px;
-            text-align: center;
-        }
-
-        /* GIVEN BRAND NAME PROMINENTLY PRINTED AT TOP */
-        .brand-name-title {
-            font-size: 13px;
-            font-weight: 900;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            overflow: hidden;
             color: #000;
-            line-height: 1.2;
-        }
-
-        .hierarchy-sub {
-            font-size: 8.5px;
-            font-weight: 700;
-            color: #334155;
-            text-transform: uppercase;
-            margin-top: 1px;
-        }
-
-        .qr-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
 
         .qr-canvas-box {
-            width: 72px;
-            height: 72px;
-            flex-shrink: 0;
+            position: absolute;
+            overflow: hidden;
         }
 
         .qr-canvas-box canvas, .qr-canvas-box img {
-            width: 72px !important;
-            height: 72px !important;
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
         }
 
-        .label-meta {
-            font-size: 9.5px;
-            line-height: 1.35;
+        .label-code,
+        .label-title,
+        .label-sku,
+        .label-mrp,
+        .label-price {
+            position: absolute;
+            overflow: hidden;
+            line-height: 1.05;
+            white-space: nowrap;
         }
 
-        .label-meta strong {
+        .label-code {
+            font-family: monospace;
+            font-weight: 700;
+        }
+
+        .label-title {
             font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .label-sku {
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         .label-mrp del {
-            text-decoration-thickness: 1.5px;
+            text-decoration-thickness: 0.2mm;
         }
 
         .no-print,
@@ -114,18 +96,17 @@
                 background: #fff;
                 padding: 0;
                 margin: 0;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
             }
             .no-print {
                 display: none !important;
             }
             .garment-label-card {
                 box-shadow: none;
-                border: 1.5px solid #000;
                 border-radius: 0;
             }
-            .labels-grid {
-                gap: 8px;
-            }
+            .print-sheet-container { max-width: none; width: max-content; margin: 0; }
         }
     </style>
 </head>
@@ -170,82 +151,162 @@
                 $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
                 $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
                 $variantSku = trim((string)($item['variant_code'] ?? ($item['sku'] ?? ($item['variant_sku'] ?? ''))));
+                $subtitleParts = array_filter([
+                    trim((string)($batch['category_name'] ?: 'APPAREL')),
+                    trim((string)($batch['subcategory_name'] ?? '')),
+                    $variantSku !== '' && $variantSku !== $displayQrLabel ? $variantSku : '',
+                    $colorName !== '' ? 'COL ' . $colorName : '',
+                    !empty($batch['design_name']) ? 'DES ' . trim((string)$batch['design_name']) : '',
+                    $sizeName !== '' ? 'SIZE ' . $sizeName : '',
+                ]);
+                $labelSubtitle = implode(' / ', $subtitleParts);
             ?>
             <div class="garment-label-card">
-                <!-- Top Brand Header: Given Brand Name Print -->
-                <div class="label-header">
-                    <div class="brand-name-title"><?= e($batch['brand_name']) ?></div>
-                    <div class="hierarchy-sub">
-                        <?= e($batch['category_name'] ?: 'APPAREL') ?>
-                        <?php if (!empty($batch['subcategory_name'])): ?>
-                        › <?= e($batch['subcategory_name']) ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Middle: QR and Attributes -->
-                <div class="qr-row">
-                    <div class="qr-canvas-box print-qr-item" data-code="<?= e($item['qr_code']) ?>"></div>
-                    <div class="label-meta flex-grow-1">
-                        <div class="font-monospace fw-bold text-dark" style="font-size: 11px; word-break: break-all;">
-                            <?= e($displayQrLabel) ?>
-                        </div>
-                        <?php if ($variantSku !== '' && $variantSku !== $displayQrLabel): ?>
-                        <div class="font-monospace text-muted" style="font-size: 8.5px;"><?= e($variantSku) ?></div>
-                        <?php endif; ?>
-                        <?php if ($colorName !== ''): ?>
-                        <div><strong>Col:</strong> <?= e($colorName) ?></div>
-                        <?php endif; ?>
-                        <?php if (!empty($batch['design_name'])): ?>
-                        <div><strong>Des:</strong> <?= e($batch['design_name']) ?></div>
-                        <?php endif; ?>
-                        <?php if ($sizeName !== ''): ?>
-                        <div class="mt-1"><strong>Size:</strong> <span class="badge bg-dark text-white px-2 py-0" style="font-size: 10px; font-weight: 800;"><?= e($sizeName) ?></span></div>
-                        <?php endif; ?>
-                        <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
-                        <div class="label-mrp"><strong>MRP:</strong> <del>₹<?= number_format((float)$item['mrp'], 2) ?></del></div>
-                        <?php endif; ?>
-                        <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
-                        <div><strong class="text-dark">SALE:</strong> ₹<?= number_format((float)$item['selling_price'], 2) ?></div>
-                        <?php endif; ?>
-                    </div>
-                </div>
+                <div class="qr-canvas-box print-qr-item" data-code="<?= e($itemQrCode) ?>"></div>
+                <div class="label-code"><?= e($displayQrLabel) ?></div>
+                <div class="label-title"><?= e($batch['brand_name']) ?></div>
+                <div class="label-sku"><?= e($labelSubtitle) ?></div>
+                <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
+                <div class="label-mrp"><strong>MRP:</strong> <del>₹<?= number_format((float)$item['mrp'], 2) ?></del></div>
+                <?php endif; ?>
+                <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
+                <div class="label-price"><strong>SALE:</strong> ₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
     </div>
 
     <script>
-        function applyPrintSheetSettings(config) {
-            if (!config) return;
-            const grid = document.querySelector('.labels-grid');
-            if (grid && config.columns) {
-                grid.style.gridTemplateColumns = `repeat(${config.columns}, 1fr)`;
-                grid.style.gap = `${config.gapMm || 2}mm`;
+        const PRINT_QR_CONFIG_KEY = 'grm_qr_printer_config';
+        const PRINT_QR_DEFAULTS = {
+            labelWidthMm: 40,
+            labelHeightMm: 25,
+            columns: 2,
+            gapMm: 2,
+            col2ShiftDots: 0,
+            qrX: 12,
+            qrY: 35,
+            qrCellSize: 3,
+            codeX: 12,
+            codeY: 125,
+            textX: 115,
+            textFont: '2',
+            titleY: 35,
+            skuY: 62,
+            mrpY: 90,
+            discY: 118
+        };
+        const PRINT_DOTS_PER_MM = 8.12;
+
+        function readQrPrinterConfig() {
+            try {
+                const saved = localStorage.getItem(PRINT_QR_CONFIG_KEY);
+                const storedConfig = saved ? JSON.parse(saved) : {};
+                const config = { ...PRINT_QR_DEFAULTS, ...storedConfig };
+                const finiteNumber = (key, min, max) => {
+                    const value = Number(config[key]);
+                    return Number.isFinite(value)
+                        ? Math.min(max, Math.max(min, value))
+                        : PRINT_QR_DEFAULTS[key];
+                };
+                const columns = Number(config.columns);
+
+                return {
+                    labelWidthMm: finiteNumber('labelWidthMm', 20, 150),
+                    labelHeightMm: finiteNumber('labelHeightMm', 15, 150),
+                    columns: [1, 2, 4].includes(columns) ? columns : PRINT_QR_DEFAULTS.columns,
+                    gapMm: finiteNumber('gapMm', 0, 20),
+                    col2ShiftDots: finiteNumber('col2ShiftDots', -500, 500),
+                    qrX: finiteNumber('qrX', -500, 500),
+                    qrY: finiteNumber('qrY', -500, 1000),
+                    qrCellSize: finiteNumber('qrCellSize', 2, 4),
+                    codeX: finiteNumber('codeX', -500, 500),
+                    codeY: finiteNumber('codeY', -500, 1000),
+                    textX: finiteNumber('textX', -500, 1000),
+                    textFont: ['1', '2', '3'].includes(String(config.textFont))
+                        ? String(config.textFont)
+                        : PRINT_QR_DEFAULTS.textFont,
+                    titleY: finiteNumber('titleY', -500, 1000),
+                    skuY: finiteNumber('skuY', -500, 1000),
+                    mrpY: finiteNumber('mrpY', -500, 1000),
+                    discY: finiteNumber('discY', -500, 1000)
+                };
+            } catch (error) {
+                console.error('Could not read saved QR printer settings; using standard defaults.', error);
+                return { ...PRINT_QR_DEFAULTS };
             }
-            const cards = document.querySelectorAll('.garment-label-card');
-            cards.forEach(card => {
-                if (config.labelWidthMm) card.style.minWidth = `${config.labelWidthMm}mm`;
-                if (config.labelHeightMm) card.style.minHeight = `${config.labelHeightMm}mm`;
+        }
+
+        function applyPrintSheetSettings(config) {
+            if (!config) {
+                config = readQrPrinterConfig();
+            }
+            const grid = document.querySelector('.labels-grid');
+            if (!grid) {
+                return;
+            }
+
+            const effectiveConfig = { ...PRINT_QR_DEFAULTS, ...config };
+            const cardWidth = Number(effectiveConfig.labelWidthMm);
+            const cardHeight = Number(effectiveConfig.labelHeightMm);
+            const columns = Number(effectiveConfig.columns);
+            const gap = Number(effectiveConfig.gapMm);
+            const shiftMm = Number(effectiveConfig.col2ShiftDots) / PRINT_DOTS_PER_MM;
+            const qrSizeMm = Number(effectiveConfig.qrCellSize) * 2.125;
+            const fontSizeMm = { 1: 1.2, 2: 1.5, 3: 1.9 }[effectiveConfig.textFont] || 1.5;
+
+            grid.style.gridTemplateColumns = `repeat(${columns}, ${cardWidth}mm)`;
+            grid.style.gridAutoRows = `${cardHeight}mm`;
+            grid.style.columnGap = `${gap}mm`;
+            grid.style.rowGap = `${gap}mm`;
+
+            grid.querySelectorAll('.garment-label-card').forEach((card, index) => {
+                const columnIndex = index % columns;
+                const shift = columnIndex === 1 ? shiftMm : 0;
+                card.style.width = `${cardWidth}mm`;
+                card.style.height = `${cardHeight}mm`;
+
+                const position = (selector, xDots, yDots) => {
+                    const element = card.querySelector(selector);
+                    if (!element) return;
+                    element.style.left = `${(Number(xDots) / PRINT_DOTS_PER_MM) + shift}mm`;
+                    element.style.top = `${Number(yDots) / PRINT_DOTS_PER_MM}mm`;
+                    element.style.fontSize = `${fontSizeMm}mm`;
+                    element.style.maxWidth = `${Math.max(1, cardWidth - (Number(xDots) / PRINT_DOTS_PER_MM) - shift)}mm`;
+                };
+
+                const qr = card.querySelector('.qr-canvas-box');
+                if (qr) {
+                    qr.style.left = `${(Number(effectiveConfig.qrX) / PRINT_DOTS_PER_MM) + shift}mm`;
+                    qr.style.top = `${Number(effectiveConfig.qrY) / PRINT_DOTS_PER_MM}mm`;
+                    qr.style.width = `${qrSizeMm}mm`;
+                    qr.style.height = `${qrSizeMm}mm`;
+                }
+
+                position('.label-code', effectiveConfig.codeX, effectiveConfig.codeY);
+                position('.label-title', effectiveConfig.textX, effectiveConfig.titleY);
+                position('.label-sku', effectiveConfig.textX, effectiveConfig.skuY);
+                position('.label-mrp', effectiveConfig.textX, effectiveConfig.mrpY);
+                position('.label-price', effectiveConfig.textX, effectiveConfig.discY);
             });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const savedConfig = localStorage.getItem('grm_qr_printer_config');
-            if (savedConfig) {
-                try {
-                    applyPrintSheetSettings(JSON.parse(savedConfig));
-                } catch(e) {}
-            }
+            applyPrintSheetSettings(readQrPrinterConfig());
 
             document.querySelectorAll('.print-qr-item').forEach(function(el) {
                 new QRCode(el, {
                     text: el.dataset.code,
-                    width: 72,
-                    height: 72,
+                    width: 256,
+                    height: 256,
                     correctLevel: QRCode.CorrectLevel.M
                 });
             });
+        });
+
+        window.addEventListener('beforeprint', function() {
+            applyPrintSheetSettings(readQrPrinterConfig());
         });
     </script>
 

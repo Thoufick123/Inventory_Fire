@@ -8,7 +8,11 @@
         </h2>
         <span class="text-muted">Export comprehensive production pipelines, supplier procurement, financial P&amp;L, and warehouse logistics.</span>
     </div>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <a href="<?= url('export/direct-bills-csv') ?>" class="btn btn-outline-warning text-dark btn-sm fw-semibold shadow-sm px-3 d-flex align-items-center gap-1.5" title="Export only Direct / Separated Sales Bills into a separate CSV file">
+            <i class="bi bi-box-arrow-up-right"></i>
+            <span>Direct Bills CSV</span>
+        </a>
         <a href="<?= url('export/quick-csv') ?>" class="btn btn-outline-primary btn-sm fw-semibold shadow-sm px-3 d-flex align-items-center gap-1.5" title="Instantly download full CSV for current month">
             <i class="bi bi-file-earmark-excel"></i>
             <span>Current Month CSV</span>
@@ -337,8 +341,8 @@ const CONCERN_MODULE_MAPPING = {
     'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward'],
     'production': ['programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations'],
     'warehouse': ['batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework'],
-    'retail_pos': ['billing'],
-    'digital_sales': ['billing', 'outward'],
+    'retail_pos': ['billing', 'direct_billing'],
+    'digital_sales': ['billing', 'direct_billing', 'outward'],
     'returns': ['returns'],
     'expenses': ['expenses', 'wastage'],
     'assets': ['assets', 'asset_maintenance']

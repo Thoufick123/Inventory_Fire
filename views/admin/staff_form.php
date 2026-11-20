@@ -286,6 +286,7 @@ foreach ($hierarchicalModules as $m) {
                             Authorized Concerns / Entities <span class="text-danger">*</span>
                             <small class="text-muted fw-normal d-block">Check all business firms this staff member is authorized to access.</small>
                         </label>
+                        <input type="hidden" name="concern_assignment_submitted" value="1">
                         
                         <div class="row g-3 mb-4" id="concernCheckboxesList">
                             <?php foreach (($concerns ?? []) as $concern): ?>

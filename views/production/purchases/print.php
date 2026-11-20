@@ -1,7 +1,11 @@
 <?php
 $prodUnit = $prodUnit ?? (class_exists('ProductionUnit') ? ProductionUnit::getActiveFacility($purchase['production_unit_id'] ?? null) : []);
 $currency = $company['currency_symbol'] ?? '₹';
-$companyName = !empty($prodUnit['name']) ? $prodUnit['name'] : ($company['company_name'] ?? '');
+$concernBrand = function_exists('getConcernBranding') 
+    ? getConcernBranding($purchase['concern_id'] ?? null, $prodUnit) 
+    : [];
+$companyName = !empty($concernBrand['name']) ? $concernBrand['name'] : (!empty($prodUnit['name']) ? $prodUnit['name'] : ($company['company_name'] ?? ''));
+$purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : (!empty($company['company_logo']) ? uploadUrl($company['company_logo']) : ''));
 $taxLabels = ['SGST' => 'SGST', 'CGST' => 'CGST', 'IGST' => 'IGST'];
 ?>
 <!DOCTYPE html>
@@ -19,14 +23,19 @@ $taxLabels = ['SGST' => 'SGST', 'CGST' => 'CGST', 'IGST' => 'IGST'];
 <main class="report">
     <header class="header">
         <div class="company">
+            <?php if (!empty($purchaseLogo)): ?>
+                <img src="<?= htmlspecialchars($purchaseLogo, ENT_QUOTES, 'UTF-8') ?>" alt="Logo" style="max-height:55px;max-width:180px;object-fit:contain;margin-bottom:8px;display:block;">
+            <?php endif; ?>
             <h1><?= htmlspecialchars($companyName ?: 'Production Unit') ?></h1>
-            <?php if (!empty($prodUnit['address'])): ?><p><?= nl2br(htmlspecialchars($prodUnit['address'])) ?></p>
-            <?php elseif (!empty($company['company_address'])): ?><p><?= e($company['company_address']) ?></p><?php endif; ?>
-            <?php if (!empty($prodUnit['phone'])): ?><p>Phone: <?= htmlspecialchars($prodUnit['phone']) ?></p>
-            <?php elseif (!empty($company['company_phone'])): ?><p>Phone: <?= e($company['company_phone']) ?></p><?php endif; ?>
+            <?php 
+            $dispAddr = !empty($concernBrand['address']) ? $concernBrand['address'] : (!empty($prodUnit['address']) ? $prodUnit['address'] : ($company['company_address'] ?? ''));
+            $dispPhone = !empty($concernBrand['phone']) ? $concernBrand['phone'] : (!empty($prodUnit['phone']) ? $prodUnit['phone'] : ($company['company_phone'] ?? ''));
+            $dispGst = !empty($concernBrand['gst_number']) ? $concernBrand['gst_number'] : (!empty($prodUnit['gst_number']) ? $prodUnit['gst_number'] : ($company['company_gstin'] ?? ''));
+            ?>
+            <?php if (!empty($dispAddr)): ?><p><?= nl2br(htmlspecialchars($dispAddr)) ?></p><?php endif; ?>
+            <?php if (!empty($dispPhone)): ?><p>Phone: <?= htmlspecialchars($dispPhone) ?></p><?php endif; ?>
             <?php if (!empty($prodUnit['code'])): ?><p>Unit Code: <?= htmlspecialchars($prodUnit['code']) ?></p><?php endif; ?>
-            <?php if (!empty($prodUnit['gst_number'])): ?><p>GSTIN: <?= htmlspecialchars($prodUnit['gst_number']) ?></p>
-            <?php elseif (!empty($company['company_gstin'])): ?><p>GSTIN: <?= e($company['company_gstin']) ?></p><?php endif; ?>
+            <?php if (!empty($dispGst)): ?><p>GSTIN: <?= htmlspecialchars($dispGst) ?></p><?php endif; ?>
         </div>
         <div class="title">
             <h2>Purchase Report</h2>

@@ -343,6 +343,48 @@ function isAdmin(): bool {
 }
 
 /**
+ * Map permission areas to their concern-level module entitlement.
+ */
+function concernModuleForPermission(string $module): ?string {
+    static $moduleMap = [
+        'production' => 'production',
+        'catalog' => 'production',
+        'variants' => 'production',
+        'qr_generation' => 'production',
+        'programs' => 'production',
+        'cutting' => 'production',
+        'stitching' => 'production',
+        'stitching_wastage' => 'production',
+        'qc' => 'production',
+        'damages' => 'production',
+        'wastage' => 'production',
+        'purchases' => 'purchases',
+        'sellers' => 'purchases',
+        'production_purchases' => 'purchases',
+        'production_purchase_mapping' => 'purchases',
+        'inventory' => 'warehouse',
+        'inward' => 'warehouse',
+        'batches' => 'warehouse',
+        'outward' => 'warehouse',
+        'production_stock_requests' => 'warehouse',
+        'warehouse_rework' => 'warehouse',
+        'retail_pos' => 'retail_pos',
+        'production_billing' => 'retail_pos',
+        'returns' => 'returns',
+        'production_returns' => 'returns',
+        'expenses' => 'expenses',
+        'production_expenses' => 'expenses',
+        'assets' => 'assets',
+        'asset_register' => 'assets',
+        'asset_maintenance' => 'assets',
+        'reports_production' => 'production',
+        'digital_sales' => 'digital_sales',
+    ];
+
+    return $moduleMap[$module] ?? null;
+}
+
+/**
  * Check if current user has a specific permission.
  * Supports both hasPermission('module.action') and hasPermission('module', 'action')
  */
@@ -364,6 +406,11 @@ function hasPermission(string $module, ?string $action = null): bool {
     $roleId = (int)($user['role_id'] ?? 0);
     if ($roleId === 1 || $roleSlug === 'super_admin') {
         return true;
+    }
+
+    $concernModule = concernModuleForPermission($module);
+    if ($concernModule !== null && !hasConcernModule($concernModule)) {
+        return false;
     }
 
     // Cache permissions for the current request to ensure instant updates from DB
@@ -764,8 +811,8 @@ function currentConcernId(): ?int {
         }
     }
 
-    // Default to user's explicitly assigned default concern
-    if (!empty($u['default_concern_id'])) {
+    // Staff use an assigned default concern; global admins select context independently.
+    if (!$isSuper && !empty($u['default_concern_id'])) {
         Session::set('active_concern_id', (int)$u['default_concern_id']);
         return (int)$u['default_concern_id'];
     }
@@ -838,7 +885,21 @@ function currentConcernType(?int $concernId = null): string {
  * Check if a module is enabled for the current active concern.
  */
 function hasConcernModule(string $moduleKey): bool {
-    return true;
+    if (isSuperAdmin()) {
+        return true;
+    }
+
+    $concernId = currentConcernId();
+    if (!$concernId || !class_exists('Database')) {
+        return false;
+    }
+
+    $module = Database::fetchOne(
+        "SELECT is_enabled FROM concern_modules WHERE concern_id = ? AND module_key = ?",
+        [$concernId, $moduleKey]
+    );
+
+    return !empty($module['is_enabled']);
 }
 
 /**
@@ -913,6 +974,69 @@ function isRetailConcern(?int $concernId = null): bool {
     $c = currentConcern();
     $n = strtolower($c['name'] ?? '');
     return strpos($n, 'retail') !== false || strpos($n, 'store') !== false || strpos($n, 'pos') !== false || strpos($n, 'showroom') !== false;
+}
+
+/**
+ * Resolve unified concern branding (logo, title, legal name, tax IDs, and address) for documents/invoices.
+ */
+function getConcernBranding(?int $concernId = null, ?array $facility = null): array {
+    $cid = $concernId;
+    if (!$cid && !empty($facility['concern_id'])) {
+        $cid = (int)$facility['concern_id'];
+    }
+    if (!$cid) {
+        $cid = currentConcernId();
+    }
+
+    $concern = null;
+    if ($cid && class_exists('Database')) {
+        $concern = Database::fetchOne("SELECT * FROM concerns WHERE id = ?", [$cid]);
+    }
+
+    $company = class_exists('SettingsService') ? SettingsService::getGroup('company') : [];
+
+    $logoUrl = '';
+    if (!empty($concern['logo_url'])) {
+        $logoUrl = uploadUrl($concern['logo_url']);
+    } elseif (!empty($facility['logo_url'])) {
+        $logoUrl = uploadUrl($facility['logo_url']);
+    } elseif (!empty($company['company_logo'])) {
+        $logoUrl = uploadUrl($company['company_logo']);
+    }
+
+    $name = !empty($concern['name']) ? $concern['name'] : (!empty($facility['name']) ? $facility['name'] : ($company['company_name'] ?? 'GRM APPARELS'));
+    $legalName = !empty($concern['legal_name']) ? $concern['legal_name'] : (!empty($facility['legal_name']) ? $facility['legal_name'] : ($company['company_name'] ?? $name));
+    $gstNumber = !empty($concern['gst_number']) ? $concern['gst_number'] : (!empty($facility['gst_number']) ? $facility['gst_number'] : ($company['company_gstin'] ?? ''));
+    $panNumber = !empty($concern['pan_number']) ? $concern['pan_number'] : (!empty($company['company_pan'] ?? '') ? $company['company_pan'] : '');
+    $phone = !empty($concern['phone']) ? $concern['phone'] : (!empty($facility['phone']) ? $facility['phone'] : ($company['company_phone'] ?? ''));
+    $email = !empty($concern['email']) ? $concern['email'] : (!empty($facility['email']) ? $facility['email'] : ($company['company_email'] ?? ''));
+    $address = !empty($concern['address']) ? $concern['address'] : (!empty($facility['address']) ? $facility['address'] : ($company['company_address'] ?? ''));
+    $city = !empty($concern['city']) ? $concern['city'] : (!empty($facility['city']) ? $facility['city'] : ($company['company_city'] ?? ''));
+    $state = !empty($concern['state']) ? $concern['state'] : (!empty($facility['state']) ? $facility['state'] : ($company['company_state'] ?? ''));
+    $pincode = !empty($concern['pincode']) ? $concern['pincode'] : (!empty($facility['pincode']) ? $facility['pincode'] : ($company['company_pincode'] ?? ''));
+
+    return [
+        'concern' => $concern,
+        'logo_url' => $logoUrl,
+        'name' => $name,
+        'legal_name' => $legalName,
+        'gst_number' => $gstNumber,
+        'pan_number' => $panNumber,
+        'phone' => $phone,
+        'email' => $email,
+        'address' => $address,
+        'city' => $city,
+        'state' => $state,
+        'pincode' => $pincode,
+    ];
+}
+
+/**
+ * Quick helper to get concern or fallback logo URL.
+ */
+function getConcernLogoUrl(?int $concernId = null, ?array $facility = null): string {
+    $b = getConcernBranding($concernId, $facility);
+    return $b['logo_url'] ?? '';
 }
 
 /**

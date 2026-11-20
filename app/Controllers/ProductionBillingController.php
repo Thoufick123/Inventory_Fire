@@ -2,16 +2,26 @@
 
 require_once BASE_PATH . '/app/Services/StockService.php';
 require_once BASE_PATH . '/app/Services/VariantService.php';
+require_once BASE_PATH . '/app/Services/CloudinaryService.php';
 
 class ProductionBillingController
 {
     public function billList(): void
     {
         $cid = currentConcernId();
-        $whereSql = "";
+        $whereConditions = [];
         if ($cid) {
-            $whereSql = ($cid === 1) ? "WHERE (pb.concern_id = 1 OR pb.concern_id IS NULL)" : "WHERE pb.concern_id = " . (int)$cid;
+            $whereConditions[] = ($cid === 1) ? "(pb.concern_id = 1 OR pb.concern_id IS NULL)" : "pb.concern_id = " . (int)$cid;
         }
+
+        $activeTab = trim((string)($_GET['tab'] ?? 'normal')); // 'normal', 'direct', or 'all'
+        if ($activeTab === 'normal') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 0";
+        } elseif ($activeTab === 'direct') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 1";
+        }
+
+        $whereSql = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
         $bills = Database::fetchAll(
             "SELECT pb.*,
@@ -26,6 +36,22 @@ class ProductionBillingController
              ORDER BY pb.bill_date DESC, pb.id DESC"
         );
 
+        // Fetch counts for all tabs so badges show correct counts
+        $baseWhere = "";
+        if ($cid) {
+            $baseWhere = ($cid === 1) ? "WHERE (concern_id = 1 OR concern_id IS NULL)" : "WHERE concern_id = " . (int)$cid;
+        }
+        $tabCounts = Database::fetchOne("
+            SELECT 
+                COUNT(*) AS total_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN 1 ELSE 0 END) AS normal_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN 1 ELSE 0 END) AS direct_count,
+                COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN total_amount ELSE 0 END), 0) AS normal_revenue,
+                COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN total_amount ELSE 0 END), 0) AS direct_revenue
+            FROM production_bills
+            {$baseWhere}
+        ") ?: [];
+
         $stats = [
             'total_revenue'    => 0.0,
             'paid_revenue'     => 0.0,
@@ -34,6 +60,7 @@ class ProductionBillingController
             'unique_customers' => 0,
             'paid_count'       => 0,
             'pending_count'    => 0,
+            'tab_counts'       => $tabCounts,
         ];
 
         $customerSet = [];
@@ -60,6 +87,8 @@ class ProductionBillingController
             'activeMenu' => 'prod-billing',
             'bills' => $bills,
             'stats' => $stats,
+            'activeTab' => $activeTab,
+            'tabCounts' => $tabCounts,
         ]);
     }
 
@@ -1316,6 +1345,29 @@ class ProductionBillingController
             Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'UPI reference must be 150 characters or fewer.');
             return;
         }
+        $paymentScreenshotFile = $_FILES['upi_payment_screenshot'] ?? null;
+        $hasPaymentScreenshot = is_array($paymentScreenshotFile)
+            && ($paymentScreenshotFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+        if ($hasPaymentScreenshot) {
+            if (!in_array($paymentMethod, ['UPI', 'CASH_UPI'], true)) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'A GPay screenshot can only be attached to a UPI payment.');
+                return;
+            }
+            if (($paymentScreenshotFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'The GPay screenshot could not be uploaded. Please try again.');
+                return;
+            }
+            if (empty($paymentScreenshotFile['tmp_name']) || (int)($paymentScreenshotFile['size'] ?? 0) > 5 * 1024 * 1024) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Choose a valid GPay screenshot under 5 MB.');
+                return;
+            }
+            $fileInfo = new finfo(FILEINFO_MIME_TYPE);
+            $screenshotMime = $fileInfo->file($paymentScreenshotFile['tmp_name']);
+            if (!in_array($screenshotMime, ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], true)) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'The GPay proof must be a JPG, PNG, WEBP, or AVIF image.');
+                return;
+            }
+        }
 
         $inventory = [];
         foreach ($this->getAvailableInventory($billId ?? 0, $productionUnitId) as $entry) {
@@ -1630,7 +1682,26 @@ class ProductionBillingController
         $cashGiven = (float)($_POST['cash_given'] ?? 0);
         $changeReturned = (float)($_POST['change_returned'] ?? 0);
 
+        $existingBill = $billId !== null
+            ? Database::fetchOne("SELECT upi_payment_screenshot_url FROM production_bills WHERE id = ?", [$billId])
+            : null;
+        $upiPaymentScreenshotUrl = in_array($paymentMethod, ['UPI', 'CASH_UPI'], true)
+            ? ($existingBill['upi_payment_screenshot_url'] ?? null)
+            : null;
+        if ($hasPaymentScreenshot) {
+            $upiPaymentScreenshotUrl = CloudinaryService::upload(
+                $paymentScreenshotFile,
+                'grm_inventory/production/billing/payment_proofs',
+                'image'
+            );
+            if (!$upiPaymentScreenshotUrl) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'The GPay screenshot could not be saved. Please try again.');
+                return;
+            }
+        }
+
         $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
+        $isDirectBill = !empty($_POST['is_direct_bill']) ? 1 : 0;
         $header = [
             $productionUnitId,
             $buyerType,
@@ -1647,11 +1718,13 @@ class ProductionBillingController
             $customerGstin,
             $billDate,
             $paymentMethod,
+            $isDirectBill,
             $paymentStatus,
             $taxType,
             $cashAmount,
             $upiAmount,
             $upiReference,
+            $upiPaymentScreenshotUrl,
             $totals['gross_amount'],
             $totals['discount_amount'],
             $totals['subtotal'],
@@ -1678,10 +1751,11 @@ class ProductionBillingController
                     "INSERT INTO production_bills
                      (concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
-                      bill_date, payment_method, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
+                      bill_date, payment_method, is_direct_bill, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
+                      upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
                       total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array_merge([$activeConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
@@ -1689,8 +1763,9 @@ class ProductionBillingController
                 Database::execute(
                     "UPDATE production_bills SET production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
-                     customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, payment_status = ?,
-                     tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, gross_amount = ?, discount_amount = ?,
+                     customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, is_direct_bill = ?, payment_status = ?,
+                     tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, upi_payment_screenshot_url = ?,
+                     gross_amount = ?, discount_amount = ?,
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,
                      cash_given = ?, change_returned = ?, staff_id = ?, staff_name = ?
                      WHERE id = ?",

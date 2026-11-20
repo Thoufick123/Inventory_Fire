@@ -24,17 +24,23 @@ $existingItems = array_map(static function (array $item): array {
     ];
 }, $billItems ?? []);
 $selectedBuyerType = $bill['buyer_type'] ?? 'CUSTOMER';
+$usesUpiPayment = in_array($bill['payment_method'] ?? 'CASH', ['UPI', 'CASH_UPI'], true);
+$usesSplitPayment = ($bill['payment_method'] ?? '') === 'CASH_UPI';
+$concernBrand = function_exists('getConcernBranding') 
+    ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit ?? null) 
+    : [];
+$activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
 ?>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
-        <img id="productionUnitLogo" src="<?= $escape($prodUnit['logo_url'] ?? '') ?>" alt="<?= $escape($prodUnit['name'] ?? 'Production unit') ?> logo" class="mb-2 <?= empty($prodUnit['logo_url']) ? 'd-none' : '' ?>" style="max-width:180px;max-height:64px;object-fit:contain;">
+        <img id="productionUnitLogo" src="<?= $escape($activeLogo) ?>" alt="<?= $escape($concernBrand['name'] ?? ($prodUnit['name'] ?? 'Production unit')) ?> logo" class="mb-2 <?= empty($activeLogo) ? 'd-none' : '' ?>" style="max-width:180px;max-height:64px;object-fit:contain;">
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
         <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
     </div>
     <a class="btn btn-outline-secondary" href="<?= url($isEdit ? 'production/billing/view/' . (int)$bill['id'] : 'production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </div>
 
-<form method="POST" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
+<form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
     <div class="row g-3">
         <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
@@ -205,11 +211,39 @@ $selectedBuyerType = $bill['buyer_type'] ?? 'CUSTOMER';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div id="splitPaymentFields" class="row g-2 <?= ($bill['payment_method'] ?? '') === 'CASH_UPI' ? '' : 'd-none' ?>">
-                        <div class="col-6"><label class="form-label small">Cash amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="cash_amount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-6"><label class="form-label small">UPI amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="upi_amount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
+
+                    <!-- Separate as Direct Bill Option (Reference Box) -->
+                    <div class="p-3 border rounded-3 bg-light mb-3">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?>>
+                            <label class="form-check-label fw-bold text-dark" for="isDirectBill">
+                                Separate as Direct Bill
+                            </label>
+                        </div>
+                        <div class="small text-muted ps-4">
+                            Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.
+                        </div>
                     </div>
-                    <div class="mt-3"><label class="form-label small text-muted">UPI reference</label><input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number"></div>
+                    <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
+                        <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
+                        <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
+                        <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
+                    </div>
+                    <div id="upiPaymentFields" class="<?= $usesUpiPayment ? '' : 'd-none' ?>">
+                        <div class="mt-3"><label class="form-label small text-muted" for="upiReference">UPI / GPay reference</label><input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number"></div>
+                        <div class="mt-3">
+                            <label class="form-label small text-muted" for="upiPaymentScreenshot">GPay payment screenshot <span class="fw-normal">(optional)</span></label>
+                            <input class="form-control" type="file" name="upi_payment_screenshot" id="upiPaymentScreenshot" accept="image/jpeg,image/png,image/webp,image/avif">
+                            <small class="text-muted">JPG, PNG, WEBP, or AVIF; maximum 5 MB.</small>
+                            <div id="upiScreenshotPreview" class="mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>">
+                                <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
+                                    <a href="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'])) ?>" target="_blank" rel="noopener">View current GPay screenshot</a>
+                                <?php endif; ?>
+                                <div id="upiScreenshotSelectedLabel" class="small text-primary d-none">New screenshot selected; it will replace the current proof.</div>
+                                <img id="upiScreenshotPreviewImage" class="img-thumbnail mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>" <?= !empty($bill['upi_payment_screenshot_url']) ? 'src="' . $escape(uploadUrl($bill['upi_payment_screenshot_url'])) . '"' : '' ?> data-existing-src="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'] ?? '')) ?>" alt="GPay payment screenshot" style="max-width:180px;max-height:180px;object-fit:contain;">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -681,16 +715,24 @@ function updateCashAndChange(total) {
     const changeStatusHelp = document.getElementById('changeStatusHelp');
     if (!cashGivenInput || !changeToReturnInput) return;
 
+    const paymentMethod = document.getElementById('paymentMethod')?.value;
     const cashGivenRaw = cashGivenInput.value.trim();
     if (cashGivenRaw === '') {
         changeToReturnInput.value = '0.00';
         changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold fs-5 bg-white border-2';
-        if (changeStatusHelp) changeStatusHelp.innerHTML = 'Any cash above the bill total is calculated as change to return.';
+        if (changeStatusHelp) {
+            changeStatusHelp.innerHTML = paymentMethod === 'CASH_UPI'
+                ? 'Enter the cash tendered to calculate change on the cash portion.'
+                : 'Any cash above the bill total is calculated as change to return.';
+        }
         return;
     }
 
     const cashGiven = parseFloat(cashGivenRaw) || 0;
-    const change = cashGiven - total;
+    const cashTarget = paymentMethod === 'CASH_UPI'
+        ? Number(document.getElementById('cashAmount')?.value || 0)
+        : total;
+    const change = cashGiven - cashTarget;
 
     if (change >= 0) {
         changeToReturnInput.value = change.toFixed(2);
@@ -739,10 +781,57 @@ document.addEventListener('DOMContentLoaded', () => {
     const buyerType = document.getElementById('buyerType');
     const unitSelect = document.getElementById('productionUnitSelect');
     const unitDetails = document.getElementById('productionUnitDetails');
+    const paymentMethodSelect = document.getElementById('paymentMethod');
+    const splitPaymentFields = document.getElementById('splitPaymentFields');
+    const upiPaymentFields = document.getElementById('upiPaymentFields');
+    const cashAmountInput = document.getElementById('cashAmount');
+    const upiAmountInput = document.getElementById('upiAmount');
+    const upiReferenceInput = document.getElementById('upiReference');
+    const upiPaymentScreenshotInput = document.getElementById('upiPaymentScreenshot');
+    const upiScreenshotPreview = document.getElementById('upiScreenshotPreview');
+    const upiScreenshotPreviewImage = document.getElementById('upiScreenshotPreviewImage');
+    const upiScreenshotSelectedLabel = document.getElementById('upiScreenshotSelectedLabel');
     const money = value => '₹' + Number(value || 0).toFixed(2);
     let searchTimer;
     let toastTimer = null;
     let limitModalInstance = null;
+
+    function updatePaymentFields() {
+        const usesUpi = ['UPI', 'CASH_UPI'].includes(paymentMethodSelect.value);
+        const usesSplit = paymentMethodSelect.value === 'CASH_UPI';
+        splitPaymentFields.classList.toggle('d-none', !usesSplit);
+        upiPaymentFields.classList.toggle('d-none', !usesUpi);
+        cashAmountInput.required = usesSplit;
+        upiAmountInput.required = usesSplit;
+        upiReferenceInput.required = usesUpi;
+        if (!usesUpi) {
+            upiPaymentScreenshotInput.value = '';
+            const existingScreenshot = upiScreenshotPreviewImage.dataset.existingSrc || '';
+            if (existingScreenshot) {
+                upiScreenshotPreviewImage.src = existingScreenshot;
+            } else {
+                upiScreenshotPreviewImage.removeAttribute('src');
+            }
+            upiScreenshotPreviewImage.classList.toggle('d-none', !existingScreenshot);
+            upiScreenshotPreview.classList.toggle('d-none', !existingScreenshot);
+            upiScreenshotSelectedLabel.classList.add('d-none');
+        }
+    }
+
+    paymentMethodSelect.addEventListener('change', () => {
+        updatePaymentFields();
+        updateTotals();
+    });
+    cashAmountInput.addEventListener('input', updateTotals);
+    upiAmountInput.addEventListener('input', updateTotals);
+    upiPaymentScreenshotInput.addEventListener('change', () => {
+        const file = upiPaymentScreenshotInput.files && upiPaymentScreenshotInput.files[0];
+        if (!file) return;
+        upiScreenshotPreviewImage.src = URL.createObjectURL(file);
+        upiScreenshotPreviewImage.classList.remove('d-none');
+        upiScreenshotPreview.classList.remove('d-none');
+        upiScreenshotSelectedLabel.classList.remove('d-none');
+    });
 
     // Check customer phone on load if editing
     if (currentCustomerPhone) {
@@ -1345,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateUnitDetails();
     unitSelect.addEventListener('change', updateUnitDetails);
+    updatePaymentFields();
     renderCart();
 
     // Form submit validation
@@ -1353,6 +1443,14 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             alert('Please add at least one finished-goods piece to this bill.');
             return;
+        }
+        if (paymentMethodSelect.value === 'CASH_UPI') {
+            const cash = Number(cashAmountInput.value || 0);
+            const upi = Number(upiAmountInput.value || 0);
+            if (Math.abs(cash + upi - lastComputedGrandTotal) > 0.01) {
+                e.preventDefault();
+                alert('Cash and UPI / GPay amounts must equal the bill total.');
+            }
         }
     });
 });

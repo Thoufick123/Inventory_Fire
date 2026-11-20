@@ -536,6 +536,8 @@ class Router {
         $this->get('export/download', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
         $this->post('export/download', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
         $this->get('export/quick-csv', 'ExportController', 'quickCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->get('export/direct-bills-csv', 'ExportController', 'directBillsCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->get('export/normal-bills-csv', 'ExportController', 'normalBillsCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
 
         // ==========================================
         // ASSETS MANAGEMENT

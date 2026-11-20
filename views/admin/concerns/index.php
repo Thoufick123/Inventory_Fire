@@ -106,9 +106,18 @@
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-primary text-white font-monospace fs-6 px-2"><?= e($c['code']) ?></span>
+                                <?php if (!empty($c['logo_url'])): ?>
+                                    <img src="<?= uploadUrl($c['logo_url']) ?>" alt="Logo" class="rounded border bg-white p-1 flex-shrink-0" style="width: 44px; height: 36px; object-fit: contain;">
+                                <?php else: ?>
+                                    <span class="badge bg-primary text-white font-monospace fs-6 px-2"><?= e($c['code']) ?></span>
+                                <?php endif; ?>
                                 <div>
-                                    <strong class="text-dark d-block"><?= e($c['name']) ?></strong>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <?php if (!empty($c['logo_url'])): ?>
+                                            <span class="badge bg-light text-secondary font-monospace border" style="font-size: 10px;"><?= e($c['code']) ?></span>
+                                        <?php endif; ?>
+                                        <strong class="text-dark"><?= e($c['name']) ?></strong>
+                                    </div>
                                     <div class="d-flex align-items-center gap-1 mt-0.5">
                                         <?php 
                                         $typeBadge = match($c['concern_type'] ?? 'HEAD_OFFICE') {

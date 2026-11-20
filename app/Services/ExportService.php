@@ -308,7 +308,7 @@ class ExportService
             );
         }
 
-        // 8. Production Billing
+        // 8. Production Billing (Standard / Normal Bills Only)
         if (in_array('billing', $selectedModules, true)) {
             $billParams = array_merge(
                 [$startDateOnly, $endDateOnly],
@@ -329,14 +329,46 @@ class ExportService
                      SELECT pbit.bill_id, COUNT(*) AS total_pieces
                      FROM production_bill_item_tags pbit
                      JOIN production_bills pb_sub ON pb_sub.id = pbit.bill_id
-                     WHERE pb_sub.bill_date >= ? AND pb_sub.bill_date <= ?
+                     WHERE pb_sub.bill_date >= ? AND pb_sub.bill_date <= ? AND COALESCE(pb_sub.is_direct_bill, 0) = 0
                      " . $cWhere('pb_sub.concern_id') . "
                      GROUP BY pbit.bill_id
                  ) tag_stats ON tag_stats.bill_id = pb.id
-                 WHERE pb.bill_date >= ? AND pb.bill_date <= ?
+                 WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 0
                  " . $cWhere('pb.concern_id') . "
                  ORDER BY pb.id DESC",
                 $billParams
+            );
+        }
+
+        // 8b. Direct Bills (Separated Sales Invoices Excluded from Normal Bills)
+        if (in_array('direct_billing', $selectedModules, true)) {
+            $directBillParams = array_merge(
+                [$startDateOnly, $endDateOnly],
+                $hasConcerns ? $concernIds : [],
+                [$startDateOnly, $endDateOnly],
+                $hasConcerns ? $concernIds : []
+            );
+            $data['direct_billing'] = Database::fetchAll(
+                "SELECT pb.bill_number, pb.bill_date, pb.buyer_type,
+                        c.code AS concern_code, c.name AS concern_name,
+                        COALESCE(pb.customer_name, pb.company_name, 'Direct Client') AS client_name,
+                        pb.customer_phone, pb.subtotal, pb.tax_amount, pb.total_amount,
+                        pb.payment_method, pb.payment_status,
+                        COALESCE(tag_stats.total_pieces, 0) AS total_pieces
+                 FROM production_bills pb
+                 LEFT JOIN concerns c ON c.id = pb.concern_id
+                 LEFT JOIN (
+                     SELECT pbit.bill_id, COUNT(*) AS total_pieces
+                     FROM production_bill_item_tags pbit
+                     JOIN production_bills pb_sub ON pb_sub.id = pbit.bill_id
+                     WHERE pb_sub.bill_date >= ? AND pb_sub.bill_date <= ? AND COALESCE(pb_sub.is_direct_bill, 0) = 1
+                     " . $cWhere('pb_sub.concern_id') . "
+                     GROUP BY pbit.bill_id
+                 ) tag_stats ON tag_stats.bill_id = pb.id
+                 WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 1
+                 " . $cWhere('pb.concern_id') . "
+                 ORDER BY pb.id DESC",
+                $directBillParams
             );
         }
 
@@ -679,20 +711,21 @@ class ExportService
         // All summary stats are concern-scoped when concern filter is active.
         // =========================================================================
         // Billing Revenue & Sold Pieces (Optimized single-pass query)
+        // Standard bills only (excludes separated direct bills)
         $billStat = Database::fetchOne(
             "SELECT COUNT(DISTINCT pb.id) AS bill_count,
                     COALESCE(SUM(pb.subtotal), 0) AS taxable_amt,
                     COALESCE(SUM(pb.tax_amount), 0) AS gst_amt,
                     COALESCE(SUM(pb.total_amount), 0) AS total_revenue
              FROM production_bills pb
-             WHERE pb.bill_date >= ? AND pb.bill_date <= ?" . $cWhere('pb.concern_id'),
+             WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 0" . $cWhere('pb.concern_id'),
             $cParams([$startDateOnly, $endDateOnly])
         );
         $billPcs = Database::fetchOne(
             "SELECT COUNT(*) AS total_pcs
              FROM production_bill_item_tags pbit
              JOIN production_bills pb ON pb.id = pbit.bill_id
-             WHERE pb.bill_date >= ? AND pb.bill_date <= ?" . $cWhere('pb.concern_id'),
+             WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 0" . $cWhere('pb.concern_id'),
             $cParams([$startDateOnly, $endDateOnly])
         );
         $billingPieces  = (int)($billPcs['total_pcs'] ?? 0);
@@ -700,6 +733,29 @@ class ExportService
         $billingTaxable = (float)($billStat['taxable_amt'] ?? 0);
         $billingGst     = (float)($billStat['gst_amt'] ?? 0);
         $billingCount   = (int)($billStat['bill_count'] ?? 0);
+
+        // Direct Bills (Separated Sales Invoices - tracked separately)
+        $directBillStat = Database::fetchOne(
+            "SELECT COUNT(DISTINCT pb.id) AS bill_count,
+                    COALESCE(SUM(pb.subtotal), 0) AS taxable_amt,
+                    COALESCE(SUM(pb.tax_amount), 0) AS gst_amt,
+                    COALESCE(SUM(pb.total_amount), 0) AS total_revenue
+             FROM production_bills pb
+             WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 1" . $cWhere('pb.concern_id'),
+            $cParams([$startDateOnly, $endDateOnly])
+        );
+        $directBillPcs = Database::fetchOne(
+            "SELECT COUNT(*) AS total_pcs
+             FROM production_bill_item_tags pbit
+             JOIN production_bills pb ON pb.id = pbit.bill_id
+             WHERE pb.bill_date >= ? AND pb.bill_date <= ? AND COALESCE(pb.is_direct_bill, 0) = 1" . $cWhere('pb.concern_id'),
+            $cParams([$startDateOnly, $endDateOnly])
+        );
+        $directBillingPieces  = (int)($directBillPcs['total_pcs'] ?? 0);
+        $directBillingTotal   = (float)($directBillStat['total_revenue'] ?? 0);
+        $directBillingTaxable = (float)($directBillStat['taxable_amt'] ?? 0);
+        $directBillingGst     = (float)($directBillStat['gst_amt'] ?? 0);
+        $directBillingCount   = (int)($directBillStat['bill_count'] ?? 0);
 
         // Scrap / Wastage Revenue
         $cWastage = Database::fetchOne(
@@ -826,11 +882,16 @@ class ExportService
 
         $data['summary'] = [
             'financial' => [
-                'billing_count'      => $billingCount,
-                'billing_pieces'     => $billingPieces,
-                'billing_taxable'    => $billingTaxable,
-                'billing_gst'        => $billingGst,
-                'billing_total'      => $billingTotal,
+                'billing_count'          => $billingCount,
+                'billing_pieces'         => $billingPieces,
+                'billing_taxable'        => $billingTaxable,
+                'billing_gst'            => $billingGst,
+                'billing_total'          => $billingTotal,
+                'direct_billing_count'   => $directBillingCount,
+                'direct_billing_pieces'  => $directBillingPieces,
+                'direct_billing_taxable' => $directBillingTaxable,
+                'direct_billing_gst'     => $directBillingGst,
+                'direct_billing_total'   => $directBillingTotal,
                 'wastage_cutting'    => $wastageCuttingRev,
                 'wastage_stitching'  => $wastageStitchingRev,
                 'wastage_total'      => $wastageTotalRev,
@@ -892,8 +953,9 @@ class ExportService
         $facility = $facility ?? (class_exists('ProductionUnit') ? \ProductionUnit::getActiveFacility() : []);
         $facilityName = !empty($facility['name']) ? strtoupper($facility['name']) : 'PRODUCTION MANUFACTURING FACILITY';
 
+        $filenamePrefix = !empty($_REQUEST['custom_filename']) ? trim((string)$_REQUEST['custom_filename']) : 'export_report';
         header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="export_report_' . date('Ymd_His') . '.csv"');
+        header('Content-Disposition: attachment; filename="' . $filenamePrefix . '_' . date('Ymd_His') . '.csv"');
         header('Pragma: no-cache');
         header('Expires: 0');
 
@@ -1208,11 +1270,34 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 9. Billing / POS Sales
+        // 9. Standard Billing / POS Sales
         if (!empty($data['billing'])) {
-            fputcsv($out, ['=== 9. PRODUCTION BILLING & DIRECT SALES ===']);
+            fputcsv($out, ['=== 9. STANDARD FACTORY BILLING (NORMAL POS SALES) ===']);
             fputcsv($out, ['Invoice / Bill #', 'Bill Date', 'Client / Buyer Type', 'Customer Name', 'Phone', 'Total Pieces', 'Taxable (INR)', 'GST Tax (INR)', 'Grand Total (INR)', 'Payment Mode', 'Status', 'Concern']);
             foreach ($data['billing'] as $bl) {
+                fputcsv($out, [
+                    $bl['bill_number'],
+                    date('d M Y', strtotime($bl['bill_date'])),
+                    $bl['buyer_type'] ?? 'RETAIL',
+                    $bl['client_name'],
+                    $bl['customer_phone'] ?: '-',
+                    (int)$bl['total_pieces'],
+                    number_format((float)$bl['subtotal'], 2, '.', ''),
+                    number_format((float)$bl['tax_amount'], 2, '.', ''),
+                    number_format((float)$bl['total_amount'], 2, '.', ''),
+                    $bl['payment_method'] ?? 'CASH',
+                    $bl['payment_status'] ?? 'PAID',
+                    $bl['concern_code'] ?? '-',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
+        // 9b. Direct Bills (Separated Sales Invoices Excluded from Normal Bills)
+        if (!empty($data['direct_billing'])) {
+            fputcsv($out, ['=== 9b. DIRECT BILLS & SEPARATED SALES (EXCLUDED FROM NORMAL BILLS) ===']);
+            fputcsv($out, ['Invoice / Bill #', 'Bill Date', 'Client / Buyer Type', 'Customer Name', 'Phone', 'Total Pieces', 'Taxable (INR)', 'GST Tax (INR)', 'Grand Total (INR)', 'Payment Mode', 'Status', 'Concern']);
+            foreach ($data['direct_billing'] as $bl) {
                 fputcsv($out, [
                     $bl['bill_number'],
                     date('d M Y', strtotime($bl['bill_date'])),
