@@ -233,6 +233,15 @@
 
                 <!-- Content Container -->
                 <div id="viewModalContent" style="display: none;">
+                    <!-- Print button top row -->
+                    <div class="d-flex justify-content-end mb-3 gap-2">
+                        <a href="#" id="vModalPrintBtnTop" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-printer me-1"></i>Print Labels
+                        </a>
+                        <button type="button" class="btn btn-sm btn-warning text-dark" id="vModalSwitchEditBtn">
+                            <i class="bi bi-pencil-square me-1"></i>Edit Details
+                        </button>
+                    </div>
                     <!-- Product & Purchase Baseline Card -->
                     <div class="card border shadow-sm mb-4">
                         <div class="card-header bg-white py-2 px-3 fw-bold small text-uppercase text-secondary">
@@ -285,9 +294,6 @@
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <input type="text" id="vQrSearchInput" class="form-control form-control-sm" placeholder="Filter QR codes..." style="max-width: 200px;" oninput="filterViewQrCards(this.value)">
-                                <a href="#" id="vModalPrintBtnTop" target="_blank" class="btn btn-sm btn-outline-dark fw-semibold">
-                                    <i class="bi bi-printer me-1"></i> Print Labels
-                                </a>
                             </div>
                         </div>
                         <div class="card-body p-3">
@@ -299,15 +305,15 @@
                 </div>
             </div>
             <div class="modal-footer bg-light py-2 px-3 border-top d-flex justify-content-between">
-                <div>
-                    <a href="#" id="vModalPrintBtn" target="_blank" class="btn btn-outline-dark btn-sm fw-semibold">
-                        <i class="bi bi-printer-fill me-1"></i> Print All Labels
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <div class="d-flex gap-2">
+                    <a href="#" id="vModalPrintBtn" target="_blank" class="btn btn-sm btn-outline-dark">
+                        <i class="bi bi-printer me-1"></i>Print All Labels
                     </a>
-                    <button type="button" class="btn btn-warning btn-sm fw-semibold text-dark ms-2" id="vModalSwitchEditBtn">
-                        <i class="bi bi-pencil-square me-1"></i> Edit Details
+                    <button type="button" class="btn btn-sm btn-warning text-dark fw-bold" id="vModalSwitchEditBtnFooter">
+                        <i class="bi bi-pencil-square me-1"></i>Edit Details
                     </button>
                 </div>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -345,8 +351,9 @@
 
                     <!-- Batch Level Settings -->
                     <div class="card border shadow-sm mb-4">
-                        <div class="card-header bg-white py-2 px-3 fw-bold small text-uppercase text-secondary">
-                            <i class="bi bi-sliders me-1 text-primary"></i> 1. Stock Line &amp; Roll Metadata
+                        <div class="card-header bg-light py-2 px-3 fw-bold small text-uppercase text-secondary d-flex align-items-center gap-2">
+                            <i class="bi bi-info-circle me-1 text-primary"></i> 1. Stock Line &amp; Roll Metadata
+                            <span class="badge bg-secondary-subtle text-secondary border ms-1">View Only</span>
                         </div>
                         <div class="card-body p-3">
                             <div class="row g-3">
@@ -356,35 +363,35 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Roll Number / Identifier</label>
-                                    <input type="text" id="eRollNumber" name="roll_number" class="form-control form-control-sm" placeholder="e.g. ROLL #1">
+                                    <input type="text" id="eRollNumber" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Weight (kg)</label>
-                                    <input type="number" step="0.01" id="eWeightKg" name="weight_kg" class="form-control form-control-sm" placeholder="0.00">
+                                    <input type="text" id="eWeightKg" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Brand Name</label>
-                                    <input type="text" id="eBrandName" name="brand_name" class="form-control form-control-sm" placeholder="Brand Name">
+                                    <input type="text" id="eBrandName" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Color</label>
-                                    <input type="text" id="eColorName" name="color_name" class="form-control form-control-sm" placeholder="Color Name">
+                                    <input type="text" id="eColorName" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Size</label>
-                                    <input type="text" id="eSizeName" name="size_name" class="form-control form-control-sm" placeholder="Size Name">
+                                    <input type="text" id="eSizeName" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">MRP (₹)</label>
-                                    <input type="number" step="0.01" id="eMrp" name="mrp" class="form-control form-control-sm" placeholder="0.00">
+                                    <input type="text" id="eMrp" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Selling Price (₹)</label>
-                                    <input type="number" step="0.01" id="eSellingPrice" name="selling_price" class="form-control form-control-sm" placeholder="0.00">
+                                    <input type="text" id="eSellingPrice" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold">Notes &amp; Remarks</label>
-                                    <input type="text" id="eNotes" name="notes" class="form-control form-control-sm" placeholder="Remarks...">
+                                    <input type="text" id="eNotes" class="form-control form-control-sm bg-light" readonly>
                                 </div>
                             </div>
                         </div>
@@ -392,23 +399,19 @@
 
                     <!-- Individual QR Items Table -->
                     <div class="card border shadow-sm">
-                        <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                        <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <span class="fw-bold small text-uppercase text-secondary">
                                 <i class="bi bi-upc-scan me-1 text-primary"></i> 2. Individual QR Labels (<span id="eQrItemsCount">0</span>)
                             </span>
-                            <span class="small text-muted">Update status or pricing per QR code</span>
+                            <span class="small text-muted">Total Qty: <strong id="eQrTotalQty" class="text-dark">—</strong></span>
                         </div>
-                        <div class="table-responsive" style="max-height: 380px;">
+                        <div class="table-responsive" style="max-height: 420px;">
                             <table class="table table-sm table-hover align-middle mb-0" style="font-size: 13px;">
                                 <thead class="table-light text-uppercase small sticky-top">
                                     <tr>
                                         <th style="width: 50px;">#</th>
-                                        <th style="min-width: 140px;">QR Code</th>
-                                        <th style="min-width: 130px;">Status</th>
-                                        <th style="min-width: 110px;">Color</th>
-                                        <th style="min-width: 90px;">Size</th>
-                                        <th style="min-width: 100px;">MRP (₹)</th>
-                                        <th style="min-width: 100px;">Selling Price (₹)</th>
+                                        <th style="min-width: 160px;">QR Label</th>
+                                        <th style="min-width: 130px;">Color</th>
                                     </tr>
                                 </thead>
                                 <tbody id="eQrItemsTableBody">
@@ -565,11 +568,13 @@ function openViewModal(generationId) {
         document.getElementById('vModalPrintBtn').href = res.data.print_url;
         document.getElementById('vModalPrintBtnTop').href = res.data.print_url;
 
-        // Switch to Edit
-        document.getElementById('vModalSwitchEditBtn').onclick = function() {
+        // Switch to Edit — both top and footer buttons
+        const switchFn = function() {
             modal.hide();
             setTimeout(() => openEditModal(generationId), 300);
         };
+        document.getElementById('vModalSwitchEditBtn').onclick = switchFn;
+        document.getElementById('vModalSwitchEditBtnFooter').onclick = switchFn;
 
         // Render QR Cards
         document.getElementById('vQrItemsCount').textContent = items.length;
@@ -593,57 +598,43 @@ function renderViewQrCards(items, stock) {
         return;
     }
 
+    // Build MM/YYYY date label — prefer purchase_date, fallback stock_added_at
+    function buildDateLabel(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return mm + '/' + yyyy;
+    }
+
+    const dateLabel = buildDateLabel(stock.purchase_date || stock.stock_added_at || '');
+    const brandName = (stock.brand_name || '').toUpperCase() || 'GRM GROUP';
+
     items.forEach(function(item) {
         const col = document.createElement('div');
         col.className = 'col qr-card-item';
         col.dataset.code = item.qr_code.toLowerCase();
 
-        let statusBadge = '<span class="badge bg-success-subtle text-success border">ACTIVE</span>';
-        if (item.status === 'USED') statusBadge = '<span class="badge bg-info-subtle text-info border">USED</span>';
-        else if (item.status === 'DAMAGED') statusBadge = '<span class="badge bg-danger-subtle text-danger border">DAMAGED</span>';
-        else if (item.status === 'CANCELLED') statusBadge = '<span class="badge bg-secondary-subtle text-secondary border">CANCELLED</span>';
-
-        const colorStr = item.color_name || stock.color_name || '';
-        const sizeStr = item.size_name || stock.size_name || '';
-        const mrpVal = parseFloat(item.mrp || stock.mrp || 0);
-        const spVal = parseFloat(item.selling_price || stock.selling_price || 0);
-
-        let pricingHtml = '';
-        if (mrpVal > 0 || spVal > 0) {
-            pricingHtml = '<div class="small fw-semibold mt-1">';
-            if (mrpVal > 0) pricingHtml += '<del class="text-muted me-1">₹' + mrpVal.toFixed(2) + '</del>';
-            if (spVal > 0) pricingHtml += '<span class="text-primary fw-bold">₹' + spVal.toFixed(2) + '</span>';
-            pricingHtml += '</div>';
-        }
-
+        const cardId = 'qr-view-canvas-' + item.id;
         col.innerHTML = `
-            <div class="p-3 border rounded bg-white text-center shadow-xs h-100 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="badge bg-light text-muted border">#${item.sequence_num}</span>
-                        ${statusBadge}
-                    </div>
-                    <div class="d-flex justify-content-center my-2">
-                        <div class="qr-canvas-holder p-1 bg-white border rounded" id="qr-canvas-${item.id}"></div>
-                    </div>
-                    <div class="font-monospace fw-bold text-primary small text-break user-select-all" title="Click to copy" onclick="copyToClipboard('${item.qr_code}', this)">
-                        ${escapeHtml(item.qr_code)}
-                    </div>
-                    ${(colorStr || sizeStr) ? `<div class="small text-muted mt-1">${escapeHtml(colorStr)}${colorStr && sizeStr ? ' · ' : ''}${sizeStr ? '<span class="badge bg-dark text-white px-1 py-0 ms-1">' + escapeHtml(sizeStr) + '</span>' : ''}</div>` : ''}
-                    ${pricingHtml}
+            <div class="p-2 border rounded bg-white text-center shadow-sm h-100 d-flex flex-column align-items-center justify-content-center" style="min-height:160px;">
+                <div class="fw-bold text-dark text-uppercase mb-2" style="font-size:11px;letter-spacing:0.04em;">${escapeHtml(brandName)}</div>
+                <div class="d-flex justify-content-center align-items-center" style="width:120px;height:120px;">
+                    <div id="${cardId}"></div>
                 </div>
+                ${dateLabel ? `<div class="mt-2 font-monospace text-primary" style="font-size:12px;">${escapeHtml(dateLabel)}</div>` : ''}
             </div>
         `;
         container.appendChild(col);
 
-        // Generate QR code canvas
         setTimeout(() => {
-            const canvasEl = document.getElementById('qr-canvas-' + item.id);
+            const canvasEl = document.getElementById(cardId);
             if (canvasEl && window.QRCode) {
                 new QRCode(canvasEl, {
                     text: item.qr_code,
-                    width: 76,
-                    height: 76,
+                    width: 112,
+                    height: 112,
                     correctLevel: QRCode.CorrectLevel.M
                 });
             }
@@ -704,13 +695,30 @@ function openEditModal(generationId) {
         document.getElementById('eGenerationId').value = s.generation_id;
         document.getElementById('eItemName').value = s.item_name || '';
         document.getElementById('eRollNumber').value = s.roll_number || '';
-        document.getElementById('eWeightKg').value = s.weight_kg ? parseFloat(s.weight_kg) : '';
+        document.getElementById('eWeightKg').value = s.weight_kg ? parseFloat(s.weight_kg).toFixed(2) + ' kg' : '';
         document.getElementById('eBrandName').value = s.brand_name || '';
         document.getElementById('eColorName').value = s.color_name || '';
         document.getElementById('eSizeName').value = s.size_name || '';
-        document.getElementById('eMrp').value = s.mrp ? parseFloat(s.mrp) : '';
-        document.getElementById('eSellingPrice').value = s.selling_price ? parseFloat(s.selling_price) : '';
+        document.getElementById('eMrp').value = s.mrp ? '₹' + parseFloat(s.mrp).toFixed(2) : '';
+        document.getElementById('eSellingPrice').value = s.selling_price ? '₹' + parseFloat(s.selling_price).toFixed(2) : '';
         document.getElementById('eNotes').value = s.notes || '';
+
+        // Total qty display
+        const totalQtyEl = document.getElementById('eQrTotalQty');
+        if (totalQtyEl) {
+            totalQtyEl.textContent = parseFloat(s.purchase_qty || 0).toFixed(2) + ' ' + (s.unit || 'PCS');
+        }
+
+        // Build date label for QR mini cards (MM/YYYY from purchase_date)
+        function buildDateLabelEdit(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+        }
+        const editDateLabel = buildDateLabelEdit(s.purchase_date || s.stock_added_at || '');
+        const editBrandName = (s.brand_name || '').toUpperCase() || 'GRM GROUP';
+        const rollColor = s.color_name || '';
 
         // Populate QR items table
         document.getElementById('eQrItemsCount').textContent = items.length;
@@ -718,32 +726,34 @@ function openEditModal(generationId) {
         tbody.innerHTML = '';
 
         items.forEach(item => {
+            const cardId = 'qr-edit-canvas-' + item.id;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="text-muted small">${item.sequence_num}</td>
-                <td class="font-monospace fw-semibold small text-primary">${escapeHtml(item.qr_code)}</td>
+                <td class="text-muted small fw-semibold">${item.sequence_num}</td>
                 <td>
-                    <select name="qr_items[${item.id}][status]" class="form-select form-select-sm">
-                        <option value="ACTIVE" ${item.status === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
-                        <option value="USED" ${item.status === 'USED' ? 'selected' : ''}>USED</option>
-                        <option value="DAMAGED" ${item.status === 'DAMAGED' ? 'selected' : ''}>DAMAGED</option>
-                        <option value="CANCELLED" ${item.status === 'CANCELLED' ? 'selected' : ''}>CANCELLED</option>
-                    </select>
+                    <div class="d-flex flex-column align-items-center p-1 border rounded bg-white text-center" style="width:100px;min-width:100px;">
+                        <div class="fw-bold text-dark text-uppercase mb-1" style="font-size:9px;letter-spacing:0.03em;">${escapeHtml(editBrandName)}</div>
+                        <div id="${cardId}" style="width:60px;height:60px;"></div>
+                        ${editDateLabel ? `<div class="mt-1 font-monospace text-primary" style="font-size:9px;">${escapeHtml(editDateLabel)}</div>` : ''}
+                    </div>
                 </td>
                 <td>
-                    <input type="text" name="qr_items[${item.id}][color_name]" class="form-control form-control-sm" value="${escapeHtml(item.color_name || '')}" placeholder="Color">
-                </td>
-                <td>
-                    <input type="text" name="qr_items[${item.id}][size_name]" class="form-control form-control-sm" value="${escapeHtml(item.size_name || '')}" placeholder="Size">
-                </td>
-                <td>
-                    <input type="number" step="0.01" name="qr_items[${item.id}][mrp]" class="form-control form-control-sm" value="${item.mrp ? parseFloat(item.mrp) : ''}" placeholder="0.00">
-                </td>
-                <td>
-                    <input type="number" step="0.01" name="qr_items[${item.id}][selling_price]" class="form-control form-control-sm" value="${item.selling_price ? parseFloat(item.selling_price) : ''}" placeholder="0.00">
+                    <input type="text" name="qr_items[${item.id}][color_name]" class="form-control form-control-sm" value="${escapeHtml(rollColor)}" placeholder="Color" style="min-width:100px;">
                 </td>
             `;
             tbody.appendChild(tr);
+
+            setTimeout(() => {
+                const canvasEl = document.getElementById(cardId);
+                if (canvasEl && window.QRCode) {
+                    new QRCode(canvasEl, {
+                        text: item.qr_code,
+                        width: 56,
+                        height: 56,
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                }
+            }, 20);
         });
 
         document.getElementById('editModalLoading').style.display = 'none';
