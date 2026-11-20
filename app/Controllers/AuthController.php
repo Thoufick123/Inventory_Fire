@@ -77,13 +77,18 @@ class AuthController {
         // Regenerate session ID for security
         Session::regenerate();
 
-        // Resolve default concern context for staff member
-        $userDefaultConcern = (int)($user['default_concern_id'] ?? 0);
-        if ($userDefaultConcern <= 0 && class_exists('Database')) {
-            $userDefaultConcern = (int)Database::fetchColumn(
-                "SELECT concern_id FROM user_concerns WHERE user_id = ? ORDER BY is_default DESC, id ASC LIMIT 1",
-                [$user['id']]
-            ) ?: 1;
+        // Super admins start globally; staff use their assigned default concern.
+        $isSuperAdmin = (int)($user['role_id'] ?? 0) === 1
+            || strtolower((string)($user['role_slug'] ?? '')) === 'super_admin';
+        $userDefaultConcern = null;
+        if (!$isSuperAdmin) {
+            $userDefaultConcern = (int)($user['default_concern_id'] ?? 0);
+            if ($userDefaultConcern <= 0 && class_exists('Database')) {
+                $userDefaultConcern = (int)Database::fetchColumn(
+                    "SELECT concern_id FROM user_concerns WHERE user_id = ? ORDER BY is_default DESC, id ASC LIMIT 1",
+                    [$user['id']]
+                ) ?: 1;
+            }
         }
 
         // Store user in session
@@ -106,7 +111,9 @@ class AuthController {
             'is_active'            => (int) $user['is_active'],
         ]);
         Session::set('permissions', $permissions);
-        if ($userDefaultConcern > 0) {
+        if ($isSuperAdmin) {
+            Session::set('active_concern_id', 0);
+        } elseif ($userDefaultConcern > 0) {
             Session::set('active_concern_id', $userDefaultConcern);
         }
 
