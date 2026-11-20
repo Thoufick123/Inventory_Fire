@@ -836,8 +836,9 @@ class ProductionController {
         );
 
         // 2. All Purchased Rolls (Buying Log)
+        // $rollParams must match $concernClausePp — always use the same logic as $purchParams
         $rollParams = [$sellerId, $sellerId];
-        if ($activeCid && !isSuperAdmin()) {
+        if ($activeCid) {
             $rollParams[] = $activeCid;
         }
         $purchasedRolls = Database::fetchAll(
@@ -20251,5 +20252,264 @@ class ProductionController {
                 ['label' => 'Purchased Stock'],
             ],
         ]);
+    }
+
+    /**
+     * AJAX: Get detailed product & QR label info for a purchased stock batch.
+     */
+    public function ajaxPurchasedStockDetails(string $id): void {
+        $genId = (int)$id;
+        $stock = Database::fetchOne("
+            SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
+                   qrg.stock_added, qrg.stock_added_at, qrg.brand_name, qrg.color_name, qrg.size_name,
+                   qrg.mrp, qrg.selling_price, qrg.notes, qrg.qr_prefix,
+                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
+                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                   s.name AS seller_name, s.company AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   u.full_name AS stock_added_by_name
+            FROM qr_generations qrg
+            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
+            LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
+            LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
+            LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
+            LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
+            LEFT JOIN users u ON u.id = qrg.stock_added_by
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$stock) {
+            Response::json(['success' => false, 'message' => 'Stock line not found.'], 404);
+            return;
+        }
+
+        $items = Database::fetchAll("
+            SELECT id, generation_id, variant_id, size_name, color_name, mrp, selling_price, qr_code, sequence_num, status, created_at
+            FROM qr_generation_items
+            WHERE generation_id = ?
+            ORDER BY sequence_num ASC, id ASC
+        ", [$genId]);
+
+        Response::json([
+            'success' => true,
+            'data'    => [
+                'stock'        => $stock,
+                'items'        => $items,
+                'print_url'    => url('production/qr-generations/print/' . $genId),
+                'purchase_url' => url('purchases/view/' . $stock['purchase_id']),
+            ],
+        ]);
+    }
+
+    /**
+     * AJAX: Update QR & Stock line details (roll #, weight, brand, items status/pricing).
+     */
+    public function ajaxPurchasedStockUpdate(string $id): void {
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            Response::json(['success' => false, 'message' => 'Invalid security token. Please refresh.'], 403);
+            return;
+        }
+
+        $genId = (int)$id;
+        $gen = Database::fetchOne("
+            SELECT qrg.id, qrg.batch_code, qrg.source_purchase_item_id
+            FROM qr_generations qrg
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$gen) {
+            Response::json(['success' => false, 'message' => 'Stock record not found.'], 404);
+            return;
+        }
+
+        $itemId = (int)($gen['source_purchase_item_id'] ?? 0);
+        $brandName = trim($_POST['brand_name'] ?? '');
+        $rollNumber = trim($_POST['roll_number'] ?? '');
+        $weightKg = isset($_POST['weight_kg']) && $_POST['weight_kg'] !== '' ? (float)$_POST['weight_kg'] : null;
+        $colorName = trim($_POST['color_name'] ?? '');
+        $sizeName = trim($_POST['size_name'] ?? '');
+        $mrp = (float)($_POST['mrp'] ?? 0);
+        $sellingPrice = (float)($_POST['selling_price'] ?? 0);
+        $notes = trim($_POST['notes'] ?? '');
+
+        Database::beginTransaction();
+        try {
+            Database::execute("
+                UPDATE qr_generations
+                SET brand_name = ?, color_name = ?, size_name = ?, mrp = ?, selling_price = ?, notes = ?, updated_at = NOW()
+                WHERE id = ?
+            ", [
+                $brandName ?: null,
+                $colorName ?: null,
+                $sizeName ?: null,
+                $mrp,
+                $sellingPrice,
+                $notes ?: null,
+                $genId,
+            ]);
+
+            if ($itemId > 0) {
+                Database::execute("
+                    UPDATE production_purchase_items
+                    SET roll_number = ?, weight_kg = ?, color = COALESCE(?, color), size = COALESCE(?, size)
+                    WHERE id = ?
+                ", [
+                    $rollNumber ?: null,
+                    $weightKg,
+                    $colorName ?: null,
+                    $sizeName ?: null,
+                    $itemId,
+                ]);
+            }
+
+            if (!empty($_POST['qr_items']) && is_array($_POST['qr_items'])) {
+                foreach ($_POST['qr_items'] as $qId => $qData) {
+                    $qItemId = (int)$qId;
+                    $qStatus = in_array($qData['status'] ?? '', ['ACTIVE', 'USED', 'DAMAGED', 'CANCELLED'], true) ? $qData['status'] : 'ACTIVE';
+                    $qColor = trim($qData['color_name'] ?? '') ?: null;
+                    $qSize = trim($qData['size_name'] ?? '') ?: null;
+                    $qMrp = isset($qData['mrp']) && $qData['mrp'] !== '' ? (float)$qData['mrp'] : $mrp;
+                    $qSp = isset($qData['selling_price']) && $qData['selling_price'] !== '' ? (float)$qData['selling_price'] : $sellingPrice;
+
+                    Database::execute("
+                        UPDATE qr_generation_items
+                        SET status = ?, color_name = ?, size_name = ?, mrp = ?, selling_price = ?
+                        WHERE id = ? AND generation_id = ?
+                    ", [$qStatus, $qColor, $qSize, $qMrp, $qSp, $qItemId, $genId]);
+                }
+            }
+
+            if (class_exists('AuditService')) {
+                AuditService::log('purchased_stock', 'UPDATE', 'qr_generations', $genId, null, [
+                    'batch_code'  => $gen['batch_code'],
+                    'roll_number' => $rollNumber,
+                    'weight_kg'   => $weightKg,
+                ]);
+            }
+
+            Database::commit();
+
+            Response::json([
+                'success' => true,
+                'message' => "Stock line {$gen['batch_code']} updated successfully.",
+                'data'    => [
+                    'generation_id' => $genId,
+                    'brand_name'    => $brandName,
+                    'roll_number'   => $rollNumber,
+                    'weight_kg'     => $weightKg,
+                    'color_name'    => $colorName,
+                    'size_name'     => $sizeName,
+                    'mrp'           => $mrp,
+                    'selling_price' => $sellingPrice,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            Database::rollback();
+            Response::json(['success' => false, 'message' => 'Failed to update stock line: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX: Safely delete a purchased stock line and reverse its inventory.
+     */
+    public function ajaxPurchasedStockDelete(string $id): void {
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            Response::json(['success' => false, 'message' => 'Invalid security token. Please refresh.'], 403);
+            return;
+        }
+
+        $genId = (int)$id;
+        $gen = Database::fetchOne("
+            SELECT qrg.*, ppi.id AS ppi_id, ppi.purchase_id, ppi.inwarded_qty, ppi.variant_id AS ppi_variant_id
+            FROM qr_generations qrg
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$gen) {
+            Response::json(['success' => false, 'message' => 'Stock line not found.'], 404);
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $quantity = max(1.0, (float)($gen['quantity'] ?? 1));
+            $variantId = (int)($gen['variant_id'] ?? 0) ?: (int)($gen['ppi_variant_id'] ?? 0);
+
+            if (!empty($gen['stock_added']) && $variantId > 0 && class_exists('StockService')) {
+                $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+                    ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
+                $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+
+                try {
+                    StockService::decrease(
+                        $variantId,
+                        'WAREHOUSE',
+                        $warehouseId,
+                        'AVAILABLE',
+                        $quantity,
+                        'ADJUSTMENT_OUT',
+                        'QR_BATCH_DELETED',
+                        $genId,
+                        Auth::id() ?: null,
+                        "Reversed stock for deleted QR batch {$gen['batch_code']}"
+                    );
+                } catch (Throwable $se) {
+                    error_log("Notice on stock decrease during QR batch deletion: " . $se->getMessage());
+                }
+            }
+
+            $itemId = (int)($gen['ppi_id'] ?? 0);
+            if ($itemId > 0) {
+                $newInwarded = max(0.0, (float)($gen['inwarded_qty'] ?? 0) - $quantity);
+                Database::execute("
+                    UPDATE production_purchase_items
+                    SET inwarded_qty = ?,
+                        is_inwarded = CASE WHEN ? <= 0 THEN 0 ELSE 1 END,
+                        qr_generation_id = NULL,
+                        qr_batch_code = NULL
+                    WHERE id = ?
+                ", [$newInwarded, $newInwarded, $itemId]);
+
+                $purchaseId = (int)($gen['purchase_id'] ?? 0);
+                if ($purchaseId > 0) {
+                    $anyInwarded = Database::fetchOne("
+                        SELECT COUNT(*) as c FROM production_purchase_items
+                        WHERE purchase_id = ? AND is_inwarded = 1
+                    ", [$purchaseId])['c'] ?? 0;
+
+                    if ((int)$anyInwarded === 0) {
+                        Database::execute("UPDATE production_purchases SET is_inwarded = 0 WHERE id = ?", [$purchaseId]);
+                    }
+                }
+            }
+
+            Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [$genId]);
+            Database::execute("DELETE FROM qr_generations WHERE id = ?", [$genId]);
+
+            if (class_exists('AuditService')) {
+                AuditService::log('purchased_stock', 'DELETE', 'qr_generations', $genId, null, [
+                    'batch_code' => $gen['batch_code'],
+                    'quantity'   => $quantity,
+                ]);
+            }
+
+            Database::commit();
+
+            Response::json([
+                'success' => true,
+                'message' => "Stock line {$gen['batch_code']} deleted successfully.",
+            ]);
+        } catch (Throwable $e) {
+            Database::rollback();
+            Response::json(['success' => false, 'message' => 'Failed to delete stock line: ' . $e->getMessage()], 500);
+        }
     }
 }
