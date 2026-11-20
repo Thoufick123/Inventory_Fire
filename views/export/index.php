@@ -217,6 +217,7 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <div id="warehouseFilterEmpty" class="alert alert-warning d-none small mt-2 mb-0" role="status" aria-live="polite"></div>
                 <div id="warehouseFilterHelp" class="form-text">
                     Select one or more warehouses to filter the outward dispatch and detailed stock ledger data. Leave unselected to include every warehouse.
                 </div>
@@ -429,17 +430,33 @@ function filterWarehousesByConcerns(concernIds) {
     if (!whSelect) return;
 
     const cIds = concernIds.map(id => parseInt(id, 10));
-    Array.from(whSelect.options).forEach(opt => {
+    const options = Array.from(whSelect.options);
+    let visibleCount = 0;
+    options.forEach(opt => {
         const whCid = parseInt(opt.dataset.concernId || 0, 10);
         if (cIds.length === 0 || cIds.includes(whCid) || whCid === 0) {
             opt.style.display = '';
             opt.disabled = false;
+            visibleCount++;
         } else {
             opt.style.display = 'none';
             opt.disabled = true;
             opt.selected = false;
         }
     });
+
+    const emptyState = document.getElementById('warehouseFilterEmpty');
+    if (emptyState) {
+        if (visibleCount > 0) {
+            emptyState.classList.add('d-none');
+            emptyState.textContent = '';
+        } else {
+            emptyState.classList.remove('d-none');
+            emptyState.textContent = options.length === 0
+                ? 'No active warehouses are available. Create or activate a warehouse to use this filter.'
+                : 'No active warehouses are linked to the selected concern. Choose All concerns or assign a warehouse to the concern.';
+        }
+    }
 }
 
 function selectEnabledConcernModules() {
