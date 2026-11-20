@@ -732,14 +732,15 @@ class QrGenerationService {
                     (batch_code, generation_type, qr_source, concern_id, source_purchase_id, source_purchase_item_id,
                      brand_name, category_id, subcategory_id, sub_subcategory_id,
                      category_name, subcategory_name, sub_subcategory_name,
-                     product_id, variant_id, mrp, selling_price, quantity, qr_prefix, notes, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     product_id, variant_id, color_name, design_name, size_name, mrp, selling_price, quantity, qr_prefix, notes, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $batchCode, $generationType, $source, $generationConcernId,
                     (int)$item['purchase_id'], $itemId,
                     $brandName, $categoryId, $subcategoryId, $subSubcategoryId,
                     $item['category_name'] ?? null, $item['subcategory_name'] ?? null, $item['sub_subcategory_name'] ?? null,
                     $productId ?: null, $variantId ?: null,
+                    $item['color'] ?? null, $item['design_name'] ?? null, $item['size'] ?? null,
                     $mrp, $sellingPrice, count($codes), $qrPrefix, $notes,
                     (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null,
                 ]
@@ -750,8 +751,8 @@ class QrGenerationService {
             foreach ($codes as $codeRow) {
                 try {
                     Database::execute(
-                        "INSERT INTO qr_generation_items (generation_id, qr_code, sequence_num, status) VALUES (?, ?, ?, ?)",
-                        [$generationId, $codeRow['code'], (int)$codeRow['sequence'], $codeRow['status']]
+                        "INSERT INTO qr_generation_items (generation_id, qr_code, sequence_num, status, color_name, design_name, size_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$generationId, $codeRow['code'], (int)$codeRow['sequence'], $codeRow['status'], $item['color'] ?? null, $item['design_name'] ?? null, $item['size'] ?? null]
                     );
                     $inserted++;
                 } catch (Throwable $e) {
