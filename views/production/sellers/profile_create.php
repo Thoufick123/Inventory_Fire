@@ -1,0 +1,600 @@
+<div class="page-header mb-4">
+    <h2><i class="bi bi-person-plus me-2 text-primary"></i>Add Supplier</h2>
+</div>
+<form method="POST" action="<?= url('production/sellers/store') ?>" class="card shadow-sm border" id="supplierForm" novalidate>
+    <?= CSRF::field() ?>
+    <input type="hidden" name="supplier_profile_only" value="1">
+    <div class="card-header bg-white"><h5 class="mb-0 fw-bold">Supplier Profile &amp; Business Details</h5></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label required">Contact Person / Supplier Name *</label>
+                <input name="name" id="supplierNameInput" class="form-control text-uppercase" required minlength="2" maxlength="200" value="<?= e(old('name')) ?>" placeholder="e.g. Ramesh Kumar">
+                <div class="invalid-feedback" id="nameFeedback">Contact person name is required (min 2 characters).</div>
+                <div class="valid-feedback" id="nameValidFeedback">Name is available.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label required">Company / Mill / Business Name *</label>
+                <input name="company" id="supplierCompanyInput" class="form-control text-uppercase" required minlength="2" maxlength="300" value="<?= e(old('company')) ?>" placeholder="e.g. RK Apparels Pvt Ltd">
+                <div class="invalid-feedback" id="companyFeedback">Company name is required.</div>
+                <div class="valid-feedback" id="companyValidFeedback">Company name is available.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label required">Phone Number *</label>
+                <input type="tel" name="phone" id="supplierPhone" class="form-control" required pattern="[0-9]{10}" maxlength="10" inputmode="numeric" value="<?= e(old('phone')) ?>" placeholder="10-digit mobile number" autocomplete="tel">
+                <div class="invalid-feedback" id="phoneFeedback">Phone number must be exactly 10 digits starting with 6-9.</div>
+                <div class="valid-feedback" id="phoneValidFeedback">Phone number is valid &amp; available.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Email Address (Optional)</label>
+                <input type="email" name="email" id="supplierEmailInput" class="form-control" maxlength="255" value="<?= e(old('email')) ?>" placeholder="vendor@domain.com">
+                <div class="invalid-feedback" id="emailFeedback">Please enter a valid email address.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">GSTIN / Tax ID</label>
+                <input name="gst_number" id="supplierGstInput" class="form-control text-uppercase font-monospace" maxlength="15" value="<?= e(old('gst_number')) ?>" placeholder="33AAAAA0000A1Z5">
+                <div class="invalid-feedback" id="gstFeedback">Enter a valid 15-character GSTIN.</div>
+                <div class="valid-feedback" id="gstValidFeedback">GSTIN is valid &amp; available.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label required">City / District *</label>
+                <input name="city" id="supplierCity" list="tnDistrictsList" class="form-control text-uppercase <?= Session::has('city_state_error') ? 'is-invalid' : '' ?>" required maxlength="100" value="<?= e(old('city')) ?>" placeholder="e.g. TIRUPPUR, COIMBATORE" autocomplete="off">
+                <datalist id="tnDistrictsList">
+                    <option value="ARIYALUR">
+                    <option value="CHENGALPATTU">
+                    <option value="CHENNAI">
+                    <option value="COIMBATORE">
+                    <option value="CUDDALORE">
+                    <option value="DHARMAPURI">
+                    <option value="DINDIGUL">
+                    <option value="ERODE">
+                    <option value="KALLAKURICHI">
+                    <option value="KANCHIPURAM">
+                    <option value="KANYAKUMARI">
+                    <option value="KARUR">
+                    <option value="KRISHNAGIRI">
+                    <option value="MADURAI">
+                    <option value="MAYILADUTHURAI">
+                    <option value="NAGAPATTINAM">
+                    <option value="NAMAKKAL">
+                    <option value="NILGIRIS">
+                    <option value="PERAMBALUR">
+                    <option value="PUDUKKOTTAI">
+                    <option value="RAMANATHAPURAM">
+                    <option value="RANIPET">
+                    <option value="SALEM">
+                    <option value="SIVAGANGA">
+                    <option value="TENKASI">
+                    <option value="THANJAVUR">
+                    <option value="THENI">
+                    <option value="THOOTHUKUDI">
+                    <option value="TIRUCHIRAPPALLI">
+                    <option value="TIRUNELVELI">
+                    <option value="TIRUPATHUR">
+                    <option value="TIRUPPUR">
+                    <option value="TIRUVALLUR">
+                    <option value="TIRUVANNAMALAI">
+                    <option value="TIRUVARUR">
+                    <option value="VELLORE">
+                    <option value="VILUPPURAM">
+                    <option value="VIRUDHUNAGAR">
+                    <option value="POLLACHI">
+                    <option value="AVINASHI">
+                    <option value="PALLADAM">
+                    <option value="HOSUR">
+                    <option value="SIVAKASI">
+                    <option value="RAJAPALAYAM">
+                </datalist>
+                <div class="invalid-feedback" id="cityFeedback">Please check the entered city/district.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label required">State *</label>
+                <input name="state" id="supplierState" list="statesList" class="form-control text-uppercase <?= Session::has('city_state_error') ? 'is-invalid' : '' ?>" required maxlength="100" value="<?= e(old('state', 'TAMIL NADU')) ?>" placeholder="e.g. TAMIL NADU" autocomplete="off">
+                <datalist id="statesList">
+                    <option value="TAMIL NADU">
+                    <option value="ANDHRA PRADESH">
+                    <option value="KARNATAKA">
+                    <option value="KERALA">
+                    <option value="MAHARASHTRA">
+                    <option value="GUJARAT">
+                    <option value="TELANGANA">
+                    <option value="DELHI">
+                    <option value="HARYANA">
+                    <option value="MADHYA PRADESH">
+                    <option value="PUNJAB">
+                    <option value="RAJASTHAN">
+                    <option value="UTTAR PRADESH">
+                    <option value="WEST BENGAL">
+                </datalist>
+                <div class="invalid-feedback" id="stateFeedback">State must match the entered city.</div>
+            </div>
+            <div class="col-12" id="cityStateAlertContainer" style="<?= Session::has('city_state_error') ? '' : 'display:none;' ?>">
+                <div class="alert alert-danger d-flex align-items-center mb-0 py-2 px-3 shadow-sm border border-danger-subtle" role="alert" id="cityStateAlert">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 text-danger me-2 flex-shrink-0"></i>
+                    <div id="cityStateAlertText"><?= e(Session::get('city_state_error') ?? '') ?></div>
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="form-label required">Full Business Address *</label>
+                <textarea name="address" class="form-control text-uppercase" required maxlength="500" rows="2"><?= e(old('address')) ?></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer bg-white d-flex justify-content-between">
+        <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btnSaveSupplier"><i class="bi bi-check-circle me-1"></i>Save Supplier</button>
+    </div>
+</form>
+
+<script>
+(function() {
+    const cityInput = document.getElementById('supplierCity');
+    const stateInput = document.getElementById('supplierState');
+    const phoneInput = document.getElementById('supplierPhone');
+    const phoneFeedback = document.getElementById('phoneFeedback');
+    const phoneValidFeedback = document.getElementById('phoneValidFeedback');
+    const nameInput = document.getElementById('supplierNameInput');
+    const nameFeedback = document.getElementById('nameFeedback');
+    const nameValidFeedback = document.getElementById('nameValidFeedback');
+    const companyInput = document.getElementById('supplierCompanyInput');
+    const companyFeedback = document.getElementById('companyFeedback');
+    const companyValidFeedback = document.getElementById('companyValidFeedback');
+    const gstInput = document.getElementById('supplierGstInput');
+    const gstFeedback = document.getElementById('gstFeedback');
+    const gstValidFeedback = document.getElementById('gstValidFeedback');
+    const emailInput = document.getElementById('supplierEmailInput');
+    const emailFeedback = document.getElementById('emailFeedback');
+    const alertContainer = document.getElementById('cityStateAlertContainer');
+    const alertText = document.getElementById('cityStateAlertText');
+    const form = document.getElementById('supplierForm');
+    const btnSave = document.getElementById('btnSaveSupplier');
+
+    let phoneTimer = null;
+    let gstTimer = null;
+    let nameTimer = null;
+    let companyTimer = null;
+
+    let isPhoneValid = false;
+    let isGstValid = true;
+    let isNameValid = false;
+    let isCompanyValid = false;
+
+    function checkPhone() {
+        if (!phoneInput) return true;
+        phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+        const val = phoneInput.value.trim();
+
+        if (val.length === 0) {
+            phoneInput.classList.remove('is-valid');
+            phoneInput.classList.add('is-invalid');
+            if (phoneFeedback) phoneFeedback.textContent = 'Phone number is required (10 digits).';
+            isPhoneValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        if (val.length !== 10) {
+            phoneInput.classList.remove('is-valid');
+            phoneInput.classList.add('is-invalid');
+            if (phoneFeedback) phoneFeedback.textContent = `Phone number must be exactly 10 digits (currently ${val.length} digits).`;
+            isPhoneValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        if (!['6', '7', '8', '9'].includes(val[0])) {
+            phoneInput.classList.remove('is-valid');
+            phoneInput.classList.add('is-invalid');
+            if (phoneFeedback) phoneFeedback.textContent = 'Indian mobile number must start with 6, 7, 8, or 9.';
+            isPhoneValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        clearTimeout(phoneTimer);
+        phoneTimer = setTimeout(() => {
+            fetch(`<?= url('api/production/sellers/check-duplicate') ?>?field=phone&value=${encodeURIComponent(val)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.valid) {
+                        phoneInput.classList.remove('is-valid');
+                        phoneInput.classList.add('is-invalid');
+                        if (phoneFeedback) phoneFeedback.textContent = data.message;
+                        isPhoneValid = false;
+                    } else if (!data.available) {
+                        phoneInput.classList.remove('is-valid');
+                        phoneInput.classList.add('is-invalid');
+                        if (phoneFeedback) phoneFeedback.textContent = `⚠️ Duplicate: ${data.message}`;
+                        isPhoneValid = false;
+                    } else {
+                        phoneInput.classList.remove('is-invalid');
+                        phoneInput.classList.add('is-valid');
+                        if (phoneValidFeedback) phoneValidFeedback.textContent = '✓ Phone number is valid & available.';
+                        isPhoneValid = true;
+                    }
+                    updateSubmitStatus();
+                }).catch(() => {
+                    phoneInput.classList.remove('is-invalid');
+                    phoneInput.classList.add('is-valid');
+                    isPhoneValid = true;
+                    updateSubmitStatus();
+                });
+        }, 300);
+
+        return true;
+    }
+
+    function checkGst() {
+        if (!gstInput) return true;
+        gstInput.value = gstInput.value.toUpperCase().trim();
+        const val = gstInput.value;
+
+        if (val.length === 0) {
+            gstInput.classList.remove('is-invalid', 'is-valid');
+            if (gstFeedback) gstFeedback.textContent = '';
+            isGstValid = true;
+            updateSubmitStatus();
+            return true;
+        }
+
+        if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(val)) {
+            gstInput.classList.remove('is-valid');
+            gstInput.classList.add('is-invalid');
+            if (gstFeedback) gstFeedback.textContent = 'Invalid GSTIN format (15 characters alphanumeric, e.g. 33AAAAA0000A1Z5).';
+            isGstValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        clearTimeout(gstTimer);
+        gstTimer = setTimeout(() => {
+            fetch(`<?= url('api/production/sellers/check-duplicate') ?>?field=gst_number&value=${encodeURIComponent(val)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.valid) {
+                        gstInput.classList.remove('is-valid');
+                        gstInput.classList.add('is-invalid');
+                        if (gstFeedback) gstFeedback.textContent = data.message;
+                        isGstValid = false;
+                    } else if (!data.available) {
+                        gstInput.classList.remove('is-valid');
+                        gstInput.classList.add('is-invalid');
+                        if (gstFeedback) gstFeedback.textContent = `⚠️ Duplicate: ${data.message}`;
+                        isGstValid = false;
+                    } else {
+                        gstInput.classList.remove('is-invalid');
+                        gstInput.classList.add('is-valid');
+                        if (gstValidFeedback) gstValidFeedback.textContent = '✓ GSTIN is valid & available.';
+                        isGstValid = true;
+                    }
+                    updateSubmitStatus();
+                }).catch(() => {
+                    gstInput.classList.remove('is-invalid');
+                    gstInput.classList.add('is-valid');
+                    isGstValid = true;
+                    updateSubmitStatus();
+                });
+        }, 300);
+
+        return true;
+    }
+
+    function checkName() {
+        if (!nameInput) return true;
+        nameInput.value = nameInput.value.toUpperCase();
+        const val = nameInput.value.trim();
+
+        if (val.length < 2) {
+            nameInput.classList.remove('is-valid');
+            nameInput.classList.add('is-invalid');
+            if (nameFeedback) nameFeedback.textContent = 'Supplier / Contact name is required (at least 2 characters).';
+            isNameValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        nameInput.classList.remove('is-invalid');
+        nameInput.classList.add('is-valid');
+        isNameValid = true;
+        updateSubmitStatus();
+        return true;
+    }
+
+    function checkCompany() {
+        if (!companyInput) return true;
+        companyInput.value = companyInput.value.toUpperCase();
+        const val = companyInput.value.trim();
+
+        if (val.length < 2) {
+            companyInput.classList.remove('is-valid');
+            companyInput.classList.add('is-invalid');
+            if (companyFeedback) companyFeedback.textContent = 'Company / Mill / Business Name is required (at least 2 characters).';
+            isCompanyValid = false;
+            updateSubmitStatus();
+            return false;
+        }
+
+        clearTimeout(companyTimer);
+        companyTimer = setTimeout(() => {
+            fetch(`<?= url('api/production/sellers/check-duplicate') ?>?field=company&value=${encodeURIComponent(val)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.available) {
+                        companyInput.classList.remove('is-valid');
+                        companyInput.classList.add('is-invalid');
+                        if (companyFeedback) companyFeedback.textContent = `⚠️ Duplicate: ${data.message}`;
+                        isCompanyValid = false;
+                    } else {
+                        companyInput.classList.remove('is-invalid');
+                        companyInput.classList.add('is-valid');
+                        if (companyValidFeedback) companyValidFeedback.textContent = '✓ Company name is available.';
+                        isCompanyValid = true;
+                    }
+                    updateSubmitStatus();
+                }).catch(() => {
+                    companyInput.classList.remove('is-invalid');
+                    companyInput.classList.add('is-valid');
+                    isCompanyValid = true;
+                    updateSubmitStatus();
+                });
+        }, 350);
+
+        return true;
+    }
+
+    function checkEmail() {
+        if (!emailInput) return true;
+        const val = emailInput.value.trim();
+        if (val.length === 0) {
+            emailInput.classList.remove('is-invalid');
+            return true;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            emailInput.classList.add('is-invalid');
+            if (emailFeedback) emailFeedback.textContent = 'Please enter a valid email address.';
+            return false;
+        }
+        emailInput.classList.remove('is-invalid');
+        return true;
+    }
+
+    function updateSubmitStatus() {
+        if (!btnSave) return;
+        const hasErr = form && form.querySelectorAll('.is-invalid').length > 0;
+        btnSave.disabled = hasErr;
+    }
+
+    if (phoneInput) {
+        phoneInput.addEventListener('input', checkPhone);
+        phoneInput.addEventListener('blur', checkPhone);
+    }
+    if (gstInput) {
+        gstInput.addEventListener('input', checkGst);
+        gstInput.addEventListener('blur', checkGst);
+    }
+    if (nameInput) {
+        nameInput.addEventListener('input', checkName);
+        nameInput.addEventListener('blur', checkName);
+    }
+    if (companyInput) {
+        companyInput.addEventListener('input', checkCompany);
+        companyInput.addEventListener('blur', checkCompany);
+    }
+    if (emailInput) {
+        emailInput.addEventListener('input', checkEmail);
+        emailInput.addEventListener('blur', checkEmail);
+    }
+
+    // Comprehensive Tamil Nadu districts and prominent towns
+    const tnCities = [
+        'ARIYALUR', 'CHENGALPATTU', 'CHENGALPET', 'CHENNAI', 'MADRAS', 'COIMBATORE', 'KOVAI',
+        'CUDDALORE', 'DHARMAPURI', 'DINDIGUL', 'ERODE', 'KALLAKURICHI', 'KANCHIPURAM',
+        'KANCHEEPURAM', 'KANYAKUMARI', 'NAGERCOIL', 'KARUR', 'KRISHNAGIRI', 'MADURAI',
+        'MAYILADUTHURAI', 'NAGAPATTINAM', 'NAMAKKAL', 'NILGIRIS', 'UDHAGAMANDALAM', 'OOTY',
+        'COONOOR', 'PERAMBALUR', 'PUDUKKOTTAI', 'RAMANATHAPURAM', 'RAMNAD', 'RANIPET',
+        'SALEM', 'SIVAGANGA', 'SIVAGANGAI', 'TENKASI', 'THANJAVUR', 'TANJORE', 'THENI',
+        'THOOTHUKUDI', 'TUTICORIN', 'TIRUCHIRAPPALLI', 'TIRUCHIRAPALLI', 'TRICHY', 'TIRUCHI',
+        'TIRUNELVELI', 'NELLAI', 'TIRUPATHUR', 'TIRUPATTUR', 'TIRUPPUR', 'TIRUPUR',
+        'TIRUVALLUR', 'THIRUVALLUR', 'TIRUVANNAMALAI', 'THIRUVANNAMALAI', 'TIRUVARUR',
+        'THIRUVARUR', 'VELLORE', 'VILUPPURAM', 'VILLUPURAM', 'VIRUDHUNAGAR', 'POLLACHI',
+        'METTUPALAYAM', 'AVINASHI', 'PALLADAM', 'KANGEYAM', 'KANGAYAM', 'DHARAPURAM',
+        'UDUMALAIPETTAI', 'UDUMALPET', 'GOBICHETTIPALAYAM', 'GOBI', 'SATHYAMANGALAM', 'SATHY',
+        'BHAVANI', 'KOMARAPALAYAM', 'KUMARAPALAYAM', 'TIRUCHENGODE', 'RASIPURAM', 'AMBUR',
+        'VANIYAMBADI', 'GUDIYATHAM', 'ARAKKONAM', 'HOSUR', 'RAJAPALAYAM', 'SIVAKASI',
+        'SRIVILLIPUTHUR', 'ARUPPUKKOTTAI', 'KOVILPATTI', 'KUMBAKONAM', 'PATTUKKOTTAI',
+        'MANNARGUDI', 'SIRKAZHI', 'CHIDAMBARAM', 'NEYVELI', 'PANRUTI', 'TINDIVANAM',
+        'ARANI', 'CHEYYAR', 'TAMBARAM', 'AVADI', 'AMBATTUR', 'SRIPERUMBUDUR', 'KARAIKUDI',
+        'DEVAKOTTAI', 'PARAMAKUDI', 'SANKARANKOVIL', 'AMBASAMUDRAM', 'BODINAYAKANUR',
+        'CUMBUM', 'PERIYAKULAM'
+    ];
+
+    // Known major cities in other states
+    const otherStateCities = {
+        'BENGALURU': 'KARNATAKA', 'BANGALORE': 'KARNATAKA', 'MYSORE': 'KARNATAKA', 'MYSURU': 'KARNATAKA',
+        'MANGALORE': 'KARNATAKA', 'MANGALURU': 'KARNATAKA', 'HUBLI': 'KARNATAKA', 'HUBBALLI': 'KARNATAKA',
+        'BELGAUM': 'KARNATAKA', 'BELAGAVI': 'KARNATAKA', 'DAVANAGERE': 'KARNATAKA', 'BELLARY': 'KARNATAKA',
+        'SHIMOGA': 'KARNATAKA', 'SHIVAMOGGA': 'KARNATAKA', 'TUMKUR': 'KARNATAKA', 'UDUPI': 'KARNATAKA',
+        'HASSAN': 'KARNATAKA', 'GULBARGA': 'KARNATAKA',
+        'KOCHI': 'KERALA', 'COCHIN': 'KERALA', 'THIRUVANANTHAPURAM': 'KERALA', 'TRIVANDRUM': 'KERALA',
+        'KOZHIKODE': 'KERALA', 'CALICUT': 'KERALA', 'THRISSUR': 'KERALA', 'TRICHUR': 'KERALA',
+        'KOLLAM': 'KERALA', 'PALAKKAD': 'KERALA', 'ALAPPUZHA': 'KERALA', 'KANNUR': 'KERALA',
+        'KOTTAYAM': 'KERALA', 'MALAPPURAM': 'KERALA', 'KASARAGOD': 'KERALA',
+        'HYDERABAD': 'TELANGANA', 'SECUNDERABAD': 'TELANGANA', 'WARANGAL': 'TELANGANA', 'NIZAMABAD': 'TELANGANA',
+        'VISAKHAPATNAM': 'ANDHRA PRADESH', 'VIZAG': 'ANDHRA PRADESH', 'VIJAYAWADA': 'ANDHRA PRADESH',
+        'GUNTUR': 'ANDHRA PRADESH', 'NELLORE': 'ANDHRA PRADESH', 'KURNOOL': 'ANDHRA PRADESH',
+        'RAJAHMUNDRY': 'ANDHRA PRADESH', 'TIRUPATI': 'ANDHRA PRADESH', 'KAKINADA': 'ANDHRA PRADESH',
+        'MUMBAI': 'MAHARASHTRA', 'BOMBAY': 'MAHARASHTRA', 'PUNE': 'MAHARASHTRA', 'NAGPUR': 'MAHARASHTRA',
+        'THANE': 'MAHARASHTRA', 'NASHIK': 'MAHARASHTRA', 'AURANGABAD': 'MAHARASHTRA', 'KOLHAPUR': 'MAHARASHTRA',
+        'AHMEDABAD': 'GUJARAT', 'SURAT': 'GUJARAT', 'VADODARA': 'GUJARAT', 'BARODA': 'GUJARAT',
+        'RAJKOT': 'GUJARAT', 'BHAVNAGAR': 'GUJARAT', 'JAMNAGAR': 'GUJARAT', 'GANDHINAGAR': 'GUJARAT',
+        'DELHI': 'DELHI', 'NEW DELHI': 'DELHI', 'NOIDA': 'UTTAR PRADESH', 'GURGAON': 'HARYANA', 'GURUGRAM': 'HARYANA',
+        'LUCKNOW': 'UTTAR PRADESH', 'KANPUR': 'UTTAR PRADESH', 'AGRA': 'UTTAR PRADESH', 'VARANASI': 'UTTAR PRADESH',
+        'KOLKATA': 'WEST BENGAL', 'CALCUTTA': 'WEST BENGAL', 'HOWRAH': 'WEST BENGAL',
+        'JAIPUR': 'RAJASTHAN', 'JODHPUR': 'RAJASTHAN', 'UDAIPUR': 'RAJASTHAN', 'KOTA': 'RAJASTHAN',
+        'INDORE': 'MADHYA PRADESH', 'BHOPAL': 'MADHYA PRADESH', 'GWALIOR': 'MADHYA PRADESH',
+        'PATNA': 'BIHAR', 'LUDHIANA': 'PUNJAB', 'AMRITSAR': 'PUNJAB', 'CHANDIGARH': 'CHANDIGARH'
+    };
+
+    // All recognized Indian States & UTs
+    const allIndianStates = {
+        'TAMIL NADU': ['TAMILNADU', 'TN'],
+        'ANDHRA PRADESH': ['ANDHRAPRADESH', 'AP'],
+        'ARUNACHAL PRADESH': ['ARUNACHALPRADESH', 'AR'],
+        'ASSAM': ['ASSAM', 'AS'],
+        'BIHAR': ['BIHAR', 'BR'],
+        'CHHATTISGARH': ['CHHATTISGARH', 'CG'],
+        'GOA': ['GOA', 'GA'],
+        'GUJARAT': ['GUJARAT', 'GJ'],
+        'HARYANA': ['HARYANA', 'HR'],
+        'HIMACHAL PRADESH': ['HIMACHALPRADESH', 'HP'],
+        'JHARKHAND': ['JHARKHAND', 'JH'],
+        'KARNATAKA': ['KARNATAKA', 'KA'],
+        'KERALA': ['KERALA', 'KL'],
+        'MADHYA PRADESH': ['MADHYAPRADESH', 'MP'],
+        'MAHARASHTRA': ['MAHARASHTRA', 'MH'],
+        'MANIPUR': ['MANIPUR', 'MN'],
+        'MEGHALAYA': ['MEGHALAYA', 'ML'],
+        'MIZORAM': ['MIZORAM', 'MZ'],
+        'NAGALAND': ['NAGALAND', 'NL'],
+        'ODISHA': ['ODISHA', 'ORISSA', 'OD', 'OR'],
+        'PUNJAB': ['PUNJAB', 'PB'],
+        'RAJASTHAN': ['RAJASTHAN', 'RJ'],
+        'SIKKIM': ['SIKKIM', 'SK'],
+        'TELANGANA': ['TELANGANA', 'TS', 'TG'],
+        'TRIPURA': ['TRIPURA', 'TR'],
+        'UTTAR PRADESH': ['UTTARPRADESH', 'UP'],
+        'UTTARAKHAND': ['UTTARAKHAND', 'UK', 'UA'],
+        'WEST BENGAL': ['WESTBENGAL', 'WB'],
+        'DELHI': ['DELHI', 'DL', 'NEWDELHI'],
+        'JAMMU AND KASHMIR': ['JAMMUANDKASHMIR', 'JAMMUKASHMIR', 'JK'],
+        'LADAKH': ['LADAKH', 'LA'],
+        'PUDUCHERRY': ['PUDUCHERRY', 'PONDICHERRY', 'PY'],
+        'CHANDIGARH': ['CHANDIGARH', 'CH'],
+        'DADRA AND NAGAR HAVELI AND DAMAN AND DIU': ['DADRAANDNAGARHAVELIANDDAMANANDDIU', 'DAMAN', 'DIU'],
+        'ANDAMAN AND NICOBAR ISLANDS': ['ANDAMANANDNICOBARISLANDS', 'ANDAMAN', 'AN'],
+        'LAKSHADWEEP': ['LAKSHADWEEP', 'LD']
+    };
+
+    function normalizeText(txt) {
+        return (txt || '').toUpperCase().trim().replace(/[\s\-_.]+/g, '');
+    }
+
+    const addressInput = document.querySelector('textarea[name="address"]');
+    function checkAddress() {
+        if (!addressInput) return true;
+        const val = addressInput.value.trim();
+        if (val.length < 6 || !/[a-zA-Z]/.test(val)) {
+            addressInput.classList.add('is-invalid');
+            return false;
+        }
+        addressInput.classList.remove('is-invalid');
+        return true;
+    }
+    if (addressInput) {
+        addressInput.addEventListener('input', checkAddress);
+        addressInput.addEventListener('blur', checkAddress);
+    }
+
+    function checkCityState() {
+        const rawCity = (cityInput.value || '').trim();
+        const rawState = (stateInput.value || '').trim();
+        const normCity = normalizeText(rawCity);
+        const normState = normalizeText(rawState);
+
+        if (!normCity && !normState) {
+            clearAlert();
+            return true;
+        }
+
+        // 1. Check if City/District is entered as a State name
+        for (const [stName, aliases] of Object.entries(allIndianStates)) {
+            const stNorm = normalizeText(stName);
+            if (normCity === stNorm || aliases.includes(normCity)) {
+                showAlert(`<strong>Invalid City/District:</strong> "${rawCity.toUpperCase()}" is an Indian State name. Please enter a valid district or city (e.g. COIMBATORE, TIRUPPUR, CHENNAI).`, true, false);
+                return false;
+            }
+        }
+
+        // 2. Check if State is entered as a City/District
+        for (const tn of tnCities) {
+            if (normState === normalizeText(tn)) {
+                showAlert(`<strong>Invalid State:</strong> "${rawState.toUpperCase()}" is a city or district in Tamil Nadu. Please enter <strong>TAMIL NADU</strong> as the state.`, false, true);
+                return false;
+            }
+        }
+        for (const [otherCity, expectedState] of Object.entries(otherStateCities)) {
+            if (normState === normalizeText(otherCity)) {
+                showAlert(`<strong>Invalid State:</strong> "${rawState.toUpperCase()}" is a city in ${expectedState}. Please enter <strong>${expectedState}</strong> as the state.`, false, true);
+                return false;
+            }
+        }
+
+        // 3. Check if State is a valid recognized Indian State
+        let matchedStateName = null;
+        for (const [stName, aliases] of Object.entries(allIndianStates)) {
+            const stNorm = normalizeText(stName);
+            if (normState === stNorm || aliases.includes(normState)) {
+                matchedStateName = stName;
+                break;
+            }
+        }
+        if (normState && !matchedStateName) {
+            showAlert(`<strong>Invalid State:</strong> "${rawState.toUpperCase()}" is not a recognized Indian State or UT. Please enter a valid state (e.g. TAMIL NADU, KARNATAKA, KERALA).`, false, true);
+            return false;
+        }
+
+        // 4. Check City-State Location consistency
+        let isTnCity = false;
+        for (const tn of tnCities) {
+            const normTn = normalizeText(tn);
+            if (normCity === normTn || normCity.includes(normTn) || normTn.includes(normCity)) {
+                isTnCity = true;
+                break;
+            }
+        }
+
+        if (isTnCity && matchedStateName && matchedStateName !== 'TAMIL NADU') {
+            showAlert(`<strong>Location Mismatch:</strong> "${rawCity.toUpperCase()}" is located in Tamil Nadu, but the State is entered as "${rawState.toUpperCase()}". Please enter <strong>TAMIL NADU</strong> as the state.`, true, true);
+            return false;
+        }
+
+        for (const [otherCity, otherState] of Object.entries(otherStateCities)) {
+            const normOther = normalizeText(otherCity);
+            if (normCity === normOther || normCity.includes(normOther) || normOther.includes(normCity)) {
+                if (matchedStateName && matchedStateName !== otherState) {
+                    showAlert(`<strong>Location Mismatch:</strong> "${rawCity.toUpperCase()}" is located in ${otherState}, but the State is entered as "${rawState.toUpperCase()}". Please set State to ${otherState}.`, true, true);
+                    return false;
+                }
+                break;
+            }
+        }
+
+        clearAlert();
+        return true;
+    }
+
+    function showAlert(message, markCity = false, markState = false) {
+        alertText.innerHTML = message;
+        alertContainer.style.display = 'block';
+        if (markCity) cityInput.classList.add('is-invalid');
+        if (markState) stateInput.classList.add('is-invalid');
+    }
+
+    function clearAlert() {
+        alertContainer.style.display = 'none';
+        alertText.innerHTML = '';
+        cityInput.classList.remove('is-invalid');
+        stateInput.classList.remove('is-invalid');
+    }
+
+    cityInput.addEventListener('input', checkCityState);
+    cityInput.addEventListener('change', checkCityState);
+    stateInput.addEventListener('input', checkCityState);
+    stateInput.addEventListener('change', checkCityState);
+
+    form.addEventListener('submit', function(e) {
+        // Allow form to submit smoothly without blocking
+        return true;
+    });
+})();
+</script>

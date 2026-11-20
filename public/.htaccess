@@ -1,0 +1,37 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Prevent direct access to dotfiles and implementation PHP scripts.
+    RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,NC,L]
+    RewriteCond %{THE_REQUEST} \s/+[^\s?]*\.php(?:[?\s]) [NC]
+    RewriteCond %{REQUEST_URI} !/index\.php$ [NC]
+    RewriteRule ^ - [F,L]
+
+    # Route application URLs through the front controller; serve assets directly.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript text/javascript
+    AddOutputFilterByType DEFLATE application/json image/svg+xml font/woff2 font/woff
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 day"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+</IfModule>
