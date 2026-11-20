@@ -179,9 +179,6 @@
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
-                                    <a href="<?= url('production/qr-generations/view/' . $item['generation_id']) ?>" class="btn btn-outline-primary" title="View QR Batch">
-                                        <i class="bi bi-qr-code"></i>
-                                    </a>
                                     <a href="<?= url('production/qr-generations/print/' . $item['generation_id']) ?>" target="_blank" class="btn btn-outline-secondary" title="Print Labels">
                                         <i class="bi bi-printer"></i>
                                     </a>
