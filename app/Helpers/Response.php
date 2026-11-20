@@ -898,6 +898,69 @@ function isRetailConcern(?int $concernId = null): bool {
 }
 
 /**
+ * Resolve unified concern branding (logo, title, legal name, tax IDs, and address) for documents/invoices.
+ */
+function getConcernBranding(?int $concernId = null, ?array $facility = null): array {
+    $cid = $concernId;
+    if (!$cid && !empty($facility['concern_id'])) {
+        $cid = (int)$facility['concern_id'];
+    }
+    if (!$cid) {
+        $cid = currentConcernId();
+    }
+
+    $concern = null;
+    if ($cid && class_exists('Database')) {
+        $concern = Database::fetchOne("SELECT * FROM concerns WHERE id = ?", [$cid]);
+    }
+
+    $company = class_exists('SettingsService') ? SettingsService::getGroup('company') : [];
+
+    $logoUrl = '';
+    if (!empty($concern['logo_url'])) {
+        $logoUrl = uploadUrl($concern['logo_url']);
+    } elseif (!empty($facility['logo_url'])) {
+        $logoUrl = uploadUrl($facility['logo_url']);
+    } elseif (!empty($company['company_logo'])) {
+        $logoUrl = uploadUrl($company['company_logo']);
+    }
+
+    $name = !empty($concern['name']) ? $concern['name'] : (!empty($facility['name']) ? $facility['name'] : ($company['company_name'] ?? 'GRM APPARELS'));
+    $legalName = !empty($concern['legal_name']) ? $concern['legal_name'] : (!empty($facility['legal_name']) ? $facility['legal_name'] : ($company['company_name'] ?? $name));
+    $gstNumber = !empty($concern['gst_number']) ? $concern['gst_number'] : (!empty($facility['gst_number']) ? $facility['gst_number'] : ($company['company_gstin'] ?? ''));
+    $panNumber = !empty($concern['pan_number']) ? $concern['pan_number'] : (!empty($company['company_pan'] ?? '') ? $company['company_pan'] : '');
+    $phone = !empty($concern['phone']) ? $concern['phone'] : (!empty($facility['phone']) ? $facility['phone'] : ($company['company_phone'] ?? ''));
+    $email = !empty($concern['email']) ? $concern['email'] : (!empty($facility['email']) ? $facility['email'] : ($company['company_email'] ?? ''));
+    $address = !empty($concern['address']) ? $concern['address'] : (!empty($facility['address']) ? $facility['address'] : ($company['company_address'] ?? ''));
+    $city = !empty($concern['city']) ? $concern['city'] : (!empty($facility['city']) ? $facility['city'] : ($company['company_city'] ?? ''));
+    $state = !empty($concern['state']) ? $concern['state'] : (!empty($facility['state']) ? $facility['state'] : ($company['company_state'] ?? ''));
+    $pincode = !empty($concern['pincode']) ? $concern['pincode'] : (!empty($facility['pincode']) ? $facility['pincode'] : ($company['company_pincode'] ?? ''));
+
+    return [
+        'concern' => $concern,
+        'logo_url' => $logoUrl,
+        'name' => $name,
+        'legal_name' => $legalName,
+        'gst_number' => $gstNumber,
+        'pan_number' => $panNumber,
+        'phone' => $phone,
+        'email' => $email,
+        'address' => $address,
+        'city' => $city,
+        'state' => $state,
+        'pincode' => $pincode,
+    ];
+}
+
+/**
+ * Quick helper to get concern or fallback logo URL.
+ */
+function getConcernLogoUrl(?int $concernId = null, ?array $facility = null): string {
+    $b = getConcernBranding($concernId, $facility);
+    return $b['logo_url'] ?? '';
+}
+
+/**
  * Get available concerns strictly authorized for a user.
  * Non-admin staff are STRICTLY restricted to their assigned entities.
  */

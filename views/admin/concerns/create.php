@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<form method="POST" action="<?= url('admin/concerns/store') ?>" id="concernForm">
+<form method="POST" action="<?= url('admin/concerns/store') ?>" id="concernForm" enctype="multipart/form-data">
     <?= CSRF::field() ?>
 
     <div class="row g-4">
@@ -47,6 +47,32 @@
                             <label class="form-label fw-semibold">Registered Legal Company Name</label>
                             <input type="text" name="legal_name" class="form-control" placeholder="e.g. GRM Apparels Private Limited">
                             <div class="form-text">Official registered corporate title for GST tax invoices and legal dispatches.</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-image text-primary me-1"></i>Concern Logo / Brand Image</span>
+                                <span class="text-muted small fw-normal">Shown on all Invoices &amp; Bills</span>
+                            </label>
+                            <div class="border rounded-3 p-3 bg-light">
+                                <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div id="logoPreviewContainer" class="d-flex align-items-center justify-content-center bg-white border rounded-3 p-2 text-center" style="width: 140px; height: 90px; overflow: hidden;">
+                                        <img id="logoPreviewImg" src="" alt="Preview" class="d-none" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                        <div id="logoPlaceholder" class="text-muted small">
+                                            <i class="bi bi-cloud-arrow-up fs-2 d-block text-secondary"></i>
+                                            <span>No Logo</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <input type="file" name="logo" id="concernLogoInput" class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml" onchange="previewConcernLogo(this)">
+                                        <div class="form-text mt-1 text-muted small">
+                                            <i class="bi bi-info-circle me-1"></i>Upload PNG, JPG, JPEG, WEBP or SVG (max 5MB). This image automatically displays on all POS bills, tax invoices, purchase orders, and receipts under this concern.
+                                        </div>
+                                        <button type="button" id="clearLogoBtn" class="btn btn-sm btn-outline-danger mt-2 d-none" onclick="clearSelectedLogo()">
+                                            <i class="bi bi-x-circle me-1"></i>Remove Selected File
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -145,3 +171,44 @@
         </div>
     </div>
 </form>
+
+<script>
+function previewConcernLogo(input) {
+    const previewImg = document.getElementById('logoPreviewImg');
+    const placeholder = document.getElementById('logoPlaceholder');
+    const clearBtn = document.getElementById('clearLogoBtn');
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size exceeds 5MB limit. Please choose a smaller image.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewImg.classList.remove('d-none');
+            if (placeholder) placeholder.classList.add('d-none');
+            if (clearBtn) clearBtn.classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function clearSelectedLogo() {
+    const input = document.getElementById('concernLogoInput');
+    const previewImg = document.getElementById('logoPreviewImg');
+    const placeholder = document.getElementById('logoPlaceholder');
+    const clearBtn = document.getElementById('clearLogoBtn');
+
+    if (input) input.value = '';
+    if (previewImg) {
+        previewImg.src = '';
+        previewImg.classList.add('d-none');
+    }
+    if (placeholder) placeholder.classList.remove('d-none');
+    if (clearBtn) clearBtn.classList.add('d-none');
+}
+</script>

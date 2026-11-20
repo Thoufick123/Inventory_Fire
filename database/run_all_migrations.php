@@ -772,6 +772,19 @@ if (file_exists($precisionMigration)) {
     } catch (Exception $e) {}
 }
 
+// Migration 24: Save optional GPay proof screenshots for production bills.
+echo "  Applying 2026_11_20_add_production_bill_upi_screenshot.sql...\n";
+if (tableExists($db, 'production_bills') && !columnExists($db, 'production_bills', 'upi_payment_screenshot_url')) {
+    $db->exec("ALTER TABLE `production_bills` ADD COLUMN `upi_payment_screenshot_url` varchar(500) DEFAULT NULL AFTER `upi_reference`");
+}
+
+// Migration 25: Hide built-in starter categories from catalog selectors.
+echo "  Applying 2026_11_20_deactivate_default_catalog_categories.sql...\n";
+$defaultCatalogCategoriesMigration = BASE_PATH . '/database/migrations/2026_11_20_deactivate_default_catalog_categories.sql';
+if (tableExists($db, 'categories') && file_exists($defaultCatalogCategoriesMigration)) {
+    $db->exec(file_get_contents($defaultCatalogCategoriesMigration));
+}
+
 // -------------------------------------------------------------
 // STEP 6: SEED PERMISSIONS & BIND TO SUPER ADMIN
 // -------------------------------------------------------------

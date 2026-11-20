@@ -1,5 +1,12 @@
+<?php
+$concernBrand = function_exists('getConcernBranding') ? getConcernBranding($purchase['concern_id'] ?? null) : [];
+$purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : '';
+?>
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
+        <?php if (!empty($purchaseLogo)): ?>
+            <img src="<?= htmlspecialchars($purchaseLogo) ?>" alt="Logo" class="mb-2" style="max-height: 48px; max-width: 160px; object-fit: contain;">
+        <?php endif; ?>
         <div class="d-flex align-items-center gap-2 mb-1">
             <h2 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i><?= e($purchase['purchase_number']) ?></h2>
             <?php

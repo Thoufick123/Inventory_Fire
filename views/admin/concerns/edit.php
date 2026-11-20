@@ -13,7 +13,7 @@
     </div>
 </div>
 
-<form method="POST" action="<?= url('admin/concerns/update/' . $concern['id']) ?>">
+<form method="POST" action="<?= url('admin/concerns/update/' . $concern['id']) ?>" enctype="multipart/form-data">
     <?= CSRF::field() ?>
 
     <div class="row g-4">
@@ -46,6 +46,48 @@
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Registered Legal Company Name</label>
                             <input type="text" name="legal_name" class="form-control" value="<?= e($concern['legal_name'] ?? '') ?>" placeholder="Registered corporate name">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-image text-primary me-1"></i>Concern Logo / Brand Image</span>
+                                <span class="text-muted small fw-normal">Shown on all Invoices &amp; Bills</span>
+                            </label>
+                            <div class="border rounded-3 p-3 bg-light">
+                                <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div id="logoPreviewContainer" class="d-flex align-items-center justify-content-center bg-white border rounded-3 p-2 text-center" style="width: 140px; height: 90px; overflow: hidden;">
+                                        <?php if (!empty($concern['logo_url'])): ?>
+                                            <img id="logoPreviewImg" src="<?= uploadUrl($concern['logo_url']) ?>" alt="Concern Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                            <div id="logoPlaceholder" class="text-muted small d-none">
+                                                <i class="bi bi-cloud-arrow-up fs-2 d-block text-secondary"></i>
+                                                <span>No Logo</span>
+                                            </div>
+                                        <?php else: ?>
+                                            <img id="logoPreviewImg" src="" alt="Preview" class="d-none" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                            <div id="logoPlaceholder" class="text-muted small">
+                                                <i class="bi bi-cloud-arrow-up fs-2 d-block text-secondary"></i>
+                                                <span>No Logo</span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <input type="file" name="logo" id="concernLogoInput" class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml" onchange="previewConcernLogo(this)">
+                                        <input type="hidden" name="remove_logo" id="removeLogoInput" value="0">
+                                        <div class="form-text mt-1 text-muted small">
+                                            <i class="bi bi-info-circle me-1"></i>Upload PNG, JPG, JPEG, WEBP or SVG (max 5MB). This image automatically displays on all POS bills, tax invoices, purchase orders, and receipts under this concern.
+                                        </div>
+                                        <div class="d-flex gap-2 mt-2">
+                                            <button type="button" id="clearLogoBtn" class="btn btn-sm btn-outline-secondary d-none" onclick="clearSelectedLogo()">
+                                                <i class="bi bi-x-circle me-1"></i>Cancel Selected File
+                                            </button>
+                                            <?php if (!empty($concern['logo_url'])): ?>
+                                                <button type="button" id="deleteExistingLogoBtn" class="btn btn-sm btn-outline-danger" onclick="toggleRemoveLogo()">
+                                                    <i class="bi bi-trash me-1"></i>Remove Existing Logo
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -158,3 +200,90 @@
         </div>
     </div>
 </form>
+
+<script>
+const originalLogoUrl = <?= json_encode(!empty($concern['logo_url']) ? uploadUrl($concern['logo_url']) : '') ?>;
+
+function previewConcernLogo(input) {
+    const previewImg = document.getElementById('logoPreviewImg');
+    const placeholder = document.getElementById('logoPlaceholder');
+    const clearBtn = document.getElementById('clearLogoBtn');
+    const removeInput = document.getElementById('removeLogoInput');
+
+    if (removeInput) removeInput.value = '0';
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size exceeds 5MB limit. Please choose a smaller image.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewImg.classList.remove('d-none');
+            if (placeholder) placeholder.classList.add('d-none');
+            if (clearBtn) clearBtn.classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function clearSelectedLogo() {
+    const input = document.getElementById('concernLogoInput');
+    const previewImg = document.getElementById('logoPreviewImg');
+    const placeholder = document.getElementById('logoPlaceholder');
+    const clearBtn = document.getElementById('clearLogoBtn');
+    const removeInput = document.getElementById('removeLogoInput');
+
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.classList.add('d-none');
+
+    if (originalLogoUrl && (!removeInput || removeInput.value !== '1')) {
+        previewImg.src = originalLogoUrl;
+        previewImg.classList.remove('d-none');
+        if (placeholder) placeholder.classList.add('d-none');
+    } else {
+        previewImg.src = '';
+        previewImg.classList.add('d-none');
+        if (placeholder) placeholder.classList.remove('d-none');
+    }
+}
+
+function toggleRemoveLogo() {
+    const removeInput = document.getElementById('removeLogoInput');
+    const previewImg = document.getElementById('logoPreviewImg');
+    const placeholder = document.getElementById('logoPlaceholder');
+    const input = document.getElementById('concernLogoInput');
+    const deleteBtn = document.getElementById('deleteExistingLogoBtn');
+
+    if (removeInput.value === '1') {
+        // Undo removal
+        removeInput.value = '0';
+        if (originalLogoUrl) {
+            previewImg.src = originalLogoUrl;
+            previewImg.classList.remove('d-none');
+            if (placeholder) placeholder.classList.add('d-none');
+        }
+        if (deleteBtn) {
+            deleteBtn.innerHTML = '<i class="bi bi-trash me-1"></i>Remove Existing Logo';
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        }
+    } else {
+        // Mark for removal
+        if (confirm('Are you sure you want to remove the current logo for this concern? It will be deleted when you save changes.')) {
+            removeInput.value = '1';
+            if (input) input.value = '';
+            previewImg.src = '';
+            previewImg.classList.add('d-none');
+            if (placeholder) placeholder.classList.remove('d-none');
+            if (deleteBtn) {
+                deleteBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Undo Remove Logo';
+                deleteBtn.className = 'btn btn-sm btn-warning';
+            }
+        }
+    }
+}
+</script>

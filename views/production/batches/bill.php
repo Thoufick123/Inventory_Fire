@@ -68,16 +68,26 @@
 
 <div class="bill-container">
     <!-- Header -->
+    <?php
+    $concernBrand = function_exists('getConcernBranding') 
+        ? getConcernBranding($batch['concern_id'] ?? null, $prodUnit ?? null) 
+        : [];
+    $batchLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
+    $batchFirmName = !empty($concernBrand['name']) ? $concernBrand['name'] : ($prodUnit['name'] ?? 'GRM Production Unit');
+    $batchFirmAddress = !empty($concernBrand['address']) ? $concernBrand['address'] : ($prodUnit['address'] ?? 'Apparel Production Facility');
+    $batchFirmPhone = !empty($concernBrand['phone']) ? $concernBrand['phone'] : ($prodUnit['phone'] ?? '—');
+    $batchFirmGstin = !empty($concernBrand['gst_number']) ? $concernBrand['gst_number'] : ($prodUnit['gst_number'] ?? '33AABCU9603R1ZU');
+    ?>
     <div class="bill-header">
         <div class="row align-items-center">
             <div class="col-8">
-                <?php if (!empty($prodUnit['logo_url'])): ?>
-                    <img src="<?= htmlspecialchars($prodUnit['logo_url']) ?>" alt="Logo" style="max-height: 50px;" class="mb-2">
+                <?php if (!empty($batchLogo)): ?>
+                    <img src="<?= htmlspecialchars($batchLogo) ?>" alt="Logo" style="max-height: 50px; max-width: 160px; object-fit: contain;" class="mb-2">
                 <?php endif; ?>
-                <h4 class="fw-bold mb-1 text-uppercase"><?= htmlspecialchars($prodUnit['name'] ?? 'GRM Production Unit') ?></h4>
+                <h4 class="fw-bold mb-1 text-uppercase"><?= htmlspecialchars($batchFirmName) ?></h4>
                 <div class="text-muted small">
-                    <?= htmlspecialchars($prodUnit['address'] ?? 'Apparel Production Facility') ?><br>
-                    Phone: <?= htmlspecialchars($prodUnit['phone'] ?? '—') ?> | GSTIN: <?= htmlspecialchars($prodUnit['gst_number'] ?? '33AABCU9603R1ZU') ?>
+                    <?= htmlspecialchars($batchFirmAddress) ?><br>
+                    Phone: <?= htmlspecialchars($batchFirmPhone) ?> | GSTIN: <?= htmlspecialchars($batchFirmGstin) ?>
                 </div>
             </div>
             <div class="col-4 text-end">

@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS `asset_categories` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `asset_maintenance_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(11) DEFAULT 1,
   `log_number` varchar(50) NOT NULL,
   `asset_id` int(10) unsigned NOT NULL,
   `service_type` enum('ROUTINE_PREVENTIVE','BREAKDOWN_REPAIR','CALIBRATION','PART_REPLACEMENT','ANNUAL_AMC') NOT NULL DEFAULT 'ROUTINE_PREVENTIVE',
@@ -92,7 +93,8 @@ CREATE TABLE IF NOT EXISTS `asset_maintenance_logs` (
   KEY `idx_service_type` (`service_type`),
   KEY `idx_service_date` (`service_date`),
   KEY `idx_next_due` (`next_due_date`),
-  KEY `idx_status` (`status`)
+  KEY `idx_status` (`status`),
+  KEY `idx_asset_maintenance_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -100,6 +102,7 @@ CREATE TABLE IF NOT EXISTS `asset_maintenance_logs` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `assets` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(11) DEFAULT 1,
   `asset_code` varchar(50) NOT NULL,
   `name` varchar(200) NOT NULL,
   `category_id` int(10) unsigned NOT NULL,
@@ -139,7 +142,8 @@ CREATE TABLE IF NOT EXISTS `assets` (
   KEY `idx_status` (`status`),
   KEY `idx_condition` (`condition_state`),
   KEY `idx_qr` (`barcode_qr`),
-  KEY `idx_code` (`asset_code`)
+  KEY `idx_code` (`asset_code`),
+  KEY `idx_assets_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -679,6 +683,7 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `cash_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `upi_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `upi_reference` varchar(150) DEFAULT NULL,
+  `upi_payment_screenshot_url` varchar(500) DEFAULT NULL,
   `gross_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -688,7 +693,11 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `tax_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `notes` text DEFAULT NULL,
+  `cash_given` decimal(12,2) DEFAULT 0.00,
+  `change_returned` decimal(12,2) DEFAULT 0.00,
   `created_by` int(10) unsigned DEFAULT NULL,
+  `staff_id` int(10) unsigned DEFAULT NULL,
+  `staff_name` varchar(150) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `concern_id` int(11) DEFAULT NULL,
@@ -700,7 +709,6 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   KEY `production_bills_ibfk_1` (`created_by`),
   KEY `idx_production_bills_unit` (`production_unit_id`),
   KEY `idx_production_bills_concern_id` (`concern_id`),
-  KEY `idx_production_bills_concern` (`concern_id`),
   CONSTRAINT `production_bills_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -1073,7 +1081,10 @@ CREATE TABLE IF NOT EXISTS `production_return_items` (
   `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `reason` varchar(255) DEFAULT 'Customer return',
   `item_condition` enum('GOOD','MINOR_DEFECT','DAMAGED') NOT NULL DEFAULT 'GOOD',
-  `action_taken` enum('RESTOCKED','SENT_TO_REWORK','SCRAPPED') NOT NULL DEFAULT 'RESTOCKED',
+  `action_taken` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
+  `damage_id` int(10) unsigned DEFAULT NULL,
+  `triaged_at` datetime DEFAULT NULL,
+  `triaged_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_prod_ret_items_return` (`return_id`),
@@ -1090,15 +1101,16 @@ CREATE TABLE IF NOT EXISTS `production_returns` (
   `return_number` varchar(50) NOT NULL,
   `bill_id` int(10) unsigned DEFAULT NULL,
   `bill_number` varchar(50) DEFAULT NULL,
+  `production_unit_id` int(10) unsigned DEFAULT NULL,
   `customer_name` varchar(255) NOT NULL,
   `customer_phone` varchar(30) DEFAULT NULL,
-  `return_type` enum('REFUND','EXCHANGE','CREDIT_NOTE') NOT NULL DEFAULT 'CREDIT_NOTE',
-  `disposition` enum('RESTOCK_INVENTORY','REWORK_STITCHING','SCRAP_DAMAGE','MIXED') NOT NULL DEFAULT 'RESTOCK_INVENTORY',
+  `return_type` varchar(50) NOT NULL DEFAULT 'REFUND',
+  `disposition` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
   `total_returned_qty` int(10) unsigned NOT NULL DEFAULT 0,
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
   `gst_reversal_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `net_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `status` enum('RECEIVED','INSPECTED','RESTOCKED','COMPLETED','CANCELLED') NOT NULL DEFAULT 'COMPLETED',
+  `status` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
   `refund_mode` enum('CASH','UPI','BANK_TRANSFER','STORE_CREDIT','NONE') NOT NULL DEFAULT 'STORE_CREDIT',
   `notes` text DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
@@ -1202,6 +1214,7 @@ CREATE TABLE IF NOT EXISTS `production_units` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `production_warehouse_reworks` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(11) DEFAULT 1,
   `rework_number` varchar(50) NOT NULL,
   `warehouse_id` int(10) unsigned NOT NULL,
   `production_outward_id` int(10) unsigned DEFAULT NULL,
@@ -1236,7 +1249,8 @@ CREATE TABLE IF NOT EXISTS `production_warehouse_reworks` (
   KEY `idx_pwr_outward` (`production_outward_id`),
   KEY `idx_pwr_batch` (`production_batch_id`),
   KEY `idx_pwr_variant` (`variant_id`),
-  KEY `idx_pwr_status` (`status`)
+  KEY `idx_pwr_status` (`status`),
+  KEY `idx_pwr_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -1452,6 +1466,7 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   `qc_number` varchar(50) DEFAULT NULL,
   `program_id` int(10) unsigned NOT NULL,
   `stitching_batch_id` int(10) unsigned DEFAULT NULL,
+  `label_batch_id` int(10) unsigned DEFAULT NULL,
   `qr_generation_id` int(10) unsigned DEFAULT NULL,
   `inspector_id` int(10) unsigned DEFAULT NULL,
   `total_qty` int(11) NOT NULL DEFAULT 0,
@@ -1473,15 +1488,16 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   KEY `program_id` (`program_id`),
   KEY `stitching_batch_id` (`stitching_batch_id`),
   KEY `inspector_id` (`inspector_id`),
+  KEY `fk_qc_label_batch` (`label_batch_id`),
   KEY `idx_qc_batches_created_at` (`created_at`),
   KEY `idx_qc_batches_concern_id` (`concern_id`),
-  KEY `idx_qc_batches_concern` (`concern_id`),
   KEY `idx_qcb_stitching_status` (`stitching_batch_id`,`status`),
   KEY `idx_qcb_qr_generation` (`qr_generation_id`),
+  CONSTRAINT `fk_qc_label_batch` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE SET NULL,
   CONSTRAINT `qc_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`),
   CONSTRAINT `qc_batches_ibfk_2` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
   CONSTRAINT `qc_batches_ibfk_3` FOREIGN KEY (`inspector_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
 -- [50/91] Table structure for `qc_items`
@@ -1719,6 +1735,7 @@ CREATE TABLE IF NOT EXISTS `seller_roll_deleted_labels` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `seller_rolls` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(11) DEFAULT 1,
   `partition_id` int(10) unsigned DEFAULT 1,
   `seller_id` int(10) unsigned NOT NULL,
   `roll_number` varchar(50) DEFAULT NULL,
@@ -1742,6 +1759,7 @@ CREATE TABLE IF NOT EXISTS `seller_rolls` (
   PRIMARY KEY (`id`),
   KEY `idx_seller_rolls_seller` (`seller_id`),
   KEY `idx_seller_rolls_created_at` (`created_at`),
+  KEY `idx_seller_rolls_concern` (`concern_id`),
   CONSTRAINT `seller_rolls_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -1750,6 +1768,7 @@ CREATE TABLE IF NOT EXISTS `seller_rolls` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `sellers` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(11) DEFAULT 1,
   `partition_id` int(10) unsigned DEFAULT 1,
   `name` varchar(200) NOT NULL,
   `company` varchar(300) DEFAULT NULL,
@@ -1777,8 +1796,9 @@ CREATE TABLE IF NOT EXISTS `sellers` (
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `gstin` varchar(20) DEFAULT NULL,
   `company_name` varchar(200) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  PRIMARY KEY (`id`),
+  KEY `idx_sellers_concern_id` (`concern_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
 -- [61/91] Table structure for `settings`

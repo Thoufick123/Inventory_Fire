@@ -2,6 +2,9 @@
 $prodUnit = $prodUnit ?? (class_exists('ProductionUnit') ? ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null) : []);
 $sellerCompany = $sellerCompany ?? [];
 $seller = static fn(string $key): string => htmlspecialchars((string)($sellerCompany[$key] ?? ''), ENT_QUOTES, 'UTF-8');
+$concernBrand = function_exists('getConcernBranding') 
+    ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit) 
+    : [];
 
 // Staff name
 $staffName = 'System Administrator';
@@ -380,28 +383,31 @@ if (!empty($billItems[0])) {
     <div class="header-split">
         <div class="header-left">
             <div class="logo-box">
-                <?php if (!empty($prodUnit['logo_url'])): ?>
+                <?php if (!empty($concernBrand['logo_url'])): ?>
+                    <img src="<?= htmlspecialchars($concernBrand['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
+                <?php elseif (!empty($prodUnit['logo_url'])): ?>
                     <img src="<?= htmlspecialchars($prodUnit['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
                 <?php elseif (!empty($sellerCompany['company_logo'])): ?>
                     <img src="<?= htmlspecialchars($sellerCompany['company_logo'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
                 <?php else: ?>
-                    <div class="brand-text"><?= htmlspecialchars($prodUnit['name'] ?? ($seller('company_name') ?: 'GRM APPARELS')) ?></div>
+                    <div class="brand-text"><?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? ($seller('company_name') ?: 'GRM APPARELS'))) ?></div>
                 <?php endif; ?>
             </div>
-            <div class="store-title"><?= htmlspecialchars($prodUnit['name'] ?? ($seller('company_name') ?: 'Production Unit')) ?></div>
+            <div class="store-title"><?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? ($seller('company_name') ?: 'Production Unit'))) ?></div>
         </div>
         <div class="header-right">
-            <?php if (!empty($prodUnit['address'])): ?>
-                <div class="store-address"><?= htmlspecialchars($prodUnit['address']) ?></div>
-            <?php elseif ($seller('address')): ?>
-                <div class="store-address"><?= $seller('address') ?></div>
+            <?php 
+            $headerAddress = !empty($concernBrand['address']) ? $concernBrand['address'] : (!empty($prodUnit['address']) ? $prodUnit['address'] : $seller('address'));
+            $headerPhone = !empty($concernBrand['phone']) ? $concernBrand['phone'] : (!empty($prodUnit['phone']) ? $prodUnit['phone'] : $seller('phone'));
+            $headerGstin = !empty($concernBrand['gst_number']) ? $concernBrand['gst_number'] : (!empty($prodUnit['gst_number']) ? $prodUnit['gst_number'] : $seller('gstin'));
+            ?>
+            <?php if (!empty($headerAddress)): ?>
+                <div class="store-address"><?= htmlspecialchars($headerAddress) ?></div>
             <?php endif; ?>
 
             <div class="store-contact">
-                <?php if (!empty($prodUnit['phone'])): ?>
-                    Phone: <?= htmlspecialchars($prodUnit['phone']) ?>
-                <?php elseif ($seller('phone')): ?>
-                    Phone: <?= $seller('phone') ?>
+                <?php if (!empty($headerPhone)): ?>
+                    Phone: <?= htmlspecialchars($headerPhone) ?>
                 <?php endif; ?>
             </div>
 
@@ -409,10 +415,8 @@ if (!empty($billItems[0])) {
                 <div class="store-contact">Unit: <?= htmlspecialchars($prodUnit['code']) ?></div>
             <?php endif; ?>
             
-            <?php if (!empty($prodUnit['gst_number'])): ?>
-                <div class="store-contact store-gstin">GSTIN: <?= htmlspecialchars($prodUnit['gst_number']) ?></div>
-            <?php elseif ($seller('gstin')): ?>
-                <div class="store-contact store-gstin">GSTIN: <?= $seller('gstin') ?></div>
+            <?php if (!empty($headerGstin)): ?>
+                <div class="store-contact store-gstin">GSTIN: <?= htmlspecialchars($headerGstin) ?></div>
             <?php endif; ?>
         </div>
     </div>

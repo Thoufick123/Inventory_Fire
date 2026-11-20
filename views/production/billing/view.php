@@ -1,10 +1,16 @@
+<?php
+$concernBrand = function_exists('getConcernBranding') 
+    ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit ?? null) 
+    : [];
+$displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
+?>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
-        <?php if (!empty($prodUnit['logo_url'])): ?>
-            <img src="<?= htmlspecialchars($prodUnit['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($prodUnit['name'] ?? 'Production unit', ENT_QUOTES, 'UTF-8') ?> logo" class="mb-2" style="max-width:180px;max-height:64px;object-fit:contain;">
+        <?php if (!empty($displayLogo)): ?>
+            <img src="<?= htmlspecialchars($displayLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? 'Production unit'), ENT_QUOTES, 'UTF-8') ?> logo" class="mb-2" style="max-width:180px;max-height:64px;object-fit:contain;">
         <?php endif; ?>
         <h4 class="mb-1 fw-bold"><?= htmlspecialchars($bill['bill_number']) ?></h4>
-        <div class="text-muted small">Production bill · <?= htmlspecialchars(date('d M Y', strtotime($bill['bill_date']))) ?></div>
+        <div class="text-muted small">Production bill · <?= htmlspecialchars(date('d M Y', strtotime($bill['bill_date']))) ?> · <?= htmlspecialchars($concernBrand['name'] ?? '') ?></div>
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
@@ -107,6 +113,13 @@
                 </div>
             <?php endif; ?>
             <?php if ($bill['payment_method'] === 'CASH_UPI'): ?><div class="small text-muted">Cash ₹<?= number_format((float)$bill['cash_amount'], 2) ?> · UPI ₹<?= number_format((float)$bill['upi_amount'], 2) ?></div><?php endif; ?>
+            <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
+                <div class="small mt-2">
+                    <a href="<?= htmlspecialchars(uploadUrl($bill['upi_payment_screenshot_url']), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
+                        <i class="bi bi-image me-1"></i>View GPay payment screenshot
+                    </a>
+                </div>
+            <?php endif; ?>
         </div></div>
     </div>
 </div>

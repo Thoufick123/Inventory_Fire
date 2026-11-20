@@ -197,11 +197,7 @@ class ConcernController {
 
         $name = trim($_POST['name'] ?? '');
         $code = strtoupper(trim($_POST['code'] ?? ''));
-        $validTypes = ['HEAD_OFFICE', 'PRODUCTION', 'WAREHOUSE', 'RETAIL'];
-        $concernType = strtoupper(trim($_POST['concern_type'] ?? 'HEAD_OFFICE'));
-        if (!in_array($concernType, $validTypes, true)) {
-            $concernType = 'HEAD_OFFICE';
-        }
+        $concernType = 'HEAD_OFFICE';
         $legalName = trim($_POST['legal_name'] ?? '');
         $gstNumber = strtoupper(trim($_POST['gst_number'] ?? ''));
         $panNumber = strtoupper(trim($_POST['pan_number'] ?? ''));
@@ -236,6 +232,15 @@ class ConcernController {
             return;
         }
 
+        $logoUrl = null;
+        try {
+            $logoUrl = $this->handleLogoUpload(null);
+        } catch (Exception $e) {
+            Session::flash('error', $e->getMessage());
+            Response::redirect(url('admin/concerns/create'));
+            return;
+        }
+
         $creatorId = Auth::id() ?? 1;
 
         $db = Database::getInstance();
@@ -246,19 +251,19 @@ class ConcernController {
                 INSERT INTO concerns (
                     name, code, concern_type, legal_name, gst_number, pan_number,
                     phone, email, address, city, state, pincode,
-                    invoice_prefix, po_prefix, dispatch_prefix,
+                    logo_url, invoice_prefix, po_prefix, dispatch_prefix,
                     is_active, created_by, created_at
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?,
+                    ?, ?, ?, ?,
                     1, ?, NOW()
                 )
             ");
             $stmt->execute([
                 $name, $code, $concernType, $legalName ?: null, $gstNumber ?: null, $panNumber ?: null,
                 $phone ?: null, $email ?: null, $address ?: null, $city ?: null, $state ?: null, $pincode ?: null,
-                $invoicePrefix, $poPrefix, $dispatchPrefix,
+                $logoUrl, $invoicePrefix, $poPrefix, $dispatchPrefix,
                 $creatorId
             ]);
             $concernId = (int)$db->lastInsertId();
@@ -409,6 +414,15 @@ class ConcernController {
             return;
         }
 
+        $logoUrl = $concern['logo_url'] ?? null;
+        try {
+            $logoUrl = $this->handleLogoUpload($concern['logo_url'] ?? null);
+        } catch (Exception $e) {
+            Session::flash('error', $e->getMessage());
+            Response::redirect(url("admin/concerns/edit/{$concernId}"));
+            return;
+        }
+
         $db = Database::getInstance();
         $db->beginTransaction();
 
@@ -417,14 +431,14 @@ class ConcernController {
                 UPDATE concerns SET
                     name = ?, code = ?, concern_type = ?, legal_name = ?, gst_number = ?, pan_number = ?,
                     phone = ?, email = ?, address = ?, city = ?, state = ?, pincode = ?,
-                    invoice_prefix = ?, po_prefix = ?, dispatch_prefix = ?, is_active = ?,
+                    logo_url = ?, invoice_prefix = ?, po_prefix = ?, dispatch_prefix = ?, is_active = ?,
                     updated_at = NOW()
                 WHERE id = ?
             ");
             $stmt->execute([
                 $name, $code, $concernType, $legalName ?: null, $gstNumber ?: null, $panNumber ?: null,
                 $phone ?: null, $email ?: null, $address ?: null, $city ?: null, $state ?: null, $pincode ?: null,
-                $invoicePrefix, $poPrefix, $dispatchPrefix, $isActive,
+                $logoUrl, $invoicePrefix, $poPrefix, $dispatchPrefix, $isActive,
                 $concernId
             ]);
 
@@ -733,5 +747,63 @@ class ConcernController {
         $msg = $newStatus ? "Concern '{$concern['name']}' activated." : "Concern '{$concern['name']}' deactivated.";
         Session::flash('success', $msg);
         Response::redirect(url('admin/concerns'));
+    }
+
+    /**
+     * Handle logo file upload for concern branding.
+     */
+    private function handleLogoUpload(?string $existingLogo = null): ?string {
+        if (!empty($_POST['remove_logo'])) {
+            if ($existingLogo) {
+                $clean = ltrim(str_replace('public/', '', $existingLogo), '/');
+                $target = BASE_PATH . '/public/' . $clean;
+                if (file_exists($target) && is_file($target)) {
+                    @unlink($target);
+                }
+            }
+            return null;
+        }
+
+        if (!isset($_FILES['logo']) || empty($_FILES['logo']['name']) || $_FILES['logo']['error'] === UPLOAD_ERR_NO_FILE) {
+            return $existingLogo;
+        }
+
+        $file = $_FILES['logo'];
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            throw new Exception('Image upload error (Code: ' . $file['error'] . ')');
+        }
+
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts, true)) {
+            throw new Exception('Invalid logo file format. Allowed types: PNG, JPG, JPEG, WEBP, SVG.');
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            throw new Exception('Logo image file exceeds 5MB size limit.');
+        }
+
+        $uploadDir = BASE_PATH . '/public/uploads/concerns';
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0777, true);
+        }
+
+        $newFileName = 'concern_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $targetPath = $uploadDir . '/' . $newFileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            throw new Exception('Failed to save uploaded concern logo.');
+        }
+
+        // Clean up previous logo file if replacing
+        if ($existingLogo) {
+            $cleanOld = ltrim(str_replace('public/', '', $existingLogo), '/');
+            $oldPath = BASE_PATH . '/public/' . $cleanOld;
+            if (file_exists($oldPath) && is_file($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        return 'uploads/concerns/' . $newFileName;
     }
 }

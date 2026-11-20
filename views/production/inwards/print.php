@@ -1,3 +1,8 @@
+<?php
+$concernBrand = function_exists('getConcernBranding') ? getConcernBranding($inward['concern_id'] ?? null) : [];
+$grnLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : '';
+$grnFirmName = !empty($concernBrand['name']) ? $concernBrand['name'] : 'GRM APPARELS';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,10 +29,15 @@
         </div>
 
         <div class="grn-header d-flex justify-content-between align-items-start">
-            <div>
-                <h3 class="fw-bold mb-1">GRM APPARELS</h3>
-                <p class="text-muted mb-0 small">Garment Manufacturing, Processing &amp; Distribution</p>
-                <p class="text-muted mb-0 small">Receiving Hub: <?= e($inward['warehouse_name'] ?: 'Central Warehouse') ?></p>
+            <div class="d-flex align-items-center gap-3">
+                <?php if (!empty($grnLogo)): ?>
+                    <img src="<?= htmlspecialchars($grnLogo) ?>" alt="Logo" style="max-height: 50px; max-width: 150px; object-fit: contain;">
+                <?php endif; ?>
+                <div>
+                    <h3 class="fw-bold mb-1"><?= htmlspecialchars($grnFirmName) ?></h3>
+                    <p class="text-muted mb-0 small"><?= htmlspecialchars($concernBrand['legal_name'] ?? 'Garment Manufacturing, Processing & Distribution') ?></p>
+                    <p class="text-muted mb-0 small">Receiving Hub: <?= e($inward['warehouse_name'] ?: 'Central Warehouse') ?></p>
+                </div>
             </div>
             <div class="text-end">
                 <h4 class="fw-bold text-primary mb-1">GOODS RECEIPT NOTE (GRN)</h4>
