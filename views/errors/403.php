@@ -10,7 +10,7 @@ if ($user) {
         if (hasPermission('dashboard', 'view')) {
             $dashboardUrl = url('admin/dashboard');
         } elseif (hasPermission('production', 'view') || hasPermission('sellers', 'view') || hasPermission('cutting', 'view') || hasPermission('programs', 'view')) {
-            $dashboardUrl = url('purchases');
+            $dashboardUrl = url('admin/dashboard');
         } elseif (hasPermission('warehouse', 'view') || hasPermission('inward', 'view') || hasPermission('stock', 'view')) {
             $dashboardUrl = url('warehouse/dashboard');
         } elseif (hasPermission('shop', 'view') || hasPermission('pos', 'view')) {
@@ -18,7 +18,7 @@ if ($user) {
         } elseif (hasPermission('assets', 'view')) {
             $dashboardUrl = url('asset/dashboard');
         } else {
-            $dashboardUrl = url('dashboard');
+            $dashboardUrl = url('admin/dashboard');
         }
     } else {
         $dashboardUrl = url('admin/dashboard');

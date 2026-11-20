@@ -81,19 +81,115 @@ class AdminController {
      */
     public function dashboard(): void {
         if (!hasPermission('dashboard', 'view')) {
-            if (hasPermission('production', 'view') || hasPermission('cutting', 'view') || hasPermission('programs', 'view')) {
-                Response::redirect(url('purchases'));
+            $dashboardRoutes = [
+                'sellers'                    => ['production/sellers', 'production/sellers/create'],
+                'production_purchases'       => ['production/purchases', 'production/purchases/create'],
+                'production_purchase_mapping'=> ['production/purchases/mapping', null],
+                'damages'                    => ['production/damages', null],
+                'catalog'                    => ['production/catalog', 'production/catalog/create'],
+                'variants'                   => ['production/variants', 'production/variants/create'],
+                'qr_generation'              => ['production/qr-generations', 'production/qr-generations/create'],
+                'programs'                   => ['production/programs', 'production/programs/create'],
+                'cutting'                    => ['production/cutting', 'production/cutting/create'],
+                'wastage'                    => ['production/wastage', null],
+                'stitching'                  => ['production/stitching', 'production/stitching/create'],
+                'stitching_wastage'          => ['production/stitching-wastage', null],
+                'qc'                         => ['production/qc', 'production/qc/create'],
+                'inventory'                  => ['production/inventory', null],
+                'inward'                     => ['production/inwards', 'production/inwards/create'],
+                'production_expenses'        => ['production/expenses', null],
+                'production_billing'         => ['production/billing', 'production/billing/create'],
+                'production_returns'         => ['production/returns', 'production/returns/create'],
+                'batches'                    => ['production/batches', 'production/batches/create'],
+                'outward'                    => ['production/outward', null],
+                'production_stock_requests'  => ['production/stock-requests', 'production/stock-requests/create'],
+                'warehouse_rework'           => ['production/warehouse-rework', null],
+                'asset_register'             => ['assets', 'assets/create'],
+                'asset_maintenance'          => ['assets/maintenance', 'assets/maintenance/create'],
+                'reports'                    => ['export', null],
+                'concerns'                   => ['admin/concerns', 'admin/concerns/create'],
+                'staff'                      => ['admin/staff?department=all', 'admin/staff/create'],
+                'roles'                      => ['admin/roles', 'admin/roles/create'],
+                'audit'                      => ['system/audit', 'system/audit'],
+                'settings'                   => ['system/settings', 'system/settings'],
+                'backup'                     => ['system/backup', 'system/backup'],
+                'notifications'              => ['system/notifications', 'system/notifications'],
+            ];
+            $permissionAliases = [
+                'production_purchases' => ['production_purchases', 'purchases'],
+            ];
+            $dashboardGroups = [];
+
+            foreach (Role::getHierarchicalPermissions() as $group) {
+                $items = [];
+                foreach ($group['submodules'] as $moduleKey => $submodule) {
+                    if (!isset($dashboardRoutes[$moduleKey])) {
+                        continue;
+                    }
+
+                    $permissionModules = $permissionAliases[$moduleKey] ?? [$moduleKey];
+                    $hasView = false;
+                    $hasCreate = false;
+                    foreach ($permissionModules as $permissionModule) {
+                        $hasView = $hasView || hasPermission($permissionModule, 'view');
+                        $hasCreate = $hasCreate || hasPermission($permissionModule, 'create');
+                    }
+                    if (!$hasView && !$hasCreate) {
+                        continue;
+                    }
+
+                    $route = $hasView
+                        ? $dashboardRoutes[$moduleKey][0]
+                        : $dashboardRoutes[$moduleKey][1];
+                    if ($route === null) {
+                        continue;
+                    }
+                    $items[] = [
+                        'name' => $submodule['name'],
+                        'icon' => $submodule['icon'] ?? 'bi-grid',
+                        'url' => url($route),
+                    ];
+                }
+
+                if (!empty($items)) {
+                    $dashboardGroups[] = [
+                        'title' => $group['title'],
+                        'icon' => $group['icon'] ?? 'bi-grid',
+                        'items' => $items,
+                    ];
+                }
+            }
+
+            if (hasPermission('production', 'view')) {
+                $hasProductionGroup = false;
+                foreach ($dashboardGroups as $group) {
+                    if ($group['title'] === 'Production') {
+                        $hasProductionGroup = true;
+                        break;
+                    }
+                }
+                if (!$hasProductionGroup) {
+                    $dashboardGroups[] = [
+                        'title' => 'Production',
+                        'icon' => 'bi-gear-wide-connected',
+                        'items' => [],
+                        'emptyMessage' => 'No production submodules are assigned yet. Ask your administrator to assign the production pages you need.',
+                    ];
+                }
+            }
+
+            if (empty($dashboardGroups)) {
+                Response::error(403, 'Access denied. No dashboard modules are assigned to your account.');
                 return;
             }
-            if (hasPermission('staff', 'view')) {
-                Response::redirect(url('admin/staff?department=all'));
-                return;
-            }
-            if (hasPermission('settings', 'view')) {
-                Response::redirect(url('system/settings'));
-                return;
-            }
-            Response::error(403, 'Access denied. You do not have permission to view the executive dashboard.');
+
+            Response::view('admin.module_dashboard', [
+                'pageTitle' => 'My Dashboard',
+                'activeMenu' => 'dashboard',
+                'breadcrumb' => [['label' => 'Dashboard']],
+                'dashboardGroups' => $dashboardGroups,
+                'dashboardUser' => currentUser(),
+            ]);
             return;
         }
 

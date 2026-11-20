@@ -151,7 +151,7 @@ class ProductionController {
      * Production Dashboard (Removed/Redirected).
      */
     public function dashboard(): void {
-        Response::redirect(url('dashboard'));
+        Response::redirect(url('admin/dashboard'));
     }
 
 
@@ -1514,7 +1514,7 @@ class ProductionController {
             'filterType' => $filterType,
             'search' => $search,
             'breadcrumb' => [
-                ['label' => 'Dashboard', 'url' => url('dashboard')],
+                ['label' => 'Dashboard', 'url' => url('admin/dashboard')],
                 ['label' => 'Purchases'],
             ],
         ]);

@@ -113,37 +113,8 @@ class AuthController {
         // Update last login
         User::updateLastLogin($user['id']);
 
-        // Determine landing page based on user permissions
+        // The dashboard renders the modules available to this user's permissions.
         $defaultLanding = url('admin/dashboard');
-        if (!hasPermission('dashboard', 'view') && !hasPermission('admin', 'view')) {
-            $routesMap = [
-                'production.view'         => url('purchases'),
-                'sellers.view'            => url('production/sellers'),
-                'catalog.view'            => url('production/catalog'),
-                'programs.view'           => url('production/programs'),
-                'cutting.view'            => url('production/cutting'),
-                'stitching.view'          => url('production/stitching'),
-                'qc.view'                 => url('production/qc'),
-                'inventory.view'          => url('production/inventory'),
-                'batches.view'            => url('production/batches'),
-                'outward.view'            => url('production/outward'),
-                'warehouse_rework.view'   => url('production/warehouse-rework'),
-                'warehouse.view'          => url('warehouse/dashboard'),
-                'shop.view'               => url('shop/dashboard'),
-                'website_dashboard.view'  => url('warehouse/website-orders'),
-                'website_orders.view'     => url('warehouse/website-orders'),
-                'whatsapp_dashboard.view' => url('warehouse/whatsapp-orders'),
-                'whatsapp_orders.view'    => url('warehouse/whatsapp-orders'),
-                'staff.view'              => url('admin/staff?department=all'),
-            ];
-            foreach ($routesMap as $permKey => $targetUrl) {
-                list($m, $a) = explode('.', $permKey);
-                if (hasPermission($m, $a)) {
-                    $defaultLanding = $targetUrl;
-                    break;
-                }
-            }
-        }
 
         // Redirect to intended URL or determined landing page
         $intended = Session::get('_intended_url', $defaultLanding);
