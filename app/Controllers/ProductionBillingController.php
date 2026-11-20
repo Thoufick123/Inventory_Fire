@@ -834,21 +834,23 @@ class ProductionBillingController
         }
 
         // If still empty and we have an active concern, auto-provision a default facility for the concern
-        if (empty($productionUnits) && $activeConcern) {
-            $puCode = 'PU-' . (!empty($activeConcern['code']) ? $activeConcern['code'] : '01');
+        if (empty($productionUnits) && !empty($activeConcern)) {
+            $concernCode = !empty($activeConcern['code']) ? $activeConcern['code'] : '01';
+            $puCode = 'PU-' . $concernCode;
             $suffix = 1;
             while (Database::fetchOne("SELECT id FROM production_units WHERE code = ?", [$puCode])) {
-                $puCode = 'PU-' . (!empty($activeConcern['code']) ? $activeConcern['code'] : '01') . '-' . (++$suffix);
+                $puCode = 'PU-' . $concernCode . '-' . (++$suffix);
             }
-            $puName = ($activeConcern['name'] ?: 'Production Unit') . ' (Plant)';
+            $concernName = !empty($activeConcern['name']) ? $activeConcern['name'] : 'Production Unit';
+            $puName = $concernName . ' (Plant)';
             try {
                 $newPuId = ProductionUnit::create([
                     'concern_id' => $cid,
                     'name'       => $puName,
                     'code'       => $puCode,
-                    'address'    => $activeConcern['address'] ?: 'Primary Production Facility',
-                    'phone'      => $activeConcern['phone'] ?: null,
-                    'gst_number' => $activeConcern['gst_number'] ?: null,
+                    'address'    => !empty($activeConcern['address']) ? $activeConcern['address'] : 'Primary Production Facility',
+                    'phone'      => !empty($activeConcern['phone']) ? $activeConcern['phone'] : null,
+                    'gst_number' => !empty($activeConcern['gst_number']) ? $activeConcern['gst_number'] : null,
                     'is_active'  => 1,
                 ]);
                 $productionUnits = Database::fetchAll(
@@ -1560,23 +1562,6 @@ class ProductionBillingController
         }
         if (!$itemPayload) {
             Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Scan at least one available Production Inventory QR item.');
-            return;
-        }
-
-        // Business Rule: A complementary product can only be billed if at least one paid product is in the bill
-        $hasPaidProduct = false;
-        $hasComplementaryProduct = false;
-        foreach ($itemPayload as $ipItem) {
-            if (!empty($ipItem['is_complementary'])) {
-                $hasComplementaryProduct = true;
-            } else {
-                if ($ipItem['unit_price'] > 0) {
-                    $hasPaidProduct = true;
-                }
-            }
-        }
-        if ($hasComplementaryProduct && !$hasPaidProduct) {
-            Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'A complementary product cannot be billed alone. At least one paid product must be added to the bill to proceed.');
             return;
         }
 

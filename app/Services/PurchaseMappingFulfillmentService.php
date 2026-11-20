@@ -52,6 +52,7 @@ class PurchaseMappingFulfillmentService {
             name VARCHAR(200) NOT NULL,
             code VARCHAR(50) DEFAULT NULL,
             slug VARCHAR(200) NOT NULL,
+            is_complementary TINYINT(1) NOT NULL DEFAULT 0,
             is_active TINYINT(1) DEFAULT 1,
             sort_order INT DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -135,6 +136,7 @@ class PurchaseMappingFulfillmentService {
             mrp DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             selling_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             barcode VARCHAR(100) DEFAULT NULL,
+            is_complementary TINYINT(1) DEFAULT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -146,6 +148,8 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('third_party_products', 'third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER sub_subcategory_id');
         Database::ensureColumn('third_party_products', 'third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_category_id');
         Database::ensureColumn('third_party_products', 'third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_subcategory_id');
+        Database::ensureColumn('third_party_categories', 'is_complementary', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER slug');
+        Database::ensureColumn('third_party_product_variants', 'is_complementary', 'TINYINT(1) DEFAULT NULL AFTER barcode');
         Database::ensureColumn('production_purchase_items', 'third_party_product_id', 'INT UNSIGNED DEFAULT NULL AFTER variant_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_category_id');
@@ -228,7 +232,8 @@ class PurchaseMappingFulfillmentService {
      * Main entry point called by ProductionController::saveThirdPartyMapping().
      *
      * @param array $mapping keys: category_id, subcategory_id, sub_subcategory_id,
-     *                       attributes (array|string), is_complementary, mrp, selling_price
+     *                       attributes (array|string), is_complementary,
+     *                       variant_is_complementary, mrp, selling_price
      */
     public static function fulfill(int $itemId, array $mapping, int $userId): array {
         self::ensureSchema();
@@ -245,6 +250,9 @@ class PurchaseMappingFulfillmentService {
         $subcategoryId = !empty($mapping['subcategory_id']) ? (int)$mapping['subcategory_id'] : null;
         $subSubcategoryId = !empty($mapping['sub_subcategory_id']) ? (int)$mapping['sub_subcategory_id'] : null;
         $isComplementary = !empty($mapping['is_complementary']) ? 1 : 0;
+        $variantIsComplementary = array_key_exists('variant_is_complementary', $mapping)
+            ? (!empty($mapping['variant_is_complementary']) ? 1 : 0)
+            : $isComplementary;
         $mrpValue = $mapping['mrp'] ?? null;
         $sellingPriceValue = $mapping['selling_price'] ?? null;
 
@@ -323,7 +331,7 @@ class PurchaseMappingFulfillmentService {
                  $isComplementary, $userId ?: null, $itemId]
             );
 
-            $catalog = self::syncCatalog($itemId, $encodedAttributes, $isComplementary);
+            $catalog = self::syncCatalog($itemId, $encodedAttributes, $isComplementary, $variantIsComplementary);
             $grn = self::createOrAppendGrn($itemId, $catalog, $userId);
 
             AuditService::log('purchases', 'UPDATE', 'production_purchase_items', $itemId, null, [
@@ -389,7 +397,7 @@ class PurchaseMappingFulfillmentService {
      * Write the mapped hierarchy/attributes to products + product_variants and
      * make sure the purchase line has a variant that the QR/GRN flow can use.
      */
-    private static function syncCatalog(int $itemId, ?string $attributes, int $isComplementary): array {
+    private static function syncCatalog(int $itemId, ?string $attributes, int $isComplementary, int $variantIsComplementary): array {
         $item = self::getPurchaseItem($itemId);
         if (!$item) {
             throw new RuntimeException('Purchase item disappeared during mapping.');
@@ -571,7 +579,7 @@ class PurchaseMappingFulfillmentService {
                  hsn_code = COALESCE(hsn_code, ?)
              WHERE id = ?",
             [(float)$item['mrp'], (float)$item['selling_price'],
-             $isComplementary, $attributes, $item['hsn_code'] ?: null, $variantId]
+             $variantIsComplementary, $attributes, $item['hsn_code'] ?: null, $variantId]
         );
 
         if ($productId !== (int)($item['product_id'] ?? 0) || $variantId !== (int)($item['variant_id'] ?? 0)) {

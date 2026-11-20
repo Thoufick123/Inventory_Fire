@@ -78,7 +78,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         <div class="mb-3 p-2 rounded bg-light border border-light-subtle small">
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted">Concern:</span>
-                                <strong class="text-dark"><?= $escape($activeConcern['legal_name'] ?: $activeConcern['name']) ?></strong>
+                                <strong class="text-dark"><?= $escape(!empty($activeConcern['legal_name']) ? $activeConcern['legal_name'] : ($activeConcern['name'] ?? 'Primary Concern')) ?></strong>
                             </div>
                             <?php if (!empty($activeConcern['gst_number'])): ?>
                                 <div class="d-flex justify-content-between mt-1">

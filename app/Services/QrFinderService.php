@@ -14,7 +14,28 @@ class QrFinderService {
      * @return array
      */
     public static function trace(string $rawCode): array {
-        $code = strtoupper(trim(explode('|', $rawCode, 2)[0]));
+        $cleanRaw = trim($rawCode);
+
+        // 1. Support JSON payloads from 2D camera or smart barcode readers
+        if (str_starts_with($cleanRaw, '{') && str_ends_with($cleanRaw, '}')) {
+            $json = json_decode($cleanRaw, true);
+            if (is_array($json)) {
+                $cleanRaw = $json['qr_code'] ?? $json['code'] ?? $json['batch_code'] ?? $json['tag_code'] ?? $json['sku'] ?? $cleanRaw;
+            }
+        }
+
+        // 2. Support URL parameters (e.g. https://.../qr?code=PRD2611-0001)
+        if (str_contains($cleanRaw, '?code=')) {
+            $parsedQuery = parse_url($cleanRaw, PHP_URL_QUERY);
+            if ($parsedQuery) {
+                parse_str($parsedQuery, $urlParams);
+                if (!empty($urlParams['code'])) {
+                    $cleanRaw = $urlParams['code'];
+                }
+            }
+        }
+
+        $code = strtoupper(trim(explode('|', $cleanRaw, 2)[0]));
         $code = ltrim($code, '#');
         $code = trim($code);
 
@@ -34,6 +55,353 @@ class QrFinderService {
             $statusColor = 'secondary';
             $currentLocation = 'System Archive / Unspecified';
             $details = [];
+
+        // =========================================================================
+        // 0. ACTIVE QR GENERATIONS ENGINE (qr_generation_items & qr_generations)
+        // Checks all manual, catalog-variant, stitching, fabric & third-party QR stickers
+        // =========================================================================
+        $qri = Database::fetchOne("
+            SELECT qri.id as qr_item_id, qri.qr_code, qri.sequence_num, qri.status as item_status,
+                   qri.variant_id as item_variant_id, qri.size_name as item_size_name, qri.color_name as item_color_name,
+                   qri.mrp as item_mrp, qri.selling_price as item_selling_price, qri.created_at as item_created_at,
+                   qrg.id as generation_id, qrg.batch_code, qrg.generation_type, qrg.qr_source,
+                   qrg.brand_name, qrg.category_name, qrg.subcategory_name, qrg.sub_subcategory_name,
+                   qrg.color_name as gen_color_name, qrg.design_name, qrg.size_name as gen_size_name,
+                   qrg.mrp as gen_mrp, qrg.selling_price as gen_selling_price, qrg.quantity as batch_qty,
+                   qrg.qr_prefix, qrg.notes as batch_notes, qrg.stock_added, qrg.stock_added_at,
+                   qrg.source_purchase_id, qrg.source_purchase_item_id, qrg.stitching_batch_id, qrg.program_id, qrg.qc_batch_id,
+                   qrg.concern_id, qrg.created_at as batch_created_at,
+                   p.name as product_name, p.code as product_code,
+                   pv.sku as variant_sku, pv.variant_code,
+                   c.name as concern_name, c.code as concern_code,
+                   u.full_name as creator_name
+            FROM qr_generation_items qri
+            JOIN qr_generations qrg ON qrg.id = qri.generation_id
+            LEFT JOIN products p ON p.id = qrg.product_id
+            LEFT JOIN product_variants pv ON pv.id = COALESCE(qri.variant_id, qrg.variant_id)
+            LEFT JOIN concerns c ON c.id = qrg.concern_id
+            LEFT JOIN users u ON u.id = qrg.created_by
+            WHERE UPPER(TRIM(qri.qr_code)) = ?
+            LIMIT 1
+        ", [$code]);
+
+        if ($qri) {
+            $matched = true;
+            $sourceLabel = match(strtoupper((string)($qri['qr_source'] ?? ''))) {
+                'FABRIC_ROLL'        => 'Fabric Roll QR Tag',
+                'RAW_MATERIAL'       => 'Raw Material QR Tag',
+                'PRODUCTION_PRODUCT' => 'In-House Production Garment',
+                'THIRD_PARTY'        => 'Third-Party Product QR',
+                default              => 'Active Inventory QR Item'
+            };
+            $itemType = $sourceLabel;
+
+            $prodTitle = $qri['product_name']
+                ?: trim(($qri['brand_name'] ?? 'GRM') . ' ' . ($qri['category_name'] ?? '') . ' ' . ($qri['subcategory_name'] ?? ''));
+            if (empty($prodTitle)) {
+                $prodTitle = 'Inventory Garment Item';
+            }
+
+            $size = $qri['item_size_name'] ?: ($qri['gen_size_name'] ?? '');
+            $color = $qri['item_color_name'] ?: ($qri['gen_color_name'] ?? '');
+            $sku = $qri['variant_sku'] ?: ($qri['variant_code'] ?: $qri['qr_prefix']);
+
+            $itemTitle = $prodTitle . ($size || $color ? " ({$size}" . ($color ? " / {$color}" : '') . ")" : '');
+            $price = (float)(($qri['item_selling_price'] ?? 0) > 0 ? $qri['item_selling_price'] : ($qri['gen_selling_price'] ?? 0));
+            $mrp = (float)(($qri['item_mrp'] ?? 0) > 0 ? $qri['item_mrp'] : ($qri['gen_mrp'] ?? 0));
+
+            $details = [
+                'QR Code / Tag'     => $qri['qr_code'],
+                'Brand'             => $qri['brand_name'] ?: 'GRM',
+                'QR Batch Code'     => $qri['batch_code'],
+                'Category / Type'   => trim(($qri['category_name'] ?? '') . ' ' . ($qri['subcategory_name'] ?? '')),
+                'SKU / Style'       => $sku ?: 'Standard',
+                'Size & Color'      => trim(($size ?: 'Standard') . ' ' . ($color ? " ({$color})" : '')),
+                'Selling Price'     => '₹ ' . number_format($price, 2) . ($mrp > 0 ? ' (MRP: ₹' . number_format($mrp, 2) . ')' : ''),
+                'Facility / Concern'=> $qri['concern_name'] ? "{$qri['concern_name']} ({$qri['concern_code']})" : 'Production Facility',
+            ];
+
+            // 1. Generation Record
+            $timeline[] = [
+                'stage'       => 'QR_GENERATION',
+                'title'       => 'QR Label Generated (' . $qri['batch_code'] . ')',
+                'timestamp'   => $qri['batch_created_at'] ?: $qri['item_created_at'],
+                'badge'       => 'GENERATED',
+                'badge_color' => 'primary',
+                'icon'        => 'bi-qr-code-scan',
+                'location'    => ($qri['concern_name'] ?: 'Production') . ' QR Printing Section',
+                'description' => "Sticker {$qri['qr_code']} generated under Batch {$qri['batch_code']} ({$qri['batch_qty']} total stickers) by " . ($qri['creator_name'] ?: 'Staff') . ".",
+            ];
+            $currentStatus = 'GENERATED';
+            $statusColor = 'primary';
+            $currentLocation = ($qri['concern_name'] ?: 'Production') . ' Tagging Section';
+
+            // 2. Trace Supplier Purchase if linked
+            if (!empty($qri['source_purchase_id'])) {
+                $po = Database::fetchOne("
+                    SELECT pp.purchase_number, pp.invoice_number, pp.purchase_date, pp.created_at,
+                           s.name as seller_name, s.company as seller_company
+                    FROM production_purchases pp
+                    LEFT JOIN sellers s ON s.id = pp.seller_id
+                    WHERE pp.id = ?
+                ", [(int)$qri['source_purchase_id']]);
+                if ($po) {
+                    $supp = $po['seller_company'] ?: $po['seller_name'];
+                    $timeline[] = [
+                        'stage'       => 'MATERIAL_PURCHASE',
+                        'title'       => 'Procured from Mill/Supplier (PO #' . $po['purchase_number'] . ')',
+                        'timestamp'   => $po['purchase_date'] ?: $po['created_at'],
+                        'badge'       => 'PROCURED',
+                        'badge_color' => 'success',
+                        'icon'        => 'bi-truck',
+                        'location'    => 'Raw Material Store / Inward Bay',
+                        'description' => "Procured from {$supp} (Invoice: " . ($po['invoice_number'] ?: 'N/A') . ").",
+                    ];
+                }
+            }
+
+            // 3. Trace Stitching & Cutting if linked
+            if (!empty($qri['stitching_batch_id'])) {
+                $st = Database::fetchOne("
+                    SELECT sb.batch_number, sb.stitched_qty, sb.created_at,
+                           cb.batch_number as cutting_batch_number, pu.name as unit_name
+                    FROM stitching_batches sb
+                    LEFT JOIN cutting_batches cb ON cb.id = sb.cutting_batch_id
+                    LEFT JOIN production_units pu ON pu.id = sb.production_unit_id
+                    WHERE sb.id = ?
+                ", [(int)$qri['stitching_batch_id']]);
+                if ($st) {
+                    $timeline[] = [
+                        'stage'       => 'STITCHING',
+                        'title'       => 'Stitching Completed #' . $st['batch_number'],
+                        'timestamp'   => $st['created_at'],
+                        'badge'       => 'STITCHED',
+                        'badge_color' => 'info',
+                        'icon'        => 'bi-threads',
+                        'location'    => ($st['unit_name'] ?: 'Production') . ' Stitching Floor',
+                        'description' => "Stitched under Batch {$st['batch_number']}." . ($st['cutting_batch_number'] ? " Cut from Batch {$st['cutting_batch_number']}." : ''),
+                    ];
+                }
+            }
+
+            // 4. Trace QC Inspection
+            if (!empty($qri['qc_batch_id'])) {
+                $qc = Database::fetchOne("
+                    SELECT qb.*, u.full_name as inspector_name
+                    FROM qc_batches qb
+                    LEFT JOIN users u ON u.id = qb.inspector_id
+                    WHERE qb.id = ?
+                ", [(int)$qri['qc_batch_id']]);
+                if ($qc) {
+                    $timeline[] = [
+                        'stage'       => 'QC_INSPECTION',
+                        'title'       => 'Quality Control Inspection #' . $qc['batch_number'],
+                        'timestamp'   => $qc['created_at'],
+                        'badge'       => 'QC_PASSED',
+                        'badge_color' => 'success',
+                        'icon'        => 'bi-shield-check',
+                        'location'    => 'QC & Finishing Floor',
+                        'description' => "Quality inspected and approved under QC Batch {$qc['batch_number']} by " . ($qc['inspector_name'] ?: 'Inspector') . ".",
+                    ];
+                }
+            }
+
+            // 5. Trace Stock Addition to Inventory
+            if (!empty($qri['stock_added'])) {
+                $timeline[] = [
+                    'stage'       => 'STOCK_ADDED',
+                    'title'       => 'Added to Active Inventory Stock',
+                    'timestamp'   => $qri['stock_added_at'] ?: $qri['batch_created_at'],
+                    'badge'       => 'IN_STOCK',
+                    'badge_color' => 'success',
+                    'icon'        => 'bi-boxes',
+                    'location'    => ($qri['concern_name'] ?: 'Warehouse') . ' Inventory Store',
+                    'description' => "Inventory stock balance confirmed and registered for active sales / allocation.",
+                ];
+                $currentStatus = 'IN_STOCK';
+                $statusColor = 'success';
+                $currentLocation = ($qri['concern_name'] ?: 'Warehouse') . ' Active Stock Bin';
+            }
+
+            // 7. Check Packing Batches
+            $batchItem = Database::fetchOne("
+                SELECT pbi.*, pb.batch_number, pb.created_at as batch_date, pb.status as batch_status,
+                       w.name as dest_warehouse_name
+                FROM production_batch_items pbi
+                JOIN production_batches pb ON pb.id = pbi.production_batch_id
+                LEFT JOIN warehouses w ON w.id = pb.destination_warehouse_id
+                WHERE pbi.piece_tags LIKE ? OR pbi.received_qr_codes LIKE ?
+                LIMIT 1
+            ", ['%' . $code . '%', '%' . $code . '%']);
+            if ($batchItem) {
+                $timeline[] = [
+                    'stage'       => 'PACKING_BATCH',
+                    'title'       => 'Packed in Batch #' . $batchItem['batch_number'],
+                    'timestamp'   => $batchItem['batch_date'],
+                    'badge'       => $batchItem['batch_status'] ?: 'PACKED',
+                    'badge_color' => 'primary',
+                    'icon'        => 'bi-box-seam',
+                    'location'    => 'Packing & Dispatch Section',
+                    'description' => "Batched for transfer to " . ($batchItem['dest_warehouse_name'] ?: 'Warehouse') . ".",
+                ];
+                $currentStatus = 'BATCH_PACKED';
+                $statusColor = 'primary';
+                $currentLocation = 'Production Dispatch / Packing Room';
+
+                // Check Outward
+                $outward = Database::fetchOne("
+                    SELECT po.*, w.name as warehouse_name
+                    FROM production_outwards po
+                    LEFT JOIN warehouses w ON w.id = po.warehouse_id
+                    WHERE po.production_batch_id = ? OR po.notes LIKE ?
+                    ORDER BY po.id DESC LIMIT 1
+                ", [(int)$batchItem['production_batch_id'], '%' . $code . '%']);
+                if ($outward) {
+                    $isRcv = ($outward['status'] === 'RECEIVED');
+                    $timeline[] = [
+                        'stage'       => 'DISPATCH_TRANSIT',
+                        'title'       => 'Outward Dispatch #' . $outward['outward_number'],
+                        'timestamp'   => $outward['dispatch_date'] ?: $outward['created_at'],
+                        'badge'       => $outward['status'] ?: 'DISPATCHED',
+                        'badge_color' => $isRcv ? 'success' : 'warning',
+                        'icon'        => 'bi-truck-flatbed',
+                        'location'    => $isRcv ? ($outward['warehouse_name'] ?: 'Warehouse') : 'In Transit',
+                        'description' => "Dispatched to {$outward['warehouse_name']}. Vehicle: " . ($outward['vehicle_number'] ?: 'Direct') . ".",
+                    ];
+                    if ($isRcv) {
+                        $currentLocation = ($outward['warehouse_name'] ?: 'Warehouse') . ' Inward Floor';
+                        $currentStatus = 'AT_WAREHOUSE';
+                        $statusColor = 'success';
+                    } else {
+                        $currentLocation = 'In Transit to ' . ($outward['warehouse_name'] ?: 'Warehouse');
+                        $currentStatus = 'IN_TRANSIT';
+                        $statusColor = 'warning';
+                    }
+                }
+            }
+
+            // 8. Check Damages
+            $dmg = Database::fetchOne("
+                SELECT rd.*, u.full_name as reporter_name
+                FROM roll_damages rd
+                LEFT JOIN users u ON u.id = rd.reported_by
+                WHERE UPPER(TRIM(rd.qr_code)) = ? LIMIT 1
+            ", [$code]);
+            if (!$dmg) {
+                $dmg = Database::fetchOne("
+                    SELECT wd.*, u.full_name as reporter_name
+                    FROM warehouse_damages wd
+                    LEFT JOIN users u ON u.id = wd.reported_by
+                    WHERE UPPER(TRIM(wd.tag_code)) = ? LIMIT 1
+                ", [$code]);
+            }
+            if ($dmg) {
+                $dmgNum = $dmg['damage_number'] ?? 'DMG';
+                $lossVal = $dmg['loss_amount'] ?? $dmg['total_loss'] ?? 0;
+                $timeline[] = [
+                    'stage'       => 'DAMAGE',
+                    'title'       => 'Damage Logged #' . $dmgNum,
+                    'timestamp'   => $dmg['created_at'],
+                    'badge'       => $dmg['status'] ?? 'DAMAGED',
+                    'badge_color' => 'danger',
+                    'icon'        => 'bi-exclamation-octagon-fill',
+                    'location'    => 'Defect Quarantine',
+                    'description' => "Defect: " . ($dmg['damage_reason'] ?? 'Damaged') . ". Loss Valuation: ₹" . number_format((float)$lossVal, 2),
+                ];
+                $currentLocation = "Damage Quarantine ({$dmgNum})";
+                $currentStatus = 'DAMAGED';
+                $statusColor = 'danger';
+            }
+
+            // 9. Check Billing / Sales
+            $bill = Database::fetchOne("
+                SELECT pb.*, pbit.tag_code
+                FROM production_bill_item_tags pbit
+                JOIN production_bills pb ON pb.id = pbit.bill_id
+                WHERE UPPER(TRIM(pbit.tag_code)) = ?
+                LIMIT 1
+            ", [$code]);
+            if ($bill) {
+                $cust = $bill['customer_name'] ?: $bill['company_name'] ?: 'Customer';
+                $timeline[] = [
+                    'stage'       => 'BILLED',
+                    'title'       => 'Sold / Invoiced #' . $bill['bill_number'],
+                    'timestamp'   => $bill['created_at'],
+                    'badge'       => 'Sold',
+                    'badge_color' => 'dark',
+                    'icon'        => 'bi-receipt',
+                    'location'    => 'Customer Handover (Sold)',
+                    'description' => "Sold to {$cust} under Invoice #{$bill['bill_number']}.",
+                ];
+                $currentLocation = "Sold to Customer (Invoice #{$bill['bill_number']})";
+                $currentStatus = 'SOLD';
+                $statusColor = 'dark';
+            }
+        }
+
+        // =========================================================================
+        // 0B. CHECK QR GENERATION BATCH CODE DIRECTLY (e.g. QRG-20261120-0001)
+        // =========================================================================
+        if (!$matched && (str_starts_with($code, 'QRG-') || preg_match('/^QRG-\d{8}-\d{4}$/', $code))) {
+            $batch = Database::fetchOne("
+                SELECT qrg.*, c.name as concern_name, c.code as concern_code, u.full_name as creator_name
+                FROM qr_generations qrg
+                LEFT JOIN concerns c ON c.id = qrg.concern_id
+                LEFT JOIN users u ON u.id = qrg.created_by
+                WHERE UPPER(TRIM(qrg.batch_code)) = ? OR UPPER(TRIM(qrg.qr_prefix)) = ?
+                LIMIT 1
+            ", [$code, $code]);
+
+            if ($batch) {
+                $matched = true;
+                $itemType = 'QR Generation Batch';
+                $itemTitle = "Batch {$batch['batch_code']} ({$batch['brand_name']})";
+                $currentStatus = $batch['stock_added'] ? 'IN_STOCK' : 'GENERATED';
+                $statusColor = $batch['stock_added'] ? 'success' : 'primary';
+                $currentLocation = ($batch['concern_name'] ?: 'Production') . ' Warehouse Store';
+
+                $sampleCodes = Database::fetchAll("
+                    SELECT qr_code FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num ASC LIMIT 3
+                ", [(int)$batch['id']]);
+                $sampleList = implode(', ', array_column($sampleCodes, 'qr_code'));
+
+                $details = [
+                    'Batch Code'         => $batch['batch_code'],
+                    'Brand Name'         => $batch['brand_name'],
+                    'Total Quantity'     => $batch['quantity'] . ' stickers',
+                    'Source Area'        => str_replace('_', ' ', $batch['qr_source']),
+                    'Category'           => trim(($batch['category_name'] ?? '') . ' ' . ($batch['subcategory_name'] ?? '')),
+                    'QR Prefix'          => $batch['qr_prefix'] ?: 'N/A',
+                    'Price / MRP'        => '₹ ' . number_format((float)$batch['selling_price'], 2) . ' (MRP: ₹' . number_format((float)$batch['mrp'], 2) . ')',
+                    'Concern Facility'   => $batch['concern_name'] ? "{$batch['concern_name']} ({$batch['concern_code']})" : 'Main Concern',
+                    'Sample Piece Codes' => $sampleList ?: 'N/A',
+                ];
+
+                $timeline[] = [
+                    'stage'       => 'QR_GENERATION',
+                    'title'       => 'QR Generation Batch Created',
+                    'timestamp'   => $batch['created_at'],
+                    'badge'       => 'BATCH_' . $batch['quantity'],
+                    'badge_color' => 'primary',
+                    'icon'        => 'bi-qr-code-scan',
+                    'location'    => ($batch['concern_name'] ?: 'Production') . ' QR Printing Section',
+                    'description' => "Generated {$batch['quantity']} stickers under prefix {$batch['qr_prefix']} by " . ($batch['creator_name'] ?: 'Staff') . ".",
+                ];
+
+                if (!empty($batch['stock_added'])) {
+                    $timeline[] = [
+                        'stage'       => 'STOCK_ADDED',
+                        'title'       => 'Batch Stock Added to Inventory',
+                        'timestamp'   => $batch['stock_added_at'] ?: $batch['created_at'],
+                        'badge'       => 'IN_STOCK',
+                        'badge_color' => 'success',
+                        'icon'        => 'bi-boxes',
+                        'location'    => ($batch['concern_name'] ?: 'Warehouse') . ' Stock Store',
+                        'description' => "All {$batch['quantity']} items converted into active inventory stock.",
+                    ];
+                }
+            }
+        }
 
         // =========================================================================
         // 1. FABRIC ROLL PIECE (e.g. FB112601) OR ROLL NUMBER (e.g. ROLL #1)

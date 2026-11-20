@@ -3721,7 +3721,7 @@ class ProductionController {
 
         // Fetch categories
         $categories = Database::fetchAll(
-            "SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+            "SELECT id, name, code, is_complementary FROM third_party_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
         );
 
         // Subcategories for active item
@@ -3756,7 +3756,7 @@ class ProductionController {
 
         // Pre-existing variants for active item
         $existingVariants = Database::fetchAll(
-            "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode, is_active
+            "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active
              FROM third_party_product_variants
              WHERE purchase_item_id = ?
              ORDER BY id ASC",
@@ -3952,6 +3952,43 @@ class ProductionController {
 
         // Process Submitted Variants
         $submittedVariants = $_POST['variants'] ?? [];
+        if (!is_array($submittedVariants)) {
+            $submittedVariants = [];
+        }
+        $hasVariantComplementarySettings = !empty($submittedVariants);
+        foreach ($submittedVariants as $submittedVariant) {
+            if (!is_array($submittedVariant) || !array_key_exists('complementary_selected', $submittedVariant)) {
+                $hasVariantComplementarySettings = false;
+                break;
+            }
+        }
+        $isComplementary = !empty($_POST['is_complementary']) ? 1 : 0;
+        $variantIsComplementary = $isComplementary;
+        if ($hasVariantComplementarySettings) {
+            $complementaryCount = 0;
+            foreach ($submittedVariants as $submittedVariant) {
+                if (!empty($submittedVariant['is_complementary'])) {
+                    $complementaryCount++;
+                }
+            }
+            $isComplementary = $complementaryCount === count($submittedVariants) ? 1 : 0;
+            $variantIsComplementary = $isComplementary;
+
+            $itemSize = mb_strtoupper(trim((string)($item['size'] ?? '')));
+            $itemColor = mb_strtoupper(trim((string)($item['color'] ?? '')));
+            $matchingVariants = [];
+            foreach ($submittedVariants as $submittedVariant) {
+                $sizeMatches = $itemSize === '' || mb_strtoupper(trim((string)($submittedVariant['size'] ?? ''))) === $itemSize;
+                $colorMatches = $itemColor === '' || mb_strtoupper(trim((string)($submittedVariant['color'] ?? ''))) === $itemColor;
+                if ($sizeMatches && $colorMatches) {
+                    $matchingVariants[] = $submittedVariant;
+                }
+            }
+            if (count($matchingVariants) === 1) {
+                $variantIsComplementary = !empty($matchingVariants[0]['is_complementary']) ? 1 : 0;
+            }
+        }
+
         $selectedSizes = [];
         $firstMrp = (float)($item['mrp'] ?? 0);
         $firstSp = (float)($item['selling_price'] ?? 0);
@@ -4077,19 +4114,21 @@ class ProductionController {
                 $vMrp = (float)($var['mrp'] ?? $firstMrp);
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
                 $vBarcode = trim($var['barcode'] ?? '') ?: $vSku;
+                $vIsComplementary = !empty($var['is_complementary']) ? 1 : 0;
 
                 Database::execute(
                     "INSERT INTO third_party_product_variants
                         (third_party_product_id, purchase_item_id, sku, size, color,
-                         allocated_qty, purchase_rate, mrp, selling_price, barcode, is_active, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                         allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                      ON DUPLICATE KEY UPDATE
                         allocated_qty = VALUES(allocated_qty), purchase_rate = VALUES(purchase_rate),
                         mrp = VALUES(mrp), selling_price = VALUES(selling_price), barcode = VALUES(barcode),
+                        is_complementary = VALUES(is_complementary),
                         updated_at = NOW()",
                     [
                         $tpProductId, $itemId, $vSku, $vSize, $vColor,
-                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode
+                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode, $vIsComplementary
                     ]
                 );
             }
@@ -4146,7 +4185,8 @@ class ProductionController {
                     'subcategory_id'     => $subcategoryId,
                     'sub_subcategory_id' => $subSubcategoryId,
                     'attributes'         => $mappedAttrs,
-                    'is_complementary'   => !empty($_POST['is_complementary']) ? 1 : 0,
+                    'is_complementary'   => $isComplementary,
+                    'variant_is_complementary' => $variantIsComplementary,
                     'mrp'                => $fulfillMrp,
                     'selling_price'      => $fulfillSp,
                 ], $userId);
@@ -8504,6 +8544,7 @@ class ProductionController {
 
     public function ajaxQuickAddCategory(): void {
         try {
+            PurchaseMappingFulfillmentService::ensureSchema();
             $name = mb_strtoupper(trim($_POST['name'] ?? ''));
             if (empty($name)) {
                 Response::json(['success' => false, 'message' => 'Main Category name is required.'], 400);
@@ -8511,6 +8552,7 @@ class ProductionController {
             }
             $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
             $catalogSource = strtoupper(trim((string)($_POST['catalog_source'] ?? '')));
+            $isComplementary = !empty($_POST['is_complementary']) ? 1 : 0;
             if ($catalogSource === 'THIRD_PARTY') {
                 $existing = Database::fetchOne(
                     "SELECT id, name, is_active FROM third_party_categories WHERE name = ? OR slug = ?",
@@ -8518,10 +8560,15 @@ class ProductionController {
                 );
                 if ($existing) {
                     Database::execute(
-                        "UPDATE third_party_categories SET is_active = 1, name = ?, updated_at = NOW() WHERE id = ?",
-                        [$name, $existing['id']]
+                        "UPDATE third_party_categories SET is_active = 1, name = ?, is_complementary = ?, updated_at = NOW() WHERE id = ?",
+                        [$name, $isComplementary, $existing['id']]
                     );
-                    Response::json(['success' => true, 'id' => (int)$existing['id'], 'name' => $name]);
+                    Response::json([
+                        'success' => true,
+                        'id' => (int)$existing['id'],
+                        'name' => $name,
+                        'is_complementary' => $isComplementary,
+                    ]);
                     return;
                 }
 
@@ -8533,10 +8580,16 @@ class ProductionController {
                     $code = $codeBase . $counter++;
                 }
                 Database::execute(
-                    "INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, 1)",
-                    [$name, $code, $slug, (int)$maxSort + 1]
+                    "INSERT INTO third_party_categories (name, code, slug, is_complementary, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                    [$name, $code, $slug, $isComplementary, (int)$maxSort + 1]
                 );
-                Response::json(['success' => true, 'id' => (int)Database::lastInsertId(), 'name' => $name, 'code' => $code]);
+                Response::json([
+                    'success' => true,
+                    'id' => (int)Database::lastInsertId(),
+                    'name' => $name,
+                    'code' => $code,
+                    'is_complementary' => $isComplementary,
+                ]);
                 return;
             }
 
@@ -18948,42 +19001,74 @@ class ProductionController {
 
         $hsnCode = mb_strtoupper(trim($_POST['hsn_code'] ?? $jsonData['hsn_code'] ?? ''));
         $description = trim($_POST['description'] ?? $jsonData['description'] ?? '');
+        $gstRateInput = $_POST['gst_rate'] ?? $jsonData['gst_rate'] ?? null;
+        if ($gstRateInput !== null && !is_scalar($gstRateInput)) {
+            Response::json(['success' => false, 'message' => 'Enter a valid GST rate between 0 and 100.'], 422);
+            return;
+        }
+        $hasGstRate = $gstRateInput !== null && trim((string)$gstRateInput) !== '';
+        $gstRate = null;
 
         if (empty($hsnCode) || strlen($hsnCode) < 2 || strlen($hsnCode) > 15) {
             Response::json(['success' => false, 'message' => 'Please enter a valid HSN code (e.g. 6109 or 6205).'], 422);
             return;
         }
 
+        if ($hasGstRate) {
+            if (!is_numeric($gstRateInput) || !is_finite((float)$gstRateInput)
+                || (float)$gstRateInput < 0 || (float)$gstRateInput > 100) {
+                Response::json(['success' => false, 'message' => 'Enter a valid GST rate between 0 and 100.'], 422);
+                return;
+            }
+            $gstRate = round((float)$gstRateInput, 2);
+        }
+
         if (empty($description)) {
             $description = 'HSN ' . $hsnCode . ' Garment Commodity';
         }
 
-        $existing = Database::fetchOne("SELECT * FROM hsn_codes WHERE hsn_code = ?", [$hsnCode]);
+        $existing = Database::fetchOne(
+            "SELECT * FROM hsn_codes WHERE UPPER(TRIM(hsn_code)) = ? ORDER BY id DESC LIMIT 1",
+            [$hsnCode]
+        );
         if ($existing) {
-            Database::execute("UPDATE hsn_codes SET description = ? WHERE id = ?", [$description, $existing['id']]);
+            if ($hasGstRate) {
+                Database::execute(
+                    "UPDATE hsn_codes SET description = ?, gst_rate = ?, updated_at = NOW() WHERE id = ?",
+                    [$description, $gstRate, $existing['id']]
+                );
+            } else {
+                Database::execute(
+                    "UPDATE hsn_codes SET description = ?, updated_at = NOW() WHERE id = ?",
+                    [$description, $existing['id']]
+                );
+            }
+            $saved = Database::fetchOne(
+                "SELECT id, hsn_code, description, gst_rate FROM hsn_codes WHERE id = ?",
+                [$existing['id']]
+            );
             Response::json([
                 'success' => true,
                 'message' => 'HSN Code updated successfully.',
-                'data'    => [
-                    'id'          => $existing['id'],
-                    'hsn_code'    => $hsnCode,
-                    'description' => $description,
-                ]
+                'data'    => $saved,
             ]);
             return;
         }
 
-        Database::execute("INSERT INTO hsn_codes (hsn_code, description) VALUES (?, ?)", [$hsnCode, $description]);
-        $newId = Database::lastInsertId();
+        Database::execute(
+            "INSERT INTO hsn_codes (hsn_code, description, gst_rate) VALUES (?, ?, ?)",
+            [$hsnCode, $description, $gstRate]
+        );
+        $newId = (int)Database::lastInsertId();
+        $saved = Database::fetchOne(
+            "SELECT id, hsn_code, description, gst_rate FROM hsn_codes WHERE id = ?",
+            [$newId]
+        );
 
         Response::json([
             'success' => true,
             'message' => 'New HSN Code created successfully.',
-            'data'    => [
-                'id'          => $newId,
-                'hsn_code'    => $hsnCode,
-                'description' => $description,
-            ]
+            'data'    => $saved,
         ]);
     }
 

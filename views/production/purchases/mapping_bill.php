@@ -441,6 +441,7 @@ tr.table-danger, tr.table-danger > td {
                                             <?php foreach ($categories as $cat): ?>
                                                 <option value="<?= (int)$cat['id'] ?>"
                                                         data-code="<?= e($cat['code'] ?? '') ?>"
+                                                        data-complementary="<?= (int)($cat['is_complementary'] ?? 0) ?>"
                                                         <?= ($activeCatId === (int)$cat['id']) ? 'selected' : '' ?>>
                                                     <?= e($cat['name']) ?>
                                                 </option>
@@ -450,6 +451,7 @@ tr.table-danger, tr.table-danger > td {
                                             <i class="bi bi-plus-circle me-1"></i>New
                                         </button>
                                     </div>
+                                    <div class="form-text" id="categoryComplementaryHelp">The selected category sets the default for newly generated variants; you can change each variant below.</div>
                                 </td>
                                 <td>
                                     <input type="text" class="form-control text-uppercase font-monospace text-center fw-bold"
@@ -735,6 +737,7 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 130px;">Purchase Rate (₹)</th>
                                 <th style="width: 140px;">MRP (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 140px;">Selling Price (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 110px;">Complementary</th>
                                 <th style="width: 115px;">Margin (%)</th>
                                 <th style="min-width: 140px;">Barcode / QR Status</th>
                                 <th style="width: 60px;">Action</th>
@@ -761,7 +764,7 @@ tr.table-danger, tr.table-danger > td {
                         </div>
                     </div>
                     <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i>Variant SKUs and pricing will sync to the Third-Party Master Catalog upon save.
+                        <i class="bi bi-info-circle me-1"></i>Variant SKUs, pricing, and complementary settings will sync to the Third-Party Master Catalog upon save.
                     </div>
                 </div>
             </div>
@@ -772,12 +775,8 @@ tr.table-danger, tr.table-danger > td {
         <!-- ========================================================================= -->
         <div class="card border shadow-sm mb-4 bg-white sticky-bottom" style="z-index: 10;">
             <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <div class="form-check form-switch m-0">
-                    <input class="form-check-input" type="checkbox" name="is_complementary" id="checkIsComplementary" value="1"
-                           <?= !empty($activeItem['is_complementary']) ? 'checked' : '' ?>>
-                    <label class="form-check-label fw-semibold text-dark" for="checkIsComplementary">
-                        <i class="bi bi-gift text-info me-1"></i>Complementary Product (Packed with main good, no extra cost)
-                    </label>
+                <div class="small text-muted">
+                    <i class="bi bi-gift text-info me-1"></i>Choose complementary status per variant in the matrix above.
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary px-3">
@@ -813,6 +812,12 @@ tr.table-danger, tr.table-danger > td {
                     <label class="form-label fw-semibold">Short Code (2-4 Characters)</label>
                     <input type="text" class="form-control text-uppercase font-monospace" id="modalTier1Code" placeholder="e.g. NF, MW">
                     <small class="text-muted">Used for the QR Key and SKU prefix.</small>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="modalTier1Complementary" value="1">
+                    <label class="form-check-label fw-semibold" for="modalTier1Complementary">
+                        <i class="bi bi-gift text-info me-1"></i>Set as complementary category by default
+                    </label>
                 </div>
             </div>
             <div class="modal-footer bg-light">
@@ -886,6 +891,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Existing variants loaded from database
     const preExistingVariants = <?= json_encode($existingVariants) ?>;
+    const legacyItemComplementary = <?= json_encode(!empty($activeItem['is_complementary'])) ?>;
 
     // Elements
     const selectTier1 = document.getElementById('selectTier1');
@@ -904,12 +910,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const tbodyVariantMatrix = document.getElementById('tbodyVariantMatrix');
     const labelAllocationStatus = document.getElementById('labelAllocationStatus');
+    const categoryComplementaryHelp = document.getElementById('categoryComplementaryHelp');
 
     const batchInputMrp = document.getElementById('batchInputMrp');
     const batchInputSp = document.getElementById('batchInputSp');
     const btnReplicatePricing = document.getElementById('btnReplicatePricing');
 
     // 1. Hierarchy Change Handlers
+    function selectedCategoryIsComplementary() {
+        const selectedOption = selectTier1.options[selectTier1.selectedIndex];
+        return selectedOption && selectedOption.dataset.complementary === '1';
+    }
+
+    function updateCategoryComplementaryHelp() {
+        if (!categoryComplementaryHelp) return;
+        categoryComplementaryHelp.textContent = selectedCategoryIsComplementary()
+            ? 'This category defaults new variants to complementary. You can change each variant below.'
+            : 'The selected category defaults new variants to regular. You can mark individual variants complementary below.';
+    }
+
+    function applyCategoryComplementaryDefault() {
+        const categoryDefault = Boolean(selectedCategoryIsComplementary());
+        tbodyVariantMatrix.querySelectorAll('.matrix-complementary').forEach(input => {
+            input.checked = categoryDefault;
+        });
+        updateCategoryComplementaryHelp();
+    }
+
     function updateHierarchySummary() {
         const t1Text = selectTier1.options[selectTier1.selectedIndex]?.text?.replace(/\s*\([^)]*\)/, '') || '';
         const t2Text = selectTier2.options[selectTier2.selectedIndex]?.text?.replace(/\s*\([^)]*\)/, '') || '';
@@ -942,6 +969,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (catId) {
             loadSubcategories(catId);
         }
+        applyCategoryComplementaryDefault();
         updateHierarchySummary();
     });
 
@@ -1189,6 +1217,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 mrp: parseFloat(tr.querySelector('.matrix-mrp')?.value) || defaultMrp,
                 sp: parseFloat(tr.querySelector('.matrix-sp')?.value) || defaultSp,
                 barcode: tr.querySelector('.matrix-barcode')?.value || '',
+                isComplementary: tr.querySelector('.matrix-complementary')?.checked || false,
             };
         });
 
@@ -1197,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (sizes.length === 0 || colors.length === 0) {
             tbodyVariantMatrix.innerHTML = `
                 <tr>
-                    <td colspan="11" class="text-center py-4 text-muted">
+                    <td colspan="12" class="text-center py-4 text-muted">
                         <i class="bi bi-exclamation-circle text-warning me-1"></i>
                         ${sizes.length === 0 ? 'No sizes selected. ' : ''}${colors.length === 0 ? 'No colors selected. ' : ''}Check options above to generate the variant matrix table.
                     </td>
@@ -1234,6 +1263,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 const vMrp = existingState?.mrp || preExisting?.mrp || defaultMrp;
                 const vSp = existingState?.sp || preExisting?.selling_price || defaultSp;
                 const vBarcode = existingState?.barcode || preExisting?.barcode || vSku;
+                const hasSavedComplementaryValue = preExisting
+                    && preExisting.is_complementary !== null
+                    && preExisting.is_complementary !== undefined;
+                const vIsComplementary = existingState
+                    ? existingState.isComplementary
+                    : (hasSavedComplementaryValue
+                        ? Number(preExisting.is_complementary) === 1
+                        : (Boolean(selectedCategoryIsComplementary()) || legacyItemComplementary));
 
                 const margin = computeMargin(vRate, vSp);
                 let marginClass = 'bg-success-subtle text-success border border-success-subtle';
@@ -1282,6 +1319,16 @@ document.addEventListener('DOMContentLoaded', function () {
                                name="variants[${rowIndex}][selling_price]" value="${parseFloat(vSp).toFixed(2)}" required>
                         <div class="matrix-sp-error text-danger fw-semibold small d-none" style="font-size:10px; line-height:1.1; margin-top:3px;">
                             <i class="bi bi-exclamation-triangle-fill me-0.5"></i>SP &gt; MRP
+                        </div>
+                    </td>
+                    <td>
+                        <input type="hidden" name="variants[${rowIndex}][complementary_selected]" value="1">
+                        <div class="form-check d-flex justify-content-center">
+                            <input type="checkbox" class="form-check-input matrix-complementary"
+                                   id="variantComplementary${rowIndex}"
+                                   name="variants[${rowIndex}][is_complementary]" value="1"
+                                   ${vIsComplementary ? 'checked' : ''}>
+                            <label class="visually-hidden" for="variantComplementary${rowIndex}">Mark this variant as complementary</label>
                         </div>
                     </td>
                     <td>
@@ -1571,6 +1618,8 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('name', name);
         formData.append('code', code);
         formData.append('catalog_source', 'THIRD_PARTY');
+        const isComplementary = document.getElementById('modalTier1Complementary').checked ? '1' : '0';
+        formData.append('is_complementary', isComplementary);
         formData.append('_csrf_token', '<?= CSRF::token() ?>');
         formData.append('csrf_token', '<?= CSRF::token() ?>');
 
@@ -1585,14 +1634,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 opt.value = data.id;
                 opt.textContent = data.name;
                 opt.setAttribute('data-code', data.code || code);
+                opt.setAttribute('data-complementary', data.is_complementary ? '1' : '0');
                 opt.selected = true;
                 selectTier1.appendChild(opt);
 
                 inputTier1Code.value = data.code || code;
+                applyCategoryComplementaryDefault();
                 updateHierarchySummary();
                 bootstrap.Modal.getInstance(document.getElementById('modalQuickAddCategory')).hide();
                 nameInput.value = '';
                 codeInput.value = '';
+                document.getElementById('modalTier1Complementary').checked = false;
             } else {
                 alert(data.message || 'Error creating category.');
             }
@@ -1776,6 +1828,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateColorPillStyles();
     updateSizePillStyles();
     rebuildVariantMatrix();
+    updateCategoryComplementaryHelp();
     updateHierarchySummary();
 });
 </script>

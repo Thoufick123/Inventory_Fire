@@ -855,13 +855,23 @@ function currentConcern(): ?array {
     if ($cid === null) {
         if (isSuperAdmin()) {
             return [
-                'id'           => 0,
-                'name'         => 'Global Admin',
-                'code'         => 'ADMIN',
-                'legal_name'   => 'System Administrator (All Concerns)',
-                'concern_type' => 'HEAD_OFFICE',
-                'is_active'    => 1,
-                'is_global'    => true
+                'id'              => 0,
+                'name'            => 'Global Admin',
+                'code'            => 'ADMIN',
+                'legal_name'      => 'System Administrator (All Concerns)',
+                'concern_type'    => 'HEAD_OFFICE',
+                'is_active'       => 1,
+                'is_global'       => true,
+                'address'         => '',
+                'phone'           => '',
+                'gst_number'      => '',
+                'email'           => '',
+                'city'            => '',
+                'state'           => '',
+                'pincode'         => '',
+                'invoice_prefix'  => 'PB-',
+                'po_prefix'       => 'PO-',
+                'dispatch_prefix' => 'DSP-',
             ];
         }
         return null;

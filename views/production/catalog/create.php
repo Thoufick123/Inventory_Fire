@@ -2107,6 +2107,12 @@ function saveNewHsnCode() {
         if (res.success && res.data) {
             const list = document.getElementById('hsnOptionsList');
             if (list) {
+                const normalizedCode = String(res.data.hsn_code).trim().toUpperCase();
+                list.querySelectorAll('.hsn-option-item').forEach(option => {
+                    if (String(option.dataset.code || '').trim().toUpperCase() === normalizedCode) {
+                        option.remove();
+                    }
+                });
                 const optHtml = `
                     <a href="javascript:void(0)" class="list-group-item list-group-item-action py-2 px-3 hsn-option-item"
                        data-code="${res.data.hsn_code}"
