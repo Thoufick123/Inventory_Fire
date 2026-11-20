@@ -188,10 +188,24 @@ function csrf_field(): string {
 }
 
 /**
+ * CSRF field global helper (camelCase alias).
+ */
+function csrfField(): string {
+    return csrf_field();
+}
+
+/**
  * CSRF token name global helper.
  */
 function csrf_token(): string {
     return '_csrf_token';
+}
+
+/**
+ * CSRF token name global helper (camelCase alias).
+ */
+function csrfToken(): string {
+    return csrf_token();
 }
 
 /**
@@ -200,6 +214,13 @@ function csrf_token(): string {
 function csrf_hash(): string {
     require_once BASE_PATH . '/app/Helpers/CSRF.php';
     return CSRF::token();
+}
+
+/**
+ * CSRF token value / hash global helper (camelCase alias).
+ */
+function csrfHash(): string {
+    return csrf_hash();
 }
 
 /**

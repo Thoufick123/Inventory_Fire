@@ -15,7 +15,7 @@
     </div>
 
     <form method="POST" action="<?= url('assets/maintenance/store') ?>">
-        <?= csrfField() ?>
+        <?= CSRF::field() ?>
 
         <div class="row g-4">
             <div class="col-lg-7">

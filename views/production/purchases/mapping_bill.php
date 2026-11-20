@@ -129,6 +129,15 @@ if ($defaultSp <= 0 && !empty($existingVariants[0]['selling_price'])) {
 if ($defaultSp <= 0) {
     $defaultSp = round($unitPrice > 0 ? ($unitPrice * 1.5) : 499, 2);
 }
+
+// Check if all lines on this purchase bill are fully mapped
+$allLinesMapped = true;
+foreach ($items as $it) {
+    if (empty($it['is_mapped'])) {
+        $allLinesMapped = false;
+        break;
+    }
+}
 ?>
 
 <div class="container-fluid px-3 px-md-4 py-3">
@@ -184,6 +193,22 @@ tr.table-danger, tr.table-danger > td {
         </div>
     </div>
 
+    <!-- Banner when all bill lines are already mapped -->
+    <?php if (!empty($allLinesMapped)): ?>
+        <div class="alert alert-success d-flex align-items-center justify-content-between p-3 mb-4 rounded-3 shadow-sm border border-success-subtle">
+            <div class="d-flex align-items-center gap-3">
+                <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                <div>
+                    <strong class="fs-6 text-success-emphasis">All Product Lines Mapped!</strong>
+                    <div class="small text-muted">All <?= count($items) ?> product lines on this purchase bill have been successfully mapped to the catalog. You can review any line or return to the register.</div>
+                </div>
+            </div>
+            <a href="<?= url('purchases/mapping') ?>" class="btn btn-success btn-sm px-3 py-1.5 fw-semibold shadow-xs">
+                <i class="bi bi-arrow-left me-1"></i>Back to Mapping List
+            </a>
+        </div>
+    <?php endif; ?>
+
     <!-- Header Banner -->
     <div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%); border-left: 4px solid #0d6efd !important;">
         <div class="card-body p-3 p-md-4">
@@ -218,32 +243,38 @@ tr.table-danger, tr.table-danger > td {
         </div>
     </div>
 
-    <!-- Multi-Item Bill Line Stepper (when bill has multiple items) -->
+    <!-- Multi-Item Bill Line Stepper (when bill has multiple items) with Breathable Spacing -->
     <?php if (count($items) > 1): ?>
-        <div class="card border shadow-sm mb-4 bg-light-subtle">
-            <div class="card-body p-2.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="text-uppercase text-muted fw-bold small me-1"><i class="bi bi-list-ol me-1"></i>Bill Lines (<?= count($items) ?>):</span>
+        <div class="card border shadow-sm mb-4 bg-white" style="border-radius: 10px;">
+            <div class="card-body py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-2.5 flex-wrap">
+                    <span class="text-uppercase text-muted fw-bold small me-2 d-inline-flex align-items-center">
+                        <i class="bi bi-list-ol me-1.5 text-primary fs-6"></i>Bill Lines (<?= count($items) ?>):
+                    </span>
                     <?php foreach ($items as $idx => $lineItem): ?>
                         <?php
                             $isThisActive = ((int)$lineItem['id'] === $activeItemId);
                             $isLineMapped = !empty($lineItem['is_mapped']);
                         ?>
                         <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . '?item_id=' . (int)$lineItem['id']) ?>"
-                           class="btn btn-sm d-inline-flex align-items-center gap-1.5 <?= $isThisActive ? 'btn-primary shadow-xs fw-semibold' : 'btn-outline-secondary bg-white' ?>">
-                            <span class="badge rounded-pill <?= $isThisActive ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary' ?>"><?= $idx + 1 ?></span>
-                            <span><?= e($lineItem['item_name']) ?></span>
-                            <small class="opacity-75">(<?= (float)$lineItem['quantity'] ?> <?= e($lineItem['unit']) ?>)</small>
+                           class="btn d-inline-flex align-items-center gap-2 rounded-3 shadow-xs transition-all <?= $isThisActive ? 'btn-primary fw-bold shadow-sm' : 'btn-outline-secondary bg-white text-dark border' ?>"
+                           style="padding: 8px 16px; margin: 4px 3px; font-size: 0.875rem;">
+                            <span class="badge rounded-pill <?= $isThisActive ? 'bg-white text-primary fw-bold' : 'bg-secondary-subtle text-secondary' ?>" style="font-size: 0.75rem; padding: 4px 8px;">
+                                <?= $idx + 1 ?>
+                            </span>
+                            <span class="fw-semibold"><?= e($lineItem['item_name']) ?></span>
+                            <span class="small <?= $isThisActive ? 'text-white-50' : 'text-muted' ?> ms-0.5">(<?= (float)$lineItem['quantity'] ?> <?= e($lineItem['unit']) ?>)</span>
                             <?php if ($isLineMapped): ?>
-                                <i class="bi bi-check2-circle text-success" title="Mapped"></i>
+                                <i class="bi bi-check2-circle <?= $isThisActive ? 'text-white' : 'text-success' ?> fs-6" title="Mapped"></i>
                             <?php else: ?>
-                                <span class="badge bg-warning text-dark py-0.5 px-1.5" style="font-size: 0.65rem;">Pending</span>
+                                <span class="badge bg-warning text-dark py-0.5 px-2 rounded-pill" style="font-size: 0.65rem;">Pending</span>
                             <?php endif; ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
-                <div class="small text-muted">
-                    Switch product lines to map them individually
+                <div class="small text-muted d-inline-flex align-items-center gap-1.5">
+                    <i class="bi bi-arrow-left-right text-primary"></i>
+                    <span>Switch product lines to map them individually</span>
                 </div>
             </div>
         </div>
@@ -749,7 +780,7 @@ tr.table-danger, tr.table-danger > td {
                     </label>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id']) ?>" class="btn btn-outline-secondary">
+                    <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary px-3">
                         <i class="bi bi-x-circle me-1"></i>Cancel
                     </a>
                     <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm" id="btnSaveComplete">

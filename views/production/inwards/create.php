@@ -15,7 +15,7 @@
     </div>
 
     <form method="POST" action="<?= url('production/inwards/store') ?>" id="inwardForm">
-        <?= csrfField() ?>
+        <?= CSRF::field() ?>
 
         <div class="row g-3">
             <!-- Header Details Card -->

@@ -15,7 +15,7 @@
     </div>
 
     <form method="POST" action="<?= url('assets/store') ?>">
-        <?= csrfField() ?>
+        <?= CSRF::field() ?>
 
         <div class="row g-4">
             <!-- Asset Identification Card -->

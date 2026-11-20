@@ -15,7 +15,7 @@
     </div>
 
     <form method="POST" action="<?= url('production/stock-adjustments/store') ?>" id="adjustmentForm">
-        <?= csrfField() ?>
+        <?= CSRF::field() ?>
         <input type="hidden" name="variant_id" id="variantId" value="">
         <input type="hidden" name="scanned_qr_codes" id="scannedQrCodes" value="">
 
