@@ -1,18 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-boxes me-2 text-primary"></i>Purchased Stock Inventory</h2>
-        <span class="text-muted small">Warehouse purchased inventory received after purchase mapping and QR code generations</span>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <a href="<?= url('production/qr-generations') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-qr-code-scan me-1"></i> QR Generations
-        </a>
-        <a href="<?= url('production/purchases/mapping') ?>" class="btn btn-outline-primary">
-            <i class="bi bi-diagram-3 me-1"></i> Third-Party Mapping
-        </a>
-        <a href="<?= url('production/purchases') ?>" class="btn btn-primary shadow-sm">
-            <i class="bi bi-cart-check me-1"></i> Purchases
-        </a>
     </div>
 </div>
 

@@ -4162,15 +4162,20 @@ class ProductionController {
             [$purchaseId, $itemId]
         );
 
-        $successMsg = $saveMode === 'complete'
-            ? "Product line '{$styleName}' mapped successfully!"
-            : "Product line '{$styleName}' saved as draft.";
+        $purchaseNumber = !empty($item['purchase_number']) ? $item['purchase_number'] : ('#' . $purchaseId);
 
-        if ($saveMode === 'complete' && $nextUnmapped) {
-            $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id=" . $nextUnmapped['id']);
-            $successMsg .= " Proceeding to the next unmapped product line.";
+        if ($saveMode === 'complete') {
+            if ($nextUnmapped) {
+                $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id=" . $nextUnmapped['id']);
+                $successMsg = "Product line '{$styleName}' mapped successfully! Proceeding to the next unmapped product line.";
+            } else {
+                // All items on this purchase bill are now completed! Redirect to Mapping Register List!
+                $nextUrl = url("purchases/mapping");
+                $successMsg = "All product lines for Purchase Bill {$purchaseNumber} have been completely mapped to the catalog!";
+            }
         } else {
             $nextUrl = url("purchases/mapping/bill/{$purchaseId}");
+            $successMsg = "Product line '{$styleName}' saved as draft.";
         }
 
         if (Request::isAjax()) {
