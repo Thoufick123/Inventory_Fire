@@ -536,6 +536,10 @@ body {
     border-radius: 0 !important;
 }
 
+.qr-generation-ui .page-header .qr-square-action.btn {
+    border-radius: 0 !important;
+}
+
 .qr-generation-ui .rounded-circle {
     border-radius: 0 !important;
 }

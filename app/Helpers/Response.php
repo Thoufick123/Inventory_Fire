@@ -179,6 +179,7 @@ function url(string $path = ''): string {
     return rtrim($baseUrl, '/') . ($cleanPath !== '' ? '/' . $cleanPath : '');
 }
 
+
 /**
  * CSRF field global helper.
  */

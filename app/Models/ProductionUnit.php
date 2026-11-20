@@ -114,6 +114,15 @@ class ProductionUnit {
             $params[] = $filters['is_active'] ? 1 : 0;
         }
 
+        // Multi-concern isolation
+        if (empty($filters['ignore_concern']) && function_exists('currentConcernId')) {
+            $cid = currentConcernId();
+            if ($cid !== null) {
+                $sql .= " AND (pu.concern_id = ? OR pu.concern_id IS NULL)";
+                $params[] = $cid;
+            }
+        }
+
         if (!empty($filters['search'])) {
             $sql .= " AND (pu.name LIKE ? OR pu.code LIKE ? OR pu.manager_name LIKE ? OR pu.address LIKE ? OR pu.phone LIKE ?)";
             $s = '%' . $filters['search'] . '%';
