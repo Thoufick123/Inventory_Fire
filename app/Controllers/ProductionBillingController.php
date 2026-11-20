@@ -657,6 +657,94 @@ class ProductionBillingController
         Response::jsonSuccess('Inventory items loaded.', ['items' => $matches]);
     }
 
+    /**
+     * Live Customer Auto-Suggest by Phone Number or Name
+     */
+    public function searchCustomer(): void
+    {
+        $query = trim((string)($_GET['q'] ?? ''));
+        if (strlen($query) < 2) {
+            Response::jsonSuccess('Matches', ['customers' => []]);
+            return;
+        }
+
+        $wild = '%' . $query . '%';
+        $sql = "SELECT 
+                    COALESCE(NULLIF(customer_phone, ''), company_phone) AS phone,
+                    COALESCE(NULLIF(customer_name, ''), company_name) AS name,
+                    COALESCE(NULLIF(customer_address, ''), company_address) AS address,
+                    customer_city,
+                    customer_state,
+                    COALESCE(NULLIF(customer_gstin, ''), company_gstin) AS gstin,
+                    buyer_type,
+                    COUNT(id) AS purchase_count,
+                    COALESCE(SUM(total_amount), 0) AS total_spent,
+                    MAX(bill_date) AS last_purchase_date,
+                    MAX(id) AS last_bill_id
+                FROM production_bills
+                WHERE (customer_phone LIKE ? OR company_phone LIKE ? OR customer_name LIKE ? OR company_name LIKE ?)
+                  AND (customer_phone IS NOT NULL AND customer_phone <> '' OR company_phone IS NOT NULL AND company_phone <> '')
+                GROUP BY phone
+                ORDER BY purchase_count DESC, last_bill_id DESC
+                LIMIT 8";
+
+        $customers = Database::fetchAll($sql, [$wild, $wild, $wild, $wild]);
+        Response::jsonSuccess('Matches', ['customers' => $customers]);
+    }
+
+    /**
+     * Customer Purchase History & Products Log
+     */
+    public function customerHistory(): void
+    {
+        $phone = trim((string)($_GET['phone'] ?? ''));
+        if ($phone === '') {
+            Response::jsonError('Customer phone is required.', 400);
+            return;
+        }
+
+        $bills = Database::fetchAll(
+            "SELECT id, bill_number, bill_date, buyer_type, customer_name, company_name, 
+                    payment_method, total_amount, staff_name, created_at
+             FROM production_bills 
+             WHERE customer_phone = ? OR company_phone = ? 
+             ORDER BY bill_date DESC, id DESC LIMIT 15",
+            [$phone, $phone]
+        );
+
+        foreach ($bills as &$b) {
+            $b['items'] = Database::fetchAll(
+                "SELECT pbi.*, 
+                        (SELECT GROUP_CONCAT(tag_code SEPARATOR ', ') FROM production_bill_item_tags WHERE bill_item_id = pbi.id) AS tags_csv
+                 FROM production_bill_items pbi 
+                 WHERE pbi.bill_id = ?
+                 ORDER BY pbi.id ASC",
+                [$b['id']]
+            );
+        }
+        unset($b);
+
+        $summary = Database::fetchOne(
+            "SELECT 
+                COALESCE(NULLIF(customer_name, ''), company_name) AS name,
+                COALESCE(NULLIF(customer_phone, ''), company_phone) AS phone,
+                COALESCE(NULLIF(customer_address, ''), company_address) AS address,
+                customer_city,
+                customer_state,
+                COUNT(id) AS total_orders,
+                COALESCE(SUM(total_amount), 0) AS lifetime_spent,
+                MAX(bill_date) AS last_order_date
+             FROM production_bills
+             WHERE customer_phone = ? OR company_phone = ?",
+            [$phone, $phone]
+        );
+
+        Response::jsonSuccess('Customer History', [
+            'summary' => $summary,
+            'bills'   => $bills,
+        ]);
+    }
+
     public function storeBill(): void
     {
         $this->persistBill(null);
@@ -756,6 +844,8 @@ class ProductionBillingController
             $productionUnits[] = $savedUnit;
         }
 
+        $staffUsers = Database::fetchAll("SELECT id, full_name, username, phone, department, staff_role FROM users WHERE is_active = 1 ORDER BY full_name ASC");
+
         Response::view('production.billing.form', [
             'pageTitle'       => $bill ? 'Edit Production Bill' : 'Create Production Bill',
             'activeModule'    => 'production',
@@ -765,6 +855,8 @@ class ProductionBillingController
             'prodUnit'        => $prodUnit,
             'productionUnits' => $productionUnits,
             'activeConcern'   => $activeConcern,
+            'staffUsers'      => $staffUsers,
+            'currentUserId'   => Auth::id(),
         ]);
     }
 
@@ -1529,6 +1621,15 @@ class ProductionBillingController
             }
         }
 
+        $staffId = (int)($_POST['staff_id'] ?? (Auth::id() ?? 0));
+        $staffName = trim((string)($_POST['staff_name'] ?? ''));
+        if ($staffId > 0 && empty($staffName)) {
+            $u = Database::fetchOne("SELECT full_name FROM users WHERE id = ?", [$staffId]);
+            $staffName = $u['full_name'] ?? '';
+        }
+        $cashGiven = (float)($_POST['cash_given'] ?? 0);
+        $changeReturned = (float)($_POST['change_returned'] ?? 0);
+
         $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
         $header = [
             $productionUnitId,
@@ -1560,6 +1661,10 @@ class ProductionBillingController
             $totals['tax_amount'],
             $totals['total_amount'],
             trim((string)($_POST['notes'] ?? '')),
+            $cashGiven,
+            $changeReturned,
+            $staffId > 0 ? $staffId : null,
+            $staffName ?: null,
         ];
 
         Database::beginTransaction();
@@ -1575,8 +1680,8 @@ class ProductionBillingController
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
                       bill_date, payment_method, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
-                      total_amount, notes, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array_merge([$activeConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
@@ -1586,7 +1691,8 @@ class ProductionBillingController
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
                      customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, payment_status = ?,
                      tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, gross_amount = ?, discount_amount = ?,
-                     subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?
+                     subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,
+                     cash_given = ?, change_returned = ?, staff_id = ?, staff_name = ?
                      WHERE id = ?",
                     array_merge($header, [$billId])
                 );

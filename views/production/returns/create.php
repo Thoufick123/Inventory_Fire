@@ -75,32 +75,44 @@
     <div class="card border-0 shadow-sm rounded-3 mb-4">
         <div class="card-header bg-white py-3">
             <h6 class="fw-bold text-dark mb-0">
-                <i class="bi bi-upc-scan text-primary me-2"></i>Scan Any Product / Tag or Search Bill
+                <i class="bi bi-upc-scan text-primary me-2"></i>Find an Invoice or Scan a Returned Item
             </h6>
         </div>
         <div class="card-body p-4">
             <div class="row g-3 align-items-end">
-                <div class="col-lg-9 col-md-8">
-                    <label class="form-label fw-bold text-dark mb-1">
-                        Scan Any Product QR / Piece Tracking Tag / Barcode / SKU / Bill Number
+                <div class="col-lg-3 col-md-4">
+                    <label for="returnSearchMode" class="form-label fw-bold text-dark mb-1">Search option</label>
+                    <select id="returnSearchMode" class="form-select form-select-lg">
+                        <option value="scan">Piece tag / QR / SKU</option>
+                        <option value="bill">Invoice / bill number</option>
+                        <option value="phone">Customer phone number</option>
+                    </select>
+                </div>
+                <div class="col-lg-6 col-md-8">
+                    <label class="form-label fw-bold text-dark mb-1" id="returnSearchLabel" for="universalScanInput">
+                        Scan a piece tag, QR code, barcode, or SKU
                     </label>
                     <div class="input-group input-group-lg">
                         <span class="input-group-text bg-light text-primary border-primary-subtle">
-                            <i class="bi bi-qr-code-scan"></i>
+                            <i class="bi bi-search"></i>
                         </span>
-                        <input type="text" id="universalScanInput" class="form-control form-control-lg fw-bold font-monospace border-primary-subtle" 
-                               placeholder="Scan piece tag (e.g. PRD2611-0001), variant barcode, SKU, or Bill #..." 
+                        <input type="text" id="universalScanInput" class="form-control form-control-lg fw-bold font-monospace border-primary-subtle"
+                               placeholder="Scan piece tag (e.g. PRD2611-0001), barcode, or SKU..."
                                autocomplete="off" autofocus>
                         <button type="button" class="btn btn-primary px-4 fw-bold shadow-sm" id="btnScanSearch" onclick="handleUniversalScan()">
-                            <i class="bi bi-search me-1"></i> Scan / Search
+                            <i class="bi bi-search me-1"></i> Search
                         </button>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-4">
+                <div class="col-lg-3 col-md-12">
                     <div id="lookupStatus" class="small text-muted py-2">
-                        <i class="bi bi-info-circle me-1"></i> Hardware scanner ready. Press Enter or click button after scan.
+                        <i class="bi bi-info-circle me-1"></i> Choose bill number or customer phone to find an invoice.
                     </div>
                 </div>
+            </div>
+            <div id="billSearchResults" class="list-group mt-3 d-none" aria-live="polite"></div>
+            <div class="form-text mt-2">
+                Each invoice can have only one active return or exchange. Invoices already processed are disabled.
             </div>
 
             <!-- Bill Info Banner (Hidden until loaded) -->
@@ -260,6 +272,47 @@
 let currentLoadedBill = null;
 let currentFlow = 'REFUND';
 
+function showBillOptions(bills) {
+    const results = document.getElementById('billSearchResults');
+    const input = document.getElementById('universalScanInput');
+    results.innerHTML = '';
+
+    bills.forEach(bill => {
+        const alreadyReturned = !!bill.active_return_id;
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-3';
+        option.disabled = alreadyReturned;
+
+        const details = document.createElement('span');
+        details.className = 'text-start';
+        const title = document.createElement('strong');
+        title.className = 'd-block';
+        title.textContent = bill.bill_number || 'Invoice';
+        const subtitle = document.createElement('small');
+        subtitle.className = 'text-muted';
+        subtitle.textContent = `${bill.customer_name || bill.company_name || 'Customer'} · ${bill.customer_phone || bill.company_phone || 'No phone'} · ${bill.bill_date || ''}`;
+        details.append(title, subtitle);
+
+        const status = document.createElement('span');
+        status.className = alreadyReturned ? 'badge bg-secondary' : 'badge bg-primary';
+        status.textContent = alreadyReturned
+            ? `Already processed${bill.active_return_number ? `: ${bill.active_return_number}` : ''}`
+            : `Select · ₹${Number(bill.total_amount || 0).toFixed(2)}`;
+
+        option.append(details, status);
+        if (!alreadyReturned) {
+            option.addEventListener('click', function () {
+                input.dataset.selectedBillId = String(bill.id);
+                handleUniversalScan();
+            });
+        }
+        results.appendChild(option);
+    });
+
+    results.classList.remove('d-none');
+}
+
 function selectFlow(flow) {
     currentFlow = flow;
     document.getElementById('hiddenReturnType').value = flow;
@@ -292,14 +345,22 @@ function selectFlow(flow) {
 }
 
 function handleUniversalScan() {
-    const q = document.getElementById('universalScanInput').value.trim();
-    if (!q) {
-        alert('Please scan or enter a piece QR tag, barcode, SKU, or bill number.');
+    const input = document.getElementById('universalScanInput');
+    const q = input.value.trim();
+    const searchMode = document.getElementById('returnSearchMode').value;
+    const selectedBillId = input.dataset.selectedBillId || '';
+    if (!selectedBillId && !q) {
+        const prompts = {
+            bill: 'Enter an invoice or bill number.',
+            phone: 'Enter the customer phone number.',
+            scan: 'Scan or enter a piece tag, QR code, barcode, or SKU.'
+        };
+        alert(prompts[searchMode] || prompts.scan);
         return;
     }
 
     // If bill already loaded, first check if tag or SKU matches items currently in table
-    if (currentLoadedBill) {
+    if (currentLoadedBill && searchMode === 'scan' && !selectedBillId) {
         const upperQ = q.toUpperCase();
         // Check if an individual tag matches
         const tagCheckbox = document.getElementById('chk_tag_' + upperQ) || document.getElementById('chk_tag_' + q);
@@ -325,8 +386,26 @@ function handleUniversalScan() {
     // Otherwise, perform server lookup
     const statusEl = document.getElementById('lookupStatus');
     statusEl.innerHTML = '<span class="spinner-border spinner-border-sm text-primary me-1"></span> Searching server...';
+    const results = document.getElementById('billSearchResults');
+    results.classList.add('d-none');
+    results.innerHTML = '';
 
-    fetch('<?= url("production/returns/lookup") ?>?q=' + encodeURIComponent(q))
+    if (!selectedBillId) {
+        currentLoadedBill = null;
+        document.getElementById('hiddenBillId').value = '';
+        document.getElementById('billInfoBanner').classList.add('d-none');
+        document.getElementById('returnForm').classList.add('d-none');
+    }
+
+    let lookupUrl = '<?= url("production/returns/lookup") ?>';
+    if (selectedBillId) {
+        delete input.dataset.selectedBillId;
+        lookupUrl += '?type=select&bill_id=' + encodeURIComponent(selectedBillId);
+    } else {
+        lookupUrl += '?type=' + encodeURIComponent(searchMode) + '&q=' + encodeURIComponent(q);
+    }
+
+    fetch(lookupUrl)
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
@@ -334,10 +413,18 @@ function handleUniversalScan() {
                 return;
             }
 
+            if (Array.isArray(data.bill_options)) {
+                showBillOptions(data.bill_options);
+                const count = data.bill_options.length;
+                statusEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${count} invoice${count === 1 ? '' : 's'} found. Select one to continue.</span>`;
+                return;
+            }
+
             statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i> Bill loaded successfully!</span>';
             currentLoadedBill = data.bill;
 
             const b = data.bill;
+            results.classList.add('d-none');
             document.getElementById('hiddenBillId').value = b.id;
             document.getElementById('bInfoNumber').textContent = b.bill_number;
             document.getElementById('bInfoDate').textContent = b.bill_date;
@@ -531,6 +618,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const scanInput = document.getElementById('universalScanInput');
+    const searchMode = document.getElementById('returnSearchMode');
+    const searchLabel = document.getElementById('returnSearchLabel');
+    if (searchMode && scanInput && searchLabel) {
+        const searchModes = {
+            scan: {
+                label: 'Scan a piece tag, QR code, barcode, or SKU',
+                placeholder: 'Scan piece tag (e.g. PRD2611-0001), barcode, or SKU...'
+            },
+            bill: {
+                label: 'Invoice / bill number',
+                placeholder: 'Enter full or partial invoice/bill number...'
+            },
+            phone: {
+                label: 'Customer phone number',
+                placeholder: 'Enter at least 7 phone digits...'
+            }
+        };
+        searchMode.addEventListener('change', function () {
+            const mode = searchModes[this.value] || searchModes.scan;
+            searchLabel.textContent = mode.label;
+            scanInput.placeholder = mode.placeholder;
+            scanInput.focus();
+        });
+    }
+
     if (scanInput) {
         scanInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {

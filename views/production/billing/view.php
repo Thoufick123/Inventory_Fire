@@ -97,6 +97,15 @@
             <hr>
             <div class="d-flex justify-content-between fs-5"><span class="fw-bold">Total</span><strong>₹<?= number_format((float)$bill['total_amount'], 2) ?></strong></div>
             <div class="small text-muted mt-2">Payment: <?= htmlspecialchars($bill['payment_method']) ?> · <?= htmlspecialchars($bill['payment_status']) ?></div>
+            <?php if (!empty($bill['staff_name'])): ?>
+                <div class="small text-muted"><i class="bi bi-person-badge me-1"></i>Billed By: <strong><?= htmlspecialchars($bill['staff_name']) ?></strong></div>
+            <?php endif; ?>
+            <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
+                <div class="small text-muted mt-1">
+                    Cash Tendered: <strong>₹<?= number_format((float)$bill['cash_given'], 2) ?></strong> · 
+                    Change Returned: <strong class="text-success">₹<?= number_format((float)($bill['change_returned'] ?? 0), 2) ?></strong>
+                </div>
+            <?php endif; ?>
             <?php if ($bill['payment_method'] === 'CASH_UPI'): ?><div class="small text-muted">Cash ₹<?= number_format((float)$bill['cash_amount'], 2) ?> · UPI ₹<?= number_format((float)$bill['upi_amount'], 2) ?></div><?php endif; ?>
         </div></div>
     </div>
