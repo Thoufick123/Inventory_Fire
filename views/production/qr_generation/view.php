@@ -132,10 +132,22 @@
                 <span class="badge bg-success-subtle text-success border fs-6"><i class="bi bi-scissors me-1"></i> Stitching Batch: <?= e($batch['stitching_batch_number'] ?? '—') ?></span>
                 <span class="badge bg-primary-subtle text-primary border fs-6"><i class="bi bi-kanban me-1"></i> Program: <?= e($batch['program_number'] ?? '—') ?> (<?= e($batch['program_name'] ?? 'Production') ?>)</span>
                 <?php if (!empty($batch['product_name'])): ?><span class="badge bg-light text-dark border">Product: <?= e($batch['product_name']) ?></span><?php endif; ?>
+                <?php
+                    $uniqueVids = !empty($batch['unique_variant_ids']) ? $batch['unique_variant_ids'] : (!empty($batch['variant_id']) ? [$batch['variant_id']] : []);
+                ?>
+                <?php if (!empty($uniqueVids)): ?>
+                    <?php if (count($uniqueVids) === 1): ?>
+                    <span class="badge bg-primary fs-6 font-monospace shadow-sm"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)$uniqueVids[0] ?></span>
+                    <?php else: ?>
+                    <span class="badge bg-primary fs-6 font-monospace shadow-sm"><i class="bi bi-tags-fill me-1"></i>Variant IDs: <?= implode(', ', array_map(fn($v) => '#' . (int)$v, $uniqueVids)) ?></span>
+                    <?php endif; ?>
+                <?php endif; ?>
+                <?php if (!empty($batch['variant_code'])): ?><span class="badge bg-secondary-subtle text-dark border font-monospace">Variant: <?= e($batch['variant_code']) ?></span><?php endif; ?>
+                <?php if (!empty($batch['variant_sku'])): ?><span class="badge bg-dark-subtle text-dark border font-monospace">SKU: <?= e($batch['variant_sku']) ?></span><?php endif; ?>
             </div>
             <?php elseif (!empty($batch['variant_id']) || !empty($batch['variant_code']) || !empty($batch['variant_sku'])): ?>
             <div class="col-12 pt-3 border-top d-flex gap-3 flex-wrap align-items-center">
-                <span class="badge bg-primary fs-6 font-monospace">Variant ID: <?= (int)$batch['variant_id'] ?></span>
+                <span class="badge bg-primary fs-6 font-monospace"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)$batch['variant_id'] ?></span>
                 <span class="badge bg-secondary-subtle text-dark border font-monospace">Variant: <?= e($batch['variant_code'] ?? '—') ?></span>
                 <span class="badge bg-dark-subtle text-dark border font-monospace">SKU: <?= e($batch['variant_sku'] ?? '—') ?></span>
                 <?php if (!empty($batch['color_name'])): ?><span class="badge bg-light text-dark border">Color: <?= e($batch['color_name']) ?></span><?php endif; ?>
@@ -185,9 +197,11 @@
                 $displayQrLabel = $isFabricBatch ? ($fabricMonthYear ?: $itemQrCode) : $itemQrCode;
                 $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
                 $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
+                $itemVariantId = !empty($item['variant_id']) ? (int)$item['variant_id'] : (!empty($batch['variant_id']) ? (int)$batch['variant_id'] : null);
+                $itemVariantCode = trim((string)($item['variant_code'] ?? ($batch['variant_code'] ?? '')));
             ?>
             <div class="col">
-                <div class="p-3 border rounded bg-white text-center shadow-sm h-100 d-flex flex-direction-column justify-content-between align-items-center">
+                <div class="p-3 border rounded bg-white text-center shadow-sm h-100 d-flex flex-column justify-content-between align-items-center">
                     <div class="w-100">
                         <div class="fw-bold text-uppercase small text-dark pb-1 border-bottom text-truncate">
                             <?= e($batch['brand_name']) ?>
@@ -198,6 +212,13 @@
                         <div class="font-monospace fw-bold text-primary text-truncate" style="font-size: 11px;">
                             <?= e($displayQrLabel) ?>
                         </div>
+                        <?php if ($itemVariantId): ?>
+                        <div class="mt-1">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1" style="font-size: 11px;">
+                                <i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= $itemVariantId ?><?= $itemVariantCode !== '' ? ' (' . e($itemVariantCode) . ')' : '' ?>
+                            </span>
+                        </div>
+                        <?php endif; ?>
                         <?php if ($colorName !== '' || $sizeName !== ''): ?>
                         <div class="small text-muted mt-1">
                             <?= e($colorName) ?><?= $colorName !== '' && $sizeName !== '' ? ' · ' : '' ?><?php if ($sizeName !== ''): ?><span class="badge bg-dark text-white px-2 py-0" style="font-size: 10px;"><?= e($sizeName) ?></span><?php endif; ?>
@@ -215,8 +236,13 @@
                         <?php endif; ?>
                     </div>
                     <?php if (!$isFabricBatch): ?>
-                    <div class="w-100 d-flex justify-content-start align-items-center mt-2 pt-1 border-top small">
+                    <div class="w-100 d-flex justify-content-between align-items-center mt-2 pt-1 border-top small">
                         <span class="badge bg-light text-muted border">#<?= $item['sequence_num'] ?></span>
+                        <?php if ($itemVariantId): ?>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="font-size: 10px;" title="Product Variant ID">
+                            VID: #<?= $itemVariantId ?>
+                        </span>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 </div>

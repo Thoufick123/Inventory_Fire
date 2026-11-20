@@ -150,10 +150,12 @@
                 $displayQrLabel = $isFabricBatch ? ($fabricMonthYear ?: $itemQrCode) : $itemQrCode;
                 $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
                 $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
+                $itemVariantId = !empty($item['variant_id']) ? (int)$item['variant_id'] : (!empty($batch['variant_id']) ? (int)$batch['variant_id'] : null);
                 $variantSku = trim((string)($item['variant_code'] ?? ($item['sku'] ?? ($item['variant_sku'] ?? ''))));
                 $subtitleParts = array_filter([
                     trim((string)($batch['category_name'] ?: 'APPAREL')),
                     trim((string)($batch['subcategory_name'] ?? '')),
+                    $itemVariantId ? 'VID #' . $itemVariantId : '',
                     $variantSku !== '' && $variantSku !== $displayQrLabel ? $variantSku : '',
                     $colorName !== '' ? 'COL ' . $colorName : '',
                     !empty($batch['design_name']) ? 'DES ' . trim((string)$batch['design_name']) : '',
@@ -163,7 +165,7 @@
             ?>
             <div class="garment-label-card">
                 <div class="qr-canvas-box print-qr-item" data-code="<?= e($itemQrCode) ?>"></div>
-                <div class="label-code"><?= e($displayQrLabel) ?></div>
+                <div class="label-code"><?= e($displayQrLabel) ?><?= $itemVariantId ? ' · <span style="font-size:9px;">VID #' . $itemVariantId . '</span>' : '' ?></div>
                 <div class="label-title"><?= e($batch['brand_name']) ?></div>
                 <div class="label-sku"><?= e($labelSubtitle) ?></div>
                 <?php if ((float)($item['mrp'] ?? 0) > 0): ?>

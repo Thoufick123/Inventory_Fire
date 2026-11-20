@@ -901,10 +901,57 @@ class QrGenerationService {
             $cleanPrefix = 'PRD' . date('ym');
         }
 
+        $productId = (int)($stitchingBatch['prog_product_id'] ?? 0);
+        if ($productId <= 0 && !empty($stitchingBatch['program_id'])) {
+            $progRow = Database::fetchOne("SELECT product_id FROM production_programs WHERE id = ?", [(int)$stitchingBatch['program_id']]);
+            $productId = (int)($progRow['product_id'] ?? 0);
+        }
+
+        // Auto-resolve or create variant_id for each stitching item if missing
+        if (!empty($items)) {
+            foreach ($items as $index => &$it) {
+                $variantId = (int)($it['variant_id'] ?? 0);
+                $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
+                $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
+                if (in_array(strtoupper($sizeName), ['STANDARD', 'ALL'], true)) {
+                    $sizeName = '';
+                }
+                if (in_array(strtoupper($colorName), ['STANDARD', 'ASSORTED', 'ALL'], true)) {
+                    $colorName = '';
+                }
+                $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? ($it['variant_mrp'] ?? 0) : ($it['base_price'] ?? 0));
+                $sellingPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? ($it['variant_selling_price'] ?? 0) : ($it['discount_price'] ?? 0));
+
+                if ($variantId <= 0 && $productId > 0) {
+                    try {
+                        $variant = VariantService::findOrCreateVariantForInward($productId, [
+                            'size' => $sizeName ?: null,
+                            'color' => $colorName ?: null,
+                            'mrp' => $mrp,
+                            'selling_price' => $sellingPrice,
+                            'is_active' => 1,
+                        ], true);
+                        $variantId = (int)($variant['id'] ?? 0);
+                        if ($variantId > 0) {
+                            $it['variant_id'] = $variantId;
+                            $it['variant_code'] = $variant['variant_code'] ?? null;
+                            $it['sku'] = $variant['sku'] ?? null;
+                            $it['variant_mrp'] = $variant['mrp'] ?? $mrp;
+                            $it['variant_selling_price'] = $variant['selling_price'] ?? $sellingPrice;
+                            Database::execute("UPDATE stitching_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$it['id']]);
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore error
+                    }
+                }
+            }
+            unset($it);
+        }
+
         $codes = [];
         $sequence = self::nextSequence($cleanPrefix);
         $uniqueVariants = [];
-        $firstProductId = 0;
+        $firstProductId = $productId;
         if (!empty($items)) {
             foreach ($items as $it) {
                 $variantId = (int)($it['variant_id'] ?? 0);
@@ -918,7 +965,7 @@ class QrGenerationService {
 
                 if ($variantId > 0) {
                     $uniqueVariants[$variantId] = true;
-                    if (!$firstProductId) $firstProductId = (int)($it['variant_product_id'] ?? 0);
+                    if (!$firstProductId) $firstProductId = (int)($it['variant_product_id'] ?? $productId);
                 }
 
                 for ($i = 0; $i < $itemQty; $i++) {
@@ -968,12 +1015,7 @@ class QrGenerationService {
         $totalQty = count($codes);
         Database::beginTransaction();
         try {
-            if (!empty($stitchingBatch['variants_deferred'])) {
-                $productId = (int)($stitchingBatch['prog_product_id'] ?? 0);
-                if ($productId <= 0) {
-                    throw new RuntimeException('The completed stitching batch is not linked to a product style.');
-                }
-
+            if ($productId > 0) {
                 foreach ($items as $index => $it) {
                     $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
                     if ($itemQty <= 0) {
@@ -981,10 +1023,6 @@ class QrGenerationService {
                     }
 
                     $variantId = (int)($it['variant_id'] ?? 0);
-                    if ($variantId > 0 && (int)($it['variant_product_id'] ?? 0) !== $productId) {
-                        throw new RuntimeException('A stitching item is linked to a variant from a different product style.');
-                    }
-
                     $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
                     $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
                     if (in_array(strtoupper($sizeName), ['STANDARD', 'ALL'], true)) {
@@ -997,26 +1035,29 @@ class QrGenerationService {
                     $sellingPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? ($it['variant_selling_price'] ?? 0) : ($it['discount_price'] ?? 0));
 
                     if ($variantId <= 0) {
-                        $variant = VariantService::findOrCreateVariantForInward($productId, [
-                            'size' => $sizeName ?: null,
-                            'color' => $colorName ?: null,
-                            'mrp' => $mrp,
-                            'selling_price' => $sellingPrice,
-                            'is_active' => 0,
-                        ], true);
-                        $variantId = (int)($variant['id'] ?? 0);
-                        if ($variantId <= 0) {
-                            throw new RuntimeException('Unable to create a variant for a completed stitching item.');
-                        }
-                        Database::execute("UPDATE stitching_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$it['id']]);
+                        try {
+                            $variant = VariantService::findOrCreateVariantForInward($productId, [
+                                'size' => $sizeName ?: null,
+                                'color' => $colorName ?: null,
+                                'mrp' => $mrp,
+                                'selling_price' => $sellingPrice,
+                                'is_active' => 1,
+                            ], true);
+                            $variantId = (int)($variant['id'] ?? 0);
+                            if ($variantId > 0) {
+                                Database::execute("UPDATE stitching_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$it['id']]);
+                            }
+                        } catch (\Throwable $e) {}
                     }
 
-                    $items[$index]['variant_id'] = $variantId;
-                    $items[$index]['variant_product_id'] = $productId;
-                    $uniqueVariants[$variantId] = true;
-                    foreach ($codes as $codeIndex => $codeItem) {
-                        if ((int)($codeItem['stitching_item_id'] ?? 0) === (int)$it['id']) {
-                            $codes[$codeIndex]['variant_id'] = $variantId;
+                    if ($variantId > 0) {
+                        $items[$index]['variant_id'] = $variantId;
+                        $items[$index]['variant_product_id'] = $productId;
+                        $uniqueVariants[$variantId] = true;
+                        foreach ($codes as $codeIndex => $codeItem) {
+                            if ((int)($codeItem['stitching_item_id'] ?? 0) === (int)$it['id']) {
+                                $codes[$codeIndex]['variant_id'] = $variantId;
+                            }
                         }
                     }
                 }
@@ -1388,9 +1429,24 @@ class QrGenerationService {
         $items = Database::fetchAll("SELECT * FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num ASC", [$id]);
 
         $stitchingBatchId = (int)($gen['stitching_batch_id'] ?? 0);
+        $productId = (int)($gen['product_id'] ?? 0);
+        if ($productId <= 0 && $stitchingBatchId > 0) {
+            $progProduct = Database::fetchOne("
+                SELECT pp.product_id
+                FROM stitching_batches sb
+                JOIN production_programs pp ON pp.id = sb.program_id
+                WHERE sb.id = ?
+            ", [$stitchingBatchId]);
+            if (!empty($progProduct['product_id'])) {
+                $productId = (int)$progProduct['product_id'];
+                $gen['product_id'] = $productId;
+                Database::execute("UPDATE qr_generations SET product_id = ? WHERE id = ?", [$productId, $id]);
+            }
+        }
+
         if ($stitchingBatchId > 0) {
             $stitchingItems = Database::fetchAll("
-                SELECT si.variant_id, si.size_name, si.color_name, si.base_price, si.discount_price,
+                SELECT si.id, si.variant_id, si.size_name, si.color_name, si.base_price, si.discount_price,
                        COALESCE(NULLIF(si.stitched_qty, 0), NULLIF(si.stitched_quantity, 0), NULLIF(si.received_qty, 0), 0) AS stitched_qty,
                        pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
                        col.name AS variant_color_name, sz.name AS variant_size_name
@@ -1401,6 +1457,34 @@ class QrGenerationService {
                 WHERE si.stitching_batch_id = ?
                 ORDER BY si.id ASC
             ", [$stitchingBatchId]);
+
+            // If stitching items are missing variant_id, resolve them now
+            foreach ($stitchingItems as &$si) {
+                if (empty($si['variant_id']) && $productId > 0) {
+                    try {
+                        $sName = trim((string)($si['variant_size_name'] ?: ($si['size_name'] ?? '')));
+                        $cName = trim((string)($si['variant_color_name'] ?: ($si['color_name'] ?? '')));
+                        $resolved = VariantService::findOrCreateVariantForInward($productId, [
+                            'size' => $sName ?: null,
+                            'color' => $cName ?: null,
+                            'mrp' => (float)($si['base_price'] ?? 0),
+                            'selling_price' => (float)($si['discount_price'] ?? 0),
+                            'is_active' => 1
+                        ], true);
+                        if (!empty($resolved['id'])) {
+                            $si['variant_id'] = (int)$resolved['id'];
+                            $si['variant_code'] = $resolved['variant_code'] ?? null;
+                            $si['sku'] = $resolved['sku'] ?? null;
+                            $si['variant_mrp'] = $resolved['mrp'] ?? $si['base_price'];
+                            $si['variant_selling_price'] = $resolved['selling_price'] ?? $si['discount_price'];
+                            if (!empty($si['id'])) {
+                                Database::execute("UPDATE stitching_items SET variant_id = ? WHERE id = ?", [$si['variant_id'], (int)$si['id']]);
+                            }
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+            unset($si);
 
             $variantMap = [];
             $remainingByItem = [];
@@ -1428,24 +1512,43 @@ class QrGenerationService {
                     $usedInCursor++;
                 }
 
-                if (!$si) continue;
+                $sizeName = trim((string)($item['size_name'] ?: ($si['variant_size_name'] ?? ($si['size_name'] ?? ''))));
+                $colorName = trim((string)($item['color_name'] ?: ($si['variant_color_name'] ?? ($si['color_name'] ?? ''))));
+                $variantId = (int)($item['variant_id'] ?: ($si['variant_id'] ?? 0));
 
-                $variantId = (int)($item['variant_id'] ?: $si['variant_id']);
-                $sizeName = trim((string)($item['size_name'] ?: ($si['variant_size_name'] ?: $si['size_name'])));
-                $colorName = trim((string)($item['color_name'] ?: ($si['variant_color_name'] ?: $si['color_name'])));
-                $mrp = (float)($item['mrp'] ?: (($si['variant_mrp'] ?? 0) > 0 ? $si['variant_mrp'] : $si['base_price']));
-                $sellingPrice = (float)($item['selling_price'] ?: (($si['variant_selling_price'] ?? 0) > 0 ? $si['variant_selling_price'] : $si['discount_price']));
+                if ($variantId <= 0 && $productId > 0 && ($sizeName !== '' || $colorName !== '')) {
+                    try {
+                        $resolved = VariantService::findOrCreateVariantForInward($productId, [
+                            'size' => $sizeName ?: null,
+                            'color' => $colorName ?: null,
+                            'mrp' => (float)($item['mrp'] ?? 0),
+                            'selling_price' => (float)($item['selling_price'] ?? 0),
+                            'is_active' => 1
+                        ], true);
+                        if (!empty($resolved['id'])) {
+                            $variantId = (int)$resolved['id'];
+                            $item['variant_code'] = $resolved['variant_code'] ?? null;
+                            $item['variant_sku'] = $resolved['sku'] ?? null;
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                $mrp = (float)($item['mrp'] ?: (($si['variant_mrp'] ?? 0) > 0 ? $si['variant_mrp'] : ($si['base_price'] ?? 0)));
+                $sellingPrice = (float)($item['selling_price'] ?: (($si['variant_selling_price'] ?? 0) > 0 ? $si['variant_selling_price'] : ($si['discount_price'] ?? 0)));
 
                 $item['variant_id'] = $variantId ?: null;
-                $item['variant_code'] = $si['variant_code'] ?? null;
-                $item['variant_sku'] = $si['sku'] ?? null;
+                if (empty($item['variant_code']) && !empty($si['variant_code'])) {
+                    $item['variant_code'] = $si['variant_code'];
+                }
+                if (empty($item['variant_sku']) && !empty($si['sku'])) {
+                    $item['variant_sku'] = $si['sku'];
+                }
                 $item['size_name'] = $sizeName ?: null;
                 $item['color_name'] = $colorName ?: null;
                 $item['mrp'] = $mrp;
                 $item['selling_price'] = $sellingPrice;
 
                 if ($variantId > 0) $variantIds[$variantId] = true;
-                $usedInCursor++;
 
                 Database::execute("
                     UPDATE qr_generation_items
@@ -1462,11 +1565,51 @@ class QrGenerationService {
             }
             unset($item);
 
-            if (count($variantIds) === 1) {
-                $gen['variant_id'] = (int)array_key_first($variantIds);
-                Database::execute("UPDATE qr_generations SET variant_id = ? WHERE id = ?", [$gen['variant_id'], $id]);
+            if (!empty($variantIds)) {
+                $uniqueKeys = array_keys($variantIds);
+                $gen['unique_variant_ids'] = $uniqueKeys;
+                if (empty($gen['variant_id']) || count($uniqueKeys) === 1) {
+                    $gen['variant_id'] = (int)$uniqueKeys[0];
+                    Database::execute("UPDATE qr_generations SET variant_id = ? WHERE id = ?", [$gen['variant_id'], $id]);
+                }
             }
             $gen['stitching_variant_items'] = $stitchingItems;
+        }
+
+        // Global hydration across all items
+        $allVariantIds = [];
+        foreach ($items as &$it) {
+            if (empty($it['variant_id']) && !empty($gen['variant_id'])) {
+                $it['variant_id'] = (int)$gen['variant_id'];
+                Database::execute("UPDATE qr_generation_items SET variant_id = ? WHERE id = ?", [$it['variant_id'], (int)$it['id']]);
+            }
+            if (!empty($it['variant_id'])) {
+                $allVariantIds[(int)$it['variant_id']] = true;
+            }
+        }
+        unset($it);
+
+        if (!empty($allVariantIds)) {
+            $vList = implode(',', array_map('intval', array_keys($allVariantIds)));
+            $vRows = Database::fetchAll("SELECT id, variant_code, sku, mrp, selling_price FROM product_variants WHERE id IN ($vList)");
+            $vMeta = [];
+            foreach ($vRows as $vr) {
+                $vMeta[(int)$vr['id']] = $vr;
+            }
+            foreach ($items as &$it) {
+                $vid = (int)($it['variant_id'] ?? 0);
+                if ($vid > 0 && isset($vMeta[$vid])) {
+                    if (empty($it['variant_code'])) $it['variant_code'] = $vMeta[$vid]['variant_code'];
+                    if (empty($it['variant_sku'])) $it['variant_sku'] = $vMeta[$vid]['sku'];
+                    if ((float)($it['mrp'] ?? 0) <= 0) $it['mrp'] = (float)$vMeta[$vid]['mrp'];
+                    if ((float)($it['selling_price'] ?? 0) <= 0) $it['selling_price'] = (float)$vMeta[$vid]['selling_price'];
+                }
+            }
+            unset($it);
+            $gen['unique_variant_ids'] = array_keys($allVariantIds);
+            if (empty($gen['variant_id'])) {
+                $gen['variant_id'] = (int)array_key_first($allVariantIds);
+            }
         }
 
         return array_merge($gen, ['items' => $items]);
