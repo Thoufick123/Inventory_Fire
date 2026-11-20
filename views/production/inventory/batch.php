@@ -451,19 +451,31 @@ $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
                         </tr>
                     <?php else: ?>
                         <?php foreach ($pieceItems as $it): ?>
+                            <?php
+                                $pVariantId = !empty($it['variant_id']) ? (int)$it['variant_id'] : null;
+                                $pVariantCode = trim((string)($it['variant_code'] ?? ''));
+                            ?>
                             <tr class="inventory-piece-row" 
                                 id="rowPiece_<?= $it['piece_no'] ?>"
                                 data-piece-no="<?= $it['piece_no'] ?>"
                                 data-tag="<?= strtoupper($it['tag_code']) ?>"
+                                data-variant-id="<?= (int)($it['variant_id'] ?? 0) ?>"
+                                data-variant-code="<?= strtoupper($pVariantCode) ?>"
                                 data-sku="<?= strtoupper($it['product_sku']) ?>"
                                 data-size="<?= strtoupper($it['size_name']) ?>"
                                 data-color="<?= strtoupper($it['color_name']) ?>"
                                 data-product="<?= strtoupper($it['product_name']) ?>">
                                 <td class="text-muted small fw-bold">#<?= $it['piece_no'] ?></td>
                                 <td>
+                                    <?php if ($pVariantId): ?>
+                                    <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1" title="Product Variant ID: #<?= $pVariantId ?>">
+                                        <i class="bi bi-tag-fill me-1 text-warning"></i>Variant ID: #<?= $pVariantId ?><?= $pVariantCode !== '' ? ' (' . e($pVariantCode) . ')' : '' ?>
+                                    </span>
+                                    <?php else: ?>
                                     <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1">
                                         <i class="bi bi-qr-code-scan me-1 text-warning"></i><?= e($it['tag_code']) ?>
                                     </span>
+                                    <?php endif; ?>
                                     <div class="small text-muted mt-1">Garment #<?= $it['piece_seq'] ?> of <?= $it['passed_in_group'] ?></div>
                                 </td>
                                 <td>
@@ -975,13 +987,15 @@ function filterInventoryPieces() {
     });
 
     rows.forEach(row => {
-        const tag = row.getAttribute('data-tag') || '';
-        const sku = row.getAttribute('data-sku') || '';
-        const size = row.getAttribute('data-size') || '';
-        const color = row.getAttribute('data-color') || '';
-        const prod = row.getAttribute('data-product') || '';
+        const tag = (row.getAttribute('data-tag') || '').toUpperCase();
+        const variantId = (row.getAttribute('data-variant-id') || '').toUpperCase();
+        const variantCode = (row.getAttribute('data-variant-code') || '').toUpperCase();
+        const sku = (row.getAttribute('data-sku') || '').toUpperCase();
+        const size = (row.getAttribute('data-size') || '').toUpperCase();
+        const color = (row.getAttribute('data-color') || '').toUpperCase();
+        const prod = (row.getAttribute('data-product') || '').toUpperCase();
 
-        const matches = !rawVal || tag.includes(rawVal) || sku.includes(rawVal) || prod.includes(rawVal) || (size.includes(rawVal) && color.includes(rawVal));
+        const matches = !rawVal || tag.includes(rawVal) || variantId.includes(rawVal) || ('#' + variantId).includes(rawVal) || variantCode.includes(rawVal) || sku.includes(rawVal) || prod.includes(rawVal) || (size.includes(rawVal) && color.includes(rawVal));
         if (matches) {
             matchingPieceElements.push(row);
         } else {

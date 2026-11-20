@@ -16311,11 +16311,14 @@ class ProductionController {
                        c_qi.code as qi_cat_code,
                        sc_qi.code as qi_sub_code,
                        ssc_qi.code as qi_subsub_code,
-                       u.full_name as inspector_name
+                       u.full_name as inspector_name,
+                       pv.variant_code,
+                       pv.sku as variant_sku
                 FROM qc_items qi
                 JOIN qc_batches qb ON qi.qc_batch_id = qb.id
                 JOIN production_programs pp ON qb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
+                LEFT JOIN product_variants pv ON pv.id = qi.variant_id
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN categories c_pp ON pp.category_id = c_pp.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
@@ -16438,6 +16441,87 @@ class ProductionController {
             );
         }
 
+        // Resolve linked QR generation batch and items
+        $qrGen = Database::fetchOne("
+            SELECT qrg.* 
+            FROM qr_generations qrg 
+            WHERE qrg.qc_batch_id = ? 
+               OR qrg.id = (SELECT qr_generation_id FROM qc_batches WHERE id = ?)
+               OR (qrg.stitching_batch_id > 0 AND qrg.stitching_batch_id = (SELECT stitching_batch_id FROM qc_batches WHERE id = ?))
+            ORDER BY qrg.id DESC LIMIT 1
+        ", [$id, $id, $id]);
+
+        $qrItems = [];
+        if ($qrGen) {
+            $qrItems = Database::fetchAll("
+                SELECT qri.*, pv.variant_code, pv.sku as variant_sku
+                FROM qr_generation_items qri
+                LEFT JOIN product_variants pv ON pv.id = qri.variant_id
+                WHERE qri.generation_id = ?
+                ORDER BY qri.sequence_num ASC
+            ", [(int)$qrGen['id']]);
+        }
+
+        $qrItemsBySizeColor = [];
+        foreach ($qrItems as $qri) {
+            $k = strtoupper(trim((string)($qri['size_name'] ?? ''))) . '|' . strtoupper(trim((string)($qri['color_name'] ?? '')));
+            $qrItemsBySizeColor[$k][] = $qri;
+        }
+
+        foreach ($items as &$it) {
+            $vId = (int)($it['variant_id'] ?? 0);
+            $sizeName = trim((string)($it['size_name'] ?? ''));
+            $colorName = trim((string)($it['color_name'] ?? ''));
+            $k = strtoupper($sizeName) . '|' . strtoupper($colorName);
+
+            if ($vId <= 0 && !empty($qrItemsBySizeColor[$k])) {
+                foreach ($qrItemsBySizeColor[$k] as $matchedQri) {
+                    if (!empty($matchedQri['variant_id'])) {
+                        $vId = (int)$matchedQri['variant_id'];
+                        $it['variant_id'] = $vId;
+                        $it['variant_code'] = $matchedQri['variant_code'] ?? null;
+                        $it['variant_sku'] = $matchedQri['variant_sku'] ?? null;
+                        Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$it['id']]);
+                        break;
+                    }
+                }
+            }
+
+            if ($vId <= 0 && !empty($qrGen['variant_id'])) {
+                $vId = (int)$qrGen['variant_id'];
+                $it['variant_id'] = $vId;
+                Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$it['id']]);
+            }
+
+            if ($vId <= 0 && !empty($it['product_id']) && ($sizeName !== '' || $colorName !== '')) {
+                try {
+                    $v = VariantService::findOrCreateVariantForInward((int)$it['product_id'], [
+                        'size' => $sizeName ?: null,
+                        'color' => $colorName ?: null,
+                        'mrp' => (float)($it['base_price'] ?? 0),
+                        'selling_price' => (float)($it['discount_price'] ?? 0),
+                        'is_active' => 1
+                    ], true);
+                    if (!empty($v['id'])) {
+                        $vId = (int)$v['id'];
+                        $it['variant_id'] = $vId;
+                        $it['variant_code'] = $v['variant_code'] ?? null;
+                        $it['variant_sku'] = $v['sku'] ?? null;
+                        Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$it['id']]);
+                    }
+                } catch (\Throwable $e) {}
+            }
+
+            if ($vId > 0 && empty($it['variant_code'])) {
+                $vRow = Database::fetchOne("SELECT variant_code, sku FROM product_variants WHERE id = ?", [$vId]);
+                if ($vRow) {
+                    $it['variant_code'] = $vRow['variant_code'] ?? null;
+                    $it['variant_sku'] = $vRow['sku'] ?? null;
+                }
+            }
+        }
+        unset($it);
+
         // Build piece-by-piece records
         $pieceItems = [];
         $globalPieceIndex = 1;
@@ -16448,6 +16532,9 @@ class ProductionController {
         foreach ($items as $it) {
             $passedQty = (int)$it['passed_qty'];
             $price = (float)($it['discount_price'] > 0 ? $it['discount_price'] : $it['base_price']);
+            $resolvedVariantId = (int)($it['variant_id'] ?? 0);
+            $resolvedVariantCode = $it['variant_code'] ?? '';
+            $resolvedVariantSku = $it['variant_sku'] ?? '';
 
             $batchDate = new DateTime($it['batch_created_at'] ?? 'now');
             $monthStr  = $batchDate->format('m');
@@ -16492,6 +16579,9 @@ class ProductionController {
                     'passed_in_group' => $passedQty,
                     'qc_item_id'      => $it['id'],
                     'qc_batch_id'     => $it['qc_batch_id'],
+                    'variant_id'      => $resolvedVariantId ?: null,
+                    'variant_code'    => $resolvedVariantCode ?: null,
+                    'variant_sku'     => $resolvedVariantSku ?: null,
                     'product_id'      => $it['product_id'],
                     'product_name'    => $it['product_name'],
                     'product_sku'     => $it['product_sku'] ?? '',
