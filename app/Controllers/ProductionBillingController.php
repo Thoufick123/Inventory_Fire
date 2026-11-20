@@ -1023,7 +1023,7 @@ class ProductionBillingController
             if ($isComp) {
                 $unitPrice = 0.00;
             }
-            $gstRate = (float)($r['gst_percentage'] ?: 5.0);
+            $gstRate = $r['gst_percentage'] === null ? 5.0 : (float)$r['gst_percentage'];
 
             $billItems[] = [
                 'qc_item_id'     => $qcItemId,
@@ -1112,7 +1112,7 @@ class ProductionBillingController
             if ($isComp) {
                 $unitPrice = 0.00;
             }
-            $gstRate = (float)($r['gst_percentage'] ?: 5.0);
+            $gstRate = $r['gst_percentage'] === null ? 5.0 : (float)$r['gst_percentage'];
 
             $billItems[] = [
                 'qc_item_id'     => $qcItemId,
@@ -1184,6 +1184,7 @@ class ProductionBillingController
 
     private function getAvailableInventory(int $excludeBillId = 0, int $productionUnitId = 0): array
     {
+        Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
         if ($productionUnitId > 0) {
             $unitRow = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [$productionUnitId]);
@@ -1206,6 +1207,7 @@ class ProductionBillingController
                     pp.program_number, pp.name AS program_name,
                     COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
                     p.id AS product_id,
+                    COALESCE(p.variants_deferred, 0) AS variants_deferred,
                     p.code AS product_code, p.gst_percentage, p.hsn_code,
                     p.is_complementary AS prod_is_comp,
                     pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
@@ -1227,6 +1229,11 @@ class ProductionBillingController
         foreach ($rows as &$row) {
             $vId = (int)($row['variant_id'] ?? 0);
             if ($vId <= 0 && !empty($row['product_id'])) {
+                if ((int)($row['variants_deferred'] ?? 0) === 1) {
+                    error_log('Deferred production variant missing for QC item ' . (int)$row['qc_item_id'] . '; it is excluded from billing until QR generation assigns it.');
+                    $row['variant_setup_pending'] = true;
+                    continue;
+                }
                 $sizeName = trim((string)($row['size_name'] ?: ($row['size_from_variant'] ?? '')));
                 $colorName = trim((string)($row['color_name'] ?: ($row['color_from_variant'] ?? '')));
                 if ($sizeName !== '' || $colorName !== '') {
@@ -1237,7 +1244,7 @@ class ProductionBillingController
                             'mrp' => (float)($row['qc_base_price'] ?? 0),
                             'selling_price' => (float)($row['qc_discount_price'] ?? 0),
                             'is_active' => 1
-                        ], true);
+                        ]);
                         if (!empty($vMatch['id'])) {
                             $vId = (int)$vMatch['id'];
                             $row['variant_id'] = $vId;
@@ -1308,6 +1315,9 @@ class ProductionBillingController
 
         $available = [];
         foreach ($rows as $row) {
+            if (!empty($row['variant_setup_pending'])) {
+                continue;
+            }
             $qcItemId = (int)$row['qc_item_id'];
             $tags = array_values(array_filter(
                 $tagsByItem[$qcItemId] ?? [],
@@ -1657,24 +1667,61 @@ class ProductionBillingController
             }
 
             $unitPrice = filter_var($submitted['unit_price'] ?? null, FILTER_VALIDATE_FLOAT);
-            $hsnCode = trim((string)($submitted['hsn_code'] ?? $stock['hsn_code'] ?? '6109'));
+            $rawHsnCode = trim((string)($submitted['hsn_code'] ?? ''));
+            if ($rawHsnCode === '') {
+                $rawHsnCode = trim((string)($stock['hsn_code'] ?? '6109'));
+            }
+            if ($rawHsnCode === '') {
+                $rawHsnCode = '6109';
+            }
+            $hsnCode = preg_replace('/[\s.\/-]+/', '', $rawHsnCode);
+            if ($hsnCode === null) {
+                $hsnCode = $rawHsnCode;
+            }
             $gstType = strtoupper(trim((string)($submitted['gst_type'] ?? 'BOTH')));
             $taxInputType = strtoupper(trim((string)($submitted['tax_input_type'] ?? 'PERCENT')));
-            $sgstRate = filter_var($submitted['sgst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
-            $cgstRate = filter_var($submitted['cgst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
-            $igstRate = filter_var($submitted['igst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
             $validGstTypes = ['SGST', 'IGST', 'CGST', 'BOTH', 'EXEMPTED'];
             $validTaxInputTypes = ['PERCENT', 'FIXED'];
+            $hasComponentRates = array_key_exists('sgst_rate', $submitted)
+                || array_key_exists('cgst_rate', $submitted)
+                || array_key_exists('igst_rate', $submitted);
+            $enteredGstRate = null;
+            if ($hasComponentRates) {
+                $sgstRate = filter_var($submitted['sgst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $cgstRate = filter_var($submitted['cgst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $igstRate = filter_var($submitted['igst_rate'] ?? 0, FILTER_VALIDATE_FLOAT);
+            } else {
+                $enteredGstRate = filter_var($submitted['gst_percentage'] ?? 0, FILTER_VALIDATE_FLOAT);
+                $sgstRate = $cgstRate = $igstRate = 0.0;
+                if ($enteredGstRate !== false) {
+                    if ($gstType === 'BOTH') {
+                        $sgstRate = $cgstRate = $enteredGstRate / 2;
+                    } elseif ($gstType === 'SGST') {
+                        $sgstRate = $enteredGstRate;
+                    } elseif ($gstType === 'CGST') {
+                        $cgstRate = $enteredGstRate;
+                    } elseif ($gstType === 'IGST') {
+                        $igstRate = $enteredGstRate;
+                    }
+                }
+            }
+            if ($unitPrice === false || $unitPrice < 0) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Enter a valid non-negative item price.');
+                return;
+            }
+            if (!preg_match('/^(?:[0-9]{4}|[0-9]{6}|[0-9]{8})$/', $hsnCode)) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'The HSN code must contain 4, 6, or 8 digits.');
+                return;
+            }
             if (
-                $unitPrice === false || $unitPrice < 0 ||
-                !preg_match('/^(?:[0-9]{4}|[0-9]{6}|[0-9]{8})$/', $hsnCode) ||
                 !in_array($gstType, $validGstTypes, true) ||
                 !in_array($taxInputType, $validTaxInputTypes, true) ||
+                (!$hasComponentRates && $enteredGstRate === false) ||
                 $sgstRate === false || $cgstRate === false || $igstRate === false ||
                 min($sgstRate, $cgstRate, $igstRate) < 0 ||
-                ($taxInputType === 'PERCENT' && max($sgstRate, $cgstRate, $igstRate) > 100)
+                ($taxInputType === 'PERCENT' && ($sgstRate + $cgstRate + $igstRate) > 100)
             ) {
-                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'A product price or GST rate is invalid.');
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'A GST rate or tax type is invalid.');
                 return;
             }
 
