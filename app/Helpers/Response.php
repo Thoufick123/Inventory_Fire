@@ -451,7 +451,7 @@ function hasPermission(string $module, ?string $action = null): bool {
         }
     }
     if ($module === 'inward' || $module === 'inwards') {
-        if (in_array('inward.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
+        if (in_array('inward.' . $action, $userPermissions, true)) {
             return true;
         }
     }
@@ -464,13 +464,6 @@ function hasPermission(string $module, ?string $action = null): bool {
     // Secondary fallback alias checks for returns
     if ($module === 'whatsapp_return_to_wh') {
         if (in_array('whatsapp_returns.' . $action, $userPermissions, true) || in_array('whatsapp_return_to_wh.' . $action, $userPermissions, true)) {
-            return true;
-        }
-    }
-
-    // Inward GRN verification / creation aliases (allows standard create permission to perform inward verification & scanning)
-    if ($module === 'inward') {
-        if ($action === 'verify' && in_array('inward.create', $userPermissions, true)) {
             return true;
         }
     }

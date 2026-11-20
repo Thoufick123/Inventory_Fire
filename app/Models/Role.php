@@ -406,6 +406,7 @@ class Role {
 
             ['inward', 'view', 'View Goods Receipt Notes & Inward Records', 'inward.view', null],
             ['inward', 'create', 'Create GRN & Inward Production Receipts', 'inward.create', null],
+            ['inward', 'verify', 'Scan, Verify & Receive Inward Stock', 'inward.verify', null],
             ['inward', 'edit', 'Edit GRN & Inward Receipts', 'inward.edit', null],
             ['inward', 'delete', 'Delete GRN & Inward Records', 'inward.delete', null],
 
@@ -849,11 +850,15 @@ class Role {
         $columns = [
             'view' => [],
             'create' => [],
+            'verify' => [],
             'edit' => [],
             'delete' => [],
         ];
 
         foreach ($permissions as $action => $permission) {
+            if ($action === 'verify' && ($permission['module'] ?? '') !== 'inward') {
+                continue;
+            }
             if (isset($columns[$action])) {
                 $columns[$action][$action] = $permission;
             }
@@ -863,7 +868,7 @@ class Role {
     }
 
     /**
-     * Keep valid CRUD permission IDs and the dedicated shop stock adjustment permission.
+     * Keep supported permission IDs and module-specific verification/adjustment actions.
      */
     public static function filterCrudPermissionIds(array $permissionIds): array {
         $permissionIds = array_values(array_unique(array_filter(
@@ -880,6 +885,7 @@ class Role {
              WHERE id IN ($placeholders)
                AND (
                     action IN ('view', 'create', 'edit', 'delete')
+                    OR (module = 'inward' AND action = 'verify')
                     OR (module = 'shop_stock' AND action = 'adjust')
                )",
             $permissionIds

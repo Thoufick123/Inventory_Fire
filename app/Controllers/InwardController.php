@@ -21,7 +21,7 @@ class InwardController {
     // =========================================================================
 
     public function index(): void {
-        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view') && !hasPermission('production', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Session::flash('error', 'Access denied: You do not have permission to view inward shipments.');
             Response::redirect(url('production/dashboard'));
             return;
@@ -217,7 +217,7 @@ class InwardController {
     // =========================================================================
 
     public function view(string $id): void {
-        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view') && !hasPermission('production', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Session::flash('error', 'Access denied: You do not have permission to view inward shipments.');
             Response::redirect(url('production/dashboard'));
             return;
@@ -305,7 +305,7 @@ class InwardController {
 
     public function verifyInward(string $id): void {
         $batchId = (int)$id;
-        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+        if (!hasPermission('inward', 'verify')) {
             Session::flash('error', 'Access denied: You do not have permission to verify or inward stock.');
             Response::redirect(url('production/inwards/view/' . $batchId));
             return;
@@ -369,7 +369,7 @@ class InwardController {
     // =========================================================================
 
     public function printBatchQRLabel(string $id): void {
-        if (!hasPermission('inward', 'print') && !hasPermission('inward', 'view') && !hasPermission('wh_labels', 'print') && !hasPermission('warehouse', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Session::flash('error', 'Access denied: You do not have permission to print batch labels.');
             Response::redirect(url('production/inwards'));
             return;
@@ -388,7 +388,7 @@ class InwardController {
     }
 
     public function printOutwardGatePass(string $id): void {
-        if (!hasPermission('inward', 'print') && !hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Session::flash('error', 'Access denied: You do not have permission to print outward gatepasses.');
             Response::redirect(url('production/inwards'));
             return;
@@ -413,7 +413,7 @@ class InwardController {
     // =========================================================================
 
     public function ajaxCrossCheckScan(): void {
-        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+        if (!hasPermission('inward', 'verify')) {
             Response::jsonError('Access denied: You do not have permission to verify inward scans.', [], 403);
             return;
         }
@@ -471,7 +471,7 @@ class InwardController {
     }
 
     public function ajaxLookupBatch(string $code): void {
-        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Response::jsonError('Access denied: You do not have permission to look up batches.', [], 403);
             return;
         }
@@ -512,7 +512,7 @@ class InwardController {
     }
 
     public function ajaxScanInward(): void {
-        if (!hasPermission('inward', 'verify') && !hasPermission('inward', 'create') && !hasPermission('inward', 'edit')) {
+        if (!hasPermission('inward', 'verify')) {
             Response::jsonError('Access denied: You do not have permission to receive or inward stock via scan.', [], 403);
             return;
         }
@@ -608,7 +608,7 @@ class InwardController {
     }
 
     public function ajaxBatchHistory(string $id): void {
-        if (!hasPermission('inward', 'view') && !hasPermission('warehouse', 'view')) {
+        if (!hasPermission('inward', 'view')) {
             Response::jsonError('Access denied: You do not have permission to view batch history.', [], 403);
             return;
         }
