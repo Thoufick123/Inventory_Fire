@@ -249,7 +249,7 @@
                         <i class="bi bi-boxes me-1"></i> View in Purchased Stock
                     </a>
                 <?php else: ?>
-                    <form method="POST" action="<?= url('production/qr-generations/add-to-stock/' . $batch['id']) ?>" class="d-inline" onsubmit="return confirm('Add <?= count($batch['items']) ?> pieces from this QR batch to purchased warehouse inventory?');">
+                    <form method="POST" action="<?= url('production/qr-generations/add-to-stock/' . $batch['id']) ?>" class="d-inline" data-confirm="Add <?= count($batch['items']) ?> pieces from this QR batch to purchased warehouse inventory?">
                         <?= csrf_field() ?>
                         <input type="hidden" name="tab" value="<?= e($activeTab) ?>">
                         <button type="submit" class="btn btn-success btn-lg fw-bold shadow-xs">
