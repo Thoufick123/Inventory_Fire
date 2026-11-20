@@ -20239,7 +20239,13 @@ class ProductionController {
 
         $stockItems = Database::fetchAll("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
-                   qrg.stock_added_at, qrg.brand_name, qrg.color_name, qrg.size_name, qrg.mrp, qrg.selling_price,
+                   qrg.stock_added_at, qrg.brand_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   qrg.mrp,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS purchase_price,
+                   qrg.selling_price,
                    ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
                    ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
                    pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
@@ -20299,14 +20305,263 @@ class ProductionController {
     }
 
     /**
-     * AJAX: Get detailed product & QR label info for a purchased stock batch.
+     * Ensure design_name column exists in qr_generation_items table.
      */
-    public function ajaxPurchasedStockDetails(string $id): void {
+    private function ensureQrItemDesignNameColumn(): void {
+        try {
+            static $checked = false;
+            if (!$checked) {
+                $col = Database::fetchOne("SHOW COLUMNS FROM qr_generation_items LIKE 'design_name'");
+                if (!$col) {
+                    Database::execute("ALTER TABLE qr_generation_items ADD COLUMN design_name VARCHAR(150) NULL AFTER color_name");
+                }
+                $checked = true;
+            }
+        } catch (Throwable $e) {}
+    }
+
+    /**
+     * PAGE: View Purchased Stock Details & Generated QR Barcodes.
+     */
+    public function purchasedStockView(string $id): void {
+        $this->ensureQrItemDesignNameColumn();
         $genId = (int)$id;
         $stock = Database::fetchOne("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
-                   qrg.stock_added, qrg.stock_added_at, qrg.brand_name, qrg.color_name, qrg.size_name,
-                   qrg.mrp, qrg.selling_price, qrg.notes, qrg.qr_prefix,
+                   qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   qrg.mrp,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
+                   ppi.unit_price AS purchase_price,
+                   qrg.notes, qrg.qr_prefix,
+                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
+                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                   s.name AS seller_name, s.company AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   u.full_name AS stock_added_by_name
+            FROM qr_generations qrg
+            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
+            LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
+            LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
+            LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
+            LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
+            LEFT JOIN users u ON u.id = qrg.stock_added_by
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$stock) {
+            Session::flash('error', 'Stock line not found.');
+            Response::redirect(url('production/purchased-stock'));
+            return;
+        }
+
+        $items = Database::fetchAll("
+            SELECT id, generation_id, variant_id, size_name,
+                   COALESCE(NULLIF(color_name, ''), ?) AS color_name,
+                   COALESCE(NULLIF(design_name, ''), ?) AS design_name,
+                   mrp, selling_price, qr_code, sequence_num, status, created_at
+            FROM qr_generation_items
+            WHERE generation_id = ?
+            ORDER BY sequence_num ASC, id ASC
+        ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
+
+        Response::view('production.purchased_stock.view', [
+            'pageTitle'    => 'Purchased Stock: ' . $stock['batch_code'],
+            'activeModule' => 'production',
+            'activeMenu'   => 'prod-purchased-stock',
+            'stock'        => $stock,
+            'items'        => $items,
+            'printUrl'     => url('production/qr-generations/print/' . $genId),
+            'editUrl'      => url('production/purchased-stock/edit/' . $genId),
+            'listUrl'      => url('production/purchased-stock'),
+            'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
+            'breadcrumb'   => [
+                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
+                ['label' => $stock['batch_code']],
+            ],
+        ]);
+    }
+
+    /**
+     * PAGE: Edit Purchased Stock & Individual QR Labels.
+     */
+    public function purchasedStockEdit(string $id): void {
+        $this->ensureQrItemDesignNameColumn();
+        $genId = (int)$id;
+        $stock = Database::fetchOne("
+            SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
+                   qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   qrg.mrp,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
+                   ppi.unit_price AS purchase_price,
+                   qrg.notes, qrg.qr_prefix,
+                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
+                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                   s.name AS seller_name, s.company AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   u.full_name AS stock_added_by_name
+            FROM qr_generations qrg
+            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
+            LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
+            LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
+            LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
+            LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
+            LEFT JOIN users u ON u.id = qrg.stock_added_by
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$stock) {
+            Session::flash('error', 'Stock line not found.');
+            Response::redirect(url('production/purchased-stock'));
+            return;
+        }
+
+        $items = Database::fetchAll("
+            SELECT id, generation_id, variant_id, size_name,
+                   COALESCE(NULLIF(color_name, ''), ?) AS color_name,
+                   COALESCE(NULLIF(design_name, ''), ?) AS design_name,
+                   mrp, selling_price, qr_code, sequence_num, status, created_at
+            FROM qr_generation_items
+            WHERE generation_id = ?
+            ORDER BY sequence_num ASC, id ASC
+        ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
+
+        Response::view('production.purchased_stock.edit', [
+            'pageTitle'    => 'Edit Purchased Stock: ' . $stock['batch_code'],
+            'activeModule' => 'production',
+            'activeMenu'   => 'prod-purchased-stock',
+            'stock'        => $stock,
+            'items'        => $items,
+            'viewUrl'      => url('production/purchased-stock/view/' . $genId),
+            'listUrl'      => url('production/purchased-stock'),
+            'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
+            'breadcrumb'   => [
+                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
+                ['label' => $stock['batch_code'], 'url' => url('production/purchased-stock/view/' . $genId)],
+                ['label' => 'Edit'],
+            ],
+        ]);
+    }
+
+    /**
+     * POST: Update Purchased Stock line details (full page form or AJAX).
+     */
+    public function purchasedStockUpdate(string $id): void {
+        $this->ensureQrItemDesignNameColumn();
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            if (Request::isAjax() || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+                Response::json(['success' => false, 'message' => 'Invalid security token. Please refresh.'], 403);
+                return;
+            }
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::back();
+            return;
+        }
+
+        $genId = (int)$id;
+        $gen = Database::fetchOne("
+            SELECT qrg.id, qrg.batch_code, qrg.source_purchase_item_id
+            FROM qr_generations qrg
+            WHERE qrg.id = ?
+        ", [$genId]);
+
+        if (!$gen) {
+            if (Request::isAjax() || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+                Response::json(['success' => false, 'message' => 'Stock record not found.'], 404);
+                return;
+            }
+            Session::flash('error', 'Stock record not found.');
+            Response::redirect(url('production/purchased-stock'));
+            return;
+        }
+
+        $notes = trim($_POST['notes'] ?? '');
+
+        Database::beginTransaction();
+        try {
+            if ($notes !== '') {
+                Database::execute("
+                    UPDATE qr_generations
+                    SET notes = ?, updated_at = NOW()
+                    WHERE id = ?
+                ", [$notes, $genId]);
+            }
+
+            if (!empty($_POST['qr_items']) && is_array($_POST['qr_items'])) {
+                foreach ($_POST['qr_items'] as $qId => $qData) {
+                    $qItemId = (int)$qId;
+                    $qColor = trim($qData['color_name'] ?? '') ?: null;
+                    $qDesign = trim($qData['design_name'] ?? '') ?: null;
+
+                    Database::execute("
+                        UPDATE qr_generation_items
+                        SET color_name = ?, design_name = ?
+                        WHERE id = ? AND generation_id = ?
+                    ", [$qColor, $qDesign, $qItemId, $genId]);
+                }
+            }
+
+            Database::commit();
+
+            if (Request::isAjax() || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Stock line {$gen['batch_code']} updated successfully.",
+                    'data'    => ['generation_id' => $genId],
+                ]);
+                return;
+            }
+
+            Session::flash('success', "Stock line {$gen['batch_code']} updated successfully.");
+            Response::redirect(url('production/purchased-stock/view/' . $genId));
+        } catch (Throwable $e) {
+            Database::rollback();
+            if (Request::isAjax() || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false)) {
+                Response::json(['success' => false, 'message' => 'Failed to update stock line: ' . $e->getMessage()], 500);
+                return;
+            }
+            Session::flash('error', 'Failed to update stock line: ' . $e->getMessage());
+            Response::back();
+        }
+    }
+
+    /**
+     * AJAX: Get detailed product & QR label info for a purchased stock batch.
+     */
+    public function ajaxPurchasedStockDetails(string $id): void {
+        $this->ensureQrItemDesignNameColumn();
+        $genId = (int)$id;
+        $stock = Database::fetchOne("
+            SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
+                   qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   qrg.mrp,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
+                   ppi.unit_price AS purchase_price,
+                   qrg.notes, qrg.qr_prefix,
                    ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
                    ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
                    pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
@@ -20335,11 +20590,14 @@ class ProductionController {
         }
 
         $items = Database::fetchAll("
-            SELECT id, generation_id, variant_id, size_name, color_name, mrp, selling_price, qr_code, sequence_num, status, created_at
+            SELECT id, generation_id, variant_id, size_name,
+                   COALESCE(NULLIF(color_name, ''), ?) AS color_name,
+                   COALESCE(NULLIF(design_name, ''), ?) AS design_name,
+                   mrp, selling_price, qr_code, sequence_num, status, created_at
             FROM qr_generation_items
             WHERE generation_id = ?
             ORDER BY sequence_num ASC, id ASC
-        ", [$genId]);
+        ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
 
         Response::json([
             'success' => true,
@@ -20356,6 +20614,7 @@ class ProductionController {
      * AJAX: Update QR & Stock line details (roll #, weight, brand, items status/pricing).
      */
     public function ajaxPurchasedStockUpdate(string $id): void {
+        $this->ensureQrItemDesignNameColumn();
         if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
             Response::json(['success' => false, 'message' => 'Invalid security token. Please refresh.'], 403);
             return;
@@ -20378,6 +20637,7 @@ class ProductionController {
         $rollNumber = trim($_POST['roll_number'] ?? '');
         $weightKg = isset($_POST['weight_kg']) && $_POST['weight_kg'] !== '' ? (float)$_POST['weight_kg'] : null;
         $colorName = trim($_POST['color_name'] ?? '');
+        $designName = trim($_POST['design_name'] ?? '');
         $sizeName = trim($_POST['size_name'] ?? '');
         $mrp = (float)($_POST['mrp'] ?? 0);
         $sellingPrice = (float)($_POST['selling_price'] ?? 0);
@@ -20387,11 +20647,12 @@ class ProductionController {
         try {
             Database::execute("
                 UPDATE qr_generations
-                SET brand_name = ?, color_name = ?, size_name = ?, mrp = ?, selling_price = ?, notes = ?, updated_at = NOW()
+                SET brand_name = ?, color_name = ?, design_name = ?, size_name = ?, mrp = ?, selling_price = ?, notes = ?, updated_at = NOW()
                 WHERE id = ?
             ", [
                 $brandName ?: null,
                 $colorName ?: null,
+                $designName ?: null,
                 $sizeName ?: null,
                 $mrp,
                 $sellingPrice,
@@ -20418,15 +20679,16 @@ class ProductionController {
                     $qItemId = (int)$qId;
                     $qStatus = in_array($qData['status'] ?? '', ['ACTIVE', 'USED', 'DAMAGED', 'CANCELLED'], true) ? $qData['status'] : 'ACTIVE';
                     $qColor = trim($qData['color_name'] ?? '') ?: null;
+                    $qDesign = trim($qData['design_name'] ?? '') ?: null;
                     $qSize = trim($qData['size_name'] ?? '') ?: null;
                     $qMrp = isset($qData['mrp']) && $qData['mrp'] !== '' ? (float)$qData['mrp'] : $mrp;
                     $qSp = isset($qData['selling_price']) && $qData['selling_price'] !== '' ? (float)$qData['selling_price'] : $sellingPrice;
 
                     Database::execute("
                         UPDATE qr_generation_items
-                        SET status = ?, color_name = ?, size_name = ?, mrp = ?, selling_price = ?
+                        SET status = ?, color_name = ?, design_name = ?, size_name = ?, mrp = ?, selling_price = ?
                         WHERE id = ? AND generation_id = ?
-                    ", [$qStatus, $qColor, $qSize, $qMrp, $qSp, $qItemId, $genId]);
+                    ", [$qStatus, $qColor, $qDesign, $qSize, $qMrp, $qSp, $qItemId, $genId]);
                 }
             }
 
@@ -20449,6 +20711,7 @@ class ProductionController {
                     'roll_number'   => $rollNumber,
                     'weight_kg'     => $weightKg,
                     'color_name'    => $colorName,
+                    'design_name'   => $designName,
                     'size_name'     => $sizeName,
                     'mrp'           => $mrp,
                     'selling_price' => $sellingPrice,
