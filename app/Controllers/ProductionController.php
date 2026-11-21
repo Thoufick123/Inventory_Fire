@@ -3721,6 +3721,21 @@ class ProductionController {
             $candidateParams
         );
 
+        $qrItemMap = [];
+        $qrGenIds = array_values(array_filter(array_unique(array_column($items, 'qr_generation_id'))));
+        if (!empty($qrGenIds)) {
+            $inPlaceholders = implode(',', array_fill(0, count($qrGenIds), '?'));
+            $qrRows = Database::fetchAll(
+                "SELECT generation_id, qr_code, sequence_num FROM qr_generation_items
+                 WHERE generation_id IN ($inPlaceholders)
+                 ORDER BY sequence_num ASC",
+                $qrGenIds
+            );
+            foreach ($qrRows as $qrRow) {
+                $qrItemMap[(int)$qrRow['generation_id']][] = $qrRow;
+            }
+        }
+
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
@@ -3731,6 +3746,7 @@ class ProductionController {
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
             'candidatePurchases' => $candidatePurchases,
+            'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
                 ['label' => 'Mapping Invoice ' . $bill['invoice_number']],
@@ -3905,9 +3921,14 @@ class ProductionController {
             if (!$result['created']) {
                 Session::flash('info', 'A QR batch already exists for this product variant.');
             } else {
-                Session::flash('success', "QR batch {$result['batch_code']} generated.");
+                Session::flash('success', "QR batch {$result['batch_code']} generated successfully.");
             }
-            Response::redirect(url('production/qr-generations/view/' . (int)$result['generation_id']));
+            $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
+            if ($mappingBillId > 0) {
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            } else {
+                Response::back();
+            }
         } catch (Throwable $e) {
             Session::flash('error', 'QR generation failed: ' . $e->getMessage());
             Response::redirect(url('purchases/mapping/draft/' . (int)($_POST['mapping_bill_id'] ?? 0)));
@@ -4866,14 +4887,13 @@ class ProductionController {
         }
 
         if ($categoryId <= 0) {
-            $msg = 'Tier 1 Main Category is required.';
-            if (Request::isAjax()) {
-                Response::json(['success' => false, 'message' => $msg], 422);
-                return;
+            $existingCatId = (int)($item['mapped_third_party_category_id'] ?? 0);
+            if ($existingCatId > 0) {
+                $categoryId = $existingCatId;
+            } else {
+                $firstCat = Database::fetchOne("SELECT id FROM third_party_categories WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+                $categoryId = $firstCat ? (int)$firstCat['id'] : 1;
             }
-            Session::flash('error', $msg);
-            Response::back();
-            return;
         }
 
         if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {

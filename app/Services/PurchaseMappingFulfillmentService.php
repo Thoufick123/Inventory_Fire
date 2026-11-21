@@ -688,9 +688,12 @@ class PurchaseMappingFulfillmentService {
         $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
             ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
         if (!$warehouse) {
-            throw new RuntimeException('No warehouse is configured for the auto-generated GRN.');
+            $cid = (int)($catalog['concern_id'] ?? 1) ?: 1;
+            Database::execute("INSERT INTO warehouses (name, code, is_active, concern_id) VALUES ('Main Warehouse', 'WH-MAIN', 1, ?)", [$cid]);
+            $warehouseId = (int)Database::lastInsertId();
+        } else {
+            $warehouseId = (int)$warehouse['id'];
         }
-        $warehouseId = (int)$warehouse['id'];
 
         $grnId = (int)($item['purchase_grn_id'] ?? 0);
         $grnNumber = (string)($item['purchase_grn_number'] ?? '');

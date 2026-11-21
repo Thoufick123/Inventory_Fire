@@ -448,354 +448,89 @@ tr.table-danger, tr.table-danger > td {
         </div>
 
         <!-- ========================================================================= -->
-        <!-- SECTION 2: CATEGORY HIERARCHY (3-TIER) & HSN CLASSIFICATION (Image 1 Refined) -->
+        <!-- LOGICAL CATEGORY HIERARCHY (SECTION 2 HIDDEN FROM UI AS REQUESTED)          -->
+        <!-- ========================================================================= -->
+        <div id="mappingHiddenCategoryFields" class="d-none">
+            <select id="selectTier1" name="category_id">
+                <option value="">-- Select Main Category --</option>
+                <?php foreach ($categories as $cat): ?>
+                    <option value="<?= (int)$cat['id'] ?>"
+                            data-code="<?= e($cat['code'] ?? '') ?>"
+                            data-complementary="<?= (int)($cat['is_complementary'] ?? 0) ?>"
+                            <?= ($activeCatId === (int)$cat['id']) || ($activeCatId === 0 && (int)$cat['id'] === (int)($categories[0]['id'] ?? 1)) ? 'selected' : '' ?>>
+                        <?= e($cat['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <select id="selectTier2" name="subcategory_id">
+                <option value="">-- Select Sub Category --</option>
+                <?php foreach ($subcategories as $sc): ?>
+                    <option value="<?= (int)$sc['id'] ?>"
+                            data-code="<?= e($sc['code'] ?? '') ?>"
+                            <?= ($activeSubcatId === (int)$sc['id']) ? 'selected' : '' ?>>
+                        <?= e($sc['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <select id="selectTier3" name="sub_subcategory_id">
+                <option value="">-- Select Sub Sub Category --</option>
+                <?php foreach ($subSubcategories as $ssc): ?>
+                    <option value="<?= (int)$ssc['id'] ?>"
+                            data-code="<?= e($ssc['code'] ?? '') ?>"
+                            <?= ($activeSubSubcatId === (int)$ssc['id']) ? 'selected' : '' ?>>
+                        <?= e($ssc['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <input type="text" id="inputTier1Code" name="category_code" value="<?= e($activeCatCode) ?>">
+            <input type="text" id="inputTier2Code" name="subcategory_code" value="<?= e($activeSubcatCode) ?>">
+            <input type="text" id="inputTier3Code" name="sub_subcategory_code" value="<?= e($activeSubSubcatCode) ?>">
+            <input type="text" id="inputQrKey" name="qr_key" value="<?= e($initialQrKey) ?>">
+            <span id="labelHierarchyPath"><?= e($activeCatCode ? ($activeCatCode . ' > ' . ($activeSubcatCode ?: '—') . ' > ' . ($activeSubSubcatCode ?: '—')) : '') ?></span>
+            <div id="categoryComplementaryHelp"></div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- LOGICAL PRODUCT ATTRIBUTES (SECTION 3 HIDDEN FROM UI AS REQUESTED)          -->
+        <!-- ========================================================================= -->
+        <div id="mappingHiddenAttributeFields" class="d-none">
+            <input type="text" id="inputStyleCode" name="style_code" value="<?= e($activeStyleCode) ?>">
+            <input type="text" id="inputStyleName" name="style_name" value="<?= e($activeStyleName) ?>">
+            <input type="text" id="inputHsnCode" name="hsn_code" value="<?= e($activeHsn) ?>">
+
+            <div id="containerColorPills">
+                <?php foreach ($standardColors as $col): ?>
+                    <?php $isColChecked = in_array(strtolower(trim($col)), array_map('strtolower', array_map('trim', $activeColors)), true); ?>
+                    <input class="btn-check color-checkbox" type="checkbox" id="color_pill_<?= md5($col) ?>" name="colors[]" value="<?= e($col) ?>" <?= $isColChecked ? 'checked' : '' ?>>
+                <?php endforeach; ?>
+                <?php foreach ($activeColors as $ac): ?>
+                    <?php if (!in_array(strtolower(trim($ac)), array_map('strtolower', array_map('trim', $standardColors)), true) && trim($ac) !== ''): ?>
+                        <input class="btn-check color-checkbox" type="checkbox" id="color_pill_<?= md5($ac) ?>" name="colors[]" value="<?= e($ac) ?>" checked>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+
+            <div id="containerSizePills">
+                <?php foreach ($standardSizes as $size): ?>
+                    <?php $isSizeChecked = in_array(strtolower(trim($size)), array_map('strtolower', array_map('trim', $selectedSizes)), true); ?>
+                    <input class="btn-check size-checkbox" type="checkbox" id="size_pill_<?= md5($size) ?>" name="sizes[]" value="<?= e($size) ?>" <?= $isSizeChecked ? 'checked' : '' ?>>
+                <?php endforeach; ?>
+                <?php foreach ($selectedSizes as $ss): ?>
+                    <?php if (!in_array(strtolower(trim($ss)), array_map('strtolower', array_map('trim', $standardSizes)), true) && trim($ss) !== ''): ?>
+                        <input class="btn-check size-checkbox" type="checkbox" id="size_pill_<?= md5($ss) ?>" name="sizes[]" value="<?= e($ss) ?>" checked>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 2: PRODUCT VARIANTS MATRIX & PRICING                              -->
         <!-- ========================================================================= -->
         <div class="card border shadow-sm mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">2</span>
-                    <h5 class="mb-0 fw-bold text-dark">Category Hierarchy (3-Tier) &amp; HSN Classification</h5>
-                </div>
-                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Required</span>
-            </div>
-            <div class="card-body p-4">
-                <!-- 3-Tier Hierarchy Table (Level Purpose removed as per Image 1) -->
-                <div class="table-responsive rounded-3 border mb-3">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light small text-uppercase text-muted">
-                            <tr>
-                                <th style="width: 260px;"><i class="bi bi-diagram-2 me-1"></i>Hierarchy Tier</th>
-                                <th><i class="bi bi-check2-square me-1"></i>Category Selection</th>
-                                <th style="width: 180px;"><i class="bi bi-upc-scan me-1"></i>Short Code</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Tier 1: Main Category -->
-                            <tr>
-                                <td>
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 me-1">Tier 1</span>
-                                    <strong class="text-dark">Main Category</strong> <span class="text-danger">*</span>
-                                </td>
-                                <td>
-                                    <div class="input-group">
-                                        <select class="form-select" id="selectTier1" name="category_id" required>
-                                            <option value="">-- Select Main Category --</option>
-                                            <?php foreach ($categories as $cat): ?>
-                                                <option value="<?= (int)$cat['id'] ?>"
-                                                        data-code="<?= e($cat['code'] ?? '') ?>"
-                                                        data-complementary="<?= (int)($cat['is_complementary'] ?? 0) ?>"
-                                                        <?= ($activeCatId === (int)$cat['id']) ? 'selected' : '' ?>>
-                                                    <?= e($cat['name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalQuickAddCategory" title="Quick Add Category">
-                                            <i class="bi bi-plus-circle me-1"></i>New
-                                        </button>
-                                    </div>
-                                    <div class="form-text" id="categoryComplementaryHelp">The selected category sets the default for newly generated variants; you can change each variant below.</div>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control text-uppercase font-monospace text-center fw-bold"
-                                           id="inputTier1Code" name="category_code" maxlength="10" placeholder="e.g. NF"
-                                           value="<?= e($activeCatCode) ?>">
-                                </td>
-                            </tr>
-
-                            <!-- Tier 2: Sub Category -->
-                            <tr>
-                                <td>
-                                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 me-1">Tier 2</span>
-                                    <strong class="text-dark">Sub Category</strong>
-                                </td>
-                                <td>
-                                    <div class="input-group">
-                                        <select class="form-select" id="selectTier2" name="subcategory_id">
-                                            <option value="">-- Select Sub Category --</option>
-                                            <?php foreach ($subcategories as $sc): ?>
-                                                <option value="<?= (int)$sc['id'] ?>"
-                                                        data-code="<?= e($sc['code'] ?? '') ?>"
-                                                        <?= ($activeSubcatId === (int)$sc['id']) ? 'selected' : '' ?>>
-                                                    <?= e($sc['name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button class="btn btn-outline-info" type="button" data-bs-toggle="modal" data-bs-target="#modalQuickAddSubcategory" title="Quick Add Subcategory">
-                                            <i class="bi bi-plus-circle me-1"></i>New
-                                        </button>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control text-uppercase font-monospace text-center fw-bold"
-                                           id="inputTier2Code" name="subcategory_code" maxlength="10" placeholder="e.g. FL"
-                                           value="<?= e($activeSubcatCode) ?>">
-                                </td>
-                            </tr>
-
-                            <!-- Tier 3: Sub Sub Category -->
-                            <tr>
-                                <td>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 me-1">Tier 3</span>
-                                    <strong class="text-dark">Sub Sub Category</strong>
-                                </td>
-                                <td>
-                                    <div class="input-group">
-                                        <select class="form-select" id="selectTier3" name="sub_subcategory_id">
-                                            <option value="">-- Select Sub Sub Category --</option>
-                                            <?php foreach ($subSubcategories as $ssc): ?>
-                                                <option value="<?= (int)$ssc['id'] ?>"
-                                                        data-code="<?= e($ssc['code'] ?? '') ?>"
-                                                        <?= ($activeSubSubcatId === (int)$ssc['id']) ? 'selected' : '' ?>>
-                                                    <?= e($ssc['name']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#modalQuickAddSubSubcategory" title="Quick Add Sub-Subcategory">
-                                            <i class="bi bi-plus-circle me-1"></i>New
-                                        </button>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control text-uppercase font-monospace text-center fw-bold"
-                                           id="inputTier3Code" name="sub_subcategory_code" maxlength="10" placeholder="e.g. NS"
-                                           value="<?= e($activeSubSubcatCode) ?>">
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Hierarchy Summary Strip -->
-                <div class="rounded-3 p-3 bg-light border d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-folder2-open text-primary fs-5"></i>
-                        <span class="fw-bold text-dark small text-uppercase">Full Hierarchy Path:</span>
-                        <span class="text-primary fw-semibold" id="labelHierarchyPath">
-                            <?= e($activeCatCode ? ($activeCatCode . ' > ' . ($activeSubcatCode ?: '—') . ' > ' . ($activeSubSubcatCode ?: '—')) : 'Select categories to build path') ?>
-                        </span>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <label for="inputQrKey" class="fw-bold text-dark small text-uppercase mb-0">QR Key:</label>
-                        <input type="text" class="form-control form-control-sm font-monospace fw-bold text-uppercase text-center"
-                               style="width: 140px; letter-spacing: 1.5px;" id="inputQrKey" name="qr_key"
-                               value="<?= e($initialQrKey) ?>" placeholder="e.g. NFFLNS">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================================================= -->
-        <!-- SECTION 3: PRODUCT ATTRIBUTES & VARIATIONS (Image 2 Refined)              -->
-        <!-- ========================================================================= -->
-        <div class="card border shadow-sm mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">3</span>
-                    <h5 class="mb-0 fw-bold text-dark">Product Attributes &amp; Variations</h5>
-                </div>
-                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Required</span>
-            </div>
-            <div class="card-body p-4">
-                <!-- 2-Column Table (Attribute Description & Usage removed as per Image 2) -->
-                <div class="table-responsive rounded-3 border mb-0">
-                    <table class="table table-bordered align-middle mb-0">
-                        <thead class="table-light small text-uppercase text-muted">
-                            <tr>
-                                <th style="width: 280px;"><i class="bi bi-sliders me-1"></i>Attribute Name</th>
-                                <th><i class="bi bi-input-cursor me-1"></i>Configured Value / Selection Input</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Product Style Code -->
-                            <tr>
-                                <td>
-                                    <div class="fw-bold text-dark">Product Style Code <span class="text-danger">*</span></div>
-                                    <small class="text-muted">(Master Parent SKU Ref)</small>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control font-monospace fw-bold text-uppercase"
-                                           id="inputStyleCode" name="style_code" required
-                                           value="<?= e($activeStyleCode) ?>" placeholder="e.g. GRM-STY-0001">
-                                </td>
-                            </tr>
-
-                            <!-- Product Style Name -->
-                            <tr>
-                                <td>
-                                    <div class="fw-bold text-dark">Product Style Name <span class="text-danger">*</span></div>
-                                    <small class="text-muted">(Retail Catalog Title)</small>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control fw-semibold"
-                                           id="inputStyleName" name="style_name" required
-                                           value="<?= e($activeStyleName) ?>" placeholder="e.g. Maxi Dress">
-                                </td>
-                            </tr>
-
-                            <!-- HSN Code -->
-                            <tr>
-                                <td>
-                                    <div class="fw-bold text-dark">HSN Code</div>
-                                    <small class="text-muted">(GST Classification)</small>
-                                </td>
-                                <td>
-                                    <input type="text" class="form-control font-monospace"
-                                           id="inputHsnCode" name="hsn_code" maxlength="20"
-                                           value="<?= e($activeHsn) ?>" placeholder="e.g. 6543">
-                                </td>
-                            </tr>
-
-                            <!-- Color / Fabric Variation (Multi-select + Custom Add Input) -->
-                            <tr>
-                                <td class="py-3 align-top">
-                                    <div class="fw-bold text-dark">Color / Fabric Variation <span class="text-danger">*</span></div>
-                                    <small class="text-muted">(Visual / Aesthetic Attr)</small>
-                                </td>
-                                <td class="py-3">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="small fw-bold text-uppercase text-muted">Choose Colors (Multiple Selection):</div>
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" id="btnSelectAllColors">Select All</button>
-                                            <span class="text-muted">|</span>
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-danger" id="btnClearColors">Clear</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Standard & Custom Color Toggle Buttons -->
-                                    <?php
-                                    $customColors = [];
-                                    foreach ($activeColors as $ac) {
-                                        $matched = false;
-                                        foreach ($standardColors as $sc) {
-                                            if (strtolower(trim($sc)) === strtolower(trim($ac))) {
-                                                $matched = true;
-                                                break;
-                                            }
-                                        }
-                                        if (!$matched && trim($ac) !== '') {
-                                            $customColors[] = trim($ac);
-                                        }
-                                    }
-                                    ?>
-                                    <div class="d-flex flex-wrap my-3" id="containerColorPills" style="row-gap: 12px; column-gap: 8px;">
-                                        <?php foreach ($standardColors as $col): ?>
-                                            <?php $isColChecked = in_array(strtolower(trim($col)), array_map('strtolower', array_map('trim', $activeColors)), true); ?>
-                                            <div class="form-check form-check-inline m-0">
-                                                <input class="btn-check color-checkbox" type="checkbox"
-                                                       id="color_pill_<?= md5($col) ?>" name="colors[]"
-                                                       value="<?= e($col) ?>" autocomplete="off"
-                                                       <?= $isColChecked ? 'checked' : '' ?>>
-                                                <label class="btn btn-sm <?= $isColChecked ? 'btn-primary' : 'btn-outline-secondary' ?> px-3 py-1 fw-bold"
-                                                       for="color_pill_<?= md5($col) ?>">
-                                                    <?= e($col) ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach; ?>
-                                        <?php foreach ($customColors as $cCol): ?>
-                                            <div class="form-check form-check-inline m-0">
-                                                <input class="btn-check color-checkbox" type="checkbox"
-                                                       id="color_pill_<?= md5($cCol) ?>" name="colors[]"
-                                                       value="<?= e($cCol) ?>" autocomplete="off" checked>
-                                                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold"
-                                                       for="color_pill_<?= md5($cCol) ?>">
-                                                    <?= e($cCol) ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-
-                                    <!-- Custom Color Adder Input Field -->
-                                    <div class="input-group input-group-sm mt-3 mb-1" style="max-width: 420px;">
-                                        <input type="text" class="form-control" id="inputCustomColor" placeholder="Add custom color name (e.g. Lavender, Mint, Peach)">
-                                        <button class="btn btn-outline-primary fw-semibold" type="button" id="btnAddCustomColor">
-                                            <i class="bi bi-plus-circle me-1"></i>Add Color
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-
-                            <!-- Size Attributes & Sizing Matrix -->
-                            <tr>
-                                <td class="py-3 align-top">
-                                    <div class="fw-bold text-dark">Size Attributes <span class="text-danger">*</span></div>
-                                    <small class="text-muted">(Variant Sizing Matrix)</small>
-                                </td>
-                                <td class="py-3">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="small fw-bold text-uppercase text-muted">Choose Sizes:</div>
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" id="btnSelectAllSizes">Select All</button>
-                                            <span class="text-muted">|</span>
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-danger" id="btnClearSizes">Clear</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Standard & Custom Size Toggle Buttons -->
-                                    <?php
-                                    $customSizes = [];
-                                    foreach ($selectedSizes as $ss) {
-                                        $matched = false;
-                                        foreach ($standardSizes as $stz) {
-                                            if (strtolower(trim($stz)) === strtolower(trim($ss))) {
-                                                $matched = true;
-                                                break;
-                                            }
-                                        }
-                                        if (!$matched && trim($ss) !== '') {
-                                            $customSizes[] = trim($ss);
-                                        }
-                                    }
-                                    ?>
-                                    <div class="d-flex flex-wrap my-3" id="containerSizePills" style="row-gap: 12px; column-gap: 8px;">
-                                        <?php foreach ($standardSizes as $size): ?>
-                                            <?php $isSizeChecked = in_array(strtolower(trim($size)), array_map('strtolower', array_map('trim', $selectedSizes)), true); ?>
-                                            <div class="form-check form-check-inline m-0">
-                                                <input class="btn-check size-checkbox" type="checkbox"
-                                                       id="size_pill_<?= md5($size) ?>" name="sizes[]"
-                                                       value="<?= e($size) ?>" autocomplete="off"
-                                                       <?= $isSizeChecked ? 'checked' : '' ?>>
-                                                <label class="btn btn-sm <?= $isSizeChecked ? 'btn-primary' : 'btn-outline-secondary' ?> px-3 py-1 fw-bold"
-                                                       for="size_pill_<?= md5($size) ?>">
-                                                    <?= e($size) ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach; ?>
-                                        <?php foreach ($customSizes as $cSize): ?>
-                                            <div class="form-check form-check-inline m-0">
-                                                <input class="btn-check size-checkbox" type="checkbox"
-                                                       id="size_pill_<?= md5($cSize) ?>" name="sizes[]"
-                                                       value="<?= e($cSize) ?>" autocomplete="off" checked>
-                                                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold"
-                                                       for="size_pill_<?= md5($cSize) ?>">
-                                                    <?= e($cSize) ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-
-                                    <!-- Custom Size Adder -->
-                                    <div class="input-group input-group-sm mt-3 mb-1" style="max-width: 420px;">
-                                        <input type="text" class="form-control" id="inputCustomSize" placeholder="Add custom size (e.g. 4XL, 32, 34)">
-                                        <button class="btn btn-outline-primary fw-semibold" type="button" id="btnAddCustomSize">
-                                            <i class="bi bi-plus-circle me-1"></i>Add Size
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================================================= -->
-        <!-- SECTION 4: PRODUCT VARIANTS MATRIX TABLE CONTAINER                        -->
-        <!-- ========================================================================= -->
-        <div class="card border shadow-sm mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">4</span>
-                    <h5 class="mb-0 fw-bold text-dark">Product Variants Matrix Table Container</h5>
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Product Variants Matrix &amp; Pricing</h5>
                 </div>
                 <!-- Batch Price Replicator Controls -->
                 <div class="d-flex align-items-center gap-2 flex-wrap">

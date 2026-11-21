@@ -155,7 +155,9 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         <td>₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></td>
                         <td>
                             <?php if (!empty($item['batch_code'])): ?>
-                                <a class="badge bg-dark text-decoration-none" href="<?= url('production/qr-generations/view/' . (int)$item['qr_generation_id']) ?>"><?= e($item['batch_code']) ?></a>
+                                <button type="button" class="badge bg-dark border-0 cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
+                                    <i class="bi bi-qr-code me-1"></i><?= e($item['batch_code']) ?>
+                                </button>
                                 <?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?>
                             <?php else: ?><span class="badge bg-secondary">No QR</span><?php endif; ?>
                         </td>
@@ -166,6 +168,15 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                     <input type="hidden" name="mapping_bill_id" value="<?= $mappingBillId ?>">
                                     <button class="btn btn-sm btn-outline-info" type="submit"><i class="bi bi-qr-code me-1"></i>Generate QR</button>
                                 </form>
+                            <?php else: ?>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR in this panel">
+                                        <i class="bi bi-eye me-1"></i>View QR
+                                    </button>
+                                    <a class="btn btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" title="Print Labels">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                </div>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -296,4 +307,96 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         }
     });
 })();
+</script>
+
+<!-- QR Code Modals for Generated Batches (In-Panel View) -->
+<?php if (!empty($items)): foreach ($items as $item): if (!empty($item['qr_generation_id'])): 
+    $batchQrItems = $qrItemMap[(int)$item['qr_generation_id']] ?? [];
+?>
+<div class="modal fade" id="modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" tabindex="-1" aria-labelledby="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
+                    <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($item['batch_code']) ?>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="card bg-light border-0 mb-4">
+                    <div class="card-body p-3">
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Product</div>
+                                <div class="fw-bold fs-6"><?= e($item['item_name']) ?></div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Variant &amp; SKU</div>
+                                <div class="fw-semibold"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></span></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">Total Qty</div>
+                                <div class="fw-bold"><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">MRP / Selling Price</div>
+                                <div class="fw-bold text-success">₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">Inventory Status</div>
+                                <div><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
+                <div class="row g-3">
+                    <?php if (empty($batchQrItems)): ?>
+                        <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
+                    <?php else: foreach ($batchQrItems as $q): ?>
+                        <div class="col-md-4 col-sm-6">
+                            <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                                <div class="small fw-bold text-truncate text-dark mb-1"><?= e($item['item_name']) ?></div>
+                                <div class="small text-muted mb-2"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?></div>
+                                <div class="d-flex justify-content-center my-2">
+                                    <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
+                                </div>
+                                <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
+                                <div class="small text-muted mt-1">₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-printer me-1"></i>Print Labels
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; endforeach; endif; ?>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function () {
+            modalEl.querySelectorAll('.panel-qr-canvas').forEach(function(el) {
+                if (el.dataset.rendered === '1') return;
+                el.innerHTML = '';
+                new QRCode(el, {
+                    text: el.dataset.code,
+                    width: 90,
+                    height: 90,
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                el.dataset.rendered = '1';
+            });
+        });
+    });
+});
 </script>
