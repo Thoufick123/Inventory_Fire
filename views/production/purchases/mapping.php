@@ -191,6 +191,13 @@
                                                     <i class="bi bi-truck me-1"></i><?= e($billItem['grn_number']) ?>
                                                 </a>
                                             <?php endif; ?>
+                                            <?php if (!empty($billItem['is_mapped'])): ?>
+                                                <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1 align-baseline text-decoration-none"
+                                                        onclick="unmapItem(<?= (int)$billItem['id'] ?>, '<?= e(addslashes($billItem['item_name'])) ?>')"
+                                                        title="Delete mapping (unmap product)">
+                                                    <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
@@ -207,11 +214,20 @@
                                 <div><i class="bi bi-truck me-1"></i><?= (int)$bill['grn_count'] ?> / <?= $lineCount ?> GRN</div>
                             </td>
                             <td class="text-center">
-                                <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id']) ?>"
-                                   class="btn btn-sm <?= $bill['mapped_count'] === $lineCount ? 'btn-outline-primary' : 'btn-warning text-dark fw-bold' ?>">
-                                    <i class="bi <?= $bill['mapped_count'] === $lineCount ? 'bi-pencil-square' : 'bi-diagram-3-fill' ?> me-1"></i>
-                                    <?= $bill['mapped_count'] === $lineCount ? 'Edit Bill' : 'Map Bill' ?>
-                                </a>
+                                <div class="d-inline-flex gap-1.5 align-items-center">
+                                    <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id']) ?>"
+                                       class="btn btn-sm <?= $bill['mapped_count'] === $lineCount ? 'btn-outline-primary' : 'btn-warning text-dark fw-bold' ?>">
+                                        <i class="bi <?= $bill['mapped_count'] === $lineCount ? 'bi-pencil-square' : 'bi-diagram-3-fill' ?> me-1"></i>
+                                        <?= $bill['mapped_count'] === $lineCount ? 'Edit Bill' : 'Map Bill' ?>
+                                    </a>
+                                    <?php if ($bill['mapped_count'] > 0): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                onclick="unmapBill(<?= (int)$bill['purchase_id'] ?>, '<?= e(addslashes($bill['purchase_number'])) ?>')"
+                                                title="Delete mapping and mark all items as unmapped">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -220,3 +236,37 @@
         </table>
     </div>
 </div>
+
+<script>
+function unmapItem(itemId, itemName) {
+    if (!confirm(`Are you sure you want to delete the mapping for '${itemName}'? It will automatically be marked as unmapped.`)) {
+        return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '<?= url('purchases/mapping/unmap/') ?>' + itemId;
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = '<?= CSRF::token() ?>';
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function unmapBill(billId, billNumber) {
+    if (!confirm(`Are you sure you want to delete all mappings for purchase bill #${billNumber}? All items will automatically be marked as unmapped.`)) {
+        return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '<?= url('purchases/mapping/unmap-bill/') ?>' + billId;
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrf_token';
+    csrf.value = '<?= CSRF::token() ?>';
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>

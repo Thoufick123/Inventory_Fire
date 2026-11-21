@@ -80,36 +80,64 @@ $parsedAttrs = $activeItem['parsed_attributes'] ?? [];
 $activeStyleCode = $parsedAttrs['style_code'] ?? ($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'GRM-STY-' . sprintf('%04d', $activeItemId)));
 $activeStyleName = $parsedAttrs['style_name'] ?? $activeItem['item_name'];
 
-// Parse multiple colors if present
+// Parse multiple colors if present - extract from all available sources
 $activeColors = [];
 if (!empty($parsedAttrs['colors']) && is_array($parsedAttrs['colors'])) {
-    $activeColors = $parsedAttrs['colors'];
-} elseif (!empty($activeItem['color'])) {
-    $activeColors = array_filter(array_map('trim', explode(',', $activeItem['color'])));
-} elseif (!empty($existingVariants)) {
-    foreach ($existingVariants as $ev) {
-        if (!empty($ev['color']) && !in_array($ev['color'], $activeColors, true)) {
-            $activeColors[] = $ev['color'];
+    foreach ($parsedAttrs['colors'] as $c) {
+        $c = trim((string)$c);
+        if ($c !== '' && !in_array($c, $activeColors, true)) {
+            $activeColors[] = $c;
         }
     }
 }
+if (!empty($activeItem['color'])) {
+    foreach (explode(',', (string)$activeItem['color']) as $c) {
+        $c = trim($c);
+        if ($c !== '' && !in_array($c, $activeColors, true)) {
+            $activeColors[] = $c;
+        }
+    }
+}
+if (!empty($existingVariants)) {
+    foreach ($existingVariants as $ev) {
+        $c = trim((string)($ev['color'] ?? ''));
+        if ($c !== '' && !in_array($c, $activeColors, true)) {
+            $activeColors[] = $c;
+        }
+    }
+}
+$activeColors = array_values(array_filter(array_map('trim', $activeColors), fn($v) => $v !== ''));
 if (empty($activeColors)) {
-    $activeColors = [!empty($activeItem['color']) ? trim($activeItem['color']) : 'Blue'];
+    $activeColors = ['Blue'];
 }
 
-// Parse sizes
+// Parse sizes - extract from all available sources
 $selectedSizes = [];
 if (!empty($parsedAttrs['sizes']) && is_array($parsedAttrs['sizes'])) {
-    $selectedSizes = $parsedAttrs['sizes'];
-} elseif (!empty($activeItem['size'])) {
-    $selectedSizes = array_map('trim', explode(',', $activeItem['size']));
-} elseif (!empty($existingVariants)) {
-    foreach ($existingVariants as $ev) {
-        if (!empty($ev['size']) && !in_array($ev['size'], $selectedSizes, true)) {
-            $selectedSizes[] = $ev['size'];
+    foreach ($parsedAttrs['sizes'] as $s) {
+        $s = trim((string)$s);
+        if ($s !== '' && !in_array($s, $selectedSizes, true)) {
+            $selectedSizes[] = $s;
         }
     }
 }
+if (!empty($activeItem['size'])) {
+    foreach (explode(',', (string)$activeItem['size']) as $s) {
+        $s = trim($s);
+        if ($s !== '' && !in_array($s, $selectedSizes, true)) {
+            $selectedSizes[] = $s;
+        }
+    }
+}
+if (!empty($existingVariants)) {
+    foreach ($existingVariants as $ev) {
+        $s = trim((string)($ev['size'] ?? ''));
+        if ($s !== '' && !in_array($s, $selectedSizes, true)) {
+            $selectedSizes[] = $s;
+        }
+    }
+}
+$selectedSizes = array_values(array_filter(array_map('trim', $selectedSizes), fn($v) => $v !== ''));
 if (empty($selectedSizes)) {
     $selectedSizes = ['S', 'M', 'L'];
 }
@@ -619,10 +647,25 @@ tr.table-danger, tr.table-danger > td {
                                         </div>
                                     </div>
 
-                                    <!-- Standard Color Toggle Buttons -->
+                                    <!-- Standard & Custom Color Toggle Buttons -->
+                                    <?php
+                                    $customColors = [];
+                                    foreach ($activeColors as $ac) {
+                                        $matched = false;
+                                        foreach ($standardColors as $sc) {
+                                            if (strtolower(trim($sc)) === strtolower(trim($ac))) {
+                                                $matched = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!$matched && trim($ac) !== '') {
+                                            $customColors[] = trim($ac);
+                                        }
+                                    }
+                                    ?>
                                     <div class="d-flex flex-wrap my-3" id="containerColorPills" style="row-gap: 12px; column-gap: 8px;">
                                         <?php foreach ($standardColors as $col): ?>
-                                            <?php $isColChecked = in_array(strtolower($col), array_map('strtolower', $activeColors), true); ?>
+                                            <?php $isColChecked = in_array(strtolower(trim($col)), array_map('strtolower', array_map('trim', $activeColors)), true); ?>
                                             <div class="form-check form-check-inline m-0">
                                                 <input class="btn-check color-checkbox" type="checkbox"
                                                        id="color_pill_<?= md5($col) ?>" name="colors[]"
@@ -631,6 +674,17 @@ tr.table-danger, tr.table-danger > td {
                                                 <label class="btn btn-sm <?= $isColChecked ? 'btn-primary' : 'btn-outline-secondary' ?> px-3 py-1 fw-bold"
                                                        for="color_pill_<?= md5($col) ?>">
                                                     <?= e($col) ?>
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($customColors as $cCol): ?>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="btn-check color-checkbox" type="checkbox"
+                                                       id="color_pill_<?= md5($cCol) ?>" name="colors[]"
+                                                       value="<?= e($cCol) ?>" autocomplete="off" checked>
+                                                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold"
+                                                       for="color_pill_<?= md5($cCol) ?>">
+                                                    <?= e($cCol) ?>
                                                 </label>
                                             </div>
                                         <?php endforeach; ?>
@@ -662,10 +716,25 @@ tr.table-danger, tr.table-danger > td {
                                         </div>
                                     </div>
 
-                                    <!-- Standard Size Toggle Buttons -->
+                                    <!-- Standard & Custom Size Toggle Buttons -->
+                                    <?php
+                                    $customSizes = [];
+                                    foreach ($selectedSizes as $ss) {
+                                        $matched = false;
+                                        foreach ($standardSizes as $stz) {
+                                            if (strtolower(trim($stz)) === strtolower(trim($ss))) {
+                                                $matched = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!$matched && trim($ss) !== '') {
+                                            $customSizes[] = trim($ss);
+                                        }
+                                    }
+                                    ?>
                                     <div class="d-flex flex-wrap my-3" id="containerSizePills" style="row-gap: 12px; column-gap: 8px;">
                                         <?php foreach ($standardSizes as $size): ?>
-                                            <?php $isSizeChecked = in_array($size, $selectedSizes, true); ?>
+                                            <?php $isSizeChecked = in_array(strtolower(trim($size)), array_map('strtolower', array_map('trim', $selectedSizes)), true); ?>
                                             <div class="form-check form-check-inline m-0">
                                                 <input class="btn-check size-checkbox" type="checkbox"
                                                        id="size_pill_<?= md5($size) ?>" name="sizes[]"
@@ -674,6 +743,17 @@ tr.table-danger, tr.table-danger > td {
                                                 <label class="btn btn-sm <?= $isSizeChecked ? 'btn-primary' : 'btn-outline-secondary' ?> px-3 py-1 fw-bold"
                                                        for="size_pill_<?= md5($size) ?>">
                                                     <?= e($size) ?>
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($customSizes as $cSize): ?>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="btn-check size-checkbox" type="checkbox"
+                                                       id="size_pill_<?= md5($cSize) ?>" name="sizes[]"
+                                                       value="<?= e($cSize) ?>" autocomplete="off" checked>
+                                                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold"
+                                                       for="size_pill_<?= md5($cSize) ?>">
+                                                    <?= e($cSize) ?>
                                                 </label>
                                             </div>
                                         <?php endforeach; ?>
@@ -782,6 +862,11 @@ tr.table-danger, tr.table-danger > td {
                     <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary px-3">
                         <i class="bi bi-x-circle me-1"></i>Cancel
                     </a>
+                    <?php if (!empty($activeItem['is_mapped'])): ?>
+                        <button type="button" class="btn btn-outline-danger px-3 fw-bold" id="btnUnmapItem" onclick="unmapActiveItem()">
+                            <i class="bi bi-trash me-1"></i>Delete Mapping (Unmap)
+                        </button>
+                    <?php endif; ?>
                     <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm" id="btnSaveComplete">
                         <i class="bi bi-check-circle-fill me-1"></i>Save &amp; Complete Mapping
                     </button>
@@ -1247,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', function () {
             sizes.forEach(sz => {
                 const rowKey = `${sz}__${col}`;
                 const existingState = stateMap[rowKey];
-                const preExisting = preExistingVariants.find(v => v.size === sz && (!v.color || v.color.toLowerCase() === col.toLowerCase()));
+                const preExisting = preExistingVariants.find(v => (v.size || '').trim().toLowerCase() === (sz || '').trim().toLowerCase() && (!v.color || !col || (v.color || '').trim().toLowerCase() === (col || '').trim().toLowerCase()));
 
                 let defaultSku = `${baseStyleCode}-${sz}`;
                 if (colors.length > 1) {
@@ -1824,11 +1909,92 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     });
 
+    // Auto-restore colors and sizes from preExistingVariants if none currently checked
+    if (getSelectedSizes().length === 0 && Array.isArray(preExistingVariants) && preExistingVariants.length > 0) {
+        preExistingVariants.forEach(v => {
+            const sz = (v.size || '').trim();
+            if (!sz) return;
+            let found = false;
+            containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => {
+                if (cb.value.trim().toLowerCase() === sz.toLowerCase()) {
+                    cb.checked = true;
+                    found = true;
+                }
+            });
+            if (!found) {
+                const safeId = 'size_pill_' + btoa(sz).replace(/=/g, '');
+                const div = document.createElement('div');
+                div.className = 'form-check form-check-inline m-0';
+                div.innerHTML = `
+                    <input class="btn-check size-checkbox" type="checkbox" id="${safeId}" name="sizes[]" value="${sz}" checked autocomplete="off">
+                    <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${sz}</label>
+                `;
+                containerSizePills.appendChild(div);
+            }
+        });
+    }
+
+    if (getSelectedColors().length === 0 && Array.isArray(preExistingVariants) && preExistingVariants.length > 0) {
+        preExistingVariants.forEach(v => {
+            const col = (v.color || '').trim();
+            if (!col) return;
+            let found = false;
+            containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => {
+                if (cb.value.trim().toLowerCase() === col.toLowerCase()) {
+                    cb.checked = true;
+                    found = true;
+                }
+            });
+            if (!found) {
+                const safeId = 'color_pill_' + btoa(col).replace(/=/g, '');
+                const div = document.createElement('div');
+                div.className = 'form-check form-check-inline m-0';
+                div.innerHTML = `
+                    <input class="btn-check color-checkbox" type="checkbox" id="${safeId}" name="colors[]" value="${col}" checked autocomplete="off">
+                    <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${col}</label>
+                `;
+                containerColorPills.appendChild(div);
+            }
+        });
+    }
+
     // Initial Matrix Render
     updateColorPillStyles();
     updateSizePillStyles();
     rebuildVariantMatrix();
     updateCategoryComplementaryHelp();
     updateHierarchySummary();
+
+    window.unmapActiveItem = function() {
+        if (!confirm("Are you sure you want to delete the mapping for '<?= e(addslashes($activeItem['item_name'])) ?>'? It will automatically be marked as unmapped.")) {
+            return;
+        }
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '<?= url('purchases/mapping/unmap/' . $activeItemId) ?>';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '<?= CSRF::token() ?>';
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    };
+
+    window.unmapSpecificItem = function(itemId, itemName) {
+        if (!confirm(`Are you sure you want to delete the mapping for '${itemName}'? It will automatically be marked as unmapped.`)) {
+            return;
+        }
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '<?= url('purchases/mapping/unmap/') ?>' + itemId;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '<?= CSRF::token() ?>';
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    };
 });
 </script>

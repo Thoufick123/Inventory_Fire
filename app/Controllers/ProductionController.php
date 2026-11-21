@@ -3786,6 +3786,48 @@ class ProductionController {
              ORDER BY id ASC",
             [(int)$activeItem['id']]
         );
+        if (empty($existingVariants) && !empty($activeItem['third_party_product_id'])) {
+            $existingVariants = Database::fetchAll(
+                "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active
+                 FROM third_party_product_variants
+                 WHERE third_party_product_id = ?
+                 ORDER BY id ASC",
+                [(int)$activeItem['third_party_product_id']]
+            );
+        }
+        if (empty($existingVariants) && !empty($activeItem['product_id'])) {
+            $pvRows = Database::fetchAll(
+                "SELECT pv.id, pv.sku, COALESCE(sz.name, 'Free Size') AS size, COALESCE(c.name, 'Default') AS color,
+                        0 AS allocated_qty, pv.mrp, pv.selling_price, pv.sku AS barcode, pv.is_complementary, 1 AS is_active
+                 FROM product_variants pv
+                 LEFT JOIN sizes sz ON sz.id = pv.size_id
+                 LEFT JOIN colors c ON c.id = pv.color_id
+                 WHERE pv.product_id = ?
+                 ORDER BY pv.id ASC",
+                [(int)$activeItem['product_id']]
+            );
+            if (!empty($pvRows)) {
+                $existingVariants = $pvRows;
+            }
+        }
+        if (empty($existingVariants) && !empty($activeItem['is_mapped'])) {
+            $itemSize = !empty($activeItem['size']) ? trim($activeItem['size']) : 'Free Size';
+            $itemColor = !empty($activeItem['color']) ? trim($activeItem['color']) : 'Default';
+            $itemSku = !empty($activeItem['product_code']) ? $activeItem['product_code'] : ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
+            $existingVariants = [[
+                'id' => 0,
+                'sku' => $itemSku,
+                'size' => $itemSize,
+                'color' => $itemColor,
+                'allocated_qty' => (float)$activeItem['quantity'],
+                'purchase_rate' => (float)$activeItem['unit_price'],
+                'mrp' => (float)($activeItem['mrp'] ?: ($activeItem['unit_price'] * 1.8)),
+                'selling_price' => (float)($activeItem['selling_price'] ?: ($activeItem['unit_price'] * 1.5)),
+                'barcode' => $itemSku,
+                'is_complementary' => !empty($activeItem['is_complementary']) ? 1 : 0,
+                'is_active' => 1
+            ]];
+        }
 
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
@@ -4579,6 +4621,9 @@ class ProductionController {
     /**
      * AJAX endpoint to delete an unmapped product line from the purchase bill.
      */
+    /**
+     * AJAX endpoint to delete a product line from the purchase bill.
+     */
     public function ajaxDeleteBillMappingProduct(string $id): void {
         $itemId = (int)$id;
         $item = Database::fetchOne("SELECT id, purchase_id, item_name, is_mapped FROM production_purchase_items WHERE id = ?", [$itemId]);
@@ -4586,15 +4631,13 @@ class ProductionController {
             Response::json(['success' => false, 'message' => 'Item not found.'], 404);
             return;
         }
-        if (!empty($item['is_mapped'])) {
-            Response::json(['success' => false, 'message' => 'Cannot delete an item that has already been mapped.'], 422);
-            return;
-        }
 
         $purchaseId = (int)$item['purchase_id'];
         $db = Database::getInstance();
         $db->beginTransaction();
         try {
+            // Delete variants if mapped
+            $db->prepare("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?")->execute([$itemId]);
             $db->prepare("DELETE FROM production_purchase_items WHERE id = ?")->execute([$itemId]);
             $db->prepare("
                 UPDATE production_purchases
@@ -4608,6 +4651,159 @@ class ProductionController {
         } catch (Throwable $e) {
             $db->rollBack();
             Response::json(['success' => false, 'message' => 'Error deleting product: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Unmap / Delete Mapping for a specific purchase item.
+     * Reverts item to unmapped state (is_mapped = 0) and deletes its mapped variants.
+     */
+    public function unmapPurchaseItem(string $id): void {
+        $itemId = (int)$id;
+        $item = Database::fetchOne("SELECT id, purchase_id, item_name, is_mapped FROM production_purchase_items WHERE id = ?", [$itemId]);
+        if (!$item) {
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => 'Item not found.'], 404);
+                return;
+            }
+            Session::flash('error', 'Item not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$item['purchase_id'];
+        $db = Database::getInstance();
+        $db->beginTransaction();
+        try {
+            // 1. Delete variants created for this purchase item
+            $db->prepare("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?")->execute([$itemId]);
+
+            // 2. Reset mapping fields on production_purchase_items
+            $db->prepare("
+                UPDATE production_purchase_items
+                SET is_mapped = 0,
+                    mapped_category_id = NULL,
+                    mapped_subcategory_id = NULL,
+                    mapped_sub_subcategory_id = NULL,
+                    mapped_third_party_category_id = NULL,
+                    mapped_third_party_subcategory_id = NULL,
+                    mapped_third_party_sub_subcategory_id = NULL,
+                    third_party_product_id = NULL,
+                    mapped_attributes = NULL,
+                    mrp = 0.00,
+                    selling_price = 0.00,
+                    color = NULL,
+                    size = NULL,
+                    is_complementary = 0,
+                    mapped_at = NULL,
+                    mapped_by = NULL
+                WHERE id = ?
+            ")->execute([$itemId]);
+
+            // 3. Audit log
+            try {
+                AuditService::log('purchases', 'DELETE', 'production_purchase_items', $itemId, null, [
+                    'action' => 'unmap_third_party_mapping',
+                    'item_name' => $item['item_name'],
+                    'purchase_id' => $purchaseId
+                ]);
+            } catch (\Throwable $e) {}
+
+            $db->commit();
+
+            if (Request::isAjax()) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Mapping deleted. Product '{$item['item_name']}' is now unmapped.",
+                    'purchase_id' => $purchaseId,
+                    'item_id' => $itemId
+                ]);
+                return;
+            }
+
+            Session::flash('success', "Mapping deleted. Product '{$item['item_name']}' is now unmapped.");
+            Response::redirect(url('purchases/mapping/bill/' . $purchaseId . '?item_id=' . $itemId));
+        } catch (Throwable $e) {
+            $db->rollBack();
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => 'Error unmapping product: ' . $e->getMessage()], 500);
+                return;
+            }
+            Session::flash('error', 'Error unmapping product: ' . $e->getMessage());
+            Response::redirect(url('purchases/mapping/bill/' . $purchaseId . '?item_id=' . $itemId));
+        }
+    }
+
+    /**
+     * Unmap / Delete Mapping for an entire purchase bill.
+     * Reverts all third-party items on this bill to unmapped state (is_mapped = 0).
+     */
+    public function unmapPurchaseBill(string $id): void {
+        $purchaseId = (int)$id;
+        $items = Database::fetchAll("SELECT id, item_name FROM production_purchase_items WHERE purchase_id = ? AND item_type = 'THIRD_PARTY'", [$purchaseId]);
+        if (empty($items)) {
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => 'No third-party product items found on this bill.'], 404);
+                return;
+            }
+            Session::flash('error', 'No third-party product items found on this bill.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+        try {
+            foreach ($items as $it) {
+                $itemId = (int)$it['id'];
+                $db->prepare("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?")->execute([$itemId]);
+                $db->prepare("
+                    UPDATE production_purchase_items
+                    SET is_mapped = 0,
+                        mapped_category_id = NULL,
+                        mapped_subcategory_id = NULL,
+                        mapped_sub_subcategory_id = NULL,
+                        mapped_third_party_category_id = NULL,
+                        mapped_third_party_subcategory_id = NULL,
+                        mapped_third_party_sub_subcategory_id = NULL,
+                        third_party_product_id = NULL,
+                        mapped_attributes = NULL,
+                        mrp = 0.00,
+                        selling_price = 0.00,
+                        color = NULL,
+                        size = NULL,
+                        is_complementary = 0,
+                        mapped_at = NULL,
+                        mapped_by = NULL
+                    WHERE id = ?
+                ")->execute([$itemId]);
+            }
+
+            try {
+                AuditService::log('purchases', 'DELETE', 'production_purchases', $purchaseId, null, [
+                    'action' => 'unmap_purchase_bill_all_items',
+                    'purchase_id' => $purchaseId,
+                    'items_count' => count($items)
+                ]);
+            } catch (\Throwable $e) {}
+
+            $db->commit();
+
+            if (Request::isAjax()) {
+                Response::json(['success' => true, 'message' => "All mapped items for this bill have been reset to unmapped."]);
+                return;
+            }
+
+            Session::flash('success', "All mapped items for this bill have been reset to unmapped.");
+            Response::redirect(url('purchases/mapping'));
+        } catch (Throwable $e) {
+            $db->rollBack();
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => 'Error unmapping bill: ' . $e->getMessage()], 500);
+                return;
+            }
+            Session::flash('error', 'Error unmapping bill: ' . $e->getMessage());
+            Response::redirect(url('purchases/mapping'));
         }
     }
 
