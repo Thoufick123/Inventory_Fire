@@ -1,18 +1,14 @@
 <?php
 /**
- * Production HSN Config – View (Read-only) View
+ * Production HSN Config – View (Read-only)
  */
-$activeModule = $activeModule ?? 'production';
-$activeMenu   = $activeMenu   ?? 'production-hsn-config';
-ob_start();
 ?>
-
 <div class="container-fluid py-4">
 
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="mb-0 fw-semibold">HSN Code Details</h4>
+            <h4 class="mb-0 fw-semibold"><i class="bi bi-eye me-2 text-primary"></i>HSN Code Details</h4>
             <small class="text-muted">View Production HSN Config entry</small>
         </div>
         <div class="d-flex gap-2">
@@ -42,7 +38,7 @@ ob_start();
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-4 text-muted">HSN Code</dt>
-                        <dd class="col-sm-8 fw-semibold"><?= htmlspecialchars($record['hsn_code']) ?></dd>
+                        <dd class="col-sm-8 fw-semibold font-monospace"><?= htmlspecialchars($record['hsn_code']) ?></dd>
 
                         <dt class="col-sm-4 text-muted">GST Percentage</dt>
                         <dd class="col-sm-8"><?= number_format((float)$record['gst_percentage'], 2) ?>%</dd>
@@ -79,8 +75,3 @@ ob_start();
         </div>
     </div>
 </div>
-
-<?php
-$pageContent = ob_get_clean();
-$pageTitle   = 'View HSN Code | Production';
-require BASE_PATH . '/views/layouts/main.php';

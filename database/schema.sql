@@ -1,7 +1,7 @@
 -- ============================================================
 -- GRM INVENTORY SOFTWARE - SAFE ADDITIVE MASTER SCHEMA
--- Generated: 2026-11-20
--- Tables: 93 (Master Complete Database Schema & Safe Migration)
+-- Generated: 2026-11-21
+-- Tables: 94 (Master Complete Database Schema & Safe Migration)
 -- Existing-database upgrade: creates missing tables and adds missing columns/indexes.
 -- Does not drop tables, delete rows, or insert seed/demo users.
 -- Review and back up the live database before importing.
@@ -798,6 +798,28 @@ CREATE TABLE IF NOT EXISTS `production_expenses` (
   KEY `idx_production_expenses_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- ------------------------------------------------------------
+-- Table structure for `production_hsn_config`
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `production_hsn_config` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `hsn_code` varchar(8) NOT NULL,
+  `gst_percentage` decimal(5,2) DEFAULT 0.00,
+  `categories` varchar(255) DEFAULT NULL,
+  `subcategories` varchar(255) DEFAULT NULL,
+  `sub_subcategories` varchar(255) DEFAULT NULL,
+  `product` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_hsn_code` (`hsn_code`),
+  KEY `idx_phc_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- ------------------------------------------------------------
 -- [31/91] Table structure for `production_outward_batches`
 -- ------------------------------------------------------------
@@ -1113,7 +1135,7 @@ CREATE TABLE IF NOT EXISTS `production_returns` (
   `gst_reversal_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `net_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `status` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
-  `refund_mode` enum('CASH','UPI','BANK_TRANSFER','STORE_CREDIT','NONE') NOT NULL DEFAULT 'STORE_CREDIT',
+  `refund_mode` enum('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT 'STORE_CREDIT',
   `notes` text DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -2197,6 +2219,10 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
   `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
   `barcode` varchar(100) DEFAULT NULL,
+  `third_party_category_id` int(10) unsigned DEFAULT NULL,
+  `third_party_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `hsn_code` varchar(20) DEFAULT NULL,
   `is_complementary` tinyint(1) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -2205,6 +2231,10 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   KEY `idx_tppv_product` (`third_party_product_id`),
   KEY `idx_tppv_item` (`purchase_item_id`),
   KEY `idx_tppv_sku` (`sku`),
+  KEY `idx_tppv_third_party_cat` (`third_party_category_id`),
+  KEY `idx_tppv_third_party_subcat` (`third_party_subcategory_id`),
+  KEY `idx_tppv_third_party_sub_subcat` (`third_party_sub_subcategory_id`),
+  KEY `idx_tppv_hsn_code` (`hsn_code`),
   CONSTRAINT `third_party_product_variants_ibfk_1` FOREIGN KEY (`third_party_product_id`) REFERENCES `third_party_products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -3392,7 +3422,7 @@ DEALLOCATE PREPARE schema_stmt;
 SET @schema_sql = IF(
   EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'purchase_type'),
   'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `purchase_type` enum(''FABRIC_ROLL'',''RAW_MATERIAL'',''THIRD_PARTY'',''OWN_PRODUCT'') NOT NULL DEFAULT ''FABRIC_ROLL'''
+  'ALTER TABLE `production_purchases` ADD COLUMN `purchase_type` enum(''FABRIC_ROLL'',''RAW_MATERIAL'',''THIRD_PARTY'',''OWN_PRODUCT'',''MIXED'') NOT NULL DEFAULT ''FABRIC_ROLL'''
 );
 PREPARE schema_stmt FROM @schema_sql;
 EXECUTE schema_stmt;
@@ -4270,6 +4300,175 @@ PREPARE schema_stmt FROM @schema_sql;
 EXECUTE schema_stmt;
 DEALLOCATE PREPARE schema_stmt;
 
+
+-- Additional dynamic safe alterations from incremental migrations
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_category_id'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_category_id` int(10) unsigned DEFAULT NULL AFTER `barcode`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_subcategory_id'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_subcategory_id` int(10) unsigned DEFAULT NULL AFTER `third_party_category_id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_sub_subcategory_id'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL AFTER `third_party_subcategory_id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'hsn_code'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `hsn_code` varchar(20) DEFAULT NULL AFTER `third_party_sub_subcategory_id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_cat'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_cat` (`third_party_category_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_subcat'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_subcat` (`third_party_subcategory_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_sub_subcat'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_sub_subcat` (`third_party_sub_subcategory_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_hsn_code'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_hsn_code` (`hsn_code`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND COLUMN_NAME = 'concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `sellers` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND INDEX_NAME = 'idx_sellers_concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `sellers` ADD INDEX `idx_sellers_concern_id` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND COLUMN_NAME = 'concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `seller_rolls` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND INDEX_NAME = 'idx_seller_rolls_concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `seller_rolls` ADD INDEX `idx_seller_rolls_concern_id` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assets' AND COLUMN_NAME = 'concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `assets` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assets' AND INDEX_NAME = 'idx_assets_concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `assets` ADD INDEX `idx_assets_concern_id` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asset_maintenance_logs' AND COLUMN_NAME = 'concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `asset_maintenance_logs` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asset_maintenance_logs' AND INDEX_NAME = 'idx_asset_maintenance_logs_concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `asset_maintenance_logs` ADD INDEX `idx_asset_maintenance_logs_concern_id` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_warehouse_reworks' AND COLUMN_NAME = 'concern_id'),
+  'SELECT 1',
+  'ALTER TABLE `production_warehouse_reworks` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_warehouse_reworks' AND INDEX_NAME = 'idx_prod_wh_reworks_concern'),
+  'SELECT 1',
+  'ALTER TABLE `production_warehouse_reworks` ADD INDEX `idx_prod_wh_reworks_concern` (`concern_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qr_generations' AND COLUMN_NAME = 'qr_source'),
+  'SELECT 1',
+  'ALTER TABLE `qr_generations` ADD COLUMN `qr_source` varchar(30) DEFAULT \'CATALOG\' AFTER `batch_number`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qr_generations' AND INDEX_NAME = 'idx_qr_generations_source'),
+  'SELECT 1',
+  'ALTER TABLE `qr_generations` ADD INDEX `idx_qr_generations_source` (`qr_source`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
 -- Compatible data-preserving type expansions from later migrations.
 ALTER TABLE `cutting_items` MODIFY COLUMN `weight_per_piece` decimal(10,4) DEFAULT 0.0000;
 ALTER TABLE `stitching_items` MODIFY COLUMN `weight_per_piece` decimal(10,4) DEFAULT 0.0000;
@@ -4280,5 +4479,40 @@ ALTER TABLE `production_stock_requests` MODIFY COLUMN `status` enum('PENDING','R
 ALTER TABLE `roll_damages` MODIFY COLUMN `status` enum('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED') NOT NULL DEFAULT 'LOGGED';
 ALTER TABLE `shop_damages` MODIFY COLUMN `status` enum('LOGGED','INSPECTED','SALVAGED','WRITTEN_OFF','REPAIRED','RETURN_TO_WH','REWORK','CANCELLED') DEFAULT 'LOGGED';
 ALTER TABLE `product_variants` MODIFY COLUMN `attr_hash` varchar(64) DEFAULT NULL;
+ALTER TABLE `returns` MODIFY COLUMN `refund_mode` enum('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL;
+ALTER TABLE `purchase_inwards` MODIFY COLUMN `purchase_order_id` int(10) unsigned DEFAULT NULL;
+ALTER TABLE `production_purchases` MODIFY COLUMN `purchase_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','MIXED') NOT NULL DEFAULT 'FABRIC_ROLL';
+
+-- Backfill Legacy Data to Default Concern (Concern ID = 1)
+UPDATE `production_purchases` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `cutting_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `production_bills` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `production_programs` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `production_units` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `qc_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `roll_damages` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `stitching_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `stock_balances` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `stock_transactions` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `warehouses` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `qr_generations` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `sellers` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `seller_rolls` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `assets` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `asset_maintenance_logs` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+UPDATE `production_warehouse_reworks` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
+
+-- Deactivate built-in starter categories
+UPDATE `categories`
+SET `is_active` = 0
+WHERE `is_active` = 1
+  AND (
+    (`code` = 'KW' AND `slug` = 'kids-wear')
+    OR (`code` = 'MW' AND `slug` = 'mens-wear')
+    OR (`code` = 'WW' AND `slug` = 'womens-wear')
+    OR (`code` = 'BW' AND `slug` = 'baby-wear')
+    OR (`code` = 'ACC' AND `slug` = 'accessories-other')
+  );
+
 
 SET FOREIGN_KEY_CHECKS = 1;

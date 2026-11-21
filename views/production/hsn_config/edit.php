@@ -2,15 +2,10 @@
 /**
  * Production HSN Config – Edit View
  */
-$activeModule = $activeModule ?? 'production';
-$activeMenu   = $activeMenu   ?? 'production-hsn-config';
-ob_start();
 ?>
-
 <div class="container-fluid py-4">
 
-    <!-- Flash Messages -->
-    <?php if ($error = \Session::getFlash('error')): ?>
+    <?php if ($error = Session::getFlash('error')): ?>
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             <?= htmlspecialchars($error) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -20,7 +15,7 @@ ob_start();
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="mb-0 fw-semibold">Edit HSN Code</h4>
+            <h4 class="mb-0 fw-semibold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit HSN Code</h4>
             <small class="text-muted">Update Production HSN Config entry</small>
         </div>
         <a href="<?= url('production/hsn-config') ?>" class="btn btn-outline-secondary">
@@ -49,7 +44,7 @@ ob_start();
                                 HSN Code <span class="text-danger">*</span>
                             </label>
                             <input type="text"
-                                   class="form-control"
+                                   class="form-control font-monospace"
                                    id="hsn_code"
                                    name="hsn_code"
                                    maxlength="8"
@@ -57,7 +52,7 @@ ob_start();
                                    inputmode="numeric"
                                    placeholder="Enter exactly 8 digit number e.g. 61091000"
                                    value="<?= htmlspecialchars($record['hsn_code']) ?>"
-                                   required>
+                                   required autofocus>
                             <div class="form-text">Exactly 8 digits, numbers only.</div>
                         </div>
 
@@ -163,8 +158,3 @@ function validateHsnForm(form) {
     return true;
 }
 </script>
-
-<?php
-$pageContent = ob_get_clean();
-$pageTitle   = 'Edit HSN Code | Production';
-require BASE_PATH . '/views/layouts/main.php';
