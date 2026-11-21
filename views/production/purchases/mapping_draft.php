@@ -59,9 +59,28 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 </div>
 
 <?php if ($bill['status'] === 'READY'): ?>
-    <div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Waiting for Purchases to record this supplier and invoice. Saved products will then be linked automatically.</div>
+    <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <i class="bi bi-info-circle-fill me-2"></i>This mapping entry is ready. Click <strong>Move to Purchase Now</strong> to create the purchase bill in the Purchases module immediately.
+        </div>
+        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0">
+            <?= CSRF::field() ?>
+            <button class="btn btn-sm btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>>
+                <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase Now
+            </button>
+        </form>
+    </div>
 <?php elseif ($bill['status'] === 'MOVED'): ?>
-    <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Products were linked to the matching purchase bill.</div>
+    <div class="alert alert-success d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <i class="bi bi-check-circle-fill me-2"></i>Products were moved and linked to Purchase <strong><?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?></strong>.
+        </div>
+        <?php if (!empty($bill['purchase_id'])): ?>
+            <a href="<?= url('purchases/view/' . (int)$bill['purchase_id']) ?>" class="btn btn-sm btn-primary">
+                <i class="bi bi-eye me-1"></i>View Purchase Bill
+            </a>
+        <?php endif; ?>
+    </div>
 <?php endif; ?>
 
 <?php if ($bill['status'] === 'DRAFT'): ?>
@@ -160,7 +179,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                 <?php if ($bill['status'] === 'MOVED'): ?>
                     Linked to the purchase already. You can still generate QR batches for variants that do not have one.
                 <?php else: ?>
-                    Products can be saved and stocked now. Move to Purchase when this invoice should be linked, or it will match automatically when the Purchases user enters the same supplier and invoice.
+                    Click <strong>Move to Purchase</strong> to create or link this bill in the Purchases module.
                 <?php endif; ?>
             </div>
             <div class="d-flex align-items-center flex-wrap gap-2">
@@ -171,7 +190,12 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     </button>
                 </form>
                 <?php if ($bill['status'] !== 'MOVED'): ?>
-                    <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Mark this mapping entry ready to link to a purchase with the same supplier and invoice?')">
+                    <?php if (!empty($candidatePurchases)): ?>
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#linkExistingPurchaseModal" <?= !$items ? 'disabled' : '' ?>>
+                            <i class="bi bi-link-45deg me-1"></i>Link to Existing Purchase
+                        </button>
+                    <?php endif; ?>
+                    <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Move this mapping invoice to Purchases? It will create or link the purchase order.')">
                         <?= CSRF::field() ?>
                         <button class="btn btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>><i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase</button>
                     </form>
@@ -180,6 +204,40 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         </div>
     <?php endif; ?>
 </div>
+
+<?php if ($bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
+<div class="modal fade" id="linkExistingPurchaseModal" tabindex="-1" aria-labelledby="linkExistingPurchaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>">
+            <?= CSRF::field() ?>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="linkExistingPurchaseModalLabel"><i class="bi bi-link-45deg me-1 text-primary"></i>Link to Existing Purchase</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">Select an existing purchase order from <strong><?= e($bill['seller_company'] ?: $bill['seller_name']) ?></strong> to attach these mapped products to:</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Existing Purchase Order</label>
+                        <select name="target_purchase_id" class="form-select" required>
+                            <option value="">-- Choose Purchase Order --</option>
+                            <?php foreach ($candidatePurchases as $cand): ?>
+                                <option value="<?= (int)$cand['id'] ?>">
+                                    <?= e($cand['purchase_number']) ?> — <?= e(date('d M Y', strtotime($cand['purchase_date']))) ?><?= !empty($cand['invoice_number']) ? ' (Inv: ' . e($cand['invoice_number']) . ')' : '' ?> — ₹<?= number_format((float)$cand['total_amount'], 2) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Link Products to Selected Purchase</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 (function () {

@@ -27,8 +27,34 @@
                         <td><?= (int)$draft['product_count'] ?></td>
                         <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
                         <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
-                        <td><?= !empty($draft['purchase_number']) ? e($draft['purchase_number']) : '<span class="text-muted">Not linked</span>' ?></td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>"><i class="bi bi-pencil-square me-1"></i>Open</a></td>
+                        <td>
+                            <?php if (!empty($draft['purchase_number'])): ?>
+                                <a href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" class="fw-bold font-monospace text-primary text-decoration-none" title="View Purchase Bill">
+                                    <i class="bi bi-receipt me-1"></i><?= e($draft['purchase_number']) ?>
+                                </a>
+                            <?php else: ?>
+                                <span class="badge bg-light text-muted border">Not linked</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-1 align-items-center">
+                                <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Open Mapping Invoice">
+                                    <i class="bi bi-pencil-square me-1"></i>Open
+                                </a>
+                                <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
+                                        <?= CSRF::field() ?>
+                                        <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
+                                            <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
+                                        </button>
+                                    </form>
+                                <?php elseif (!empty($draft['purchase_id'])): ?>
+                                    <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
+                                        <i class="bi bi-eye me-1"></i>View
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; endif; ?>
             </tbody>

@@ -3706,6 +3706,21 @@ class ProductionController {
         $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
         $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
 
+        $candidateScope = $cid !== null
+            ? ($cid === 1 ? ' AND (pp.concern_id = ? OR pp.concern_id IS NULL)' : ' AND pp.concern_id = ?')
+            : '';
+        $candidateParams = [(int)$bill['seller_id']];
+        if ($cid !== null) {
+            $candidateParams[] = $cid;
+        }
+        $candidatePurchases = Database::fetchAll(
+            "SELECT pp.id, pp.purchase_number, pp.invoice_number, pp.purchase_date, pp.total_amount
+             FROM production_purchases pp
+             WHERE pp.seller_id = ? AND pp.purchase_type IN ('THIRD_PARTY','MIXED') {$candidateScope}
+             ORDER BY pp.id DESC LIMIT 25",
+            $candidateParams
+        );
+
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
@@ -3715,6 +3730,7 @@ class ProductionController {
             'categories' => $categories,
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
+            'candidatePurchases' => $candidatePurchases,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
                 ['label' => 'Mapping Invoice ' . $bill['invoice_number']],
@@ -4048,10 +4064,10 @@ class ProductionController {
         $params = [$billId];
         $scope = '';
         if ($cid !== null) {
-            $scope = ' AND concern_id = ?';
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
             $params[] = $cid;
         }
-        $bill = Database::fetchOne("SELECT * FROM third_party_mapping_bills WHERE id = ? {$scope}", $params);
+        $bill = Database::fetchOne("SELECT mb.* FROM third_party_mapping_bills mb WHERE mb.id = ? {$scope}", $params);
         if (!$bill) {
             Session::flash('error', 'Mapping entry not found.');
             Response::redirect(url('purchases/mapping'));
@@ -4062,38 +4078,122 @@ class ProductionController {
             Response::redirect(url('purchases/mapping/draft/' . $billId));
             return;
         }
-        if ($bill['status'] === 'MOVED') {
-            Session::flash('info', 'This mapping entry was already moved to purchase ' . $bill['purchase_id'] . '.');
-            Response::redirect(url('purchases/mapping/draft/' . $billId));
+        if ($bill['status'] === 'MOVED' && !empty($bill['purchase_id'])) {
+            Session::flash('info', 'This mapping entry was already moved to purchase #' . $bill['purchase_id'] . '.');
+            Response::redirect(url('purchases'));
             return;
         }
 
         Database::execute("UPDATE third_party_mapping_bills SET status = 'READY' WHERE id = ?", [$billId]);
+
+        $targetPurchaseId = !empty($_POST['target_purchase_id']) ? (int)$_POST['target_purchase_id'] : 0;
+
+        if ($targetPurchaseId > 0) {
+            // User explicitly chose an existing purchase order to link with
+            try {
+                Database::beginTransaction();
+                $this->linkThirdPartyMappingDraftToPurchase($billId, $targetPurchaseId);
+                Database::commit();
+
+                $targetPurchase = Database::fetchOne("SELECT purchase_number FROM production_purchases WHERE id = ?", [$targetPurchaseId]);
+                $poNumber = $targetPurchase['purchase_number'] ?? ('#' . $targetPurchaseId);
+                Session::flash('success', "Products from mapping invoice {$bill['invoice_number']} were linked to purchase {$poNumber}.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) {
+                    Database::rollback();
+                }
+                Session::flash('error', 'Could not link this mapping entry to purchase: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
+            }
+        }
+
+        $concernCondition = ((int)$bill['concern_id'] === 1)
+            ? "(concern_id = ? OR concern_id IS NULL)"
+            : "concern_id = ?";
         $matches = Database::fetchAll(
-            "SELECT id FROM production_purchases
+            "SELECT id, purchase_number FROM production_purchases
              WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
-               AND concern_id = ? AND purchase_type IN ('THIRD_PARTY','MIXED')
+               AND {$concernCondition} AND purchase_type IN ('THIRD_PARTY','MIXED')
              ORDER BY id ASC",
             [(int)$bill['seller_id'], $bill['invoice_number'], (int)$bill['concern_id']]
         );
+
         if (count($matches) > 1) {
-            Session::flash('error', 'More than one purchase matches this supplier and invoice. Resolve the duplicate purchase records before moving this entry.');
+            Session::flash('error', 'More than one purchase matches this supplier and invoice. Select the specific purchase order or resolve duplicates.');
+            Response::redirect(url('purchases/mapping/draft/' . $billId));
+            return;
         } elseif (count($matches) === 1) {
             try {
                 Database::beginTransaction();
                 $this->linkThirdPartyMappingDraftToPurchase($billId, (int)$matches[0]['id']);
                 Database::commit();
-                Session::flash('success', 'Mapping products were added to the matching purchase bill.');
-            } catch (Throwable $e) {
+                $poNumber = $matches[0]['purchase_number'] ?? ('#' . $matches[0]['id']);
+                Session::flash('success', "Mapping products were added to matching purchase bill {$poNumber}.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
                 if (Database::inTransaction()) {
                     Database::rollback();
                 }
                 Session::flash('error', 'Could not move this mapping entry: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
             }
         } else {
-            Session::flash('info', 'Mapping saved as ready. It will be added automatically when Purchases records this supplier and invoice number.');
+            // No purchase matches this supplier and invoice yet.
+            // Automatically create a new purchase bill in production_purchases so it reaches Purchases immediately!
+            try {
+                Database::beginTransaction();
+                $concernId = (int)$bill['concern_id'] ?: (currentConcernId() ?: 1);
+                $sellerId = (int)$bill['seller_id'];
+                $invoiceNumber = trim((string)$bill['invoice_number']);
+                $purchaseDate = !empty($bill['created_at']) ? date('Y-m-d', strtotime($bill['created_at'])) : date('Y-m-d');
+                $userId = (int)(Session::get('user_id') ?? 0);
+
+                $concern = Database::fetchOne("SELECT po_prefix FROM concerns WHERE id = ?", [$concernId]);
+                $poPrefix = !empty($concern['po_prefix']) ? rtrim($concern['po_prefix'], '-') . '-' : 'PP-';
+
+                $tempNumber = 'TMP-PP-' . bin2hex(random_bytes(12));
+                Database::execute(
+                    "INSERT INTO production_purchases
+                        (concern_id, purchase_number, purchase_type, seller_id, purchase_date, invoice_number, notes, total_amount, created_by, created_at)
+                     VALUES (?, ?, 'THIRD_PARTY', ?, ?, ?, ?, 0, ?, NOW())",
+                    [
+                        $concernId,
+                        $tempNumber,
+                        $sellerId,
+                        $purchaseDate,
+                        $invoiceNumber !== '' ? $invoiceNumber : null,
+                        'Created from Purchase Item Mapping Invoice #' . $invoiceNumber,
+                        $userId ?: null,
+                    ]
+                );
+                $purchaseId = (int)Database::lastInsertId();
+                if ($purchaseId < 1) {
+                    throw new RuntimeException('Failed to create purchase record.');
+                }
+                $purchaseNumber = $poPrefix . date('Y', strtotime($purchaseDate)) . '-' . sprintf('%06d', $purchaseId);
+                Database::execute("UPDATE production_purchases SET purchase_number = ? WHERE id = ?", [$purchaseNumber, $purchaseId]);
+
+                // Link mapping items to the new purchase order
+                $this->linkThirdPartyMappingDraftToPurchase($billId, $purchaseId);
+                Database::commit();
+
+                Session::flash('success', "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) {
+                    Database::rollback();
+                }
+                Session::flash('error', 'Could not create purchase from mapping: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
+            }
         }
-        Response::redirect(url('purchases/mapping/draft/' . $billId));
     }
 
     private function linkThirdPartyMappingDraftToPurchase(int $mappingBillId, int $purchaseId): int {
@@ -4113,14 +4213,21 @@ class ProductionController {
         if ($bill['status'] !== 'READY') {
             throw new RuntimeException('Mark this mapping entry ready before linking it to a purchase.');
         }
+        $concernCondition = ((int)$bill['concern_id'] === 1)
+            ? "(concern_id = ? OR concern_id IS NULL)"
+            : "concern_id = ?";
         $purchase = Database::fetchOne(
-            "SELECT * FROM production_purchases WHERE id = ? AND seller_id = ? AND concern_id = ?",
+            "SELECT * FROM production_purchases WHERE id = ? AND seller_id = ? AND {$concernCondition}",
             [$purchaseId, (int)$bill['seller_id'], (int)$bill['concern_id']]
         );
         if (!$purchase
-            || strtoupper(trim((string)$bill['invoice_number'])) !== strtoupper(trim((string)($purchase['invoice_number'] ?? '')))
             || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED'], true)) {
-            throw new InvalidArgumentException('The purchase does not match the mapping supplier and invoice.');
+            throw new InvalidArgumentException('The selected purchase does not match the mapping supplier or type.');
+        }
+
+        // Auto-assign invoice number to the purchase if it was empty
+        if (empty($purchase['invoice_number']) && !empty($bill['invoice_number'])) {
+            Database::execute("UPDATE production_purchases SET invoice_number = ? WHERE id = ?", [$bill['invoice_number'], $purchaseId]);
         }
 
         $items = Database::fetchAll(
