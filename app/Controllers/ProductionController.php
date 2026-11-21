@@ -3728,6 +3728,11 @@ class ProductionController {
             Response::back();
             return;
         }
+        if (count($variants) > 100) {
+            Session::flash('error', 'Add no more than 100 variants to one product at a time.');
+            Response::back();
+            return;
+        }
 
         $styleCode = mb_strtoupper(trim((string)($_POST['product_code'] ?? '')));
         if (mb_strlen($productName) > 300 || mb_strlen($styleCode) > 50) {
@@ -3853,38 +3858,114 @@ class ProductionController {
             Response::back();
             return;
         }
-        $itemId = (int)$id;
-        $cid = currentConcernId();
-        $params = [$itemId];
-        $scope = '';
-        if ($cid !== null) {
-            $scope = $cid === 1 ? ' AND mb.concern_id = ?' : ' AND mb.concern_id = ?';
-            $params[] = $cid;
+        try {
+            $result = $this->generateThirdPartyMappingItemQr((int)$id, currentConcernId());
+            if (!$result['created']) {
+                Session::flash('info', 'A QR batch already exists for this product variant.');
+            } else {
+                Session::flash('success', "QR batch {$result['batch_code']} generated.");
+            }
+            Response::redirect(url('production/qr-generations/view/' . (int)$result['generation_id']));
+        } catch (Throwable $e) {
+            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
+            Response::redirect(url('purchases/mapping/draft/' . (int)($_POST['mapping_bill_id'] ?? 0)));
         }
-        Database::beginTransaction();
-        $item = Database::fetchOne(
-            "SELECT mi.*, mb.seller_id, s.name AS seller_name, s.company AS seller_company
-             FROM third_party_mapping_items mi
-             JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
-             JOIN sellers s ON s.id = mb.seller_id
-             WHERE mi.id = ? {$scope}
-             FOR UPDATE",
-            $params
-        );
-        if (!$item) {
-            Database::rollback();
-            Session::flash('error', 'Mapping product variant not found.');
-            Response::redirect(url('purchases/mapping'));
-            return;
-        }
-        if (!empty($item['qr_generation_id'])) {
-            Database::rollback();
-            Session::flash('info', 'A QR batch already exists for this product variant.');
-            Response::redirect(url('production/qr-generations/view/' . (int)$item['qr_generation_id']));
+    }
+
+    public function generateAllThirdPartyMappingDraftQrs(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::back();
             return;
         }
 
+        $mappingBillId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingBillId];
+        if ($cid !== null) {
+            $scope = ' AND concern_id = ?';
+            $params[] = $cid;
+        }
+        $bill = Database::fetchOne(
+            "SELECT id FROM third_party_mapping_bills WHERE id = ? {$scope}",
+            $params
+        );
+        if (!$bill) {
+            Session::flash('error', 'Mapping entry not found.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        $pendingItems = Database::fetchAll(
+            "SELECT id FROM third_party_mapping_items
+             WHERE mapping_bill_id = ? AND qr_generation_id IS NULL
+             ORDER BY id ASC",
+            [$mappingBillId]
+        );
+        if (!$pendingItems) {
+            Session::flash('info', 'All saved variants already have QR batches.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        $generatedCount = 0;
         try {
+            foreach ($pendingItems as $pendingItem) {
+                $result = $this->generateThirdPartyMappingItemQr((int)$pendingItem['id'], $cid);
+                if ($result['created']) {
+                    $generatedCount++;
+                }
+            }
+        } catch (Throwable $e) {
+            Session::flash(
+                'error',
+                "QR generation stopped after {$generatedCount} variant(s): " . $e->getMessage()
+            );
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        Session::flash('success', "QR batches generated for {$generatedCount} variant(s).");
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
+    private function generateThirdPartyMappingItemQr(int $itemId, ?int $concernId): array {
+        $params = [$itemId];
+        $scope = '';
+        if ($concernId !== null) {
+            $scope = ' AND mb.concern_id = ?';
+            $params[] = $concernId;
+        }
+
+        try {
+            Database::beginTransaction();
+            $item = Database::fetchOne(
+                "SELECT mi.*, mb.seller_id, s.name AS seller_name, s.company AS seller_company
+                 FROM third_party_mapping_items mi
+                 JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                 JOIN sellers s ON s.id = mb.seller_id
+                 WHERE mi.id = ? {$scope}
+                 FOR UPDATE",
+                $params
+            );
+            if (!$item) {
+                throw new InvalidArgumentException('Mapping product variant not found.');
+            }
+            if (!empty($item['qr_generation_id'])) {
+                $existingQr = Database::fetchOne(
+                    "SELECT batch_code FROM qr_generations WHERE id = ?",
+                    [(int)$item['qr_generation_id']]
+                );
+                Database::rollback();
+                return [
+                    'created' => false,
+                    'generation_id' => (int)$item['qr_generation_id'],
+                    'batch_code' => $existingQr['batch_code'] ?? null,
+                ];
+            }
+
             $result = QrGenerationService::generateCatalogQrs([
                 'product_id' => (int)$item['product_id'],
                 'variant_id' => (int)$item['variant_id'],
@@ -3916,14 +3997,16 @@ class ProductionController {
                 );
             }
             Database::commit();
-            Session::flash('success', "QR batch {$result['batch_code']} generated.");
-            Response::redirect(url('production/qr-generations/view/' . (int)$result['generation_id']));
+            return [
+                'created' => true,
+                'generation_id' => (int)$result['generation_id'],
+                'batch_code' => $result['batch_code'],
+            ];
         } catch (Throwable $e) {
             if (Database::inTransaction()) {
                 Database::rollback();
             }
-            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
-            Response::redirect(url('purchases/mapping/draft/' . (int)($_POST['mapping_bill_id'] ?? 0)));
+            throw $e;
         }
     }
 

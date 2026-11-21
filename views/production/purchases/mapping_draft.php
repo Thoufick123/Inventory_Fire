@@ -1,5 +1,11 @@
 <?php
 $mappingBillId = (int)$bill['id'];
+$pendingQrCount = 0;
+foreach ($items as $savedItem) {
+    if (empty($savedItem['qr_generation_id'])) {
+        $pendingQrCount++;
+    }
+}
 $variantRow = static function (int $index = 0) use ($categories, $subcategories, $subSubcategories): void { ?>
     <tr class="mapping-variant-row">
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][size]" placeholder="Size"></td>
@@ -93,8 +99,15 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
                 </table>
             </div>
-            <div class="d-flex justify-content-between">
-                <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add Variant</button>
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                <div class="d-flex align-items-end gap-2">
+                    <div>
+                        <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
+                        <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
+                </div>
                 <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save Product to Mapping</button>
             </div>
         </form>
@@ -141,13 +154,29 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </tbody>
         </table>
     </div>
-    <?php if ($bill['status'] !== 'MOVED'): ?>
+    <?php if ($bill['status'] !== 'MOVED' || $pendingQrCount > 0): ?>
         <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div class="small text-muted">Products can be saved and stocked now. Move to Purchase when this invoice should be linked, or it will match automatically when the Purchases user enters the same supplier and invoice.</div>
-            <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Mark this mapping entry ready to link to a purchase with the same supplier and invoice?')">
-                <?= CSRF::field() ?>
-                <button class="btn btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>><i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase</button>
-            </form>
+            <div class="small text-muted">
+                <?php if ($bill['status'] === 'MOVED'): ?>
+                    Linked to the purchase already. You can still generate QR batches for variants that do not have one.
+                <?php else: ?>
+                    Products can be saved and stocked now. Move to Purchase when this invoice should be linked, or it will match automatically when the Purchases user enters the same supplier and invoice.
+                <?php endif; ?>
+            </div>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all saved variants that do not already have QR codes?')">
+                    <?= CSRF::field() ?>
+                    <button class="btn btn-outline-info" type="submit" <?= $pendingQrCount === 0 ? 'disabled' : '' ?>>
+                        <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
+                    </button>
+                </form>
+                <?php if ($bill['status'] !== 'MOVED'): ?>
+                    <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Mark this mapping entry ready to link to a purchase with the same supplier and invoice?')">
+                        <?= CSRF::field() ?>
+                        <button class="btn btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>><i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
     <?php endif; ?>
 </div>
@@ -156,14 +185,23 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 (function () {
     const body = document.getElementById('mappingVariantRows');
     const addButton = document.getElementById('addMappingVariant');
+    const addRowsButton = document.getElementById('addMappingVariantRows');
+    const rowsToAddInput = document.getElementById('mappingVariantRowsToAdd');
     if (!body || !addButton) return;
     let nextIndex = 1;
     const template = body.querySelector('tr').outerHTML;
-    addButton.addEventListener('click', function () {
-        const row = document.createElement('tbody');
-        row.innerHTML = template.replace(/variants\[0\]/g, 'variants[' + nextIndex + ']');
-        body.appendChild(row.firstElementChild);
-        nextIndex++;
+    const addRows = function (count) {
+        for (let rowIndex = 0; rowIndex < count; rowIndex++) {
+            const row = document.createElement('tbody');
+            row.innerHTML = template.replace(/variants\[0\]/g, 'variants[' + nextIndex + ']');
+            body.appendChild(row.firstElementChild);
+            nextIndex++;
+        }
+    };
+    addButton.addEventListener('click', function () { addRows(1); });
+    addRowsButton?.addEventListener('click', function () {
+        if (!rowsToAddInput.reportValidity()) return;
+        addRows(Number(rowsToAddInput.value));
     });
     body.addEventListener('click', function (event) {
         const button = event.target.closest('.remove-mapping-variant');
