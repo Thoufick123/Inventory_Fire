@@ -3747,6 +3747,12 @@ class ProductionController {
         $categories = Database::fetchAll(
             "SELECT id, name, code, is_complementary FROM third_party_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
         );
+        $allSubcategories = Database::fetchAll(
+            "SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+        );
+        $allSubSubcategories = Database::fetchAll(
+            "SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+        );
 
         // Subcategories for active item
         $subcategories = [];
@@ -3780,7 +3786,9 @@ class ProductionController {
 
         // Pre-existing variants for active item
         $existingVariants = Database::fetchAll(
-            "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active
+            "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode,
+                    third_party_category_id, third_party_subcategory_id, third_party_sub_subcategory_id,
+                    hsn_code, is_complementary, is_active
              FROM third_party_product_variants
              WHERE purchase_item_id = ?
              ORDER BY id ASC",
@@ -3788,7 +3796,9 @@ class ProductionController {
         );
         if (empty($existingVariants) && !empty($activeItem['third_party_product_id'])) {
             $existingVariants = Database::fetchAll(
-                "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active
+                "SELECT id, sku, size, color, allocated_qty, purchase_rate, mrp, selling_price, barcode,
+                        third_party_category_id, third_party_subcategory_id, third_party_sub_subcategory_id,
+                        hsn_code, is_complementary, is_active
                  FROM third_party_product_variants
                  WHERE third_party_product_id = ?
                  ORDER BY id ASC",
@@ -3842,6 +3852,8 @@ class ProductionController {
             'categories' => $categories,
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
+            'allSubcategories' => $allSubcategories,
+            'allSubSubcategories' => $allSubSubcategories,
             'existingStyles' => $existingStyles,
             'existingVariants' => $existingVariants,
             'standardSizes' => $standardSizes,
@@ -3980,6 +3992,16 @@ class ProductionController {
             $color = trim((string)($_POST['color'] ?? ''));
         }
         $hsnCode = trim((string)($_POST['hsn_code'] ?? ($item['hsn_code'] ?? '')));
+        if (mb_strlen($hsnCode) > 20) {
+            $msg = 'HSN Code cannot exceed 20 characters.';
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => $msg], 422);
+                return;
+            }
+            Session::flash('error', $msg);
+            Response::back();
+            return;
+        }
 
         // Check if linking to existing third-party style
         $existingTpId = (int)($_POST['existing_tp_product_id'] ?? 0);
@@ -4005,6 +4027,17 @@ class ProductionController {
 
         if ($categoryId <= 0) {
             $msg = 'Tier 1 Main Category is required.';
+            if (Request::isAjax()) {
+                Response::json(['success' => false, 'message' => $msg], 422);
+                return;
+            }
+            Session::flash('error', $msg);
+            Response::back();
+            return;
+        }
+
+        if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
+            $msg = 'Select a valid third-party category hierarchy.';
             if (Request::isAjax()) {
                 Response::json(['success' => false, 'message' => $msg], 422);
                 return;
@@ -4108,6 +4141,74 @@ class ProductionController {
         $activeCid = currentConcernId() ?: 1;
         $sellerId = (int)($item['purchase_seller_id'] ?? 0);
 
+        foreach ($submittedVariants as $var) {
+            if (!is_array($var)) {
+                continue;
+            }
+            $vSize = trim((string)($var['size'] ?? 'Free Size'));
+            $vColor = trim((string)($var['color'] ?? '')) ?: $color;
+            $vMrp = (float)($var['mrp'] ?? $firstMrp);
+            $vSp = (float)($var['selling_price'] ?? $firstSp);
+            $variantHsnCode = trim((string)($var['hsn_code'] ?? ''));
+            if ($variantHsnCode === '') {
+                $msg = "Enter an HSN Code for variant '{$vSize}' ('{$vColor}').";
+                if (Request::isAjax()) {
+                    Response::json(['success' => false, 'message' => $msg], 422);
+                    return;
+                }
+                Session::flash('error', $msg);
+                Response::back();
+                return;
+            }
+            if ($variantHsnCode !== '' && mb_strlen($variantHsnCode) > 20) {
+                $msg = "HSN Code cannot exceed 20 characters for variant '{$vSize}' ('{$vColor}').";
+                if (Request::isAjax()) {
+                    Response::json(['success' => false, 'message' => $msg], 422);
+                    return;
+                }
+                Session::flash('error', $msg);
+                Response::back();
+                return;
+            }
+            if ($vMrp > 0 && $vSp > 0 && $vMrp < $vSp) {
+                $msg = "Validation Error: MRP (₹" . number_format($vMrp, 2) . ") cannot be lower than Selling Price (₹" . number_format($vSp, 2) . ") for variant '{$vSize}' ('{$vColor}').";
+                if (Request::isAjax()) {
+                    Response::json(['success' => false, 'message' => $msg], 422);
+                    return;
+                }
+                Session::flash('error', $msg);
+                Response::back();
+                return;
+            }
+
+            $variantCategoryId = (int)($var['category_id'] ?? $categoryId);
+            $variantSubcategoryId = !empty($var['subcategory_id']) ? (int)$var['subcategory_id'] : null;
+            $variantSubSubcategoryId = !empty($var['sub_subcategory_id']) ? (int)$var['sub_subcategory_id'] : null;
+            if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy(
+                $variantCategoryId,
+                $variantSubcategoryId,
+                $variantSubSubcategoryId
+            )) {
+                $msg = "Select a valid category hierarchy for variant '{$vSize}' ('{$vColor}').";
+                if (Request::isAjax()) {
+                    Response::json(['success' => false, 'message' => $msg], 422);
+                    return;
+                }
+                Session::flash('error', $msg);
+                Response::back();
+                return;
+            }
+        }
+
+        if ($hsnCode === '') {
+            foreach ($submittedVariants as $variant) {
+                if (!empty($variant['hsn_code'])) {
+                    $hsnCode = trim((string)$variant['hsn_code']);
+                    break;
+                }
+            }
+        }
+
         // 1. Create or update third_party_products master record
         if ($tpProductId <= 0) {
             $existingTp = Database::fetchOne(
@@ -4159,25 +4260,6 @@ class ProductionController {
 
         // 2. Persist third_party_product_variants
         if (!empty($submittedVariants) && is_array($submittedVariants)) {
-            // Server-side validation: MRP cannot be lower than Selling Price
-            foreach ($submittedVariants as $var) {
-                $vSize = trim($var['size'] ?? 'Free Size');
-                $vColor = trim($var['color'] ?? '') ?: $color;
-                $vMrp = (float)($var['mrp'] ?? $firstMrp);
-                $vSp = (float)($var['selling_price'] ?? $firstSp);
-
-                if ($vMrp > 0 && $vSp > 0 && $vMrp < $vSp) {
-                    $msg = "Validation Error: MRP (₹" . number_format($vMrp, 2) . ") cannot be lower than Selling Price (₹" . number_format($vSp, 2) . ") for variant '{$vSize}' ('{$vColor}').";
-                    if (Request::isAjax()) {
-                        Response::json(['success' => false, 'message' => $msg], 422);
-                        return;
-                    }
-                    Session::flash('error', $msg);
-                    Response::back();
-                    return;
-                }
-            }
-
             Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?", [$itemId]);
 
             foreach ($submittedVariants as $var) {
@@ -4190,20 +4272,34 @@ class ProductionController {
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
                 $vBarcode = trim($var['barcode'] ?? '') ?: $vSku;
                 $vIsComplementary = !empty($var['is_complementary']) ? 1 : 0;
+                $vCategoryId = (int)($var['category_id'] ?? $categoryId);
+                $vSubcategoryId = !empty($var['subcategory_id']) ? (int)$var['subcategory_id'] : null;
+                $vSubSubcategoryId = !empty($var['sub_subcategory_id']) ? (int)$var['sub_subcategory_id'] : null;
+                $vHsnCode = trim((string)($var['hsn_code'] ?? ''));
+                if ($vHsnCode === '') {
+                    $vHsnCode = $hsnCode;
+                }
 
                 Database::execute(
                     "INSERT INTO third_party_product_variants
                         (third_party_product_id, purchase_item_id, sku, size, color,
-                         allocated_qty, purchase_rate, mrp, selling_price, barcode, is_complementary, is_active, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                         allocated_qty, purchase_rate, mrp, selling_price, barcode,
+                         third_party_category_id, third_party_subcategory_id, third_party_sub_subcategory_id,
+                         hsn_code, is_complementary, is_active, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                      ON DUPLICATE KEY UPDATE
                         allocated_qty = VALUES(allocated_qty), purchase_rate = VALUES(purchase_rate),
                         mrp = VALUES(mrp), selling_price = VALUES(selling_price), barcode = VALUES(barcode),
+                        third_party_category_id = VALUES(third_party_category_id),
+                        third_party_subcategory_id = VALUES(third_party_subcategory_id),
+                        third_party_sub_subcategory_id = VALUES(third_party_sub_subcategory_id),
+                        hsn_code = VALUES(hsn_code),
                         is_complementary = VALUES(is_complementary),
                         updated_at = NOW()",
                     [
                         $tpProductId, $itemId, $vSku, $vSize, $vColor,
-                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode, $vIsComplementary
+                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode,
+                        $vCategoryId, $vSubcategoryId, $vSubSubcategoryId, $vHsnCode ?: null, $vIsComplementary
                     ]
                 );
             }
@@ -4247,6 +4343,14 @@ class ProductionController {
             ]
         );
 
+        $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
+        if ($invoiceNumber !== '') {
+            Database::execute(
+                "UPDATE production_purchases SET invoice_number = ?, updated_at = NOW() WHERE id = ?",
+                [$invoiceNumber, $purchaseId]
+            );
+        }
+
         // 4. If completing, run fulfillment service to link GRN & QR readiness
         if ($saveMode === 'complete') {
             try {
@@ -4266,7 +4370,15 @@ class ProductionController {
                     'selling_price'      => $fulfillSp,
                 ], $userId);
             } catch (\Throwable $e) {
-                error_log('GRN fulfillment notice: ' . $e->getMessage());
+                error_log('GRN fulfillment failed for purchase item ' . $itemId . ': ' . $e->getMessage());
+                $message = 'Mapping was saved, but stock and GRN setup could not finish. Please retry the mapping.';
+                if (Request::isAjax()) {
+                    Response::json(['success' => false, 'message' => $message], 500);
+                    return;
+                }
+                Session::flash('error', $message);
+                Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+                return;
             }
         }
 
@@ -4285,9 +4397,22 @@ class ProductionController {
                 $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id=" . $nextUnmapped['id']);
                 $successMsg = "Product line '{$styleName}' mapped successfully! Proceeding to the next unmapped product line.";
             } else {
-                // All items on this purchase bill are now completed! Redirect to Mapping Register List!
-                $nextUrl = url("purchases/mapping");
-                $successMsg = "All product lines for Purchase Bill {$purchaseNumber} have been completely mapped to the catalog!";
+                $qrReadyItem = Database::fetchOne(
+                    "SELECT id FROM production_purchase_items
+                     WHERE purchase_id = ? AND item_type = 'THIRD_PARTY' AND is_mapped = 1
+                       AND qr_generation_id IS NULL AND (qr_batch_code IS NULL OR TRIM(qr_batch_code) = '')
+                     ORDER BY id ASC LIMIT 1",
+                    [$purchaseId]
+                );
+                if ($qrReadyItem) {
+                    $nextUrl = url(
+                        "production/qr-generations/create?tab=third_party&purchase_id={$purchaseId}&purchase_item_id=" . (int)$qrReadyItem['id']
+                    );
+                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} are mapped. You can now generate QR labels.";
+                } else {
+                    $nextUrl = url("purchases/mapping");
+                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} have been completely mapped to the catalog!";
+                }
             }
         } else {
             $nextUrl = url("purchases/mapping/bill/{$purchaseId}");
@@ -4479,10 +4604,31 @@ class ProductionController {
     public function ajaxAddBillMappingProduct(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
 
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 403);
+            return;
+        }
+
         $purchaseId = (int)($_POST['purchase_id'] ?? 0);
-        $purchase = Database::fetchOne("SELECT * FROM production_purchases WHERE id = ?", [$purchaseId]);
+        $activeCid = currentConcernId();
+        $purchaseParams = [$purchaseId];
+        $concernWhere = '';
+        if ($activeCid !== null) {
+            $concernWhere = $activeCid === 1
+                ? " AND (concern_id = ? OR concern_id IS NULL)"
+                : " AND concern_id = ?";
+            $purchaseParams[] = $activeCid;
+        }
+        $purchase = Database::fetchOne(
+            "SELECT * FROM production_purchases WHERE id = ? {$concernWhere}",
+            $purchaseParams
+        );
         if (!$purchase) {
             Response::json(['success' => false, 'message' => 'Purchase bill not found.'], 404);
+            return;
+        }
+        if (!in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED'], true)) {
+            Response::json(['success' => false, 'message' => 'Products can only be added to third-party or mixed purchase bills.'], 422);
             return;
         }
 
@@ -4494,6 +4640,7 @@ class ProductionController {
         $categoryId = (int)($_POST['new_category_id'] ?? 0);
         $subcategoryId = !empty($_POST['new_subcategory_id']) ? (int)$_POST['new_subcategory_id'] : null;
         $subSubcategoryId = !empty($_POST['new_sub_subcategory_id']) ? (int)$_POST['new_sub_subcategory_id'] : null;
+        $hsn = trim((string)($_POST['new_hsn_code'] ?? ''));
 
         if (empty($itemName)) {
             Response::json(['success' => false, 'message' => 'Product Name is required.'], 422);
@@ -4515,12 +4662,17 @@ class ProductionController {
             Response::json(['success' => false, 'message' => 'Selling price must be greater than 0 and cannot exceed MRP.'], 422);
             return;
         }
-        if ($categoryId <= 0) {
-            Response::json(['success' => false, 'message' => 'Please select a Category.'], 422);
+        if ($hsn === '') {
+            Response::json(['success' => false, 'message' => 'HSN Code is required.'], 422);
             return;
         }
-        if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
-            Response::json(['success' => false, 'message' => 'Select a valid third-party category hierarchy.'], 422);
+        if (mb_strlen($hsn) > 20) {
+            Response::json(['success' => false, 'message' => 'HSN Code cannot exceed 20 characters.'], 422);
+            return;
+        }
+        if (($categoryId > 0 || $subcategoryId || $subSubcategoryId)
+            && ($categoryId <= 0 || !PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId))) {
+            Response::json(['success' => false, 'message' => 'Select a valid third-party category hierarchy, or leave all category fields blank.'], 422);
             return;
         }
 
@@ -4532,11 +4684,14 @@ class ProductionController {
         }
         $color = trim($_POST['new_color'] ?? '');
         $size = trim($_POST['new_size'] ?? '');
-        $hsn = trim($_POST['new_hsn_code'] ?? '5525');
         $isComplementary = !empty($_POST['new_is_complementary']) ? 1 : 0;
 
         // Calculate taxes
         $gstRate = isset($_POST['new_gst_rate']) ? (float)$_POST['new_gst_rate'] : 5.0;
+        if (!is_finite($gstRate) || $gstRate < 0 || $gstRate > 100) {
+            Response::json(['success' => false, 'message' => 'GST rate must be between 0 and 100.'], 422);
+            return;
+        }
         $baseTotal = round($qty * $rate, 2);
         $taxAmount = round($baseTotal * ($gstRate / 100), 2);
         $totalPrice = $baseTotal + $taxAmount;
@@ -4574,7 +4729,7 @@ class ProductionController {
             ");
             $stmt->execute([
                 $purchaseId,
-                $purchase['purchase_type'] ?: 'THIRD_PARTY',
+                'THIRD_PARTY',
                 $itemName,
                 $vendorSku,
                 $vendorSku,
@@ -4596,25 +4751,36 @@ class ProductionController {
                 null,
                 null,
                 null,
-                $categoryId,
+                $categoryId > 0 ? $categoryId : null,
                 $subcategoryId ?: null,
                 $subSubcategoryId ?: null
             ]);
             $newItemId = (int)$db->lastInsertId();
 
-            // Update purchase total_amount
+            // Update bill total and preserve an invoice number entered in this flow.
             $db->prepare("
                 UPDATE production_purchases
                 SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                    invoice_number = COALESCE(NULLIF(?, ''), invoice_number),
                     updated_at = NOW()
                 WHERE id = ?
-            ")->execute([$purchaseId, $purchaseId]);
+            ")->execute([
+                $purchaseId,
+                trim((string)($_POST['invoice_number'] ?? '')),
+                $purchaseId
+            ]);
 
             $db->commit();
-            Response::json(['success' => true, 'message' => "Product '{$itemName}' added to bill successfully!", 'item_id' => $newItemId]);
+            Response::json([
+                'success' => true,
+                'message' => "Product '{$itemName}' added to bill successfully!",
+                'item_id' => $newItemId,
+                'next_url' => url("purchases/mapping/bill/{$purchaseId}?item_id={$newItemId}")
+            ]);
         } catch (Throwable $e) {
             $db->rollBack();
-            Response::json(['success' => false, 'message' => 'Error adding product: ' . $e->getMessage()], 500);
+            error_log('Failed to add third-party purchase item ' . $itemName . ': ' . $e->getMessage());
+            Response::json(['success' => false, 'message' => 'Unable to add this product to the purchase bill.'], 500);
         }
     }
 

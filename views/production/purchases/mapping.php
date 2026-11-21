@@ -3,6 +3,9 @@
         <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Product Mapping</h2>
         <span class="text-muted small">Exclusively for mapping third-party purchased products to catalog categories &amp; variants. Fabric rolls &amp; raw materials move directly to QR Generations.</span>
     </div>
+    <a href="<?= url('purchases/create') ?>" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>New Purchase Bill
+    </a>
 </div>
 
 <!-- KPI Metric Cards -->
@@ -183,6 +186,11 @@
                                                 <a href="<?= url('production/qr-generations/view/' . (int)$billItem['qr_generation_id']) ?>"
                                                    class="badge bg-dark-subtle text-dark border text-decoration-none ms-1">
                                                     <i class="bi bi-qr-code me-1"></i><?= e($billItem['qr_batch_code']) ?>
+                                                </a>
+                                            <?php elseif (!empty($billItem['is_mapped']) && empty($billItem['qr_generation_id']) && empty($billItem['qr_batch_code'])): ?>
+                                                <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=' . (int)$bill['purchase_id'] . '&purchase_item_id=' . (int)$billItem['id']) ?>"
+                                                   class="badge bg-info-subtle text-info border text-decoration-none ms-1">
+                                                    <i class="bi bi-qr-code-scan me-1"></i>Generate QR
                                                 </a>
                                             <?php endif; ?>
                                             <?php if (!empty($billItem['grn_id']) && !empty($billItem['grn_number'])): ?>

@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261119'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261121'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -136,6 +136,10 @@ class PurchaseMappingFulfillmentService {
             mrp DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             selling_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
             barcode VARCHAR(100) DEFAULT NULL,
+            third_party_category_id INT UNSIGNED DEFAULT NULL,
+            third_party_subcategory_id INT UNSIGNED DEFAULT NULL,
+            third_party_sub_subcategory_id INT UNSIGNED DEFAULT NULL,
+            hsn_code VARCHAR(20) DEFAULT NULL,
             is_complementary TINYINT(1) DEFAULT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -150,6 +154,10 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('third_party_products', 'third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_subcategory_id');
         Database::ensureColumn('third_party_categories', 'is_complementary', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER slug');
         Database::ensureColumn('third_party_product_variants', 'is_complementary', 'TINYINT(1) DEFAULT NULL AFTER barcode');
+        Database::ensureColumn('third_party_product_variants', 'third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER barcode');
+        Database::ensureColumn('third_party_product_variants', 'third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_category_id');
+        Database::ensureColumn('third_party_product_variants', 'third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_subcategory_id');
+        Database::ensureColumn('third_party_product_variants', 'hsn_code', 'VARCHAR(20) DEFAULT NULL AFTER third_party_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'third_party_product_id', 'INT UNSIGNED DEFAULT NULL AFTER variant_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_category_id');
@@ -195,7 +203,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261119'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261121'] = 1;
         }
         self::$schemaEnsured = true;
     }

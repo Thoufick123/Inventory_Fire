@@ -23,7 +23,8 @@ $purchaseData = json_encode(array_values($purchases), JSON_UNESCAPED_UNICODE | J
                             <select name="purchase_id" id="tpPurchase_<?= e($sourceKey) ?>" class="form-select form-select-lg" required onchange="onTpPurchaseChanged('<?= e($sourceKey) ?>')">
                                 <option value="">-- Select Purchase Bill --</option>
                                 <?php foreach ($purchases as $purchase): ?>
-                                    <option value="<?= (int)$purchase['id'] ?>">
+                                    <option value="<?= (int)$purchase['id'] ?>"
+                                        <?= $activeTab === 'third_party' && (int)($preselectedPurchaseId ?? 0) === (int)$purchase['id'] ? 'selected' : '' ?>>
                                         <?= e($purchase['purchase_number']) ?> · <?= e(date('d M Y', strtotime($purchase['purchase_date']))) ?> · <?= e($purchase['seller_label']) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -188,4 +189,18 @@ function updateTpPreview(key) {
         correctLevel: QRCode.CorrectLevel.M
     });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const purchaseId = <?= json_encode((int)($preselectedPurchaseId ?? 0)) ?>;
+    const itemId = <?= json_encode((int)($preselectedPurchaseItemId ?? 0)) ?>;
+    const purchaseSelect = document.getElementById('tpPurchase_third_party');
+    const itemSelect = document.getElementById('tpItem_third_party');
+    if (!purchaseSelect || !itemSelect || !purchaseId) return;
+    purchaseSelect.value = String(purchaseId);
+    onTpPurchaseChanged('third_party');
+    if (itemId) {
+        itemSelect.value = String(itemId);
+        onTpItemChanged('third_party');
+    }
+});
 </script>

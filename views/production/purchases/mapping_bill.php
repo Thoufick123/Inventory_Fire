@@ -215,6 +215,16 @@ tr.table-danger, tr.table-danger > td {
             </ol>
         </nav>
         <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm"
+                    data-bs-toggle="modal" data-bs-target="#modalAddBillProduct">
+                <i class="bi bi-plus-circle"></i> Add Product to Bill
+            </button>
+            <?php if (!empty($activeItem['is_mapped']) && empty($activeItem['qr_generation_id']) && empty($activeItem['qr_batch_code'])): ?>
+                <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=' . (int)$purchase['id'] . '&purchase_item_id=' . $activeItemId) ?>"
+                   class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
+                    <i class="bi bi-qr-code"></i> Generate QR
+                </a>
+            <?php endif; ?>
             <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
                 <i class="bi bi-arrow-left"></i> Back to Register
             </a>
@@ -384,8 +394,12 @@ tr.table-danger, tr.table-danger > td {
                                 <span class="mx-1 text-muted">·</span>
                                 <span class="text-muted">Bill Total:</span> <strong class="text-success">₹<?= number_format((float)$purchase['total_amount'], 2) ?></strong>
                             </div>
-                            <div class="small text-muted">
-                                <span class="text-muted">Vendor Inv:</span> <strong><?= e($purchase['invoice_number'] ?: '—') ?></strong>
+                            <div class="mt-2">
+                                <label for="inputInvoiceNumber" class="form-label small text-muted mb-1">Vendor Invoice Number</label>
+                                <input type="text" class="form-control form-control-sm font-monospace"
+                                       id="inputInvoiceNumber" name="invoice_number" maxlength="100"
+                                       value="<?= e($purchase['invoice_number'] ?? '') ?>"
+                                       placeholder="Enter if missing">
                             </div>
                         </div>
                     </div>
@@ -626,7 +640,7 @@ tr.table-danger, tr.table-danger > td {
                                 </td>
                                 <td>
                                     <input type="text" class="form-control font-monospace"
-                                           id="inputHsnCode" name="hsn_code"
+                                           id="inputHsnCode" name="hsn_code" maxlength="20"
                                            value="<?= e($activeHsn) ?>" placeholder="e.g. 6543">
                                 </td>
                             </tr>
@@ -812,6 +826,7 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 40px;">#</th>
                                 <th style="width: 100px;">Size</th>
                                 <th style="width: 130px;">Color</th>
+                                <th style="min-width: 330px;">Category / HSN per Variant</th>
                                 <th style="min-width: 190px;">Variant SKU</th>
                                 <th style="width: 120px;">Allocated Qty</th>
                                 <th style="width: 130px;">Purchase Rate (₹)</th>
@@ -844,7 +859,7 @@ tr.table-danger, tr.table-danger > td {
                         </div>
                     </div>
                     <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i>Variant SKUs, pricing, and complementary settings will sync to the Third-Party Master Catalog upon save.
+                        <i class="bi bi-info-circle me-1"></i>Variant SKUs, pricing, category hierarchy, and HSN are saved to the catalog. Blank variant HSN uses the product HSN.
                     </div>
                 </div>
             </div>
@@ -874,6 +889,73 @@ tr.table-danger, tr.table-danger > td {
             </div>
         </div>
     </form>
+</div>
+
+<!-- Add a new purchased product line without leaving the bill mapping flow. -->
+<div class="modal fade" id="modalAddBillProduct" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Add Product to Purchase Bill</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label for="newBillItemName" class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newBillItemName" required maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="newBillVendorSku" class="form-label fw-semibold">Vendor SKU</label>
+                        <input type="text" class="form-control" id="newBillVendorSku" maxlength="100">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="newBillQuantity" class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="newBillQuantity" min="0.001" step="0.001" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="newBillUnit" class="form-label fw-semibold">Unit</label>
+                        <input type="text" class="form-control" id="newBillUnit" value="PCS" maxlength="30">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="newBillUnitPrice" class="form-label fw-semibold">Purchase Rate (₹) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="newBillUnitPrice" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="newBillGstRate" class="form-label fw-semibold">GST Rate (%)</label>
+                        <input type="number" class="form-control" id="newBillGstRate" min="0" max="100" step="0.01" value="5">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="newBillMrp" class="form-label fw-semibold">MRP (₹) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="newBillMrp" min="0.01" step="0.01" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="newBillSellingPrice" class="form-label fw-semibold">Selling Price (₹) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="newBillSellingPrice" min="0.01" step="0.01" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="newBillHsn" class="form-label fw-semibold">HSN Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control font-monospace" id="newBillHsn" maxlength="20" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="newBillColor" class="form-label fw-semibold">Color</label>
+                        <input type="text" class="form-control" id="newBillColor" maxlength="100">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="newBillSize" class="form-label fw-semibold">Size</label>
+                        <input type="text" class="form-control" id="newBillSize" maxlength="100">
+                    </div>
+                </div>
+                <div id="newBillProductError" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnCreateBillProduct">
+                    <i class="bi bi-plus-circle me-1"></i>Add Product
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ========================================================================= -->
@@ -973,10 +1055,51 @@ document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
+    const addBillProductButton = document.getElementById('btnCreateBillProduct');
+    if (addBillProductButton) {
+        addBillProductButton.addEventListener('click', function () {
+            const errorBox = document.getElementById('newBillProductError');
+            const formData = new FormData();
+            formData.append('purchase_id', '<?= (int)$purchase['id'] ?>');
+            formData.append('invoice_number', document.getElementById('inputInvoiceNumber').value.trim());
+            formData.append('new_item_name', document.getElementById('newBillItemName').value.trim());
+            formData.append('new_vendor_sku', document.getElementById('newBillVendorSku').value.trim());
+            formData.append('new_quantity', document.getElementById('newBillQuantity').value);
+            formData.append('new_unit', document.getElementById('newBillUnit').value.trim());
+            formData.append('new_unit_price', document.getElementById('newBillUnitPrice').value);
+            formData.append('new_gst_rate', document.getElementById('newBillGstRate').value);
+            formData.append('new_mrp', document.getElementById('newBillMrp').value);
+            formData.append('new_selling_price', document.getElementById('newBillSellingPrice').value);
+            formData.append('new_hsn_code', document.getElementById('newBillHsn').value.trim());
+            formData.append('new_color', document.getElementById('newBillColor').value.trim());
+            formData.append('new_size', document.getElementById('newBillSize').value.trim());
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+            errorBox.classList.add('d-none');
+            addBillProductButton.disabled = true;
+            fetch(`${BASE_URL}/purchases/mapping/add-product`, { method: 'POST', body: formData })
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Unable to add this product.');
+                    }
+                    window.location.href = data.next_url;
+                })
+                .catch(error => {
+                    errorBox.textContent = error.message;
+                    errorBox.classList.remove('d-none');
+                    addBillProductButton.disabled = false;
+                });
+        });
+    }
 
     // Existing variants loaded from database
     const preExistingVariants = <?= json_encode($existingVariants) ?>;
     const legacyItemComplementary = <?= json_encode(!empty($activeItem['is_complementary'])) ?>;
+    const taxonomyCategories = <?= json_encode($categories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const taxonomySubcategories = <?= json_encode($allSubcategories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const taxonomySubSubcategories = <?= json_encode($allSubSubcategories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
     // Elements
     const selectTier1 = document.getElementById('selectTier1');
@@ -987,6 +1110,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputTier3Code = document.getElementById('inputTier3Code');
     const inputQrKey = document.getElementById('inputQrKey');
     const labelHierarchyPath = document.getElementById('labelHierarchyPath');
+    const inputHsnCode = document.getElementById('inputHsnCode');
 
     const inputStyleCode = document.getElementById('inputStyleCode');
     const inputStyleName = document.getElementById('inputStyleName');
@@ -1276,6 +1400,163 @@ document.addEventListener('DOMContentLoaded', function () {
     inputStyleCode.addEventListener('input', rebuildVariantMatrix);
 
     // 4. Variant Matrix Generator & Calculations
+    function createTaxonomySelect(className, fieldName, placeholder, options, selectedId) {
+        const select = document.createElement('select');
+        select.className = `form-select form-select-sm ${className}`;
+        select.name = fieldName;
+        if (className === 'matrix-category') select.required = true;
+        select.add(new Option(placeholder, ''));
+        options.forEach(option => select.add(new Option(option.name, String(option.id))));
+        if (selectedId) select.value = String(selectedId);
+        return select;
+    }
+
+    function populateVariantSubSubcategories(row, selectedId) {
+        const previous = row.querySelector('.matrix-sub-subcategory');
+        const subcategoryId = row.querySelector('.matrix-subcategory').value;
+        const options = taxonomySubSubcategories.filter(item => String(item.subcategory_id) === String(subcategoryId));
+        const replacement = createTaxonomySelect(
+            'matrix-sub-subcategory',
+            previous.name,
+            'Sub-subcategory',
+            options,
+            selectedId
+        );
+        previous.replaceWith(replacement);
+    }
+
+    function populateVariantSubcategories(row, selectedId, selectedSubSubcategoryId) {
+        const previous = row.querySelector('.matrix-subcategory');
+        const categoryId = row.querySelector('.matrix-category').value;
+        const options = taxonomySubcategories.filter(item => String(item.category_id) === String(categoryId));
+        const replacement = createTaxonomySelect(
+            'matrix-subcategory',
+            previous.name,
+            'Subcategory',
+            options,
+            selectedId
+        );
+        previous.replaceWith(replacement);
+        populateVariantSubSubcategories(row, selectedSubSubcategoryId);
+    }
+
+    function populateVariantTaxonomyCell(cell, rowIndex, values) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'd-grid gap-1';
+        const category = createTaxonomySelect(
+            'matrix-category',
+            `variants[${rowIndex}][category_id]`,
+            'Category',
+            taxonomyCategories,
+            values.categoryId
+        );
+        const subcategory = createTaxonomySelect(
+            'matrix-subcategory',
+            `variants[${rowIndex}][subcategory_id]`,
+            'Subcategory',
+            taxonomySubcategories.filter(item => String(item.category_id) === String(values.categoryId)),
+            values.subcategoryId
+        );
+        const subSubcategory = createTaxonomySelect(
+            'matrix-sub-subcategory',
+            `variants[${rowIndex}][sub_subcategory_id]`,
+            'Sub-subcategory',
+            taxonomySubSubcategories.filter(item => String(item.subcategory_id) === String(values.subcategoryId)),
+            values.subSubcategoryId
+        );
+        const hsn = document.createElement('input');
+        hsn.type = 'text';
+        hsn.maxLength = 20;
+        hsn.placeholder = 'HSN code';
+        hsn.className = 'form-control form-control-sm font-monospace matrix-hsn';
+        hsn.name = `variants[${rowIndex}][hsn_code]`;
+        hsn.required = true;
+        hsn.value = values.hsnCode || '';
+        wrapper.append(category, subcategory, subSubcategory, hsn);
+        cell.appendChild(wrapper);
+    }
+
+    function refreshVariantTaxonomyOptions() {
+        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
+            const categorySelect = row.querySelector('.matrix-category');
+            const categoryId = categorySelect.value;
+            const subcategorySelect = row.querySelector('.matrix-subcategory');
+            const subSubcategorySelect = row.querySelector('.matrix-sub-subcategory');
+            const categoryChanged = categorySelect.dataset.changed;
+            const subcategoryChanged = subcategorySelect.dataset.changed;
+            const subSubcategoryChanged = subSubcategorySelect.dataset.changed;
+            const replacement = createTaxonomySelect(
+                'matrix-category',
+                categorySelect.name,
+                'Category',
+                taxonomyCategories,
+                categoryId
+            );
+            replacement.dataset.changed = categoryChanged || '';
+            categorySelect.replaceWith(replacement);
+            populateVariantSubcategories(
+                row,
+                subcategorySelect.value,
+                subSubcategorySelect.value
+            );
+            row.querySelector('.matrix-subcategory').dataset.changed = subcategoryChanged || '';
+            row.querySelector('.matrix-sub-subcategory').dataset.changed = subSubcategoryChanged || '';
+        });
+    }
+
+    tbodyVariantMatrix.addEventListener('change', function (event) {
+        const row = event.target.closest('tr[data-key]');
+        if (!row) return;
+        if (event.target.classList.contains('matrix-category')
+            || event.target.classList.contains('matrix-subcategory')
+            || event.target.classList.contains('matrix-sub-subcategory')) {
+            event.target.dataset.changed = '1';
+        }
+        if (event.target.classList.contains('matrix-category')) {
+            populateVariantSubcategories(row, '', '');
+        } else if (event.target.classList.contains('matrix-subcategory')) {
+            populateVariantSubSubcategories(row, '');
+        }
+    });
+    tbodyVariantMatrix.addEventListener('input', function (event) {
+        if (event.target.classList.contains('matrix-hsn')) {
+            event.target.dataset.changed = '1';
+        }
+    });
+    selectTier1.addEventListener('change', function () {
+        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
+            const category = row.querySelector('.matrix-category');
+            const subcategory = row.querySelector('.matrix-subcategory');
+            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
+            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
+            category.value = selectTier1.value;
+            populateVariantSubcategories(row, selectTier2.value, selectTier3.value);
+        });
+    });
+    selectTier2.addEventListener('change', function () {
+        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
+            const category = row.querySelector('.matrix-category');
+            const subcategory = row.querySelector('.matrix-subcategory');
+            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
+            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
+            populateVariantSubcategories(row, selectTier2.value, selectTier3.value);
+        });
+    });
+    selectTier3.addEventListener('change', function () {
+        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
+            const category = row.querySelector('.matrix-category');
+            const subcategory = row.querySelector('.matrix-subcategory');
+            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
+            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
+            populateVariantSubSubcategories(row, selectTier3.value);
+        });
+    });
+    inputHsnCode.addEventListener('input', function () {
+        tbodyVariantMatrix.querySelectorAll('.matrix-hsn').forEach(input => {
+            if (input.dataset.changed !== '1') input.value = inputHsnCode.value;
+        });
+    });
+
     function computeMargin(cost, selling) {
         if (!selling || selling <= 0) return 0;
         return (((selling - cost) / selling) * 100);
@@ -1303,6 +1584,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 sp: parseFloat(tr.querySelector('.matrix-sp')?.value) || defaultSp,
                 barcode: tr.querySelector('.matrix-barcode')?.value || '',
                 isComplementary: tr.querySelector('.matrix-complementary')?.checked || false,
+                categoryId: tr.querySelector('.matrix-category')?.value || '',
+                subcategoryId: tr.querySelector('.matrix-subcategory')?.value || '',
+                subSubcategoryId: tr.querySelector('.matrix-sub-subcategory')?.value || '',
+                hsnCode: tr.querySelector('.matrix-hsn')?.value || '',
             };
         });
 
@@ -1311,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (sizes.length === 0 || colors.length === 0) {
             tbodyVariantMatrix.innerHTML = `
                 <tr>
-                    <td colspan="12" class="text-center py-4 text-muted">
+                    <td colspan="13" class="text-center py-4 text-muted">
                         <i class="bi bi-exclamation-circle text-warning me-1"></i>
                         ${sizes.length === 0 ? 'No sizes selected. ' : ''}${colors.length === 0 ? 'No colors selected. ' : ''}Check options above to generate the variant matrix table.
                     </td>
@@ -1348,6 +1633,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 const vMrp = existingState?.mrp || preExisting?.mrp || defaultMrp;
                 const vSp = existingState?.sp || preExisting?.selling_price || defaultSp;
                 const vBarcode = existingState?.barcode || preExisting?.barcode || vSku;
+                const vCategoryId = existingState?.categoryId || preExisting?.third_party_category_id || selectTier1.value;
+                const vSubcategoryId = existingState?.subcategoryId || preExisting?.third_party_subcategory_id || selectTier2.value;
+                const vSubSubcategoryId = existingState?.subSubcategoryId || preExisting?.third_party_sub_subcategory_id || selectTier3.value;
+                const vHsnCode = existingState?.hsnCode || preExisting?.hsn_code || inputHsnCode.value;
                 const hasSavedComplementaryValue = preExisting
                     && preExisting.is_complementary !== null
                     && preExisting.is_complementary !== undefined;
@@ -1379,6 +1668,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="badge bg-secondary-subtle text-dark border px-2.5 py-1 fw-semibold">${col}</span>
                         <input type="hidden" name="variants[${rowIndex}][color]" value="${col}">
                     </td>
+                    <td class="matrix-taxonomy-cell"></td>
                     <td>
                         <input type="text" class="form-control form-control-sm font-monospace matrix-sku"
                                name="variants[${rowIndex}][sku]" value="${vSku}" required>
@@ -1431,6 +1721,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         </button>
                     </td>
                 `;
+                populateVariantTaxonomyCell(tr.querySelector('.matrix-taxonomy-cell'), rowIndex, {
+                    categoryId: vCategoryId,
+                    subcategoryId: vSubcategoryId,
+                    subSubcategoryId: vSubSubcategoryId,
+                    hsnCode: vHsnCode,
+                });
                 tbodyVariantMatrix.appendChild(tr);
                 rowIndex++;
             });
@@ -1715,6 +2011,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                taxonomyCategories.push({ id: data.id, name: data.name, code: data.code || code });
+                refreshVariantTaxonomyOptions();
                 const opt = document.createElement('option');
                 opt.value = data.id;
                 opt.textContent = data.name;
@@ -1768,6 +2066,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                taxonomySubcategories.push({ id: data.id, category_id: catId, name: data.name, code: data.code || code });
+                refreshVariantTaxonomyOptions();
                 const opt = document.createElement('option');
                 opt.value = data.id;
                 opt.textContent = data.name;
@@ -1818,6 +2118,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                taxonomySubSubcategories.push({ id: data.id, subcategory_id: subcatId, name: data.name, code: data.code || code });
+                refreshVariantTaxonomyOptions();
                 const opt = document.createElement('option');
                 opt.value = data.id;
                 opt.textContent = data.name;
