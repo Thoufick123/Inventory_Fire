@@ -2227,6 +2227,8 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   `third_party_subcategory_id` int(10) unsigned DEFAULT NULL,
   `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL,
   `hsn_code` varchar(20) DEFAULT NULL,
+  `qr_generation_id` int(10) unsigned DEFAULT NULL,
+  `qr_batch_code` varchar(100) DEFAULT NULL,
   `is_complementary` tinyint(1) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -2239,6 +2241,7 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   KEY `idx_tppv_third_party_subcat` (`third_party_subcategory_id`),
   KEY `idx_tppv_third_party_sub_subcat` (`third_party_sub_subcategory_id`),
   KEY `idx_tppv_hsn_code` (`hsn_code`),
+  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`),
   CONSTRAINT `third_party_product_variants_ibfk_1` FOREIGN KEY (`third_party_product_id`) REFERENCES `third_party_products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -4339,9 +4342,33 @@ PREPARE schema_stmt FROM @schema_sql;
 EXECUTE schema_stmt;
 DEALLOCATE PREPARE schema_stmt;
 SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'qr_generation_id'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `qr_generation_id` int(10) unsigned DEFAULT NULL AFTER `hsn_code`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'qr_batch_code'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD COLUMN `qr_batch_code` varchar(100) DEFAULT NULL AFTER `qr_generation_id`'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
   EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_cat'),
   'SELECT 1',
   'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_cat` (`third_party_category_id`)'
+);
+PREPARE schema_stmt FROM @schema_sql;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+SET @schema_sql = IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_qr_generation_id'),
+  'SELECT 1',
+  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_qr_generation_id` (`qr_generation_id`)'
 );
 PREPARE schema_stmt FROM @schema_sql;
 EXECUTE schema_stmt;

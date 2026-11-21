@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261204'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261121_variant_qr'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -252,7 +252,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261204'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261121_variant_qr'] = 1;
         }
         self::$schemaEnsured = true;
     }

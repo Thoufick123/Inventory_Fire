@@ -478,11 +478,17 @@ if (tableExists($db, 'third_party_product_variants')) {
         'third_party_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_category_id`',
         'third_party_sub_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_subcategory_id`',
         'hsn_code' => 'varchar(20) DEFAULT NULL AFTER `third_party_sub_subcategory_id`',
+        'qr_generation_id' => 'int(10) unsigned DEFAULT NULL AFTER `hsn_code`',
+        'qr_batch_code' => 'varchar(100) DEFAULT NULL AFTER `qr_generation_id`',
     ];
     foreach ($variantTaxonomyColumns as $column => $definition) {
         if (!columnExists($db, 'third_party_product_variants', $column)) {
             $db->exec("ALTER TABLE `third_party_product_variants` ADD COLUMN `{$column}` {$definition}");
         }
+    }
+    $qrGenerationIndex = $db->query("SHOW INDEX FROM `third_party_product_variants` WHERE Key_name = 'idx_tppv_qr_generation_id'");
+    if (!$qrGenerationIndex->fetch()) {
+        $db->exec("ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_qr_generation_id` (`qr_generation_id`)");
     }
 }
 
