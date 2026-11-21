@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Modern ERP Product Mapping Workspace — Map Purchase Bill Lines
  * Matches Image 2, 3, 4 & 5 Format with User Refinements:
@@ -524,89 +524,168 @@ tr.table-danger, tr.table-danger > td {
         </div>
 
         <!-- ========================================================================= -->
-        <!-- SECTION 2: PRODUCT VARIANTS MATRIX & PRICING                              -->
+        <!-- SECTION 2: MANUAL PRODUCT VARIANTS ENTRY                                  -->
         <!-- ========================================================================= -->
+        <?php
+        $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId): void {
+            $vSize = !empty($v['size']) ? $v['size'] : ($activeItem['size'] ?: 'Free Size');
+            $vColor = !empty($v['color']) ? $v['color'] : ($activeItem['color'] ?: 'Default');
+            $vSku = !empty($v['sku']) ? $v['sku'] : ($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']));
+            $vQty = isset($v['allocated_qty']) ? (float)$v['allocated_qty'] : (isset($v['quantity']) ? (float)$v['quantity'] : (float)$activeItem['quantity']);
+            $vRate = isset($v['purchase_rate']) ? (float)$v['purchase_rate'] : (isset($v['unit_price']) ? (float)$v['unit_price'] : $unitPrice);
+            $vMrp = isset($v['mrp']) && (float)$v['mrp'] > 0 ? (float)$v['mrp'] : $defaultMrp;
+            $vSp = isset($v['selling_price']) && (float)$v['selling_price'] > 0 ? (float)$v['selling_price'] : $defaultSp;
+            $vGst = isset($v['gst_rate']) ? (float)$v['gst_rate'] : $gstRate;
+            $vHsn = !empty($v['hsn_code']) ? $v['hsn_code'] : $activeHsn;
+            $vCatId = !empty($v['third_party_category_id']) ? (int)$v['third_party_category_id'] : (!empty($v['category_id']) ? (int)$v['category_id'] : $activeCatId);
+            if ($vCatId <= 0 && !empty($categories)) {
+                $vCatId = (int)$categories[0]['id'];
+            }
+            $vSubcatId = !empty($v['third_party_subcategory_id']) ? (int)$v['third_party_subcategory_id'] : (!empty($v['subcategory_id']) ? (int)$v['subcategory_id'] : $activeSubcatId);
+            $vSubSubcatId = !empty($v['third_party_sub_subcategory_id']) ? (int)$v['third_party_sub_subcategory_id'] : (!empty($v['sub_subcategory_id']) ? (int)$v['sub_subcategory_id'] : $activeSubSubcatId);
+        ?>
+        <tr class="variant-row" data-index="<?= $index ?>">
+            <td class="text-center text-muted fw-bold row-num" style="width: 40px;"><?= $index + 1 ?></td>
+            <td style="width: 100px;">
+                <input class="form-control form-control-sm var-size" name="variants[<?= $index ?>][size]" value="<?= e($vSize) ?>" placeholder="Size" required>
+            </td>
+            <td style="width: 110px;">
+                <input class="form-control form-control-sm var-color" name="variants[<?= $index ?>][color]" value="<?= e($vColor) ?>" placeholder="Color" required>
+            </td>
+            <td style="min-width: 140px;">
+                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required>
+            </td>
+            <td style="width: 100px;">
+                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="number" step="1" min="1" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty">
+            </td>
+            <td style="width: 110px;">
+                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="number" step="0.01" min="0" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate">
+            </td>
+            <td style="width: 110px;">
+                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="number" step="0.01" min="0.01" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP">
+            </td>
+            <td style="width: 110px;">
+                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="number" step="0.01" min="0.01" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale">
+            </td>
+            <td style="width: 90px;">
+                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="number" step="0.01" min="0" max="100" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %">
+            </td>
+            <td style="width: 100px;">
+                <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN">
+            </td>
+            <td style="min-width: 220px;">
+                <select class="form-select form-select-sm var-category mb-1" name="variants[<?= $index ?>][category_id]" required>
+                    <option value="">-- Main Category --</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= (int)$cat['id'] ?>" <?= $vCatId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <select class="form-select form-select-sm var-subcategory mb-1" name="variants[<?= $index ?>][subcategory_id]">
+                    <option value="">-- Sub Category --</option>
+                    <?php foreach ($allSubcategories as $sc): ?>
+                        <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= $vSubcatId === (int)$sc['id'] ? 'selected' : '' ?> <?= (int)$sc['category_id'] !== $vCatId ? 'hidden' : '' ?>><?= e($sc['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <select class="form-select form-select-sm var-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
+                    <option value="">-- Sub Sub Category --</option>
+                    <?php foreach ($allSubSubcategories as $ssc): ?>
+                        <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= $vSubSubcatId === (int)$ssc['id'] ? 'selected' : '' ?> <?= (int)$ssc['subcategory_id'] !== $vSubcatId ? 'hidden' : '' ?>><?= e($ssc['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </td>
+            <td class="text-center" style="width: 50px;">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Remove variant"><i class="bi bi-x-lg"></i></button>
+            </td>
+        </tr>
+        <?php }; ?>
+
         <div class="card border shadow-sm mb-4">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">2</span>
-                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Product Variants Matrix &amp; Pricing</h5>
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Product Variants Entry &amp; Pricing</h5>
                 </div>
                 <!-- Batch Price Replicator Controls -->
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="input-group input-group-sm" style="width: 170px;">
                         <span class="input-group-text bg-light text-muted">MRP ₹</span>
-                        <input type="text" inputmode="decimal" class="form-control text-end numeric-text-input" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00">
+                        <input type="number" step="0.01" min="0.01" class="form-control text-end" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00">
                     </div>
                     <div class="input-group input-group-sm" style="width: 180px;">
                         <span class="input-group-text bg-light text-muted">SP ₹</span>
-                        <input type="text" inputmode="decimal" class="form-control text-end numeric-text-input" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00">
+                        <input type="number" step="0.01" min="0.01" class="form-control text-end" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00">
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnReplicatePricing" title="Copy MRP & Selling Price to all variant rows">
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnReplicatePricing" title="Copy MRP &amp; Selling Price to all variant rows">
                         <i class="bi bi-arrow-repeat me-1"></i>Replicate to All
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="btnHeaderAutoDistribute" onclick="autoDistributeQuantities()" title="Evenly distribute purchased bill quantity (<?= (int)$purchasedQty ?> pcs) across all active variants">
+                    <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="btnHeaderAutoDistribute" title="Evenly distribute purchased bill quantity (<?= (int)$purchasedQty ?> pcs) across all active variants">
                         <i class="bi bi-magic me-1"></i>Auto-Distribute Qty
                     </button>
-                    <div id="batchPriceError" class="d-none w-100 text-end text-danger small fw-semibold" style="font-size: 11px;">
-                        <i class="bi bi-exclamation-triangle-fill me-1"></i>MRP cannot be lower than Selling Price!
-                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 text-center" id="tableVariantMatrix">
+                    <table class="table table-hover align-middle mb-0" id="tableVariantRows">
                         <thead class="table-light small text-uppercase text-muted">
                             <tr>
-                                <th style="width: 40px;">#</th>
-                                <th style="width: 100px;">Size</th>
-                                <th style="width: 130px;">Color</th>
-                                <th style="min-width: 330px;">Category / HSN per Variant</th>
-                                <th style="min-width: 190px;">Variant SKU</th>
-                                <th style="width: 120px;">Allocated Qty</th>
-                                <th style="width: 130px;">Purchase Rate (₹)</th>
-                                <th style="width: 140px;">MRP (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 140px;">Selling Price (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 110px;">Complementary</th>
-                                <th style="width: 115px;">Margin (%)</th>
-                                <th style="min-width: 140px;">Barcode / QR Status</th>
-                                <th style="width: 60px;">Action</th>
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th style="width: 100px;">Size <span class="text-danger">*</span></th>
+                                <th style="width: 110px;">Color <span class="text-danger">*</span></th>
+                                <th style="min-width: 140px;">SKU <span class="text-danger">*</span></th>
+                                <th style="width: 100px;" class="text-end">Qty <span class="text-danger">*</span></th>
+                                <th style="width: 110px;" class="text-end">Rate (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 90px;" class="text-end">GST %</th>
+                                <th style="width: 100px;">HSN Code <span class="text-danger">*</span></th>
+                                <th style="min-width: 220px;">Category Hierarchy <span class="text-danger">*</span></th>
+                                <th style="width: 50px;" class="text-center"></th>
                             </tr>
                         </thead>
-                        <tbody id="tbodyVariantMatrix">
-                            <!-- Populated dynamically via JavaScript -->
+                        <tbody id="tbodyVariantRows">
+                            <?php 
+                            if (!empty($savedVariants)) {
+                                foreach ($savedVariants as $idx => $v) {
+                                    $renderVariantRow($idx, $v);
+                                }
+                            } else {
+                                $renderVariantRow(0);
+                            }
+                            ?>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- Live Quantity & Margin Allocation Verification Bar -->
+                <!-- Add Variants Controls & Live Allocation Summary -->
                 <div class="p-3 bg-light-subtle border-top d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <div class="small fw-bold text-uppercase text-muted">Allocation Summary:</div>
-                        <div class="fs-6" id="labelAllocationStatus">
-                            <!-- JS updates this -->
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex align-items-center gap-2">
+                            <input class="form-control form-control-sm" id="variantRowsToAdd" type="number" min="1" max="20" value="1" style="width: 80px;">
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAddVariantRows">
+                                <i class="bi bi-plus-lg me-1"></i>Add Rows
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
+                                <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
+                            </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAutoDistributeQty" onclick="autoDistributeQuantities()" title="Evenly distribute purchased quantity across active variants">
-                            <i class="bi bi-distribute-vertical me-1"></i>Auto-Distribute Exact Qty
-                        </button>
-                        <div id="labelPricingStatus" class="fs-6 d-none">
-                            <!-- JS updates this with pricing error badge -->
+                        <div class="ms-md-3 fs-6" id="labelAllocationStatus">
+                            <!-- JS updates this -->
                         </div>
                     </div>
                     <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i>Variant SKUs, pricing, category hierarchy, and HSN are saved to the catalog. Blank variant HSN uses the product HSN.
+                        <i class="bi bi-info-circle me-1"></i>Add variants manually. When saved, variants are recorded and QR label batches can be generated below.
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ========================================================================= -->
-        <!-- ACTION FOOTER BAR (Image 3: Save Draft removed)                           -->
+        <!-- ACTION FOOTER BAR                                                         -->
         <!-- ========================================================================= -->
         <div class="card border shadow-sm mb-4 bg-white sticky-bottom" style="z-index: 10;">
             <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div class="small text-muted">
-                    <i class="bi bi-gift text-info me-1"></i>Choose complementary status per variant in the matrix above.
+                    <i class="bi bi-check2-circle text-success me-1"></i>Save &amp; Complete Mapping to generate stock and QR label codes.
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary px-3">
@@ -624,6 +703,117 @@ tr.table-danger, tr.table-danger > td {
             </div>
         </div>
     </form>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION 3: SAVED PRODUCT VARIANTS & QR GENERATIONS (IN-PANEL VIEW)       -->
+    <!-- ========================================================================= -->
+    <?php 
+    $pendingQrCount = 0;
+    foreach ($savedVariants as $sv) {
+        if (empty($sv['qr_generation_id'])) {
+            $pendingQrCount++;
+        }
+    }
+    ?>
+    <div class="card border shadow-sm mb-4" id="sectionSavedVariantsQr">
+        <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success text-white rounded-pill px-2.5 py-1"><i class="bi bi-qr-code"></i></span>
+                <h5 class="mb-0 fw-bold text-dark">Saved Product Variants &amp; QR Generations</h5>
+            </div>
+            <span class="badge bg-secondary"><?= count($savedVariants) ?> variant<?= count($savedVariants) === 1 ? '' : 's' ?></span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-muted">
+                    <tr>
+                        <th>Product / Variant</th>
+                        <th>Category</th>
+                        <th>HSN</th>
+                        <th>Qty</th>
+                        <th>Purchase Rate</th>
+                        <th>MRP / Sale</th>
+                        <th>QR / Stock</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($savedVariants)): ?>
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-info-circle me-1"></i>No variants saved yet. Save mapping above to record variants and enable QR generation.
+                            </td>
+                        </tr>
+                    <?php else: foreach ($savedVariants as $itemVar): ?>
+                        <tr>
+                            <td>
+                                <strong><?= e($activeItem['item_name']) ?></strong>
+                                <div class="small text-muted">
+                                    <?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($itemVar['sku']) ?></span>
+                                </div>
+                            </td>
+                            <td>
+                                <?= e($itemVar['category_name'] ?? '—') ?>
+                                <?php if (!empty($itemVar['subcategory_name'])): ?>
+                                    <div class="small text-muted"><?= e($itemVar['subcategory_name']) ?><?= !empty($itemVar['sub_subcategory_name']) ? ' / ' . e($itemVar['sub_subcategory_name']) : '' ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td class="font-monospace"><?= e($itemVar['hsn_code'] ?: $activeHsn) ?></td>
+                            <td class="fw-bold"><?= number_format((float)($itemVar['allocated_qty'] ?? $itemVar['quantity']), 3) ?> <?= e($activeItem['unit'] ?: 'PCS') ?></td>
+                            <td>₹<?= number_format((float)($itemVar['purchase_rate'] ?? $itemVar['unit_price']), 2) ?></td>
+                            <td class="text-success fw-semibold">₹<?= number_format((float)$itemVar['mrp'], 2) ?> / ₹<?= number_format((float)$itemVar['selling_price'], 2) ?></td>
+                            <td>
+                                <?php if (!empty($itemVar['batch_code'])): ?>
+                                    <button type="button" class="badge bg-dark border-0 cursor-pointer p-2" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
+                                        <i class="bi bi-qr-code me-1"></i><?= e($itemVar['batch_code']) ?>
+                                    </button>
+                                    <?php if (!empty($itemVar['stock_added'])): ?>
+                                        <span class="badge bg-success ms-1">Stocked</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning text-dark ms-1">Not stocked</span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">No QR</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-end">
+                                <?php if (empty($itemVar['qr_generation_id'])): ?>
+                                    <form method="POST" action="<?= url('purchases/mapping/bill/' . (!empty($itemVar['id']) ? 'variant/' . (int)$itemVar['id'] : 'item/' . (int)$activeItem['id']) . '/generate-qr') ?>" class="d-inline">
+                                        <?= CSRF::field() ?>
+                                        <button class="btn btn-sm btn-outline-info" type="submit">
+                                            <i class="bi bi-qr-code me-1"></i>Generate QR
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" title="View QR in this panel">
+                                            <i class="bi bi-eye me-1"></i>View QR
+                                        </button>
+                                        <a class="btn btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" title="Print Labels">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="small text-muted">
+                <i class="bi bi-info-circle me-1"></i>Purchase bill <strong><?= e($purchase['purchase_number']) ?></strong> is already entered in Purchases. Generate QR labels and print directly from this panel.
+            </div>
+            <?php if (!empty($savedVariants) && $pendingQrCount > 0): ?>
+                <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all pending variants?')">
+                    <?= CSRF::field() ?>
+                    <button class="btn btn-sm btn-outline-info fw-semibold" type="submit">
+                        <i class="bi bi-qr-code me-1"></i>Generate QR for All Pending Variants (<?= $pendingQrCount ?>)
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <!-- Add a new purchased product line without leaving the bill mapping flow. -->
@@ -783,20 +973,388 @@ tr.table-danger, tr.table-danger > td {
 </div>
 
 <!-- ========================================================================= -->
-<!-- CLIENT-SIDE ENGINE (JAVASCRIPT)                                           -->
+<!-- QR CODE MODALS FOR GENERATED BATCHES (IN-PANEL VIEW)                      -->
 <!-- ========================================================================= -->
+<?php if (!empty($savedVariants)): foreach ($savedVariants as $itemVar): if (!empty($itemVar['qr_generation_id'])): 
+    $batchQrItems = $qrItemMap[(int)$itemVar['qr_generation_id']] ?? [];
+?>
+<div class="modal fade" id="modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" tabindex="-1" aria-labelledby="modalQrBatchLabel_<?= (int)$itemVar['qr_generation_id'] ?>" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="modalQrBatchLabel_<?= (int)$itemVar['qr_generation_id'] ?>">
+                    <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($itemVar['batch_code']) ?>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="card bg-light border-0 mb-4">
+                    <div class="card-body p-3">
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Product</div>
+                                <div class="fw-bold fs-6"><?= e($activeItem['item_name']) ?></div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Variant &amp; SKU</div>
+                                <div class="fw-semibold"><?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($itemVar['sku']) ?></span></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">Total Qty</div>
+                                <div class="fw-bold"><?= number_format((float)($itemVar['allocated_qty'] ?? $itemVar['quantity']), 3) ?> <?= e($activeItem['unit'] ?: 'PCS') ?></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">MRP / Selling Price</div>
+                                <div class="fw-bold text-success">₹<?= number_format((float)$itemVar['mrp'], 2) ?> / ₹<?= number_format((float)$itemVar['selling_price'], 2) ?></div>
+                            </div>
+                            <div class="col-sm-4 mt-2">
+                                <div class="text-muted small">Inventory Status</div>
+                                <div><?php if (!empty($itemVar['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
+                <div class="row g-3">
+                    <?php if (empty($batchQrItems)): ?>
+                        <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
+                    <?php else: foreach ($batchQrItems as $q): ?>
+                        <div class="col-md-4 col-sm-6">
+                            <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                                <div class="small fw-bold text-truncate text-dark mb-1"><?= e($activeItem['item_name']) ?></div>
+                                <div class="small text-muted mb-2"><?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?></div>
+                                <div class="d-flex justify-content-center my-2">
+                                    <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
+                                </div>
+                                <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
+                                <div class="small text-muted mt-1">₹<?= number_format((float)$itemVar['selling_price'], 2) ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-printer me-1"></i>Print Labels
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; endforeach; endif; ?>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- ========================================================================= -->
+<!-- CLIENT-SIDE ENGINE (JAVASCRIPT)                                           -->
+========================================================================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
+
+    const tbodyVariantRows = document.getElementById('tbodyVariantRows');
+    const labelAllocationStatus = document.getElementById('labelAllocationStatus');
+    const btnAddOneVariant = document.getElementById('btnAddOneVariant');
+    const btnAddVariantRows = document.getElementById('btnAddVariantRows');
+    const variantRowsToAdd = document.getElementById('variantRowsToAdd');
+
+    const batchInputMrp = document.getElementById('batchInputMrp');
+    const batchInputSp = document.getElementById('batchInputSp');
+    const btnReplicatePricing = document.getElementById('btnReplicatePricing');
+    const btnHeaderAutoDistribute = document.getElementById('btnHeaderAutoDistribute');
+
+    // 1. Dynamic Row Management
+    function getNextIndex() {
+        let maxIndex = -1;
+        if (!tbodyVariantRows) return 0;
+        tbodyVariantRows.querySelectorAll('.variant-row').forEach(tr => {
+            const idx = parseInt(tr.getAttribute('data-index') || '-1', 10);
+            if (idx > maxIndex) maxIndex = idx;
+        });
+        return maxIndex + 1;
+    }
+
+    function renumberRows() {
+        if (!tbodyVariantRows) return;
+        tbodyVariantRows.querySelectorAll('.variant-row').forEach((tr, i) => {
+            const numEl = tr.querySelector('.row-num');
+            if (numEl) numEl.textContent = String(i + 1);
+        });
+    }
+
+    function addVariantRows(count) {
+        if (!tbodyVariantRows) return;
+        const firstRow = tbodyVariantRows.querySelector('.variant-row');
+        if (!firstRow) return;
+
+        for (let i = 0; i < count; i++) {
+            const nextIdx = getNextIndex();
+            const clone = firstRow.cloneNode(true);
+            clone.setAttribute('data-index', String(nextIdx));
+
+            // Replace input names
+            clone.querySelectorAll('input, select').forEach(input => {
+                if (input.name) {
+                    input.name = input.name.replace(/variants\[\d+\]/, ariants[ + nextIdx + ]);
+                }
+            });
+
+            // Adjust SKU for cloned row if based on default format
+            const skuInput = clone.querySelector('.var-sku');
+            if (skuInput && skuInput.value) {
+                const parts = skuInput.value.split('-');
+                if (parts.length > 1 && !isNaN(parseInt(parts[parts.length - 1], 10))) {
+                    parts[parts.length - 1] = String(nextIdx + 1).padStart(2, '0');
+                    skuInput.value = parts.join('-');
+                } else {
+                    skuInput.value = skuInput.value + '-' + (nextIdx + 1);
+                }
+            }
+
+            // Reset quantity to 1 for new rows
+            const qtyInput = clone.querySelector('.var-qty');
+            if (qtyInput) qtyInput.value = '1';
+
+            tbodyVariantRows.appendChild(clone);
+        }
+
+        renumberRows();
+        updateAllocationStatus();
+    }
+
+    if (btnAddOneVariant) {
+        btnAddOneVariant.addEventListener('click', function () {
+            addVariantRows(1);
+        });
+    }
+
+    if (btnAddVariantRows && variantRowsToAdd) {
+        btnAddVariantRows.addEventListener('click', function () {
+            const count = Math.max(1, Math.min(20, parseInt(variantRowsToAdd.value, 10) || 1));
+            addVariantRows(count);
+        });
+    }
+
+    // Row Removal
+    if (tbodyVariantRows) {
+        tbodyVariantRows.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-remove-row');
+            if (!btn) return;
+
+            const allRows = tbodyVariantRows.querySelectorAll('.variant-row');
+            if (allRows.length <= 1) {
+                alert('At least one variant row is required.');
+                return;
+            }
+
+            btn.closest('.variant-row').remove();
+            renumberRows();
+            updateAllocationStatus();
+        });
+
+        // 2. Cascade Hierarchy Dropdowns per Row
+        tbodyVariantRows.addEventListener('change', function (e) {
+            if (e.target.classList.contains('var-category')) {
+                const row = e.target.closest('.variant-row');
+                const catId = e.target.value;
+                const subcatSelect = row.querySelector('.var-subcategory');
+                const subSubcatSelect = row.querySelector('.var-subsubcategory');
+
+                Array.from(subcatSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== catId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                subcatSelect.value = '';
+
+                Array.from(subSubcatSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = true;
+                    if (opt.selected) opt.selected = false;
+                });
+                subSubcatSelect.value = '';
+            } else if (e.target.classList.contains('var-subcategory')) {
+                const row = e.target.closest('.variant-row');
+                const subcatId = e.target.value;
+                const subSubcatSelect = row.querySelector('.var-subsubcategory');
+
+                Array.from(subSubcatSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== subcatId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                subSubcatSelect.value = '';
+            }
+        });
+
+        tbodyVariantRows.addEventListener('input', function (e) {
+            if (e.target.classList.contains('var-qty')) {
+                updateAllocationStatus();
+            }
+        });
+    }
+
+    // 3. Live Quantity Allocation Calculation
+    function updateAllocationStatus() {
+        if (!tbodyVariantRows || !labelAllocationStatus) return;
+        let totalAllocated = 0;
+        tbodyVariantRows.querySelectorAll('.var-qty').forEach(inp => {
+            totalAllocated += (parseFloat(inp.value) || 0);
+        });
+
+        const targetQty = Math.round(purchasedQty);
+        const diff = totalAllocated - targetQty;
+        const isMatch = (Math.abs(diff) < 0.001);
+
+        if (isMatch) {
+            labelAllocationStatus.innerHTML = 
+                <span class="badge bg-success text-white py-1.5 px-3">
+                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces (Exact Match)
+                </span>
+            ;
+        } else {
+            labelAllocationStatus.innerHTML = 
+                <span class="badge bg-warning text-dark py-1.5 px-3">
+                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces ( + (diff > 0 ? '+' : '') + diff +  variance)
+                </span>
+            ;
+        }
+    }
+
+    // 4. Auto-Distribute Quantities
+    function autoDistributeQuantities() {
+        if (!tbodyVariantRows) return;
+        const qtyInputs = Array.from(tbodyVariantRows.querySelectorAll('.var-qty'));
+        const count = qtyInputs.length;
+        if (count === 0) return;
+
+        const totalInt = Math.round(purchasedQty);
+        const base = Math.floor(totalInt / count);
+        const remainder = totalInt % count;
+
+        qtyInputs.forEach((inp, idx) => {
+            inp.value = String(base + (idx < remainder ? 1 : 0));
+        });
+
+        updateAllocationStatus();
+    }
+
+    if (btnHeaderAutoDistribute) {
+        btnHeaderAutoDistribute.addEventListener('click', autoDistributeQuantities);
+    }
+
+    // 5. Price Replicator
+    if (btnReplicatePricing) {
+        btnReplicatePricing.addEventListener('click', function () {
+            const mrp = parseFloat(batchInputMrp?.value || '0') || 0;
+            const sp = parseFloat(batchInputSp?.value || '0') || 0;
+
+            if (mrp > 0 && sp > 0 && mrp < sp) {
+                alert(Validation Error: MRP (₹ + mrp.toFixed(2) + ) cannot be lower than Selling Price (₹ + sp.toFixed(2) + ).);
+                batchInputMrp?.focus();
+                return;
+            }
+
+            if (tbodyVariantRows) {
+                tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                    const mrpInp = row.querySelector('.var-mrp');
+                    const spInp = row.querySelector('.var-sp');
+                    if (mrpInp && mrp > 0) mrpInp.value = mrp.toFixed(2);
+                    if (spInp && sp > 0) spInp.value = sp.toFixed(2);
+                });
+            }
+        });
+    }
+
+    // 6. Form Submission Validation
+    const formMapProductBill = document.getElementById('formMapProductBill');
+    if (formMapProductBill && tbodyVariantRows) {
+        formMapProductBill.addEventListener('submit', function (e) {
+            const rows = tbodyVariantRows.querySelectorAll('.variant-row');
+            if (rows.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one variant row.');
+                return false;
+            }
+
+            let pricingError = false;
+            let zeroError = false;
+            let totalAllocated = 0;
+
+            rows.forEach((row, i) => {
+                const sz = row.querySelector('.var-size')?.value.trim();
+                const col = row.querySelector('.var-color')?.value.trim();
+                const q = parseFloat(row.querySelector('.var-qty')?.value || '0') || 0;
+                const mrp = parseFloat(row.querySelector('.var-mrp')?.value || '0') || 0;
+                const sp = parseFloat(row.querySelector('.var-sp')?.value || '0') || 0;
+                const cat = row.querySelector('.var-category')?.value;
+
+                totalAllocated += q;
+
+                if (!sz || !col || !cat) {
+                    zeroError = true;
+                }
+                if (mrp <= 0 || sp <= 0 || q <= 0) {
+                    zeroError = true;
+                }
+                if (mrp > 0 && sp > 0 && mrp < sp) {
+                    pricingError = true;
+                }
+            });
+
+            if (pricingError) {
+                e.preventDefault();
+                alert('Validation Error: MRP cannot be lower than Selling Price on one or more variants.');
+                return false;
+            }
+
+            if (zeroError) {
+                e.preventDefault();
+                alert('Validation Error: Please fill in all required fields (Size, Color, Qty, MRP, Selling Price, Category) on all variant rows.');
+                return false;
+            }
+
+            if (Math.abs(totalAllocated - purchasedQty) > 0.001) {
+                const proceed = confirm(The allocated variant quantity ( + totalAllocated + ) differs from the purchased bill quantity ( + purchasedQty + ). Proceed anyway?);
+                if (!proceed) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    // 7. QR Code Canvas Rendering on Modal Open
+    document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function () {
+            modalEl.querySelectorAll('.panel-qr-canvas').forEach(function(el) {
+                if (el.dataset.rendered === '1') return;
+                el.innerHTML = '';
+                new QRCode(el, {
+                    text: el.dataset.code,
+                    width: 90,
+                    height: 90,
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                el.dataset.rendered = '1';
+            });
+        });
+    });
+
+    // 8. Add Product Modal Handlers
     const addBillProductButton = document.getElementById('btnCreateBillProduct');
     if (addBillProductButton) {
         addBillProductButton.addEventListener('click', function () {
             const errorBox = document.getElementById('newBillProductError');
             const formData = new FormData();
             formData.append('purchase_id', '<?= (int)$purchase['id'] ?>');
-            formData.append('invoice_number', document.getElementById('inputInvoiceNumber').value.trim());
+            formData.append('invoice_number', document.getElementById('inputInvoiceNumber') ? document.getElementById('inputInvoiceNumber').value.trim() : '');
             formData.append('new_item_name', document.getElementById('newBillItemName').value.trim());
             formData.append('new_vendor_sku', document.getElementById('newBillVendorSku').value.trim());
             formData.append('new_quantity', document.getElementById('newBillQuantity').value);
@@ -813,7 +1371,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             errorBox.classList.add('d-none');
             addBillProductButton.disabled = true;
-            fetch(`${BASE_URL}/purchases/mapping/add-product`, { method: 'POST', body: formData })
+            fetch(${BASE_URL}/purchases/mapping/add-product, { method: 'POST', body: formData })
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok || !data.success) {
@@ -829,1179 +1387,55 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Existing variants loaded from database
-    const preExistingVariants = <?= json_encode($existingVariants) ?>;
-    const legacyItemComplementary = <?= json_encode(!empty($activeItem['is_complementary'])) ?>;
-    const taxonomyCategories = <?= json_encode($categories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    const taxonomySubcategories = <?= json_encode($allSubcategories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-    const taxonomySubSubcategories = <?= json_encode($allSubSubcategories, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    // 9. Quick Add Modals (AJAX Integration)
+    const btnSubmitModalTier1 = document.getElementById('btnSubmitModalTier1');
+    if (btnSubmitModalTier1) {
+        btnSubmitModalTier1.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalTier1Name');
+            const codeInput = document.getElementById('modalTier1Code');
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim().toUpperCase();
+            if (!name) {
+                alert('Please enter a Category name.');
+                return;
+            }
 
-    // Elements
-    const selectTier1 = document.getElementById('selectTier1');
-    const selectTier2 = document.getElementById('selectTier2');
-    const selectTier3 = document.getElementById('selectTier3');
-    const inputTier1Code = document.getElementById('inputTier1Code');
-    const inputTier2Code = document.getElementById('inputTier2Code');
-    const inputTier3Code = document.getElementById('inputTier3Code');
-    const inputQrKey = document.getElementById('inputQrKey');
-    const labelHierarchyPath = document.getElementById('labelHierarchyPath');
-    const inputHsnCode = document.getElementById('inputHsnCode');
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('code', code);
+            formData.append('catalog_source', 'THIRD_PARTY');
+            const isComplementary = document.getElementById('modalTier1Complementary')?.checked ? '1' : '0';
+            formData.append('is_complementary', isComplementary);
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
 
-    const inputStyleCode = document.getElementById('inputStyleCode');
-    const inputStyleName = document.getElementById('inputStyleName');
-    const containerColorPills = document.getElementById('containerColorPills');
-    const containerSizePills = document.getElementById('containerSizePills');
-
-    const tbodyVariantMatrix = document.getElementById('tbodyVariantMatrix');
-    const labelAllocationStatus = document.getElementById('labelAllocationStatus');
-    const categoryComplementaryHelp = document.getElementById('categoryComplementaryHelp');
-
-    const batchInputMrp = document.getElementById('batchInputMrp');
-    const batchInputSp = document.getElementById('batchInputSp');
-    const btnReplicatePricing = document.getElementById('btnReplicatePricing');
-
-    // 1. Hierarchy Change Handlers
-    function selectedCategoryIsComplementary() {
-        const selectedOption = selectTier1.options[selectTier1.selectedIndex];
-        return selectedOption && selectedOption.dataset.complementary === '1';
-    }
-
-    function updateCategoryComplementaryHelp() {
-        if (!categoryComplementaryHelp) return;
-        categoryComplementaryHelp.textContent = selectedCategoryIsComplementary()
-            ? 'This category defaults new variants to complementary. You can change each variant below.'
-            : 'The selected category defaults new variants to regular. You can mark individual variants complementary below.';
-    }
-
-    function applyCategoryComplementaryDefault() {
-        const categoryDefault = Boolean(selectedCategoryIsComplementary());
-        tbodyVariantMatrix.querySelectorAll('.matrix-complementary').forEach(input => {
-            input.checked = categoryDefault;
-        });
-        updateCategoryComplementaryHelp();
-    }
-
-    function updateHierarchySummary() {
-        const t1Text = selectTier1.options[selectTier1.selectedIndex]?.text?.replace(/\s*\([^)]*\)/, '') || '';
-        const t2Text = selectTier2.options[selectTier2.selectedIndex]?.text?.replace(/\s*\([^)]*\)/, '') || '';
-        const t3Text = selectTier3.options[selectTier3.selectedIndex]?.text?.replace(/\s*\([^)]*\)/, '') || '';
-
-        const parts = [];
-        if (t1Text && selectTier1.value) parts.push(t1Text.trim());
-        if (t2Text && selectTier2.value) parts.push(t2Text.trim());
-        if (t3Text && selectTier3.value) parts.push(t3Text.trim());
-
-        labelHierarchyPath.textContent = parts.length > 0 ? parts.join(' > ') : 'Select categories to build path';
-
-        const c1 = (inputTier1Code.value || '').trim();
-        const c2 = (inputTier2Code.value || '').trim();
-        const c3 = (inputTier3Code.value || '').trim();
-        inputQrKey.value = (c1 + c2 + c3).toUpperCase();
-    }
-
-    selectTier1.addEventListener('change', function () {
-        const opt = this.options[this.selectedIndex];
-        const code = opt ? (opt.getAttribute('data-code') || '') : '';
-        inputTier1Code.value = code;
-
-        const catId = this.value;
-        selectTier2.innerHTML = '<option value="">-- Select Sub Category --</option>';
-        selectTier3.innerHTML = '<option value="">-- Select Sub Sub Category --</option>';
-        inputTier2Code.value = '';
-        inputTier3Code.value = '';
-
-        if (catId) {
-            loadSubcategories(catId);
-        }
-        applyCategoryComplementaryDefault();
-        updateHierarchySummary();
-    });
-
-    selectTier2.addEventListener('change', function () {
-        const opt = this.options[this.selectedIndex];
-        const code = opt ? (opt.getAttribute('data-code') || '') : '';
-        inputTier2Code.value = code;
-
-        const subcatId = this.value;
-        selectTier3.innerHTML = '<option value="">-- Select Sub Sub Category --</option>';
-        inputTier3Code.value = '';
-
-        if (subcatId) {
-            loadSubSubcategories(subcatId);
-        }
-        updateHierarchySummary();
-    });
-
-    selectTier3.addEventListener('change', function () {
-        const opt = this.options[this.selectedIndex];
-        const code = opt ? (opt.getAttribute('data-code') || '') : '';
-        inputTier3Code.value = code;
-        updateHierarchySummary();
-    });
-
-    inputTier1Code.addEventListener('input', updateHierarchySummary);
-    inputTier2Code.addEventListener('input', updateHierarchySummary);
-    inputTier3Code.addEventListener('input', updateHierarchySummary);
-
-    function loadSubcategories(catId, preselectId, callback) {
-        fetch(`${BASE_URL}/api/subcategories/${catId}?catalog_source=THIRD_PARTY`)
-            .then(res => res.json())
-            .then(data => {
-                selectTier2.innerHTML = '<option value="">-- Select Sub Category --</option>';
-                if (Array.isArray(data)) {
-                    data.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.name;
-                        opt.setAttribute('data-code', item.code || '');
-                        if (preselectId && parseInt(item.id, 10) === parseInt(preselectId, 10)) {
-                            opt.selected = true;
+            fetch(${BASE_URL}/api/categories/quick-add, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (tbodyVariantRows) {
+                            tbodyVariantRows.querySelectorAll('.var-category').forEach(sel => {
+                                const opt = document.createElement('option');
+                                opt.value = data.id;
+                                opt.textContent = data.name;
+                                sel.appendChild(opt);
+                            });
                         }
-                        selectTier2.appendChild(opt);
-                    });
-                }
-                if (callback) callback();
-            })
-            .catch(err => console.error('Error loading subcategories:', err));
-    }
-
-    function loadSubSubcategories(subcatId, preselectId, callback) {
-        fetch(`${BASE_URL}/api/sub-subcategories/${subcatId}?catalog_source=THIRD_PARTY`)
-            .then(res => res.json())
-            .then(data => {
-                selectTier3.innerHTML = '<option value="">-- Select Sub Sub Category --</option>';
-                if (Array.isArray(data)) {
-                    data.forEach(item => {
-                        const opt = document.createElement('option');
-                        opt.value = item.id;
-                        opt.textContent = item.name;
-                        opt.setAttribute('data-code', item.code || '');
-                        if (preselectId && parseInt(item.id, 10) === parseInt(preselectId, 10)) {
-                            opt.selected = true;
-                        }
-                        selectTier3.appendChild(opt);
-                    });
-                }
-                if (callback) callback();
-            })
-            .catch(err => console.error('Error loading sub-subcategories:', err));
-    }
-
-    // 2. Color Selection & Custom Color Add Handlers
-    function getSelectedColors() {
-        const colors = [];
-        containerColorPills.querySelectorAll('.color-checkbox:checked').forEach(cb => {
-            colors.push(cb.value);
-        });
-        return colors;
-    }
-
-    function updateColorPillStyles() {
-        containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => {
-            const label = containerColorPills.querySelector(`label[for="${cb.id}"]`);
-            if (label) {
-                if (cb.checked) {
-                    label.classList.remove('btn-outline-secondary');
-                    label.classList.add('btn-primary');
-                } else {
-                    label.classList.remove('btn-primary');
-                    label.classList.add('btn-outline-secondary');
-                }
-            }
-        });
-    }
-
-    containerColorPills.addEventListener('change', function (e) {
-        if (e.target.classList.contains('color-checkbox')) {
-            updateColorPillStyles();
-            rebuildVariantMatrix();
-        }
-    });
-
-    document.getElementById('btnSelectAllColors').addEventListener('click', function () {
-        containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => { cb.checked = true; });
-        updateColorPillStyles();
-        rebuildVariantMatrix();
-    });
-
-    document.getElementById('btnClearColors').addEventListener('click', function () {
-        containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => { cb.checked = false; });
-        updateColorPillStyles();
-        rebuildVariantMatrix();
-    });
-
-    // Custom Color Adder
-    document.getElementById('btnAddCustomColor').addEventListener('click', function () {
-        const input = document.getElementById('inputCustomColor');
-        const val = input.value.trim();
-        if (!val) return;
-
-        // Proper capitalization
-        const formatted = val.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-
-        let exists = false;
-        containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => {
-            if (cb.value.toLowerCase() === formatted.toLowerCase()) exists = true;
-        });
-
-        if (!exists) {
-            const safeId = 'color_pill_' + btoa(formatted).replace(/=/g, '');
-            const div = document.createElement('div');
-            div.className = 'form-check form-check-inline m-0';
-            div.innerHTML = `
-                <input class="btn-check color-checkbox" type="checkbox" id="${safeId}" name="colors[]" value="${formatted}" checked autocomplete="off">
-                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${formatted}</label>
-            `;
-            containerColorPills.appendChild(div);
-            input.value = '';
-            updateColorPillStyles();
-            rebuildVariantMatrix();
-        } else {
-            input.value = '';
-        }
-    });
-
-    // 3. Size Selection Handlers
-    function getSelectedSizes() {
-        const sizes = [];
-        containerSizePills.querySelectorAll('.size-checkbox:checked').forEach(cb => {
-            sizes.push(cb.value);
-        });
-        return sizes;
-    }
-
-    function updateSizePillStyles() {
-        containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => {
-            const label = containerSizePills.querySelector(`label[for="${cb.id}"]`);
-            if (label) {
-                if (cb.checked) {
-                    label.classList.remove('btn-outline-secondary');
-                    label.classList.add('btn-primary');
-                } else {
-                    label.classList.remove('btn-primary');
-                    label.classList.add('btn-outline-secondary');
-                }
-            }
-        });
-    }
-
-    containerSizePills.addEventListener('change', function (e) {
-        if (e.target.classList.contains('size-checkbox')) {
-            updateSizePillStyles();
-            rebuildVariantMatrix();
-        }
-    });
-
-    document.getElementById('btnSelectAllSizes').addEventListener('click', function () {
-        containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => { cb.checked = true; });
-        updateSizePillStyles();
-        rebuildVariantMatrix();
-    });
-
-    document.getElementById('btnClearSizes').addEventListener('click', function () {
-        containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => { cb.checked = false; });
-        updateSizePillStyles();
-        rebuildVariantMatrix();
-    });
-
-    // Custom Size Adder
-    document.getElementById('btnAddCustomSize').addEventListener('click', function () {
-        const input = document.getElementById('inputCustomSize');
-        const val = input.value.trim().toUpperCase();
-        if (!val) return;
-
-        let exists = false;
-        containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => {
-            if (cb.value.toUpperCase() === val) exists = true;
-        });
-
-        if (!exists) {
-            const safeId = 'size_pill_' + btoa(val).replace(/=/g, '');
-            const div = document.createElement('div');
-            div.className = 'form-check form-check-inline m-0';
-            div.innerHTML = `
-                <input class="btn-check size-checkbox" type="checkbox" id="${safeId}" name="sizes[]" value="${val}" checked autocomplete="off">
-                <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${val}</label>
-            `;
-            containerSizePills.appendChild(div);
-            input.value = '';
-            updateSizePillStyles();
-            rebuildVariantMatrix();
-        } else {
-            input.value = '';
-        }
-    });
-
-    inputStyleCode.addEventListener('input', rebuildVariantMatrix);
-
-    // 4. Variant Matrix Generator & Calculations
-    function createTaxonomySelect(className, fieldName, placeholder, options, selectedId) {
-        const select = document.createElement('select');
-        select.className = `form-select form-select-sm ${className}`;
-        select.name = fieldName;
-        if (className === 'matrix-category') select.required = true;
-        select.add(new Option(placeholder, ''));
-        options.forEach(option => select.add(new Option(option.name, String(option.id))));
-        if (selectedId) select.value = String(selectedId);
-        return select;
-    }
-
-    function populateVariantSubSubcategories(row, selectedId) {
-        const previous = row.querySelector('.matrix-sub-subcategory');
-        const subcategoryId = row.querySelector('.matrix-subcategory').value;
-        const options = taxonomySubSubcategories.filter(item => String(item.subcategory_id) === String(subcategoryId));
-        const replacement = createTaxonomySelect(
-            'matrix-sub-subcategory',
-            previous.name,
-            'Sub-subcategory',
-            options,
-            selectedId
-        );
-        previous.replaceWith(replacement);
-    }
-
-    function populateVariantSubcategories(row, selectedId, selectedSubSubcategoryId) {
-        const previous = row.querySelector('.matrix-subcategory');
-        const categoryId = row.querySelector('.matrix-category').value;
-        const options = taxonomySubcategories.filter(item => String(item.category_id) === String(categoryId));
-        const replacement = createTaxonomySelect(
-            'matrix-subcategory',
-            previous.name,
-            'Subcategory',
-            options,
-            selectedId
-        );
-        previous.replaceWith(replacement);
-        populateVariantSubSubcategories(row, selectedSubSubcategoryId);
-    }
-
-    function populateVariantTaxonomyCell(cell, rowIndex, values) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'd-grid gap-1';
-        const category = createTaxonomySelect(
-            'matrix-category',
-            `variants[${rowIndex}][category_id]`,
-            'Category',
-            taxonomyCategories,
-            values.categoryId
-        );
-        const subcategory = createTaxonomySelect(
-            'matrix-subcategory',
-            `variants[${rowIndex}][subcategory_id]`,
-            'Subcategory',
-            taxonomySubcategories.filter(item => String(item.category_id) === String(values.categoryId)),
-            values.subcategoryId
-        );
-        const subSubcategory = createTaxonomySelect(
-            'matrix-sub-subcategory',
-            `variants[${rowIndex}][sub_subcategory_id]`,
-            'Sub-subcategory',
-            taxonomySubSubcategories.filter(item => String(item.subcategory_id) === String(values.subcategoryId)),
-            values.subSubcategoryId
-        );
-        const hsn = document.createElement('input');
-        hsn.type = 'text';
-        hsn.maxLength = 20;
-        hsn.placeholder = 'HSN code';
-        hsn.className = 'form-control form-control-sm font-monospace matrix-hsn';
-        hsn.name = `variants[${rowIndex}][hsn_code]`;
-        hsn.required = true;
-        hsn.value = values.hsnCode || '';
-        wrapper.append(category, subcategory, subSubcategory, hsn);
-        cell.appendChild(wrapper);
-    }
-
-    function refreshVariantTaxonomyOptions() {
-        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
-            const categorySelect = row.querySelector('.matrix-category');
-            const categoryId = categorySelect.value;
-            const subcategorySelect = row.querySelector('.matrix-subcategory');
-            const subSubcategorySelect = row.querySelector('.matrix-sub-subcategory');
-            const categoryChanged = categorySelect.dataset.changed;
-            const subcategoryChanged = subcategorySelect.dataset.changed;
-            const subSubcategoryChanged = subSubcategorySelect.dataset.changed;
-            const replacement = createTaxonomySelect(
-                'matrix-category',
-                categorySelect.name,
-                'Category',
-                taxonomyCategories,
-                categoryId
-            );
-            replacement.dataset.changed = categoryChanged || '';
-            categorySelect.replaceWith(replacement);
-            populateVariantSubcategories(
-                row,
-                subcategorySelect.value,
-                subSubcategorySelect.value
-            );
-            row.querySelector('.matrix-subcategory').dataset.changed = subcategoryChanged || '';
-            row.querySelector('.matrix-sub-subcategory').dataset.changed = subSubcategoryChanged || '';
-        });
-    }
-
-    tbodyVariantMatrix.addEventListener('change', function (event) {
-        const row = event.target.closest('tr[data-key]');
-        if (!row) return;
-        if (event.target.classList.contains('matrix-category')
-            || event.target.classList.contains('matrix-subcategory')
-            || event.target.classList.contains('matrix-sub-subcategory')) {
-            event.target.dataset.changed = '1';
-        }
-        if (event.target.classList.contains('matrix-category')) {
-            populateVariantSubcategories(row, '', '');
-        } else if (event.target.classList.contains('matrix-subcategory')) {
-            populateVariantSubSubcategories(row, '');
-        }
-    });
-    tbodyVariantMatrix.addEventListener('input', function (event) {
-        if (event.target.classList.contains('matrix-hsn')) {
-            event.target.dataset.changed = '1';
-        }
-    });
-    selectTier1.addEventListener('change', function () {
-        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
-            const category = row.querySelector('.matrix-category');
-            const subcategory = row.querySelector('.matrix-subcategory');
-            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
-            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
-            category.value = selectTier1.value;
-            populateVariantSubcategories(row, selectTier2.value, selectTier3.value);
-        });
-    });
-    selectTier2.addEventListener('change', function () {
-        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
-            const category = row.querySelector('.matrix-category');
-            const subcategory = row.querySelector('.matrix-subcategory');
-            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
-            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
-            populateVariantSubcategories(row, selectTier2.value, selectTier3.value);
-        });
-    });
-    selectTier3.addEventListener('change', function () {
-        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(row => {
-            const category = row.querySelector('.matrix-category');
-            const subcategory = row.querySelector('.matrix-subcategory');
-            const subSubcategory = row.querySelector('.matrix-sub-subcategory');
-            if (category.dataset.changed === '1' || subcategory.dataset.changed === '1' || subSubcategory.dataset.changed === '1') return;
-            populateVariantSubSubcategories(row, selectTier3.value);
-        });
-    });
-    inputHsnCode.addEventListener('input', function () {
-        tbodyVariantMatrix.querySelectorAll('.matrix-hsn').forEach(input => {
-            if (input.dataset.changed !== '1') input.value = inputHsnCode.value;
-        });
-    });
-
-    function computeMargin(cost, selling) {
-        if (!selling || selling <= 0) return 0;
-        return (((selling - cost) / selling) * 100);
-    }
-
-    function rebuildVariantMatrix() {
-        const sizes = getSelectedSizes();
-        const colors = getSelectedColors();
-        const baseStyleCode = (inputStyleCode.value || 'STY').trim();
-        const defaultRate = supplierUnitCost > 0 ? supplierUnitCost : 0;
-        const defaultMrp = parseFloat(batchInputMrp.value) || 0;
-        const defaultSp = parseFloat(batchInputSp.value) || 0;
-
-        // Preserve current user-entered values keyed by `${size}__${color}`
-        const stateMap = {};
-        tbodyVariantMatrix.querySelectorAll('tr[data-key]').forEach(tr => {
-            const key = tr.getAttribute('data-key');
-            const qtyRaw = tr.querySelector('.matrix-qty')?.value;
-            stateMap[key] = {
-                sku: tr.querySelector('.matrix-sku')?.value || '',
-                rawQty: qtyRaw,
-                qty: (qtyRaw !== undefined && qtyRaw !== null && qtyRaw.trim() !== '' && !isNaN(parseInt(qtyRaw, 10))) ? parseInt(qtyRaw, 10) : null,
-                rate: parseFloat(tr.querySelector('.matrix-rate')?.value) || defaultRate,
-                mrp: parseFloat(tr.querySelector('.matrix-mrp')?.value) || defaultMrp,
-                sp: parseFloat(tr.querySelector('.matrix-sp')?.value) || defaultSp,
-                barcode: tr.querySelector('.matrix-barcode')?.value || '',
-                isComplementary: tr.querySelector('.matrix-complementary')?.checked || false,
-                categoryId: tr.querySelector('.matrix-category')?.value || '',
-                subcategoryId: tr.querySelector('.matrix-subcategory')?.value || '',
-                subSubcategoryId: tr.querySelector('.matrix-sub-subcategory')?.value || '',
-                hsnCode: tr.querySelector('.matrix-hsn')?.value || '',
-            };
-        });
-
-        tbodyVariantMatrix.innerHTML = '';
-
-        if (sizes.length === 0 || colors.length === 0) {
-            tbodyVariantMatrix.innerHTML = `
-                <tr>
-                    <td colspan="13" class="text-center py-4 text-muted">
-                        <i class="bi bi-exclamation-circle text-warning me-1"></i>
-                        ${sizes.length === 0 ? 'No sizes selected. ' : ''}${colors.length === 0 ? 'No colors selected. ' : ''}Check options above to generate the variant matrix table.
-                    </td>
-                </tr>
-            `;
-            updateAllocationStatus();
-            return;
-        }
-
-        const totalCombinations = sizes.length * colors.length;
-        const totalIntQty = Math.round(purchasedQty);
-        const baseQty = totalCombinations > 0 ? Math.floor(totalIntQty / totalCombinations) : 0;
-        const remainderQty = totalCombinations > 0 ? (totalIntQty % totalCombinations) : 0;
-
-        let rowIndex = 0;
-        colors.forEach(col => {
-            const colShort = col.replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase();
-            sizes.forEach(sz => {
-                const rowKey = `${sz}__${col}`;
-                const existingState = stateMap[rowKey];
-                const preExisting = preExistingVariants.find(v => (v.size || '').trim().toLowerCase() === (sz || '').trim().toLowerCase() && (!v.color || !col || (v.color || '').trim().toLowerCase() === (col || '').trim().toLowerCase()));
-
-                let defaultSku = `${baseStyleCode}-${sz}`;
-                if (colors.length > 1) {
-                    defaultSku = `${baseStyleCode}-${colShort}-${sz}`;
-                }
-
-                const defaultAlloc = baseQty + (rowIndex < remainderQty ? 1 : 0);
-                const vSku = existingState?.sku || preExisting?.sku || defaultSku;
-                const vQty = (existingState && existingState.qty !== null && !isNaN(existingState.qty)) 
-                    ? existingState.qty 
-                    : (existingState && existingState.rawQty === '' ? '' : (preExisting?.allocated_qty !== undefined ? preExisting.allocated_qty : defaultAlloc));
-                const vRate = existingState?.rate || preExisting?.purchase_rate || defaultRate;
-                const vMrp = existingState?.mrp || preExisting?.mrp || defaultMrp;
-                const vSp = existingState?.sp || preExisting?.selling_price || defaultSp;
-                const vBarcode = existingState?.barcode || preExisting?.barcode || vSku;
-                const vCategoryId = existingState?.categoryId || preExisting?.third_party_category_id || selectTier1.value;
-                const vSubcategoryId = existingState?.subcategoryId || preExisting?.third_party_subcategory_id || selectTier2.value;
-                const vSubSubcategoryId = existingState?.subSubcategoryId || preExisting?.third_party_sub_subcategory_id || selectTier3.value;
-                const vHsnCode = existingState?.hsnCode || preExisting?.hsn_code || inputHsnCode.value;
-                const hasSavedComplementaryValue = preExisting
-                    && preExisting.is_complementary !== null
-                    && preExisting.is_complementary !== undefined;
-                const vIsComplementary = existingState
-                    ? existingState.isComplementary
-                    : (hasSavedComplementaryValue
-                        ? Number(preExisting.is_complementary) === 1
-                        : (Boolean(selectedCategoryIsComplementary()) || legacyItemComplementary));
-
-                const margin = computeMargin(vRate, vSp);
-                let marginClass = 'bg-success-subtle text-success border border-success-subtle';
-                if (margin <= 0) {
-                    marginClass = 'bg-danger-subtle text-danger border border-danger-subtle';
-                } else if (margin < 20) {
-                    marginClass = 'bg-warning-subtle text-warning border border-warning-subtle';
-                }
-
-                const tr = document.createElement('tr');
-                tr.setAttribute('data-key', rowKey);
-                tr.setAttribute('data-size', sz);
-                tr.setAttribute('data-color', col);
-                tr.innerHTML = `
-                    <td class="text-muted fw-bold">${rowIndex + 1}</td>
-                    <td>
-                        <span class="badge bg-primary px-2.5 py-1 fw-bold fs-7">${sz}</span>
-                        <input type="hidden" name="variants[${rowIndex}][size]" value="${sz}">
-                    </td>
-                    <td>
-                        <span class="badge bg-secondary-subtle text-dark border px-2.5 py-1 fw-semibold">${col}</span>
-                        <input type="hidden" name="variants[${rowIndex}][color]" value="${col}">
-                    </td>
-                    <td class="matrix-taxonomy-cell"></td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm font-monospace matrix-sku"
-                               name="variants[${rowIndex}][sku]" value="${vSku}" required>
-                    </td>
-                    <td>
-                        <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control form-control-sm text-end fw-bold text-primary matrix-qty"
-                               name="variants[${rowIndex}][allocated_qty]" value="${vQty}" required
-                               placeholder="0" autocomplete="off" onfocus="this.select()">
-                    </td>
-                    <td>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end matrix-rate numeric-text-input"
-                               name="variants[${rowIndex}][purchase_rate]" value="${parseFloat(vRate).toFixed(2)}" required>
-                    </td>
-                    <td>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end fw-semibold matrix-mrp numeric-text-input"
-                               name="variants[${rowIndex}][mrp]" value="${parseFloat(vMrp).toFixed(2)}" required>
-                        <div class="matrix-mrp-error text-danger fw-semibold small d-none" style="font-size:10px; line-height:1.1; margin-top:3px;">
-                            <i class="bi bi-exclamation-triangle-fill me-0.5"></i>MRP &lt; SP
-                        </div>
-                    </td>
-                    <td>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end fw-bold text-dark matrix-sp numeric-text-input"
-                               name="variants[${rowIndex}][selling_price]" value="${parseFloat(vSp).toFixed(2)}" required>
-                        <div class="matrix-sp-error text-danger fw-semibold small d-none" style="font-size:10px; line-height:1.1; margin-top:3px;">
-                            <i class="bi bi-exclamation-triangle-fill me-0.5"></i>SP &gt; MRP
-                        </div>
-                    </td>
-                    <td>
-                        <input type="hidden" name="variants[${rowIndex}][complementary_selected]" value="1">
-                        <div class="form-check d-flex justify-content-center">
-                            <input type="checkbox" class="form-check-input matrix-complementary"
-                                   id="variantComplementary${rowIndex}"
-                                   name="variants[${rowIndex}][is_complementary]" value="1"
-                                   ${vIsComplementary ? 'checked' : ''}>
-                            <label class="visually-hidden" for="variantComplementary${rowIndex}">Mark this variant as complementary</label>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge ${marginClass} matrix-margin fw-bold px-2 py-1">${margin.toFixed(2)}%</span>
-                    </td>
-                    <td>
-                        <span class="badge bg-info-subtle text-info border border-info-subtle small">
-                            <i class="bi bi-barcode me-1"></i>Auto on Save
-                        </span>
-                        <input type="hidden" class="matrix-barcode" name="variants[${rowIndex}][barcode]" value="${vBarcode}">
-                    </td>
-                    <td>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0.5 px-1.5 btn-remove-variant" title="Remove Variant">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                `;
-                populateVariantTaxonomyCell(tr.querySelector('.matrix-taxonomy-cell'), rowIndex, {
-                    categoryId: vCategoryId,
-                    subcategoryId: vSubcategoryId,
-                    subSubcategoryId: vSubSubcategoryId,
-                    hsnCode: vHsnCode,
-                });
-                tbodyVariantMatrix.appendChild(tr);
-                rowIndex++;
-            });
-        });
-
-        attachMatrixEventListeners();
-        updateAllocationStatus();
-        validateAllRowsPricing();
-    }
-
-    // Row-level MRP vs SP validation
-    function validateRowPricing(tr) {
-        if (!tr) return true;
-        const mrpInput = tr.querySelector('.matrix-mrp');
-        const spInput = tr.querySelector('.matrix-sp');
-        const mrpErr = tr.querySelector('.matrix-mrp-error');
-        const spErr = tr.querySelector('.matrix-sp-error');
-        const marginBadge = tr.querySelector('.matrix-margin');
-
-        if (!mrpInput || !spInput) return true;
-
-        const mrp = parseFloat(String(mrpInput.value || '').trim()) || 0;
-        const sp = parseFloat(String(spInput.value || '').trim()) || 0;
-        const rate = parseFloat(String(tr.querySelector('.matrix-rate')?.value || '').trim()) || supplierUnitCost;
-
-        // ONLY invalid when both are positive numbers AND MRP is strictly lower than SP
-        const isInvalid = (mrp > 0 && sp > 0 && mrp < sp);
-
-        // Always calculate and display normal margin percentage (never replace with error text)
-        const margin = computeMargin(rate, sp);
-        if (marginBadge) {
-            marginBadge.textContent = `${margin.toFixed(2)}%`;
-            marginBadge.className = 'badge matrix-margin fw-bold px-2 py-1 ' +
-                (margin <= 0 ? 'bg-danger-subtle text-danger border border-danger-subtle' :
-                (margin < 20 ? 'bg-warning-subtle text-warning border border-warning-subtle' : 'bg-success-subtle text-success border border-success-subtle'));
-        }
-
-        if (isInvalid) {
-            mrpInput.classList.add('is-invalid', 'border-danger');
-            spInput.classList.add('is-invalid', 'border-danger');
-            tr.classList.add('table-danger');
-            if (mrpErr) mrpErr.classList.remove('d-none');
-            if (spErr) spErr.classList.remove('d-none');
-        } else {
-            mrpInput.classList.remove('is-invalid', 'border-danger');
-            spInput.classList.remove('is-invalid', 'border-danger');
-            tr.classList.remove('table-danger');
-            if (mrpErr) mrpErr.classList.add('d-none');
-            if (spErr) spErr.classList.add('d-none');
-        }
-
-        return !isInvalid;
-    }
-
-    // Overall Matrix Pricing Validation
-    function validateAllRowsPricing() {
-        let allValid = true;
-        let invalidCount = 0;
-        const rows = tbodyVariantMatrix.querySelectorAll('tr[data-key]');
-        rows.forEach(tr => {
-            const valid = validateRowPricing(tr);
-            if (!valid) {
-                allValid = false;
-                invalidCount++;
-            }
-        });
-
-        const labelPricingStatus = document.getElementById('labelPricingStatus');
-        if (labelPricingStatus) {
-            if (!allValid) {
-                labelPricingStatus.classList.remove('d-none');
-                labelPricingStatus.innerHTML = `
-                    <span class="badge bg-danger text-white py-1.5 px-3">
-                        <i class="bi bi-exclamation-octagon-fill me-1.5"></i>Pricing Validation Error: MRP is lower than Selling Price in ${invalidCount} variant(s)
-                    </span>
-                `;
-            } else {
-                labelPricingStatus.classList.add('d-none');
-                labelPricingStatus.innerHTML = '';
-            }
-        }
-
-        return allValid;
-    }
-
-    function attachMatrixEventListeners() {
-        tbodyVariantMatrix.querySelectorAll('.numeric-text-input').forEach(input => {
-            if (input.classList.contains('matrix-qty')) return;
-            input.addEventListener('input', function () {
-                this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-            });
-        });
-
-        tbodyVariantMatrix.querySelectorAll('.matrix-qty').forEach(input => {
-            // Strict numeric validation: only digits (0-9) allowed on keypress
-            input.addEventListener('keypress', function (e) {
-                if (e.which !== 0 && e.charCode !== 0) {
-                    if (e.which < 48 || e.which > 57) {
-                        e.preventDefault();
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddCategory')).hide();
+                        nameInput.value = '';
+                        codeInput.value = '';
+                    } else {
+                        alert(data.message || 'Error creating category.');
                     }
-                }
-            });
-
-            // Prevent pasting non-digits
-            input.addEventListener('paste', function (e) {
-                const pasteText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-                if (!/^\d+$/.test(pasteText.trim())) {
-                    e.preventDefault();
-                    const digits = pasteText.replace(/[^0-9]/g, '');
-                    if (digits) {
-                        document.execCommand('insertText', false, digits);
-                    }
-                }
-            });
-
-            // Sanitize input in real-time (e.g. mobile keypad, drag & drop)
-            input.addEventListener('input', function () {
-                const cleaned = this.value.replace(/[^0-9]/g, '');
-                if (this.value !== cleaned) {
-                    this.value = cleaned;
-                }
-                updateAllocationStatus();
-            });
-
-            // Ensure valid number on change / blur
-            input.addEventListener('change', function () {
-                if (this.value.trim() === '' || isNaN(parseInt(this.value, 10))) {
-                    this.value = '0';
-                } else {
-                    this.value = String(parseInt(this.value, 10));
-                }
-                updateAllocationStatus();
-            });
-
-            input.addEventListener('keyup', updateAllocationStatus);
-        });
-
-        tbodyVariantMatrix.querySelectorAll('.matrix-rate, .matrix-sp, .matrix-mrp').forEach(input => {
-            input.addEventListener('input', function () {
-                const tr = this.closest('tr');
-                validateRowPricing(tr);
-                validateAllRowsPricing();
-            });
-            input.addEventListener('change', function () {
-                const tr = this.closest('tr');
-                validateRowPricing(tr);
-                validateAllRowsPricing();
-            });
-        });
-
-        tbodyVariantMatrix.querySelectorAll('.btn-remove-variant').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const tr = this.closest('tr');
-                tr.remove();
-                updateAllocationStatus();
-                validateAllRowsPricing();
-            });
+                })
+                .catch(err => alert('Failed to create category: ' + err.message));
         });
     }
 
-    function updateAllocationStatus() {
-        let totalAllocated = 0;
-        tbodyVariantMatrix.querySelectorAll('.matrix-qty').forEach(input => {
-            totalAllocated += (parseInt(input.value, 10) || 0);
-        });
+    // Initial allocation check
+    updateAllocationStatus();
 
-        const targetQty = Math.round(purchasedQty);
-        const diff = totalAllocated - targetQty;
-        const isMatch = (diff === 0);
-
-        if (isMatch) {
-            labelAllocationStatus.innerHTML = `
-                <span class="badge bg-success text-white py-1.5 px-3">
-                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (Exact Match)
-                </span>
-            `;
-        } else {
-            labelAllocationStatus.innerHTML = `
-                <span class="badge bg-warning text-dark py-1.5 px-3">
-                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (${(diff > 0 ? '+' : '') + diff} variance)
-                </span>
-            `;
-        }
-    }
-
-    // Auto-Distribute Quantities evenly across active variants
-    window.autoDistributeQuantities = function () {
-        const qtyInputs = Array.from(tbodyVariantMatrix.querySelectorAll('.matrix-qty'));
-        const count = qtyInputs.length;
-        if (count === 0) return;
-
-        const totalInt = Math.round(purchasedQty);
-        const base = Math.floor(totalInt / count);
-        const remainder = totalInt % count;
-
-        qtyInputs.forEach((inp, idx) => {
-            inp.value = base + (idx < remainder ? 1 : 0);
-        });
-
-        updateAllocationStatus();
-    };
-
-    // Batch Replicate Pricing & Validation
-    [batchInputMrp, batchInputSp].forEach(input => {
-        if (!input) return;
-        input.addEventListener('input', function () {
-            this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-        });
-    });
-
-    function validateBatchReplicator() {
-        const mrp = parseFloat(String(batchInputMrp.value || '').trim()) || 0;
-        const sp = parseFloat(String(batchInputSp.value || '').trim()) || 0;
-        const errDiv = document.getElementById('batchPriceError');
-
-        if (mrp > 0 && sp > 0 && mrp < sp) {
-            batchInputMrp.classList.add('is-invalid', 'border-danger');
-            batchInputSp.classList.add('is-invalid', 'border-danger');
-            if (errDiv) errDiv.classList.remove('d-none');
-            return false;
-        } else {
-            batchInputMrp.classList.remove('is-invalid', 'border-danger');
-            batchInputSp.classList.remove('is-invalid', 'border-danger');
-            if (errDiv) errDiv.classList.add('d-none');
-            return true;
-        }
-    }
-
-    batchInputMrp.addEventListener('input', validateBatchReplicator);
-    batchInputSp.addEventListener('input', validateBatchReplicator);
-    batchInputMrp.addEventListener('change', validateBatchReplicator);
-    batchInputSp.addEventListener('change', validateBatchReplicator);
-
-    btnReplicatePricing.addEventListener('click', function () {
-        const mrp = parseFloat(batchInputMrp.value) || 0;
-        const sp = parseFloat(batchInputSp.value) || 0;
-
-        if (mrp > 0 && sp > 0 && mrp < sp) {
-            validateBatchReplicator();
-            alert(`Validation Error: MRP (₹${mrp.toFixed(2)}) cannot be lower than Selling Price (₹${sp.toFixed(2)}). Please adjust the batch pricing before replicating.`);
-            batchInputMrp.focus();
-            return;
-        }
-
-        tbodyVariantMatrix.querySelectorAll('tr').forEach(tr => {
-            const mrpInput = tr.querySelector('.matrix-mrp');
-            const spInput = tr.querySelector('.matrix-sp');
-            if (mrpInput && mrp > 0) mrpInput.value = mrp.toFixed(2);
-            if (spInput && sp > 0) spInput.value = sp.toFixed(2);
-
-            validateRowPricing(tr);
-        });
-
-        validateAllRowsPricing();
-    });
-
-    // 5. Quick Add Modals (AJAX Integration)
-    // Tier 1 Modal
-    document.getElementById('btnSubmitModalTier1').addEventListener('click', function () {
-        const nameInput = document.getElementById('modalTier1Name');
-        const codeInput = document.getElementById('modalTier1Code');
-        const name = nameInput.value.trim();
-        const code = codeInput.value.trim().toUpperCase();
-        if (!name) {
-            alert('Please enter a Category name.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('code', code);
-        formData.append('catalog_source', 'THIRD_PARTY');
-        const isComplementary = document.getElementById('modalTier1Complementary').checked ? '1' : '0';
-        formData.append('is_complementary', isComplementary);
-        formData.append('_csrf_token', '<?= CSRF::token() ?>');
-        formData.append('csrf_token', '<?= CSRF::token() ?>');
-
-        fetch(`${BASE_URL}/api/categories/quick-add`, {
-            method: 'POST',
-            body: formData,
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                taxonomyCategories.push({ id: data.id, name: data.name, code: data.code || code });
-                refreshVariantTaxonomyOptions();
-                const opt = document.createElement('option');
-                opt.value = data.id;
-                opt.textContent = data.name;
-                opt.setAttribute('data-code', data.code || code);
-                opt.setAttribute('data-complementary', data.is_complementary ? '1' : '0');
-                opt.selected = true;
-                selectTier1.appendChild(opt);
-
-                inputTier1Code.value = data.code || code;
-                applyCategoryComplementaryDefault();
-                updateHierarchySummary();
-                bootstrap.Modal.getInstance(document.getElementById('modalQuickAddCategory')).hide();
-                nameInput.value = '';
-                codeInput.value = '';
-                document.getElementById('modalTier1Complementary').checked = false;
-            } else {
-                alert(data.message || 'Error creating category.');
-            }
-        })
-        .catch(err => alert('Failed to create category: ' + err.message));
-    });
-
-    // Tier 2 Modal
-    document.getElementById('btnSubmitModalTier2').addEventListener('click', function () {
-        const catId = selectTier1.value;
-        if (!catId) {
-            alert('Please select a Main Category (Tier 1) first.');
-            return;
-        }
-        const nameInput = document.getElementById('modalTier2Name');
-        const codeInput = document.getElementById('modalTier2Code');
-        const name = nameInput.value.trim();
-        const code = codeInput.value.trim().toUpperCase();
-        if (!name) {
-            alert('Please enter a Sub Category name.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('category_id', catId);
-        formData.append('name', name);
-        formData.append('code', code);
-        formData.append('catalog_source', 'THIRD_PARTY');
-        formData.append('_csrf_token', '<?= CSRF::token() ?>');
-        formData.append('csrf_token', '<?= CSRF::token() ?>');
-
-        fetch(`${BASE_URL}/api/subcategories/quick-add`, {
-            method: 'POST',
-            body: formData,
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                taxonomySubcategories.push({ id: data.id, category_id: catId, name: data.name, code: data.code || code });
-                refreshVariantTaxonomyOptions();
-                const opt = document.createElement('option');
-                opt.value = data.id;
-                opt.textContent = data.name;
-                opt.setAttribute('data-code', data.code || code);
-                opt.selected = true;
-                selectTier2.appendChild(opt);
-
-                inputTier2Code.value = data.code || code;
-                updateHierarchySummary();
-                bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubcategory')).hide();
-                nameInput.value = '';
-                codeInput.value = '';
-            } else {
-                alert(data.message || 'Error creating subcategory.');
-            }
-        })
-        .catch(err => alert('Failed to create subcategory: ' + err.message));
-    });
-
-    // Tier 3 Modal
-    document.getElementById('btnSubmitModalTier3').addEventListener('click', function () {
-        const subcatId = selectTier2.value;
-        if (!subcatId) {
-            alert('Please select a Sub Category (Tier 2) first.');
-            return;
-        }
-        const nameInput = document.getElementById('modalTier3Name');
-        const codeInput = document.getElementById('modalTier3Code');
-        const name = nameInput.value.trim();
-        const code = codeInput.value.trim().toUpperCase();
-        if (!name) {
-            alert('Please enter a Sub Sub Category name.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('subcategory_id', subcatId);
-        formData.append('name', name);
-        formData.append('code', code);
-        formData.append('catalog_source', 'THIRD_PARTY');
-        formData.append('_csrf_token', '<?= CSRF::token() ?>');
-        formData.append('csrf_token', '<?= CSRF::token() ?>');
-
-        fetch(`${BASE_URL}/api/sub-subcategories/quick-add`, {
-            method: 'POST',
-            body: formData,
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                taxonomySubSubcategories.push({ id: data.id, subcategory_id: subcatId, name: data.name, code: data.code || code });
-                refreshVariantTaxonomyOptions();
-                const opt = document.createElement('option');
-                opt.value = data.id;
-                opt.textContent = data.name;
-                opt.setAttribute('data-code', data.code || code);
-                opt.selected = true;
-                selectTier3.appendChild(opt);
-
-                inputTier3Code.value = data.code || code;
-                updateHierarchySummary();
-                bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubSubcategory')).hide();
-                nameInput.value = '';
-                codeInput.value = '';
-            } else {
-                alert(data.message || 'Error creating sub-subcategory.');
-            }
-        })
-        .catch(err => alert('Failed to create sub-subcategory: ' + err.message));
-    });
-
-    // 6. Submit Validation
-    const formMapProductBill = document.getElementById('formMapProductBill');
-
-    formMapProductBill.addEventListener('submit', function (e) {
-        if (!selectTier1.value) {
-            e.preventDefault();
-            alert('Please select Tier 1 Main Category.');
-            selectTier1.focus();
-            return false;
-        }
-
-        const variants = tbodyVariantMatrix.querySelectorAll('tr[data-key]');
-        if (variants.length === 0) {
-            e.preventDefault();
-            alert('Please configure at least one variant combination in the matrix.');
-            return false;
-        }
-
-        const pricingValid = validateAllRowsPricing();
-        if (!pricingValid) {
-            e.preventDefault();
-            const firstInvalidTr = tbodyVariantMatrix.querySelector('tr.table-danger');
-            if (firstInvalidTr) {
-                const sz = firstInvalidTr.getAttribute('data-size') || '';
-                const col = firstInvalidTr.getAttribute('data-color') || '';
-                const mrp = parseFloat(firstInvalidTr.querySelector('.matrix-mrp')?.value) || 0;
-                const sp = parseFloat(firstInvalidTr.querySelector('.matrix-sp')?.value) || 0;
-                const invalidInput = (mrp < sp) ? (firstInvalidTr.querySelector('.matrix-mrp') || firstInvalidTr.querySelector('.matrix-sp')) : firstInvalidTr.querySelector('.matrix-sp');
-                invalidInput?.focus();
-                alert(`Pricing Validation Error: MRP (₹${mrp.toFixed(2)}) cannot be lower than Selling Price (₹${sp.toFixed(2)}) for variant ${sz} - ${col}. Please correct the pricing.`);
-            } else {
-                alert('Pricing Validation Error: MRP cannot be lower than Selling Price for one or more variants.');
-            }
-            return false;
-        }
-
-        let totalAllocated = 0;
-        let zeroPricingFound = false;
-        let zeroPricingTr = null;
-
-        variants.forEach(tr => {
-            const q = parseFloat(tr.querySelector('.matrix-qty')?.value) || 0;
-            const mrp = parseFloat(tr.querySelector('.matrix-mrp')?.value) || 0;
-            const sp = parseFloat(tr.querySelector('.matrix-sp')?.value) || 0;
-            totalAllocated += q;
-
-            if (mrp <= 0 || sp <= 0) {
-                zeroPricingFound = true;
-                if (!zeroPricingTr) zeroPricingTr = tr;
-            }
-        });
-
-        if (zeroPricingFound && zeroPricingTr) {
-            e.preventDefault();
-            const sz = zeroPricingTr.getAttribute('data-size') || '';
-            const col = zeroPricingTr.getAttribute('data-color') || '';
-            alert(`Pricing Validation Error: Please enter valid MRP and Selling Price (greater than 0) for variant ${sz} - ${col}.`);
-            zeroPricingTr.querySelector('.matrix-mrp')?.focus();
-            return false;
-        }
-
-        if (Math.abs(totalAllocated - purchasedQty) > 0.001) {
-            const proceed = confirm(`The allocated variant quantity (${totalAllocated}) differs from the purchased bill quantity (${purchasedQty}). Proceed anyway?`);
-            if (!proceed) {
-                e.preventDefault();
-                return false;
-            }
-        }
-
-        return true;
-    });
-
-    // Auto-restore colors and sizes from preExistingVariants if none currently checked
-    if (getSelectedSizes().length === 0 && Array.isArray(preExistingVariants) && preExistingVariants.length > 0) {
-        preExistingVariants.forEach(v => {
-            const sz = (v.size || '').trim();
-            if (!sz) return;
-            let found = false;
-            containerSizePills.querySelectorAll('.size-checkbox').forEach(cb => {
-                if (cb.value.trim().toLowerCase() === sz.toLowerCase()) {
-                    cb.checked = true;
-                    found = true;
-                }
-            });
-            if (!found) {
-                const safeId = 'size_pill_' + btoa(sz).replace(/=/g, '');
-                const div = document.createElement('div');
-                div.className = 'form-check form-check-inline m-0';
-                div.innerHTML = `
-                    <input class="btn-check size-checkbox" type="checkbox" id="${safeId}" name="sizes[]" value="${sz}" checked autocomplete="off">
-                    <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${sz}</label>
-                `;
-                containerSizePills.appendChild(div);
-            }
-        });
-    }
-
-    if (getSelectedColors().length === 0 && Array.isArray(preExistingVariants) && preExistingVariants.length > 0) {
-        preExistingVariants.forEach(v => {
-            const col = (v.color || '').trim();
-            if (!col) return;
-            let found = false;
-            containerColorPills.querySelectorAll('.color-checkbox').forEach(cb => {
-                if (cb.value.trim().toLowerCase() === col.toLowerCase()) {
-                    cb.checked = true;
-                    found = true;
-                }
-            });
-            if (!found) {
-                const safeId = 'color_pill_' + btoa(col).replace(/=/g, '');
-                const div = document.createElement('div');
-                div.className = 'form-check form-check-inline m-0';
-                div.innerHTML = `
-                    <input class="btn-check color-checkbox" type="checkbox" id="${safeId}" name="colors[]" value="${col}" checked autocomplete="off">
-                    <label class="btn btn-sm btn-primary px-3 py-1 fw-bold" for="${safeId}">${col}</label>
-                `;
-                containerColorPills.appendChild(div);
-            }
-        });
-    }
-
-    // Initial Matrix Render
-    updateColorPillStyles();
-    updateSizePillStyles();
-    rebuildVariantMatrix();
-    updateCategoryComplementaryHelp();
-    updateHierarchySummary();
-
+    // Unmap helpers
     window.unmapActiveItem = function() {
         if (!confirm("Are you sure you want to delete the mapping for '<?= e(addslashes($activeItem['item_name'])) ?>'? It will automatically be marked as unmapped.")) {
             return;
@@ -2009,22 +1443,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '<?= url('purchases/mapping/unmap/' . $activeItemId) ?>';
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
-        csrfInput.value = '<?= CSRF::token() ?>';
-        form.appendChild(csrfInput);
-        document.body.appendChild(form);
-        form.submit();
-    };
-
-    window.unmapSpecificItem = function(itemId, itemName) {
-        if (!confirm(`Are you sure you want to delete the mapping for '${itemName}'? It will automatically be marked as unmapped.`)) {
-            return;
-        }
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '<?= url('purchases/mapping/unmap/') ?>' + itemId;
         const csrfInput = document.createElement('input');
         csrfInput.type = 'hidden';
         csrfInput.name = 'csrf_token';

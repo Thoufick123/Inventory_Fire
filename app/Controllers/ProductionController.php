@@ -3994,6 +3994,260 @@ class ProductionController {
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
+    /**
+     * Generate QR batch for a saved variant on a purchase bill mapping page.
+     */
+    public function generateThirdPartyBillVariantQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $variantId = (int)$id;
+        $variant = Database::fetchOne(
+            "SELECT tpv.*, ppi.purchase_id, ppi.product_id, ppi.item_name,
+                    pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM third_party_product_variants tpv
+             INNER JOIN production_purchase_items ppi ON ppi.id = tpv.purchase_item_id
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE tpv.id = ?",
+            [$variantId]
+        );
+
+        if (!$variant) {
+            Session::flash('error', 'Variant not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$variant['purchase_id'];
+        $itemId = (int)$variant['purchase_item_id'];
+
+        if (!empty($variant['qr_generation_id'])) {
+            Session::flash('info', 'QR batch already generated for this variant.');
+            Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+            return;
+        }
+
+        try {
+            $prodId = (int)$variant['product_id'];
+            $pvId = (int)($variant['product_variant_id'] ?? 0);
+            if ($pvId <= 0 && $prodId > 0) {
+                $pv = VariantService::findOrCreateVariantForInward($prodId, [
+                    'color'         => $variant['color'],
+                    'size'          => $variant['size'],
+                    'hsn_code'      => $variant['hsn_code'],
+                    'mrp'           => (float)$variant['mrp'],
+                    'selling_price' => (float)$variant['selling_price'],
+                    'unit_price'    => (float)$variant['purchase_rate'],
+                ]);
+                $pvId = (int)($pv['id'] ?? 0);
+                Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [$pvId, $variantId]);
+            }
+
+            $qty = max(1, (int)ceil((float)$variant['allocated_qty']));
+            $brandName = trim((string)($variant['seller_company'] ?: ($variant['seller_name'] ?: 'GRM')));
+
+            $result = QrGenerationService::generateCatalogQrs([
+                'product_id' => $prodId,
+                'variant_id' => $pvId,
+                'quantity'   => $qty,
+                'brand_name' => $brandName,
+                'notes'      => "Purchase #{$variant['purchase_number']} - {$variant['item_name']} ({$variant['size']} {$variant['color']})"
+            ]);
+
+            Database::execute(
+                "UPDATE qr_generations
+                 SET source_purchase_id = ?, source_purchase_item_id = ?, source_variant_id = ?
+                 WHERE id = ?",
+                [$purchaseId, $itemId, $variantId, (int)$result['generation_id']]
+            );
+            Database::execute(
+                "UPDATE third_party_product_variants
+                 SET qr_generation_id = ?, qr_batch_code = ?
+                 WHERE id = ?",
+                [(int)$result['generation_id'], $result['batch_code'], $variantId]
+            );
+            Database::execute(
+                "UPDATE production_purchase_items
+                 SET qr_generation_id = COALESCE(qr_generation_id, ?),
+                     qr_batch_code = COALESCE(qr_batch_code, ?)
+                 WHERE id = ?",
+                [(int)$result['generation_id'], $result['batch_code'], $itemId]
+            );
+
+            Session::flash('success', "QR batch {$result['batch_code']} generated successfully for {$variant['size']} {$variant['color']}.");
+        } catch (\Throwable $e) {
+            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+    }
+
+    /**
+     * Generate QR batch for an entire purchase item on a bill.
+     */
+    public function generateThirdPartyBillItemQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $itemId = (int)$id;
+        $item = Database::fetchOne(
+            "SELECT ppi.*, pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE ppi.id = ?",
+            [$itemId]
+        );
+        if (!$item) {
+            Session::flash('error', 'Purchase item not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$item['purchase_id'];
+
+        $variants = Database::fetchAll(
+            "SELECT id FROM third_party_product_variants WHERE purchase_item_id = ? AND qr_generation_id IS NULL ORDER BY id ASC",
+            [$itemId]
+        );
+
+        if (!empty($variants)) {
+            $this->generateAllThirdPartyBillVariantsQr($id);
+            return;
+        }
+
+        if (!empty($item['qr_generation_id'])) {
+            Session::flash('info', 'A QR batch has already been generated for this item.');
+            Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+            return;
+        }
+
+        try {
+            $brandName = trim((string)($item['seller_company'] ?: ($item['seller_name'] ?: 'GRM')));
+            $result = QrGenerationService::generatePurchaseBatch([
+                'qr_source'        => 'THIRD_PARTY',
+                'purchase_item_id' => $itemId,
+                'brand_name'       => $brandName,
+            ]);
+            Session::flash('success', "QR batch {$result['batch_code']} generated successfully with {$result['quantity']} labels.");
+        } catch (\Throwable $e) {
+            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+    }
+
+    /**
+     * Generate QR batches for all pending variants of a purchase item.
+     */
+    public function generateAllThirdPartyBillVariantsQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $itemId = (int)$id;
+        $item = Database::fetchOne(
+            "SELECT ppi.*, pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE ppi.id = ?",
+            [$itemId]
+        );
+        if (!$item) {
+            Session::flash('error', 'Purchase item not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$item['purchase_id'];
+        $variants = Database::fetchAll(
+            "SELECT * FROM third_party_product_variants
+             WHERE purchase_item_id = ? AND qr_generation_id IS NULL
+             ORDER BY id ASC",
+            [$itemId]
+        );
+
+        $brandName = trim((string)($item['seller_company'] ?: ($item['seller_name'] ?: 'GRM')));
+        $generatedCount = 0;
+
+        try {
+            if (!empty($variants)) {
+                foreach ($variants as $var) {
+                    $pvId = (int)($var['product_variant_id'] ?? 0);
+                    if ($pvId <= 0 && (int)$item['product_id'] > 0) {
+                        $pv = VariantService::findOrCreateVariantForInward((int)$item['product_id'], [
+                            'color'         => $var['color'],
+                            'size'          => $var['size'],
+                            'hsn_code'      => $var['hsn_code'],
+                            'mrp'           => (float)$var['mrp'],
+                            'selling_price' => (float)$var['selling_price'],
+                            'unit_price'    => (float)$var['purchase_rate'],
+                        ]);
+                        $pvId = (int)($pv['id'] ?? 0);
+                        Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [$pvId, (int)$var['id']]);
+                    }
+
+                    $qty = max(1, (int)ceil((float)$var['allocated_qty']));
+                    $result = QrGenerationService::generateCatalogQrs([
+                        'product_id' => (int)$item['product_id'],
+                        'variant_id' => $pvId,
+                        'quantity'   => $qty,
+                        'brand_name' => $brandName,
+                        'notes'      => "Purchase #{$item['purchase_number']} - {$item['item_name']} ({$var['size']} {$var['color']})"
+                    ]);
+
+                    Database::execute(
+                        "UPDATE qr_generations
+                         SET source_purchase_id = ?, source_purchase_item_id = ?, source_variant_id = ?
+                         WHERE id = ?",
+                        [$purchaseId, $itemId, (int)$var['id'], (int)$result['generation_id']]
+                    );
+                    Database::execute(
+                        "UPDATE third_party_product_variants
+                         SET qr_generation_id = ?, qr_batch_code = ?
+                         WHERE id = ?",
+                        [(int)$result['generation_id'], $result['batch_code'], (int)$var['id']]
+                    );
+                    Database::execute(
+                        "UPDATE production_purchase_items
+                         SET qr_generation_id = COALESCE(qr_generation_id, ?),
+                             qr_batch_code = COALESCE(qr_batch_code, ?)
+                         WHERE id = ?",
+                        [(int)$result['generation_id'], $result['batch_code'], $itemId]
+                    );
+                    $generatedCount++;
+                }
+            } else {
+                if (empty($item['qr_generation_id'])) {
+                    $result = QrGenerationService::generatePurchaseBatch([
+                        'qr_source'        => 'THIRD_PARTY',
+                        'purchase_item_id' => $itemId,
+                        'brand_name'       => $brandName,
+                    ]);
+                    $generatedCount++;
+                }
+            }
+            Session::flash('success', "Generated QR batches for {$generatedCount} variant(s).");
+        } catch (\Throwable $e) {
+            Session::flash('error', "QR generation error: " . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+    }
+
     private function generateThirdPartyMappingItemQr(int $itemId, ?int $concernId): array {
         $params = [$itemId];
         $scope = '';
@@ -4700,6 +4954,88 @@ class ProductionController {
             ]];
         }
 
+        // Saved variants for active item (including QR batch info and taxonomy names)
+        $savedVariants = Database::fetchAll(
+            "SELECT tpv.*, qg.batch_code, qg.stock_added,
+                    c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
+             FROM third_party_product_variants tpv
+             LEFT JOIN qr_generations qg ON qg.id = tpv.qr_generation_id
+             LEFT JOIN third_party_categories c ON c.id = tpv.third_party_category_id
+             LEFT JOIN third_party_subcategories sc ON sc.id = tpv.third_party_subcategory_id
+             LEFT JOIN third_party_sub_subcategories ssc ON ssc.id = tpv.third_party_sub_subcategory_id
+             WHERE tpv.purchase_item_id = ?
+             ORDER BY tpv.id ASC",
+            [(int)$activeItem['id']]
+        );
+
+        if (empty($savedVariants) && !empty($activeItem['is_mapped'])) {
+            $itemSize = !empty($activeItem['size']) ? trim($activeItem['size']) : 'Free Size';
+            $itemColor = !empty($activeItem['color']) ? trim($activeItem['color']) : 'Default';
+            $itemSku = !empty($activeItem['product_code']) ? $activeItem['product_code'] : ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
+            $savedVariants = [[
+                'id' => 0,
+                'sku' => $itemSku,
+                'size' => $itemSize,
+                'color' => $itemColor,
+                'allocated_qty' => (float)$activeItem['quantity'],
+                'purchase_rate' => (float)$activeItem['unit_price'],
+                'gst_rate' => (float)($activeItem['gst_rate'] ?? 0),
+                'mrp' => (float)($activeItem['mrp'] ?: ($activeItem['unit_price'] * 1.8)),
+                'selling_price' => (float)($activeItem['selling_price'] ?: ($activeItem['unit_price'] * 1.5)),
+                'barcode' => $itemSku,
+                'is_complementary' => !empty($activeItem['is_complementary']) ? 1 : 0,
+                'is_active' => 1,
+                'third_party_category_id' => $activeCatId,
+                'third_party_subcategory_id' => $activeSubcatId,
+                'third_party_sub_subcategory_id' => $activeSubSubcatId,
+                'category_name' => $activeItem['category_name'] ?? null,
+                'subcategory_name' => $activeItem['subcategory_name'] ?? null,
+                'sub_subcategory_name' => $activeItem['sub_subcategory_name'] ?? null,
+                'hsn_code' => $activeItem['hsn_code'] ?? null,
+                'qr_generation_id' => $activeItem['qr_generation_id'] ?? null,
+                'batch_code' => $activeItem['qr_batch_code'] ?? null,
+            ]];
+        }
+
+        if (!empty($activeItem['qr_generation_id']) && !empty($savedVariants)) {
+            foreach ($savedVariants as &$sv) {
+                if (empty($sv['qr_generation_id'])) {
+                    $sv['qr_generation_id'] = $activeItem['qr_generation_id'];
+                    $sv['batch_code'] = $activeItem['qr_batch_code'];
+                }
+            }
+            unset($sv);
+        }
+
+        $qrItemMap = [];
+        $qrGenIds = [];
+        if (!empty($activeItem['qr_generation_id'])) {
+            $qrGenIds[] = (int)$activeItem['qr_generation_id'];
+        }
+        foreach ($savedVariants as $sv) {
+            if (!empty($sv['qr_generation_id'])) {
+                $qrGenIds[] = (int)$sv['qr_generation_id'];
+            }
+        }
+        foreach ($items as $it) {
+            if (!empty($it['qr_generation_id'])) {
+                $qrGenIds[] = (int)$it['qr_generation_id'];
+            }
+        }
+        $qrGenIds = array_values(array_filter(array_unique($qrGenIds)));
+        if (!empty($qrGenIds)) {
+            $inPlaceholders = implode(',', array_fill(0, count($qrGenIds), '?'));
+            $qrRows = Database::fetchAll(
+                "SELECT generation_id, qr_code, sequence_num FROM qr_generation_items
+                 WHERE generation_id IN ($inPlaceholders)
+                 ORDER BY sequence_num ASC",
+                $qrGenIds
+            );
+            foreach ($qrRows as $qrRow) {
+                $qrItemMap[(int)$qrRow['generation_id']][] = $qrRow;
+            }
+        }
+
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
 
@@ -4717,6 +5053,8 @@ class ProductionController {
             'allSubSubcategories' => $allSubSubcategories,
             'existingStyles' => $existingStyles,
             'existingVariants' => $existingVariants,
+            'savedVariants' => $savedVariants,
+            'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,
             'breadcrumb' => [
@@ -5126,8 +5464,8 @@ class ProductionController {
                 $vSize = trim($var['size'] ?? 'Free Size');
                 $vColor = trim($var['color'] ?? '') ?: $color;
                 $vSku = trim($var['sku'] ?? '') ?: ($styleCode . '-' . $vSize);
-                $vAllocQty = max(0, (float)($var['allocated_qty'] ?? 1));
-                $vRate = (float)($var['purchase_rate'] ?? $item['unit_price']);
+                $vAllocQty = max(0, (float)($var['allocated_qty'] ?? ($var['quantity'] ?? 1)));
+                $vRate = (float)($var['purchase_rate'] ?? ($var['unit_price'] ?? $item['unit_price']));
                 $vMrp = (float)($var['mrp'] ?? $firstMrp);
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
                 $vBarcode = trim($var['barcode'] ?? '') ?: $vSku;
@@ -5139,18 +5477,19 @@ class ProductionController {
                 if ($vHsnCode === '') {
                     $vHsnCode = $hsnCode;
                 }
+                $vGstRate = isset($var['gst_rate']) ? (float)$var['gst_rate'] : (float)($item['gst_rate'] ?? 0);
 
                 Database::execute(
                     "INSERT INTO third_party_product_variants
                         (third_party_product_id, purchase_item_id, sku, size, color,
-                         allocated_qty, purchase_rate, mrp, selling_price, barcode,
+                         allocated_qty, purchase_rate, gst_rate, mrp, selling_price, barcode,
                          third_party_category_id, third_party_subcategory_id, third_party_sub_subcategory_id,
                          hsn_code, is_complementary, is_active, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                      ON DUPLICATE KEY UPDATE
                         allocated_qty = VALUES(allocated_qty), purchase_rate = VALUES(purchase_rate),
-                        mrp = VALUES(mrp), selling_price = VALUES(selling_price), barcode = VALUES(barcode),
-                        third_party_category_id = VALUES(third_party_category_id),
+                        gst_rate = VALUES(gst_rate), mrp = VALUES(mrp), selling_price = VALUES(selling_price),
+                        barcode = VALUES(barcode), third_party_category_id = VALUES(third_party_category_id),
                         third_party_subcategory_id = VALUES(third_party_subcategory_id),
                         third_party_sub_subcategory_id = VALUES(third_party_sub_subcategory_id),
                         hsn_code = VALUES(hsn_code),
@@ -5158,7 +5497,7 @@ class ProductionController {
                         updated_at = NOW()",
                     [
                         $tpProductId, $itemId, $vSku, $vSize, $vColor,
-                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode,
+                        $vAllocQty, $vRate, $vGstRate, $vMrp, $vSp, $vBarcode,
                         $vCategoryId, $vSubcategoryId, $vSubSubcategoryId, $vHsnCode ?: null, $vIsComplementary
                     ]
                 );
@@ -5219,7 +5558,7 @@ class ProductionController {
                 if ($fulfillSp > $fulfillMrp) {
                     $fulfillMrp = $fulfillSp;
                 }
-                PurchaseMappingFulfillmentService::fulfill($itemId, [
+                $fulfillResult = PurchaseMappingFulfillmentService::fulfill($itemId, [
                     'category_id'        => $categoryId,
                     'subcategory_id'     => $subcategoryId,
                     'sub_subcategory_id' => $subSubcategoryId,
@@ -5229,6 +5568,25 @@ class ProductionController {
                     'mrp'                => $fulfillMrp,
                     'selling_price'      => $fulfillSp,
                 ], $userId);
+
+                // Sync each variant into product_variants
+                $catProductId = (int)($fulfillResult['catalog']['product_id'] ?? ($fulfillResult['item']['product_id'] ?? 0));
+                if ($catProductId > 0) {
+                    $savedVars = Database::fetchAll("SELECT id, size, color, hsn_code, mrp, selling_price, purchase_rate FROM third_party_product_variants WHERE purchase_item_id = ?", [$itemId]);
+                    foreach ($savedVars as $svRow) {
+                        $pv = VariantService::findOrCreateVariantForInward($catProductId, [
+                            'color'         => $svRow['color'],
+                            'size'          => $svRow['size'],
+                            'hsn_code'      => $svRow['hsn_code'] ?: $hsnCode,
+                            'mrp'           => (float)$svRow['mrp'],
+                            'selling_price' => (float)$svRow['selling_price'],
+                            'unit_price'    => (float)$svRow['purchase_rate'],
+                        ]);
+                        if (!empty($pv['id'])) {
+                            Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [(int)$pv['id'], (int)$svRow['id']]);
+                        }
+                    }
+                }
             } catch (\Throwable $e) {
                 error_log('GRN fulfillment failed for purchase item ' . $itemId . ': ' . $e->getMessage());
                 $message = 'Mapping was saved, but stock and GRN setup could not finish. Please retry the mapping.';
@@ -5257,25 +5615,11 @@ class ProductionController {
                 $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id=" . $nextUnmapped['id']);
                 $successMsg = "Product line '{$styleName}' mapped successfully! Proceeding to the next unmapped product line.";
             } else {
-                $qrReadyItem = Database::fetchOne(
-                    "SELECT id FROM production_purchase_items
-                     WHERE purchase_id = ? AND item_type = 'THIRD_PARTY' AND is_mapped = 1
-                       AND qr_generation_id IS NULL AND (qr_batch_code IS NULL OR TRIM(qr_batch_code) = '')
-                     ORDER BY id ASC LIMIT 1",
-                    [$purchaseId]
-                );
-                if ($qrReadyItem) {
-                    $nextUrl = url(
-                        "production/qr-generations/create?tab=third_party&purchase_id={$purchaseId}&purchase_item_id=" . (int)$qrReadyItem['id']
-                    );
-                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} are mapped. You can now generate QR labels.";
-                } else {
-                    $nextUrl = url("purchases/mapping");
-                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} have been completely mapped to the catalog!";
-                }
+                $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}");
+                $successMsg = "Product line '{$styleName}' mapped successfully! You can now generate and view QR codes below.";
             }
         } else {
-            $nextUrl = url("purchases/mapping/bill/{$purchaseId}");
+            $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}");
             $successMsg = "Product line '{$styleName}' saved as draft.";
         }
 

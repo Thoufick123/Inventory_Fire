@@ -158,11 +158,16 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('third_party_product_variants', 'third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_category_id');
         Database::ensureColumn('third_party_product_variants', 'third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_subcategory_id');
         Database::ensureColumn('third_party_product_variants', 'hsn_code', 'VARCHAR(20) DEFAULT NULL AFTER third_party_sub_subcategory_id');
+        Database::ensureColumn('third_party_product_variants', 'product_variant_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_product_id');
+        Database::ensureColumn('third_party_product_variants', 'gst_rate', 'DECIMAL(8,3) NOT NULL DEFAULT 0.000 AFTER purchase_rate');
+        Database::ensureColumn('third_party_product_variants', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER hsn_code');
+        Database::ensureColumn('third_party_product_variants', 'qr_batch_code', 'VARCHAR(100) DEFAULT NULL AFTER qr_generation_id');
         Database::ensureColumn('production_purchase_items', 'third_party_product_id', 'INT UNSIGNED DEFAULT NULL AFTER variant_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_category_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_subcategory_id');
         Database::ensureColumn('qr_generations', 'source_mapping_item_id', 'INT UNSIGNED DEFAULT NULL AFTER source_purchase_item_id');
+        Database::ensureColumn('qr_generations', 'source_variant_id', 'INT UNSIGNED DEFAULT NULL AFTER source_mapping_item_id');
         Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_bills (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             concern_id INT UNSIGNED NOT NULL,
