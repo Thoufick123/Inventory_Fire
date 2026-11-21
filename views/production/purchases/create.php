@@ -80,6 +80,13 @@
                     <label class="form-label" for="invoiceNumber">Invoice / Bill Number</label>
                     <input type="text" class="form-control" name="invoice_number" id="invoiceNumber" maxlength="100">
                 </div>
+                <div class="col-12">
+                    <div class="form-check border rounded bg-light p-3 ps-5">
+                        <input class="form-check-input" type="checkbox" name="use_mapping_invoice" id="useMappingInvoice" value="1">
+                        <label class="form-check-label fw-semibold" for="useMappingInvoice">Use products saved in Purchase Item Mapping</label>
+                        <div class="small text-muted">Mark the entry <strong>Move to Purchase</strong> in Mapping first, then select the same supplier and enter the same invoice number here. Saved products will be added automatically.</div>
+                    </div>
+                </div>
                 <div class="col-md-6">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label mb-0 fw-semibold" for="purchaseDocuments">
@@ -142,7 +149,7 @@
     </div>
 
     <!-- Multi-Category Inward Selector (Single Invoice with Multiple Product Categories) -->
-    <div class="card shadow-sm border mb-4">
+    <div class="card shadow-sm border mb-4" id="purchaseCategorySelectorCard">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories *</h5>
@@ -1080,6 +1087,10 @@
     const rollTemplate = document.getElementById('fabricRollTemplate');
     const supplierSelect = document.getElementById('purchaseSeller');
     const supplierDetails = document.getElementById('selectedSupplierDetails');
+    const useMappingInvoice = document.getElementById('useMappingInvoice');
+    const purchaseCategorySelectorCard = document.getElementById('purchaseCategorySelectorCard');
+    const purchaseItemSections = ['sectionFabricRoll', 'sectionRawMaterial', 'sectionThirdParty']
+        .map(id => document.getElementById(id)).filter(Boolean);
     let rollIndex = 0;
     let nextSequence = 1;
     let sequencePrefix = 'FB<?= date('my') ?>';
@@ -1094,6 +1105,19 @@
     const safe = value => String(value || '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const numericTextPattern = /^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/;
     let activeHsnTarget = null;
+
+    useMappingInvoice?.addEventListener('change', function () {
+        const useMapping = useMappingInvoice.checked;
+        purchaseCategorySelectorCard?.classList.toggle('d-none', useMapping);
+        const typeBySection = {
+            sectionFabricRoll: 'FABRIC_ROLL',
+            sectionRawMaterial: 'RAW_MATERIAL',
+            sectionThirdParty: 'THIRD_PARTY'
+        };
+        purchaseItemSections.forEach(section => {
+            section.classList.toggle('d-none', useMapping || !activePurchaseTypes.has(typeBySection[section.id]));
+        });
+    });
 
     function sanitizeNumericInput(input) {
         if (!input || !input.matches('.numeric-text-input')) return;
@@ -1251,6 +1275,7 @@
         }
     });
     form.addEventListener('submit', event => {
+        if (useMappingInvoice?.checked) return;
         const invalidInput = Array.from(form.querySelectorAll('.numeric-text-input'))
             .filter(input => !input.disabled && !input.closest('.d-none') && input.offsetParent !== null)
             .find(input => !validateNumericTextInput(input));
@@ -2776,6 +2801,37 @@
             alert('Please choose a valid purchase date.');
             purchaseDateInput?.focus();
             resetPurchaseSubmitState();
+            return;
+        }
+
+        if (useMappingInvoice?.checked) {
+            const invoiceNumber = document.getElementById('invoiceNumber')?.value?.trim() || '';
+            if (!invoiceNumber) {
+                event.preventDefault();
+                alert('Enter the invoice number saved in Purchase Item Mapping.');
+                document.getElementById('invoiceNumber')?.focus();
+                resetPurchaseSubmitState();
+                return;
+            }
+            let purchaseTypeHidden = document.getElementById('purchaseTypeHiddenInput');
+            if (!purchaseTypeHidden) {
+                purchaseTypeHidden = document.createElement('input');
+                purchaseTypeHidden.type = 'hidden';
+                purchaseTypeHidden.name = 'purchase_type';
+                purchaseTypeHidden.id = 'purchaseTypeHiddenInput';
+                form.appendChild(purchaseTypeHidden);
+            }
+            purchaseTypeHidden.value = 'THIRD_PARTY';
+            let payloadInput = document.getElementById('itemsPayloadInput');
+            if (!payloadInput) {
+                payloadInput = document.createElement('input');
+                payloadInput.type = 'hidden';
+                payloadInput.name = 'items_payload';
+                payloadInput.id = 'itemsPayloadInput';
+                form.appendChild(payloadInput);
+            }
+            payloadInput.value = '[]';
+            lockPurchaseSubmitState();
             return;
         }
 

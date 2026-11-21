@@ -816,6 +816,22 @@ if (tableExists($db, 'categories') && file_exists($defaultCatalogCategoriesMigra
     $db->exec(file_get_contents($defaultCatalogCategoriesMigration));
 }
 
+// Migration 26: Allow Mapping products and QR stock to exist before purchase entry.
+echo "  Applying 2026_12_04_add_pre_purchase_third_party_mapping.sql...\n";
+$prePurchaseMappingMigration = BASE_PATH . '/database/migrations/2026_12_04_add_pre_purchase_third_party_mapping.sql';
+if (file_exists($prePurchaseMappingMigration)) {
+    if (tableExists($db, 'qr_generations')) {
+        if (!columnExists($db, 'qr_generations', 'source_mapping_item_id')) {
+            $db->exec("ALTER TABLE `qr_generations` ADD COLUMN `source_mapping_item_id` int(10) unsigned DEFAULT NULL AFTER `source_purchase_item_id`");
+        }
+        $qrMappingIndex = $db->query("SHOW INDEX FROM `qr_generations` WHERE `Key_name` = 'idx_qrg_source_mapping_item'");
+        if (!$qrMappingIndex->fetch()) {
+            $db->exec("ALTER TABLE `qr_generations` ADD KEY `idx_qrg_source_mapping_item` (`source_mapping_item_id`)");
+        }
+    }
+    $db->exec(file_get_contents($prePurchaseMappingMigration));
+}
+
 // -------------------------------------------------------------
 // STEP 6: SEED PERMISSIONS & BIND TO SUPER ADMIN
 // -------------------------------------------------------------

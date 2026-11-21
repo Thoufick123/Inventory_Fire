@@ -1,11 +1,39 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Product Mapping</h2>
-        <span class="text-muted small">Exclusively for mapping third-party purchased products to catalog categories &amp; variants. Fabric rolls &amp; raw materials move directly to QR Generations.</span>
+        <span class="text-muted small">Create products and prepare invoice mapping before the Purchases entry is available. Existing purchase lines can still be mapped below.</span>
     </div>
-    <a href="<?= url('purchases/create') ?>" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>New Purchase Bill
+    <a href="<?= url('purchases/mapping/create') ?>" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>New Mapping Invoice
     </a>
+</div>
+
+<!-- Mapping entries saved before purchase entry -->
+<div class="card border shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
+        <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+                <?php if (empty($mappingDrafts)): ?>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
+                <?php else: foreach ($mappingDrafts as $draft): ?>
+                    <tr>
+                        <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
+                        <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
+                        <td><?= (int)$draft['product_count'] ?></td>
+                        <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
+                        <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
+                        <td><?= !empty($draft['purchase_number']) ? e($draft['purchase_number']) : '<span class="text-muted">Not linked</span>' ?></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>"><i class="bi bi-pencil-square me-1"></i>Open</a></td>
+                    </tr>
+                <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- KPI Metric Cards -->
