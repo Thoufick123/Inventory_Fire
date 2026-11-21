@@ -1,11 +1,17 @@
 <?php
 // views/production/inventory/index.php
-// Batch-wise inventory listing page
+// Production & Finished Goods Inventory: Stitching Stock & Third-Party Products
+$activeTab = $activeTab ?? 'all';
+$stockState = $stockState ?? '';
+$inventoryVariantCount = array_sum(array_map(
+    static fn(array $batch): int => count($batch['variants'] ?? []),
+    $batches
+));
 ?>
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-box2-heart me-2 text-success"></i>Production Inventory &amp; QC Outcomes</h2>
-        <span class="text-muted">QC-passed inventory, outward dispatches, rework, and rejected quantities shown separately</span>
+        <h2 class="mb-1"><i class="bi bi-box2-heart me-2 text-success"></i>Production Inventory &amp; Finished Goods</h2>
+        <span class="text-muted">Production stitching goods, third-party vendor products, and active inventory valuation</span>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <?php if (hasPermission('batches', 'create')): ?>
@@ -19,12 +25,12 @@
 <!-- KPI Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-success bg-opacity-10 h-100">
+        <div class="card border-0 shadow-sm border-start border-success border-4 h-100 bg-success bg-opacity-10">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Remaining</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">units</span></h3>
-                    <small class="text-muted d-block mt-1"><?= number_format($stats['in_stock_batches_count'] ?? 0) ?> active in-stock lots</small>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Total Available Stock</span>
+                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
+                    <small class="text-success d-block mt-1"><i class="bi bi-check2-circle me-1"></i>Ready for Allocation</small>
                 </div>
                 <div class="bg-success text-white rounded-3 p-3">
                     <i class="bi bi-box-seam-fill fs-4"></i>
@@ -34,27 +40,42 @@
     </div>
 
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-primary bg-opacity-10 h-100">
+        <div class="card border-0 shadow-sm border-start border-primary border-4 h-100 bg-primary bg-opacity-10">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Valuation</span>
-                    <h3 class="fw-bold text-primary mb-0 mt-1">₹<?= number_format($stats['total_remaining_valuation'] ?? 0, 2) ?></h3>
-                    <small class="text-muted d-block mt-1">Fabric &amp; product valuation</small>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Production Stitching Stock</span>
+                    <h3 class="fw-bold text-primary mb-0 mt-1"><?= number_format($stats['stitching_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
+                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($stats['stitching_val'] ?? 0, 2) ?></small>
                 </div>
                 <div class="bg-primary text-white rounded-3 p-3">
-                    <i class="bi bi-currency-rupee fs-4"></i>
+                    <i class="bi bi-scissors fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-danger bg-opacity-10 h-100">
+        <div class="card border-0 shadow-sm border-start border-warning border-4 h-100 bg-warning bg-opacity-10">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward / Consumed</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">units</span></h3>
-                    <small class="text-muted d-block mt-1">Dispatched or cut into production</small>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Third-Party Products</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format($stats['third_party_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
+                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($stats['third_party_val'] ?? 0, 2) ?></small>
+                </div>
+                <div class="bg-warning text-dark rounded-3 p-3">
+                    <i class="bi bi-bag-check-fill fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-sm-6">
+        <div class="card border-0 shadow-sm border-start border-danger border-4 h-100 bg-danger bg-opacity-10">
+            <div class="card-body p-3 d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward / Dispatched</span>
+                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
+                    <small class="text-muted d-block mt-1">Dispatched to Warehouse/Billed</small>
                 </div>
                 <div class="bg-danger text-white rounded-3 p-3">
                     <i class="bi bi-truck fs-4"></i>
@@ -62,64 +83,61 @@
             </div>
         </div>
     </div>
-
-    <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-info bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Inventory Categories</span>
-                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format(count($batches)) ?> <span class="fs-6 fw-normal text-muted">lots</span></h3>
-                    <div class="d-flex flex-wrap gap-1 mt-2">
-                        <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
-                            Fabric: <?= number_format($stats['fabric_count'] ?? 0) ?>
-                        </span>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                            Products: <?= number_format($stats['product_count'] ?? 0) ?>
-                        </span>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle">
-                            QC: <?= number_format($stats['qc_count'] ?? 0) ?>
-                        </span>
-                    </div>
-                </div>
-                <div class="bg-info text-dark rounded-3 p-3">
-                    <i class="bi bi-layers-fill fs-4"></i>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Quick Stock Type Filter Pills -->
-<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <span class="text-muted small fw-semibold me-1"><i class="bi bi-funnel me-1"></i>Stock Type:</span>
-    <button type="button" class="btn btn-sm <?= (empty($typeFilter) || $typeFilter === 'all') ? 'btn-dark' : 'btn-outline-secondary' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('all')">
-        All Stock (<?= count($batches) ?>)
-    </button>
-    <button type="button" class="btn btn-sm <?= ($typeFilter === 'fabric') ? 'btn-purple text-white' : 'btn-outline-purple' ?> rounded-pill px-3 shadow-xs inv-type-btn" style="<?= ($typeFilter === 'fabric') ? 'background-color:#7e22ce;color:#fff;' : 'color:#7e22ce;border:1px solid #d8b4fe;' ?>" onclick="filterByInvType('fabric')">
-        <i class="bi bi-palette me-1"></i>Fabric Rolls (<?= $stats['fabric_count'] ?? 0 ?>)
-    </button>
-    <button type="button" class="btn btn-sm <?= ($typeFilter === 'product') ? 'btn-primary' : 'btn-outline-primary' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('product')">
-        <i class="bi bi-tag me-1"></i>Normal Products (<?= $stats['product_count'] ?? 0 ?>)
-    </button>
-    <button type="button" class="btn btn-sm <?= ($typeFilter === 'qc') ? 'btn-success' : 'btn-outline-success' ?> rounded-pill px-3 shadow-xs inv-type-btn" onclick="filterByInvType('qc')">
-        <i class="bi bi-patch-check me-1"></i>QC Batches (<?= $stats['qc_count'] ?? 0 ?>)
-    </button>
-</div>
+<!-- Navigation Tabs (Image 2 style) -->
+<ul class="nav nav-pills mb-4 gap-2 flex-wrap" id="inventoryNavTabs">
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab === 'all' || empty($activeTab)) ? 'active bg-dark text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=all' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
+            <i class="bi bi-collection me-1"></i> All Stock (<?= ($stats['stitching_count'] ?? 0) + ($stats['third_party_count'] ?? 0) ?>)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab === 'stitching') ? 'active bg-success text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=stitching' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
+            <i class="bi bi-scissors me-1"></i> Production Stitching Stock (<?= $stats['stitching_count'] ?? 0 ?>)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab === 'third_party') ? 'active bg-primary text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=third_party' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
+            <i class="bi bi-box-seam me-1"></i> Third-Party Products (<?= $stats['third_party_count'] ?? 0 ?>)
+        </a>
+    </li>
+</ul>
 
-<!-- Filters & Search -->
+<!-- Filters & Search Bar (Image 2 style) -->
 <div class="card mb-4 border-0 shadow-sm">
-    <div class="card-body">
+    <div class="card-body p-3">
         <form method="GET" action="<?= url('production/inventory') ?>" class="row g-3 align-items-end" id="inventoryFilterForm">
-            <input type="hidden" name="type" id="filterInvTypeInput" value="<?= e($typeFilter ?? 'all') ?>">
-            <div class="col-md-5">
-                <label for="inventorySearchInput" class="form-label small text-muted fw-semibold">Search Inventory</label>
-                <div class="input-group">
+            <input type="hidden" name="tab" id="filterInvTypeInput" value="<?= e($activeTab ?? 'all') ?>">
+            <div class="col-md-3">
+                <label for="inventoryStockStateSelect" class="form-label small text-muted fw-semibold mb-1">Stock State</label>
+                <select name="stock_state" id="inventoryStockStateSelect" class="form-select form-select-sm" onchange="document.getElementById('inventoryFilterForm').submit()">
+                    <option value="">All Stock States</option>
+                    <option value="AVAILABLE" <?= ($stockState === 'AVAILABLE') ? 'selected' : '' ?>>AVAILABLE (In-Stock)</option>
+                    <option value="PARTIALLY_OUTWARDED" <?= ($stockState === 'PARTIALLY_OUTWARDED') ? 'selected' : '' ?>>Partially Outwarded</option>
+                    <option value="FULLY_OUTWARDED" <?= ($stockState === 'FULLY_OUTWARDED') ? 'selected' : '' ?>>Fully Outwarded</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="inventoryCategorySelect" class="form-label small text-muted fw-semibold mb-1">Product Category</label>
+                <select name="category_id" id="inventoryCategorySelect" class="form-select form-select-sm" onchange="document.getElementById('inventoryFilterForm').submit()">
+                    <option value="">All Categories</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= $cat['id'] ?>" <?= ($categoryFilter == $cat['id']) ? 'selected' : '' ?>>
+                            <?= e($cat['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="inventorySearchInput" class="form-label small text-muted fw-semibold mb-1">Search Inventory</label>
+                <div class="input-group input-group-sm">
                     <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
                     <input type="text" 
                            name="search" 
                            id="inventorySearchInput" 
                            class="form-control border-start-0" 
-                           placeholder="Search fabric, roll #, product name, program #, batch #, color..." 
+                           placeholder="Search SKU, QR code tag, product name, program #, batch #, color..." 
                            value="<?= e($search ?? '') ?>"
                            autocomplete="off">
                     <?php if (!empty($search)): ?>
@@ -129,24 +147,13 @@
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="col-md-4">
-                <label for="inventoryCategorySelect" class="form-label small text-muted fw-semibold">Filter by Category</label>
-                <select name="category_id" id="inventoryCategorySelect" class="form-select" onchange="document.getElementById('inventoryFilterForm').submit()">
-                    <option value="">All Categories</option>
-                    <?php foreach ($categories as $cat): ?>
-                        <option value="<?= $cat['id'] ?>" <?= ($categoryFilter == $cat['id']) ? 'selected' : '' ?>>
-                            <?= e($cat['name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary flex-grow-1">
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-semibold">
                     <i class="bi bi-funnel me-1"></i> Filter
                 </button>
-                <?php if (!empty($search) || !empty($categoryFilter) || (!empty($typeFilter) && $typeFilter !== 'all')): ?>
-                    <a href="<?= url('production/inventory') ?>" class="btn btn-outline-danger" title="Reset All Filters">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                <?php if (!empty($search) || !empty($categoryFilter) || !empty($stockState) || (!empty($activeTab) && $activeTab !== 'all')): ?>
+                    <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-danger" title="Reset All Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 <?php endif; ?>
             </div>
@@ -154,22 +161,31 @@
     </div>
 </div>
 
-<?php
-$inventoryVariantCount = array_sum(array_map(
-    static fn(array $batch): int => count($batch['variants'] ?? []),
-    $batches
-));
-?>
-<!-- Inventory Products Header -->
+<!-- Inventory Products Header & Price Edit Action Bar (Image 2 style) -->
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-    <h5 class="mb-0 fw-semibold">
-        <i class="bi bi-box-seam me-2 text-primary"></i>
-        <span id="inventoryItemsTitle">Inventory Products</span>
-        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" id="totalBatchBadgeCount"><?= $inventoryVariantCount ?> Products</span>
-    </h5>
-    <div class="d-flex align-items-center gap-3 flex-wrap">
-        <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Click "View Products" to see individual garments, remaining stock &amp; outward dispatch history</span>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Inventory batch layout">
+    <div class="d-flex align-items-center gap-2">
+        <h5 class="mb-0 fw-semibold text-dark">
+            <i class="bi bi-boxes me-2 text-primary"></i>
+            <span id="inventoryItemsTitle"><?= $activeTab === 'stitching' ? 'Production Stitching Stock' : ($activeTab === 'third_party' ? 'Third-Party Products' : 'Finished Goods Products') ?></span>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" id="totalBatchBadgeCount"><?= $inventoryVariantCount ?> Products</span>
+        </h5>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <?php if (hasPermission('inventory', 'edit') || (function_exists('isAdmin') && isAdmin())): ?>
+            <button type="button" class="btn btn-outline-success shadow-sm fw-semibold btnTogglePriceEdit" onclick="togglePriceEditMode()">
+                <i class="bi bi-pencil-square me-1"></i> <span class="btnPriceEditLabel">Edit Price</span>
+            </button>
+            <button type="button" class="btn btn-success shadow-sm fw-semibold btnHeaderApplyPrice d-none" onclick="openBulkPriceModal()">
+                <i class="bi bi-check-circle-fill me-1"></i> Change Price (<span class="headerSelectedPriceCount">0</span>)
+            </button>
+        <?php endif; ?>
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6">
+            <i class="bi bi-boxes me-1"></i> <?= number_format($stats['total_remaining_pieces'] ?? 0) ?> pcs Available
+        </span>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
+            ₹<?= number_format($stats['total_remaining_valuation'] ?? 0, 2) ?> Est. Valuation
+        </span>
+        <div class="btn-group btn-group-sm ms-2" role="group" aria-label="Inventory batch layout">
             <button type="button" class="btn btn-outline-secondary" id="batchCardsViewButton" onclick="switchBatchView('cards')" aria-pressed="false">
                 <i class="bi bi-grid-3x3-gap me-1"></i>Cards
             </button>
@@ -184,13 +200,13 @@ $inventoryVariantCount = array_sum(array_map(
 <div class="card border-0 shadow-sm">
     <div class="card-body text-center py-5">
         <i class="bi bi-box-seam fs-1 d-block mb-3 text-secondary"></i>
-        <h6 class="fw-semibold mb-1"><?= (!empty($search) || !empty($categoryFilter)) ? 'No Matching Inventory Batches Found' : 'No QC Outcomes Found' ?></h6>
+        <h6 class="fw-semibold mb-1"><?= (!empty($search) || !empty($categoryFilter) || !empty($stockState)) ? 'No Matching Products Found' : 'No Finished Inventory Products' ?></h6>
         <p class="small text-muted mb-3">
-            <?= (!empty($search) || !empty($categoryFilter)) 
-                ? 'Try adjusting your search terms or clearing the category filter.' 
-                : 'Batches with passed, rework, or rejected QC quantities will appear here.' ?>
+            <?= (!empty($search) || !empty($categoryFilter) || !empty($stockState)) 
+                ? 'Try adjusting your search terms or clearing filters.' 
+                : 'Finished goods from stitching QC or third-party purchases will appear here.' ?>
         </p>
-        <?php if (!empty($search) || !empty($categoryFilter)): ?>
+        <?php if (!empty($search) || !empty($categoryFilter) || !empty($stockState)): ?>
             <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Clear All Filters
             </a>
@@ -202,7 +218,7 @@ $inventoryVariantCount = array_sum(array_map(
 <div id="noMatchingBatchesAlert" class="card border-0 shadow-sm mb-3" style="display: none;">
     <div class="card-body text-center py-5">
         <i class="bi bi-search fs-1 d-block mb-3 text-muted"></i>
-        <h6 class="fw-semibold mb-1">No Batches Match Your Search</h6>
+        <h6 class="fw-semibold mb-1">No Products Match Your Search</h6>
         <p class="small text-muted mb-3">No inventory items matched the current filter keyword.</p>
         <button type="button" class="btn btn-sm btn-outline-primary" onclick="clearLiveFilter()">
             <i class="bi bi-x-circle me-1"></i> Clear Search
@@ -214,13 +230,20 @@ $inventoryVariantCount = array_sum(array_map(
     <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
             <tr>
-                <th>QC Batch</th>
-                <th>Program</th>
-                <th>Product</th>
-                <th class="text-center">QC Qty</th>
+                <th class="price-checkbox-col" style="display: none; width: 40px;">
+                    <input type="checkbox" class="form-check-input" id="thSelectAllPrice" onchange="toggleSelectAllPrice(this)">
+                </th>
+                <th>Batch / Source</th>
+                <th>Program / PO #</th>
+                <th>Product &amp; Category</th>
+                <th>Variant (Size / Color)</th>
+                <th class="text-center">QC / Inward</th>
                 <th class="text-center">In Stock</th>
                 <th class="text-center">Outward</th>
-                <th>Status</th>
+                <th>Stock State</th>
+                <th class="text-end">MRP (₹)</th>
+                <th class="text-end">Discount Price (₹)</th>
+                <th class="text-end">Valuation (₹)</th>
                 <th class="text-end">Actions</th>
             </tr>
         </thead>
@@ -237,63 +260,68 @@ $inventoryVariantCount = array_sum(array_map(
                             ($batch['product_name'] ?? '') . ' ' .
                             ($batch['category_name'] ?? '') . ' ' .
                             ($batch['program_number'] ?? '') . ' ' .
+                            ($variant['sku'] ?? '') . ' ' .
                             ($batch['inspector_name'] ?? '') . ' ' .
                             ($variant['size_name'] ?? '') . ' ' .
                             ($variant['color_name'] ?? '') . ' ' .
-                            'rework rejected qc passed outward qc batch #' . $batch['qc_batch_id'] . ' ' .
                             $batch['qc_batch_id'] . ' ' . $batchOutwardSearchText
                         );
+                        $vId = (int)($variant['variant_id'] ?? 0);
+                        $vMrp = (float)($variant['mrp'] ?? 0);
+                        $vPrice = (float)($variant['selling_price'] ?? 0);
+                        $vCost = (float)($variant['cost_price'] ?? 0);
+                        $vRem = (int)($variant['remaining_qty'] ?? 0);
+                        $vVal = (float)($variant['valuation'] ?? ($vRem * $vPrice));
                 ?>
                 <tr class="batch-list-row"
+                    id="stock-row-<?= $vId ?>"
                     data-batch-id="<?= e($batch['qc_batch_id']) ?>"
+                    data-variant-id="<?= $vId ?>"
                     data-category-id="<?= (int)($batch['category_id'] ?? 0) ?>"
-                    data-inv-type="<?= e($batch['inventory_type'] ?? 'QC') ?>"
+                    data-inv-type="<?= e($batch['tab_type'] ?? 'stitching') ?>"
                     data-search-text="<?= e($variantSearchText) ?>"
                     data-filter-match="true">
+                    
+                    <!-- Checkbox Column for Price Edit Mode (Image 2) -->
+                    <td class="price-checkbox-col" style="display: none;">
+                        <input type="checkbox" 
+                               class="form-check-input price-item-checkbox" 
+                               value="<?= $vId ?>" 
+                               data-variant-id="<?= $vId ?>" 
+                               data-sku="<?= e($variant['sku'] ?? '') ?>" 
+                               data-product-name="<?= e($batch['product_name']) ?>" 
+                               data-mrp="<?= $vMrp ?>" 
+                               data-selling-price="<?= $vPrice ?>" 
+                               data-cost-price="<?= $vCost ?>" 
+                               data-stock="<?= $vRem ?>" 
+                               onchange="updateSelectedPriceCount()">
+                    </td>
+
+                    <!-- Batch / Source Column -->
                     <td class="text-nowrap">
-                        <?php if (!empty($batch['is_fabric'])): ?>
-                            <div class="fw-semibold" style="color: #7e22ce;">
-                                <?php if (!empty($batch['supply_item_id'])): ?>
-                                    <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none" style="color: #7e22ce;">
-                                        <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
-                                    </a>
-                                <?php else: ?>
-                                    <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
-                                <?php endif; ?>
-                            </div>
-                            <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important; font-size: 10px;">Fabric Stock</span>
-                        <?php elseif (!empty($batch['is_product'])): ?>
+                        <?php if (($batch['tab_type'] ?? '') === 'third_party'): ?>
                             <div class="fw-semibold text-primary">
                                 <?php if (!empty($batch['supply_item_id'])): ?>
                                     <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none text-primary">
-                                        <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
-                                    </a>
-                                <?php elseif (!empty($batch['product_id'])): ?>
-                                    <a href="<?= url('production/products/view/' . $batch['product_id']) ?>" class="text-decoration-none text-primary">
-                                        <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                        <i class="bi bi-box-seam me-1"></i>Purchase #<?= e($batch['qc_batch_id']) ?>
                                     </a>
                                 <?php else: ?>
-                                    <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                    <i class="bi bi-box-seam me-1"></i>Stock #<?= e($batch['qc_batch_id']) ?>
                                 <?php endif; ?>
                             </div>
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 10px;">Normal Product</span>
-                        <?php elseif (!empty($batch['is_supply'])): ?>
-                            <div class="fw-semibold text-success">
-                                <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none text-success">
-                                    <i class="bi bi-box-seam me-1"></i>Supply Inward #<?= (int)($batch['supply_item_id'] ?? 0) ?>
-                                </a>
-                            </div>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">Supply Item</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 10px;">Third-Party Product</span>
                         <?php else: ?>
                             <div class="fw-semibold text-dark">
                                 <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>" class="text-decoration-none text-dark">
                                     <i class="bi bi-patch-check-fill me-1 text-success"></i>QC Batch #<?= (int)$batch['qc_batch_id'] ?>
                                 </a>
                             </div>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">QC Finished</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 10px;">Stitching QC</span>
                         <?php endif; ?>
                         <small class="text-muted d-block"><?= (new DateTime($batch['batch_created_at'] ?? 'now'))->format('d M Y, g:i A') ?></small>
                     </td>
+
+                    <!-- Program / PO # -->
                     <td>
                         <?php if (!empty($batch['purchase_id'])): ?>
                             <a href="<?= url('production/purchases/supply-qr/' . $batch['purchase_id']) ?>" class="text-decoration-none fw-semibold text-primary">
@@ -306,44 +334,41 @@ $inventoryVariantCount = array_sum(array_map(
                         <?php else: ?>
                             <span class="fw-semibold text-secondary"><?= e($batch['program_number']) ?></span>
                         <?php endif; ?>
-                        <?php if (!empty($batch['inspector_name'])): ?>
-                            <small class="text-muted d-block text-truncate" style="max-width: 150px;"><?= e($batch['inspector_name']) ?></small>
+                        <?php if (!empty($variant['sku'])): ?>
+                            <small class="text-muted d-block font-monospace"><?= e($variant['sku']) ?></small>
                         <?php endif; ?>
                     </td>
+
+                    <!-- Product & Category -->
                     <td>
                         <div class="fw-semibold text-dark"><?= e($batch['product_name']) ?></div>
-                        <div class="d-flex flex-wrap gap-1 mt-1">
-                            <?php if (!empty($batch['is_fabric'])): ?>
-                                <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">Fabric</span>
-                                <?php if (!empty($batch['roll_number'])): ?>
-                                    <span class="badge bg-secondary-subtle text-secondary border">Roll: <?= e($batch['roll_number']) ?></span>
-                                <?php endif; ?>
-                                <?php if (!empty($variant['color_name'])): ?>
-                                    <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
-                                <?php endif; ?>
-                                <?php if (!empty($variant['size_name'])): ?>
-                                    <span class="badge bg-light text-dark border"><?= e($variant['size_name']) ?></span>
-                                <?php endif; ?>
-                            <?php elseif (!empty($batch['is_product'])): ?>
-                                <span class="badge bg-primary-subtle text-primary border">Product</span>
-                                <?php if (!empty($variant['size_name'])): ?>
-                                    <span class="badge bg-secondary-subtle text-secondary border">Size: <?= e($variant['size_name']) ?></span>
-                                <?php endif; ?>
-                                <?php if (!empty($variant['color_name'])): ?>
-                                    <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
-                                <?php endif; ?>
-                            <?php else: ?>
+                        <?php if (!empty($batch['category_name'])): ?>
+                            <span class="badge bg-light text-secondary border mt-1"><?= e($batch['category_name']) ?></span>
+                        <?php endif; ?>
+                    </td>
+
+                    <!-- Variant (Size / Color) -->
+                    <td>
+                        <div class="d-flex flex-wrap gap-1">
+                            <?php if (!empty($variant['size_name'])): ?>
                                 <span class="badge bg-secondary-subtle text-secondary border">Size: <?= e($variant['size_name']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($variant['color_name'])): ?>
                                 <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
                             <?php endif; ?>
                         </div>
-                        <?php if (!empty($batch['category_name'])): ?>
-                            <small class="text-muted d-block mt-1"><?= e($batch['category_name']) ?></small>
-                        <?php endif; ?>
                     </td>
-                    <td class="text-center fw-semibold"><?= number_format($variant['passed_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
-                    <td class="text-center fw-semibold text-success"><?= number_format($variant['remaining_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
-                    <td class="text-center fw-semibold text-danger"><?= number_format($variant['outward_qty']) ?> <?= !empty($batch['is_supply']) ? e($batch['unit'] ?? 'pcs') : (e($batch['unit'] ?? 'pcs')) ?></td>
+
+                    <!-- QC / Inward Qty -->
+                    <td class="text-center fw-semibold"><?= number_format($variant['passed_qty']) ?> pcs</td>
+
+                    <!-- In Stock Qty -->
+                    <td class="text-center fw-bold text-success row-stock-val"><?= number_format($variant['remaining_qty']) ?> pcs</td>
+
+                    <!-- Outward Qty -->
+                    <td class="text-center fw-semibold text-danger"><?= number_format($variant['outward_qty']) ?> pcs</td>
+
+                    <!-- Stock State -->
                     <td>
                         <?php if ($variant['remaining_qty'] === 0): ?>
                             <span class="badge bg-secondary-subtle text-secondary border">Fully Outwarded</span>
@@ -353,8 +378,42 @@ $inventoryVariantCount = array_sum(array_map(
                             <span class="badge bg-success-subtle text-success border">In Stock</span>
                         <?php endif; ?>
                     </td>
+
+                    <!-- MRP (₹) -->
+                    <td class="text-end text-nowrap">
+                        <span class="text-muted font-monospace row-mrp-val">₹<?= number_format($vMrp, 2) ?></span>
+                    </td>
+
+                    <!-- Discount Price (₹) -->
+                    <td class="text-end text-nowrap">
+                        <span class="fw-bold text-success font-monospace row-selling-val">₹<?= number_format($vPrice, 2) ?></span>
+                    </td>
+
+                    <!-- Total Valuation (₹) -->
+                    <td class="text-end text-nowrap">
+                        <span class="fw-bold text-primary font-monospace row-val-val">₹<?= number_format($vVal, 2) ?></span>
+                    </td>
+
+                    <!-- Actions -->
                     <td class="text-end">
                         <div class="action-btns-group justify-content-end">
+                            <?php if (hasPermission('inventory', 'edit') || (function_exists('isAdmin') && isAdmin())): ?>
+                                <button type="button" 
+                                        class="btn btn-outline-success btn-action-icon" 
+                                        title="Edit Product Price"
+                                        onclick='openEditPriceModal(<?= json_encode([
+                                            'variant_id'   => $vId,
+                                            'sku'          => (string)($variant['sku'] ?? ''),
+                                            'product_name' => (string)$batch['product_name'] . (!empty($variant['size_name']) ? " ({$variant['size_name']} / {$variant['color_name']})" : ''),
+                                            'cost_price'   => $vCost,
+                                            'selling_price'=> $vPrice,
+                                            'mrp'          => $vMrp,
+                                            'remaining_qty'=> $vRem,
+                                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                            <?php endif; ?>
+
                             <?php if (!empty($batch['is_supply'])): ?>
                                 <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>"
                                    class="btn btn-outline-secondary btn-action-icon" title="View Supply Batch & Inventory">
@@ -363,25 +422,6 @@ $inventoryVariantCount = array_sum(array_map(
                                 <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id'] . '#qrSection') ?>"
                                    class="btn btn-outline-info btn-action-icon" title="View Supply QR Labels">
                                     <i class="bi bi-qr-code"></i>
-                                </a>
-                                <button type="button" class="btn btn-outline-primary btn-action-icon" title="Edit In-Stock Quantity"
-                                        onclick='openEditSupplyStockModal(<?= json_encode([
-                                            'supply_item_id' => (int)$batch['supply_item_id'],
-                                            'purchase_id'    => (int)$batch['purchase_id'],
-                                            'purchase_number'=> (string)$batch['program_number'],
-                                            'product_name'   => (string)$batch['product_name'],
-                                            'unit'           => (string)($batch['unit'] ?? 'pcs'),
-                                            'remaining_qty'  => (float)$variant['remaining_qty'],
-                                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-action-icon" title="Delete from Inventory & Reset to Pending Inward"
-                                        onclick="confirmDeleteSupplyStock(<?= (int)$batch['supply_item_id'] ?>, '<?= e(addslashes($batch['product_name'])) ?>')">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                                <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id'] . '?mode=package') ?>"
-                                   class="btn btn-outline-success btn-action-icon" title="Master Batch Box Package QR Labels">
-                                    <i class="bi bi-box-seam"></i>
                                 </a>
                             <?php else: ?>
                                 <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>"
@@ -392,33 +432,10 @@ $inventoryVariantCount = array_sum(array_map(
                                    class="btn btn-outline-info btn-action-icon" title="View Garment QR Labels">
                                     <i class="bi bi-qr-code"></i>
                                 </a>
-                                <button type="button" class="btn btn-outline-primary btn-action-icon" title="Edit In-Stock Quantity"
-                                        onclick='openEditQcStockModal(<?= json_encode([
-                                            'qc_batch_id'    => (int)$batch['qc_batch_id'],
-                                            'variant_id'     => (int)($variant['variant_id'] ?? 0),
-                                            'program_id'     => (int)($batch['program_id'] ?? 0),
-                                            'batch_name'     => 'QC Batch #' . $batch['qc_batch_id'],
-                                            'program_number' => (string)$batch['program_number'],
-                                            'product_name'   => (string)$batch['product_name'] . (!empty($variant['size_name']) ? ' (' . $variant['size_name'] . ' / ' . $variant['color_name'] . ')' : ''),
-                                            'unit'           => 'pcs',
-                                            'remaining_qty'  => (int)$variant['remaining_qty'],
-                                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-action-icon" title="Delete Stock from Inventory"
-                                        onclick="confirmDeleteQcStock(<?= (int)$batch['qc_batch_id'] ?>, <?= (int)($variant['variant_id'] ?? 0) ?>, 'QC Batch #<?= (int)$batch['qc_batch_id'] ?> - <?= e(addslashes($batch['product_name'])) ?>')">
-                                    <i class="bi bi-trash"></i>
-                                </button>
                                 <?php if (hasPermission('batches', 'create') && $variant['remaining_qty'] > 0): ?>
                                     <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id']) ?>"
                                        class="btn btn-outline-success btn-action-icon" title="Pack into Boxes for Central Warehouse">
-                                        <i class="bi bi-box-seam"></i>
-                                    </a>
-                                <?php endif; ?>
-                                <?php if (hasPermission('batches', 'create') && ($variant['rework_qty'] ?? 0) > 0): ?>
-                                    <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id'] . '&include_rework=1') ?>"
-                                       class="btn btn-outline-warning btn-action-icon" title="Pack Reworked Pieces into Batch for Outward">
-                                        <i class="bi bi-tools"></i>
+                                       <i class="bi bi-box-seam"></i>
                                     </a>
                                 <?php endif; ?>
                             <?php endif; ?>
@@ -431,36 +448,39 @@ $inventoryVariantCount = array_sum(array_map(
     </table>
 </div>
 
+<!-- Floating Action Bar for Price Edit (Image 2 style) -->
+<div id="priceFloatingActionBar" class="position-fixed bottom-0 start-50 translate-middle-x mb-4 shadow-lg rounded-pill p-2 px-4 bg-dark text-white d-flex align-items-center gap-3 z-3" style="display: none !important;">
+    <span class="badge bg-success rounded-pill px-3 py-2 fw-semibold">
+        <i class="bi bi-check2-circle me-1"></i> <span id="floatingSelectedCount">0</span> selected
+    </span>
+    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="selectAllPriceItems(true)">
+        <i class="bi bi-check-all me-1"></i> Select All
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 text-white border-secondary" onclick="clearPriceSelection()">
+        Clear
+    </button>
+    <button type="button" class="btn btn-sm btn-success rounded-pill px-4 fw-bold shadow-sm" onclick="openBulkPriceModal()">
+        <i class="bi bi-pencil-square me-1"></i> Change Price
+    </button>
+</div>
+
+<!-- Cards Grid Layout -->
 <div class="row g-3 inventory-batch-list-mode" id="inventoryBatchesGrid" style="display: none;">
     <?php foreach ($batches as $idx => $batch): ?>
     <?php
         $batchDate = new DateTime($batch['batch_created_at'] ?? 'now');
-        $batchColors = ['success', 'primary', 'info', 'warning', 'danger', 'secondary'];
-        $colorClass  = $batchColors[$idx % count($batchColors)];
-        
         $variantKeywords = implode(' ', array_map(function($v) {
             return ($v['size_name'] ?? '') . ' ' . ($v['color_name'] ?? '');
         }, $batch['variants'] ?? []));
 
-        $outwardKeywords = '';
-        if (!empty($batch['outward_history'])) {
-            foreach ($batch['outward_history'] as $ow) {
-                $outwardKeywords .= ' ' . ($ow['outward_number'] ?? '') . ' ' . ($ow['warehouse_name'] ?? '') . ' ' . ($ow['vehicle_number'] ?? '');
-            }
-        }
-        
         $searchDataText = strtolower(
             ($batch['product_name'] ?? '') . ' ' . 
             ($batch['category_name'] ?? '') . ' ' . 
             ($batch['program_number'] ?? '') . ' ' . 
             ($batch['inspector_name'] ?? '') . ' ' . 
-            'rework rejected qc passed outward ' .
-            'qc batch #' . $batch['qc_batch_id'] . ' ' . 
             $batch['qc_batch_id'] . ' ' . 
-            $variantKeywords . ' ' .
-            $outwardKeywords
+            $variantKeywords
         );
-
         $stockStatus = $batch['stock_status'] ?? 'IN_STOCK';
     ?>
     <div class="col-xl-4 col-md-6 batch-card-col" 
@@ -470,220 +490,73 @@ $inventoryVariantCount = array_sum(array_map(
         <?php $statusColor = in_array($stockStatus, ['FULLY_OUTWARDED', 'NO_PASSED_STOCK'], true) ? 'secondary' : ($stockStatus === 'PARTIALLY_OUTWARDED' ? 'warning' : 'success'); ?>
         <div class="card border-0 shadow-sm h-100 inventory-batch-card" style="border-left: 4px solid var(--bs-<?= $statusColor ?>) !important; transition: transform 0.18s, box-shadow 0.18s;">
             <div class="card-body p-4">
-                <!-- Batch Header -->
                 <div class="d-flex align-items-start justify-content-between mb-3 batch-list-header">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-1">
-                            <?php if (!empty($batch['is_fabric'])): ?>
-                                <span class="badge border px-3 py-2 fs-6 fw-bold text-nowrap" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
-                                    <i class="bi bi-palette me-1"></i>Fabric Roll #<?= e($batch['roll_number'] ?: $batch['qc_batch_id']) ?>
-                                </span>
-                            <?php elseif (!empty($batch['is_product'])): ?>
+                            <?php if (($batch['tab_type'] ?? '') === 'third_party'): ?>
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
-                                    <i class="bi bi-tag me-1"></i>Product #<?= e($batch['qc_batch_id']) ?>
+                                    <i class="bi bi-box-seam me-1"></i>Third-Party #<?= e($batch['qc_batch_id']) ?>
                                 </span>
-                            <?php elseif (!empty($batch['is_supply'])): ?>
-                                <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 fw-bold text-nowrap text-decoration-none">
-                                    <i class="bi bi-box-seam me-1"></i>Supply Inward #<?= (int)($batch['supply_item_id'] ?? 0) ?>
-                                </a>
                             <?php else: ?>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
                                     <i class="bi bi-patch-check-fill me-1"></i>QC Batch #<?= $batch['qc_batch_id'] ?>
                                 </span>
                             <?php endif; ?>
-                            <?php if ($stockStatus === 'NO_PASSED_STOCK'): ?>
-                                <span class="badge bg-secondary-subtle text-secondary border small"><i class="bi bi-clipboard-x me-1"></i>No QC-Passed Stock</span>
-                            <?php elseif ($stockStatus === 'FULLY_OUTWARDED'): ?>
-                                <span class="badge bg-secondary-subtle text-secondary border small"><i class="bi bi-truck me-1"></i>Fully Outwarded</span>
-                            <?php elseif ($stockStatus === 'PARTIALLY_OUTWARDED'): ?>
-                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small"><i class="bi bi-pie-chart me-1"></i>Partially Outwarded</span>
-                            <?php else: ?>
-                                <span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-check2-circle me-1"></i>In Stock</span>
-                            <?php endif; ?>
+                            <span class="badge bg-<?= $statusColor ?>-subtle text-<?= $statusColor ?> border small"><?= e(str_replace('_', ' ', $stockStatus)) ?></span>
                         </div>
-                        <div class="text-muted small mt-1">
-                            <i class="bi bi-calendar3 me-1"></i><?= $batchDate->format('d M Y, g:i A') ?>
-                        </div>
-                    </div>
-                    <div class="bg-<?= $statusColor ?> bg-opacity-10 rounded-3 p-2 text-<?= $statusColor ?>">
-                        <i class="bi bi-boxes fs-4"></i>
+                        <small class="text-muted"><?= $batchDate->format('d M Y, g:i A') ?></small>
                     </div>
                 </div>
 
-                <!-- Product Name -->
-                <div class="batch-list-product">
-                <div class="mb-3">
-                    <div class="fw-bold text-dark fs-6 mb-1"><?= e($batch['product_name']) ?></div>
-                    <?php if (!empty($batch['category_name'])): ?>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-7"><?= e($batch['category_name']) ?></span>
-                    <?php endif; ?>
-                    <?php if (!empty($batch['is_supply'])): ?>
-                        <div class="small text-muted mt-1">
-                            <i class="bi bi-receipt me-1 text-success"></i>PO: 
-                            <a href="<?= url('production/purchases/supply-qr/' . $batch['purchase_id']) ?>" class="text-decoration-none fw-semibold">
-                                <?= e($batch['program_number']) ?>
-                            </a>
-                        </div>
-                    <?php else: ?>
-                        <div class="small text-muted mt-1">
-                            <i class="bi bi-diagram-3 me-1"></i>Program: 
-                            <a href="<?= url('production/programs/view/' . $batch['program_id']) ?>" class="text-decoration-none fw-semibold">
-                                <?= e($batch['program_number']) ?>
-                            </a>
-                        </div>
-                    <?php endif; ?>
+                <div class="mb-3 batch-list-product">
+                    <h6 class="fw-bold text-dark mb-1"><?= e($batch['product_name']) ?></h6>
+                    <div class="small text-muted"><?= e($batch['program_number']) ?> · <?= e($batch['category_name']) ?></div>
                 </div>
 
-                <!-- Variants Preview -->
-                <?php if (!empty($batch['variants'])): ?>
-                <div class="mb-3">
-                    <div class="d-flex flex-wrap gap-1">
-                        <?php foreach (array_slice($batch['variants'], 0, 4) as $v): ?>
-                            <span class="badge bg-light text-dark border small">
-                                <?= e($v['size_name']) ?>/<?= e($v['color_name']) ?>
-                                <span class="text-success ms-1">(<?= $v['passed_qty'] ?>)</span>
-                            </span>
-                        <?php endforeach; ?>
-                        <?php if (count($batch['variants']) > 4): ?>
-                            <span class="badge bg-secondary-subtle text-secondary border small">+<?= count($batch['variants']) - 4 ?> more</span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                </div>
-
-                <hr class="my-3 opacity-25 batch-list-divider">
-
-                <!-- Stats Grid (Remaining In-Stock vs Outwarded vs Total) -->
-                <div class="row g-2 mb-3 batch-list-stats">
+                <div class="row g-2 mb-3 text-center batch-list-stats">
                     <div class="col-4">
-                        <div class="bg-success bg-opacity-10 rounded-2 p-2 text-center h-100">
-                            <div class="fw-bold text-success fs-5"><?= number_format($batch['remaining_pieces']) ?></div>
-                            <div class="text-muted small" style="font-size: 11px;">In Stock (pcs)</div>
-                        </div>
-
-                    </div>
-                    <div class="col-4">
-                        <div class="bg-danger bg-opacity-10 rounded-2 p-2 text-center h-100">
-                            <div class="fw-bold text-danger fs-5"><?= number_format($batch['total_outward_pieces']) ?></div>
-                            <div class="text-muted small" style="font-size: 11px;">Outward (pcs)</div>
+                        <div class="p-2 bg-light rounded border">
+                            <span class="small text-muted d-block">QC Inward</span>
+                            <span class="fw-bold text-dark"><?= number_format($batch['total_pieces']) ?></span>
                         </div>
                     </div>
                     <div class="col-4">
-                        <div class="bg-light border rounded-2 p-2 text-center h-100">
-                            <div class="fw-bold text-dark fs-5"><?= number_format($batch['total_passed_pieces']) ?></div>
-                            <div class="text-muted small" style="font-size: 11px;">Total Passed</div>
+                        <div class="p-2 bg-success bg-opacity-10 rounded border border-success-subtle">
+                            <span class="small text-success d-block">In Stock</span>
+                            <span class="fw-bold text-success"><?= number_format($batch['remaining_pieces']) ?></span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-danger bg-opacity-10 rounded border border-danger-subtle">
+                            <span class="small text-danger d-block">Outward</span>
+                            <span class="fw-bold text-danger"><?= number_format($batch['total_outward_pieces']) ?></span>
                         </div>
                     </div>
                 </div>
 
-                <div class="batch-list-summary">
-                <div class="d-flex flex-wrap gap-2 mb-3" aria-label="QC outcome quantities">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                        <i class="bi bi-check-circle me-1"></i>QC Passed: <?= number_format($batch['total_passed_pieces']) ?>
-                    </span>
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
-                        <i class="bi bi-arrow-repeat me-1"></i>QC Rework: <?= number_format($batch['total_rework_pieces']) ?>
-                    </span>
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
-                        <i class="bi bi-x-circle me-1"></i>QC Rejected: <?= number_format($batch['total_rejected_pieces']) ?>
-                    </span>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded border">
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="small text-muted fw-semibold">Available Valuation:</span>
-                    <span class="fw-bold text-primary">₹<?= number_format($batch['remaining_value'], 2) ?></span>
+                    <span class="fw-bold text-primary">₹<?= number_format($batch['remaining_value'] ?? 0, 2) ?></span>
                 </div>
 
-                <!-- Outward History Mini-Badge -->
-                <?php if (!empty($batch['outward_history'])): ?>
-                <div class="mb-3 p-2 bg-warning-subtle bg-opacity-25 rounded border border-warning-subtle">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <span class="small fw-semibold text-dark"><i class="bi bi-truck text-warning-emphasis me-1"></i>Outward Dispatched:</span>
-                        <span class="badge bg-warning-subtle text-dark border small"><?= count($batch['outward_history']) ?> Dispatch(es)</span>
-                    </div>
-                    <div class="small text-muted mt-1 text-truncate">
-                        <?php $firstOw = $batch['outward_history'][0]; ?>
-                        <code><?= e($firstOw['outward_number']) ?></code> &rarr; <?= e($firstOw['warehouse_name'] ?? 'Warehouse') ?> (<?= $firstOw['outward_qty'] ?> pcs)
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <!-- Inspector -->
-                <?php if (!empty($batch['inspector_name'])): ?>
-                <div class="small text-muted mb-3">
-                    <i class="bi bi-person-check me-1 text-success"></i>Inspector: <strong><?= e($batch['inspector_name']) ?></strong>
-                </div>
-                <?php endif; ?>
-                </div>
-
-                <!-- Actions (Both Option A & Option B) -->
                 <div class="d-flex gap-1.5 batch-list-actions flex-wrap">
                     <?php if (!empty($batch['is_supply'])): ?>
-                        <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" 
-                           class="btn btn-outline-secondary btn-sm fw-semibold" title="View Supply Batch & Inventory">
+                        <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="btn btn-outline-secondary btn-sm fw-semibold">
                             <i class="bi bi-eye me-1"></i> View
                         </a>
-                        <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id'] . '#qrSection') ?>" 
-                           class="btn btn-outline-info btn-sm fw-semibold" title="View Supply QR Labels">
+                        <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id'] . '#qrSection') ?>" class="btn btn-outline-info btn-sm fw-semibold">
                             <i class="bi bi-qr-code me-1"></i> QR
-                        </a>
-                        <button type="button" class="btn btn-outline-primary btn-sm fw-semibold" title="Edit In-Stock Quantity"
-                                onclick='openEditSupplyStockModal(<?= json_encode([
-                                    'supply_item_id' => (int)$batch['supply_item_id'],
-                                    'purchase_id'    => (int)$batch['purchase_id'],
-                                    'purchase_number'=> (string)$batch['program_number'],
-                                    'product_name'   => (string)$batch['product_name'],
-                                    'unit'           => (string)($batch['unit'] ?? 'pcs'),
-                                    'remaining_qty'  => (float)$batch['remaining_pieces'],
-                                ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                            <i class="bi bi-pencil me-1"></i> Edit Stock
-                        </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm fw-semibold" title="Delete from Inventory & Reset to Pending Inward"
-                                onclick="confirmDeleteSupplyStock(<?= (int)$batch['supply_item_id'] ?>, '<?= e(addslashes($batch['product_name'])) ?>')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id'] . '?mode=package') ?>" 
-                           class="btn btn-outline-success btn-sm fw-semibold" title="Master Batch Box Package QR Labels">
-                            <i class="bi bi-box-seam me-1"></i> Batch (WH)
                         </a>
                     <?php else: ?>
-                        <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>" 
-                           class="btn btn-outline-secondary btn-sm fw-semibold" title="View Batch Items">
+                        <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>" class="btn btn-outline-secondary btn-sm fw-semibold">
                             <i class="bi bi-eye me-1"></i> View
                         </a>
-                        <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id'] . '#qrSection') ?>" 
-                           class="btn btn-outline-info btn-sm fw-semibold" title="View Garment QR Labels">
+                        <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id'] . '#qrSection') ?>" class="btn btn-outline-info btn-sm fw-semibold">
                             <i class="bi bi-qr-code me-1"></i> QR
                         </a>
-                        <?php $firstVariant = !empty($batch['variants']) ? $batch['variants'][0] : null; ?>
-                        <button type="button" class="btn btn-outline-primary btn-sm fw-semibold" title="Edit In-Stock Quantity"
-                                onclick='openEditQcStockModal(<?= json_encode([
-                                    'qc_batch_id'    => (int)$batch['qc_batch_id'],
-                                    'variant_id'     => (int)($firstVariant['variant_id'] ?? 0),
-                                    'program_id'     => (int)($batch['program_id'] ?? 0),
-                                    'batch_name'     => 'QC Batch #' . $batch['qc_batch_id'],
-                                    'program_number' => (string)$batch['program_number'],
-                                    'product_name'   => (string)$batch['product_name'],
-                                    'unit'           => 'pcs',
-                                    'remaining_qty'  => (int)$batch['remaining_pieces'],
-                                ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                            <i class="bi bi-pencil me-1"></i> Edit Stock
-                        </button>
-                        <button type="button" class="btn btn-outline-danger btn-sm fw-semibold" title="Delete Stock from Inventory"
-                                onclick="confirmDeleteQcStock(<?= (int)$batch['qc_batch_id'] ?>, <?= (int)($firstVariant['variant_id'] ?? 0) ?>, 'QC Batch #<?= (int)$batch['qc_batch_id'] ?> - <?= e(addslashes($batch['product_name'])) ?>')">
-                            <i class="bi bi-trash"></i>
-                        </button>
                         <?php if (hasPermission('batches', 'create') && $batch['remaining_pieces'] > 0): ?>
-                        <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id']) ?>" 
-                           class="btn btn-outline-success btn-sm fw-semibold" title="Pack Remaining Stock into Box Batch for Warehouse">
-                            <i class="bi bi-box-seam me-1"></i> Pack (WH)
-                        </a>
-                        <?php endif; ?>
-                        <?php if (hasPermission('batches', 'create') && ($batch['total_rework_pieces'] ?? 0) > 0): ?>
-                        <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id'] . '&include_rework=1') ?>" 
-                           class="btn btn-outline-warning btn-sm fw-semibold" title="Pack Reworked Pieces into Batch for Outward">
-                            <i class="bi bi-tools me-1"></i> Pack Rework
+                        <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id']) ?>" class="btn btn-outline-success btn-sm fw-semibold">
+                            <i class="bi bi-box-seam me-1"></i> Pack
                         </a>
                         <?php endif; ?>
                     <?php endif; ?>
@@ -694,31 +567,162 @@ $inventoryVariantCount = array_sum(array_map(
     <?php endforeach; ?>
 </div>
 
-<!-- Pagination Card Footer for Batches -->
+<!-- Pagination Card Footer -->
 <div class="card border-0 shadow-sm mt-4" id="batchPaginationContainer">
     <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="batchPageInfo">
-                Showing <?= min(9, count($batches)) ?> of <?= count($batches) ?> batches
+                Showing <?= min(9, count($batches)) ?> of <?= count($batches) ?> items
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label for="batchPageSizeSelect" class="small text-muted mb-0 fw-medium">Show:</label>
                 <select id="batchPageSizeSelect" class="form-select form-select-sm" style="width: auto;" onchange="changeBatchPageSize(this.value)">
-                    <option value="6">6 per page</option>
-                    <option value="9" selected>9 per page</option>
-                    <option value="18">18 per page</option>
-                    <option value="all">All batches</option>
+                    <option value="10">10 per page</option>
+                    <option value="25" selected>25 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="all">All items</option>
                 </select>
             </div>
         </div>
         <nav aria-label="Batch Pagination">
-            <ul class="pagination pagination-modern mb-0" id="batchPaginationList">
-                <!-- Dynamically rendered -->
-            </ul>
+            <ul class="pagination pagination-modern mb-0" id="batchPaginationList"></ul>
         </nav>
     </div>
 </div>
 <?php endif; ?>
+
+<!-- ========================================== -->
+<!-- MODAL: Edit Product Price (Images 2 & 3)   -->
+<!-- ========================================== -->
+<div class="modal fade" id="editProductPriceModal" tabindex="-1" aria-labelledby="editProductPriceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-success text-white py-3 px-4 border-0">
+                <div>
+                    <h5 class="modal-title fw-bold mb-0" id="editProductPriceModalLabel">
+                        <i class="bi bi-tag-fill me-2"></i>Edit Product Price
+                    </h5>
+                    <small class="opacity-75 font-monospace" id="modalPriceHeaderSku">SKU: —</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Product Summary Box (Image 3) -->
+                <div class="p-3 bg-light rounded-3 mb-3 border">
+                    <h6 class="fw-bold text-dark mb-1" id="modalPriceProductName">—</h6>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                        <span class="badge bg-dark font-monospace" id="modalPriceBadgeSku">—</span>
+                        <span class="badge bg-light text-dark border font-monospace" id="modalPriceBadgeCost">Cost: ₹0.00</span>
+                    </div>
+                </div>
+
+                <form id="editProductPriceForm" onsubmit="submitProductPriceEdit(event)">
+                    <input type="hidden" id="modalVariantIdsInput" name="variant_ids" value="">
+
+                    <!-- Price Inputs (Image 3) -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label for="modalMrpInput" class="form-label small fw-bold text-uppercase text-muted">
+                                MAXIMUM RETAIL PRICE (MRP ₹) <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white fw-bold">₹</span>
+                                <input type="number" step="0.01" min="0.01" class="form-control form-control-lg fw-bold" id="modalMrpInput" name="mrp" required oninput="calculatePriceMargins()">
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Printed sticker / catalog MRP</small>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="modalSellingPriceInput" class="form-label small fw-bold text-uppercase text-muted">
+                                DISCOUNT PRICE (₹) <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white fw-bold text-success">₹</span>
+                                <input type="number" step="0.01" min="0.01" class="form-control form-control-lg fw-bold text-success" id="modalSellingPriceInput" name="selling_price" required oninput="calculatePriceMargins()">
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Active retail selling rate at POS</small>
+                        </div>
+                    </div>
+
+                    <div id="modalPriceValidationMessage" class="alert alert-danger py-2 px-3 small mb-3" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> MRP must be greater than or equal to the Discount selling price.
+                    </div>
+
+                    <!-- Price Dynamics & Margin Box (Image 3) -->
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold text-uppercase text-muted" style="letter-spacing: 0.5px;">PRICE DYNAMICS &amp; MARGIN</span>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" id="modalDiscountBadge">0% Discount</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small">
+                            <span class="text-muted">Markup over Cost: <strong id="modalMarkupVal" class="text-success ms-1 font-monospace">+0%</strong></span>
+                            <span class="text-muted">Discount on MRP: <strong id="modalDiscountVal" class="text-primary ms-1 font-monospace">0% Off</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Safeguard Checkbox: Old QR Code Price Protection (Requested Feature) -->
+                    <div class="card border-warning-subtle bg-warning bg-opacity-10 mb-3">
+                        <div class="card-body p-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="modalDontAffectOldQr" name="dont_affect_old_qr" value="1" checked>
+                                <label class="form-check-label fw-bold text-dark small" for="modalDontAffectOldQr">
+                                    <i class="bi bi-shield-lock-fill me-1 text-warning"></i> Don't affect old price on existing printed QR codes
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1 ms-4" style="font-size: 0.76rem;">
+                                If enabled, already tagged/printed QR stickers keep their original stamped price. When scanned at POS, they will retain their printed price. If disabled, scanning the old QR automatically bills at the new price.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Stock Reduction Option (Requested Feature) -->
+                    <div class="card border-primary-subtle bg-primary bg-opacity-10 mb-3">
+                        <div class="card-body p-3">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="modalEnableStockReduction" onchange="toggleStockReductionFields(this.checked)">
+                                <label class="form-check-label fw-bold text-dark small" for="modalEnableStockReduction">
+                                    <i class="bi bi-dash-circle-fill me-1 text-danger"></i> Reduce In-Stock Quantity (Optional Stock Adjustment)
+                                </label>
+                            </div>
+                            <div id="modalStockReductionContainer" style="display: none;" class="mt-2 pt-2 border-top">
+                                <div class="row g-2">
+                                    <div class="col-sm-5">
+                                        <label for="modalReduceQtyInput" class="form-label small fw-semibold text-muted mb-1">Deduct Qty (Pcs)</label>
+                                        <input type="number" step="1" min="0" class="form-control form-control-sm" id="modalReduceQtyInput" name="reduce_stock_qty" value="0" placeholder="0">
+                                        <small class="text-muted d-block mt-0.5" id="modalCurrentStockNotice" style="font-size: 0.72rem;">Available: 0 pcs</small>
+                                    </div>
+                                    <div class="col-sm-7">
+                                        <label for="modalReduceReasonSelect" class="form-label small fw-semibold text-muted mb-1">Reduction Reason</label>
+                                        <select class="form-select form-select-sm" id="modalReduceReasonSelect" name="reduce_stock_reason">
+                                            <option value="Damaged / Quarantined during price revision">Damaged / Quarantined</option>
+                                            <option value="Promotional Sample / Giveaway">Promotional Sample</option>
+                                            <option value="Inventory Audit Count Correction">Inventory Audit Correction</option>
+                                            <option value="Defective / Discarded">Defective / Discarded</option>
+                                            <option value="Manual Quantity Adjustment">Manual Adjustment</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revision Notes -->
+                    <div class="mb-3">
+                        <label for="modalRevisionNotesInput" class="form-label small fw-bold text-uppercase text-muted">REVISION NOTES / REASON (OPTIONAL)</label>
+                        <input type="text" class="form-control" id="modalRevisionNotesInput" name="revision_notes" placeholder="e.g. Bulk price revision, seasonal promotion">
+                    </div>
+
+                    <!-- Footer Buttons -->
+                    <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                        <button type="button" class="btn btn-light px-4 border" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm" id="btnApplyPriceChanges">
+                            <i class="bi bi-check-circle-fill me-1"></i> Apply Price Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 .inventory-batch-card:hover {
@@ -729,108 +733,398 @@ $inventoryVariantCount = array_sum(array_map(
     min-width: 1050px;
 }
 .batch-list-row > td {
-    padding-top: 0.9rem;
-    padding-bottom: 0.9rem;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
 }
-.inventory-batch-list-mode {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin: 0;
-}
-.inventory-batch-list-mode > .batch-card-col {
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
-    padding: 0;
-}
-.inventory-batch-list-mode .inventory-batch-card {
-    border-left-width: 4px !important;
-}
-.inventory-batch-list-mode .inventory-batch-card > .card-body {
-    display: grid;
-    grid-template-areas: "header product stats summary actions";
-    grid-template-columns: minmax(185px, 1.05fr) minmax(220px, 1.35fr) minmax(220px, 1.2fr) minmax(260px, 1.5fr) minmax(145px, 0.8fr);
-    align-items: center;
-    gap: 1rem;
-}
-.inventory-batch-list-mode .batch-list-header {
-    grid-area: header;
-    display: block !important;
-    margin: 0 !important;
-}
-.inventory-batch-list-mode .batch-list-header > div:first-child {
-    min-width: 0;
-}
-.inventory-batch-list-mode .batch-list-header > div:last-child {
-    display: none;
-}
-.inventory-batch-list-mode .batch-list-product {
-    grid-area: product;
-    min-width: 0;
-}
-.inventory-batch-list-mode .batch-list-product > .mb-3 {
-    margin-bottom: 0.5rem !important;
-}
-.inventory-batch-list-mode .batch-list-stats {
-    grid-area: stats;
-    margin: 0;
-}
-.inventory-batch-list-mode .batch-list-summary {
-    grid-area: summary;
-    min-width: 0;
-}
-.inventory-batch-list-mode .batch-list-summary > :last-child {
-    margin-bottom: 0 !important;
-}
-.inventory-batch-list-mode .batch-list-divider {
-    display: none;
-}
-.inventory-batch-list-mode .batch-list-actions {
-    grid-area: actions;
-    align-self: center;
-}
-.inventory-batch-list-mode .batch-list-actions .btn:first-child {
-    white-space: normal;
-}
-.inventory-batch-list-mode .batch-list-actions .btn.flex-grow-1 {
-    flex-grow: 1;
-}
-@media (max-width: 1399.98px) {
-    .inventory-batch-list-mode .inventory-batch-card > .card-body {
-        grid-template-areas:
-            "header product stats"
-            "summary summary actions";
-        grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.3fr) minmax(210px, 1fr);
-    }
-}
-@media (max-width: 767.98px) {
-    .inventory-batch-list-mode .inventory-batch-card > .card-body {
-        grid-template-areas:
-            "header"
-            "product"
-            "stats"
-            "summary"
-            "actions";
-        grid-template-columns: minmax(0, 1fr);
-        gap: 0.85rem;
-    }
+.batch-list-row.row-selected {
+    background-color: rgba(25, 135, 84, 0.08) !important;
 }
 </style>
 
 <script>
 let currentBatchPage = 1;
-let batchPageSize = 9;
+let batchPageSize = 25;
 let visibleBatchCards = [];
 let currentBatchView = 'list';
+let isPriceEditMode = false;
+let currentPriceModalInstance = null;
+let currentModalCostPrice = 0;
+
+// Price Edit Mode Toggle (Image 2)
+function togglePriceEditMode() {
+    isPriceEditMode = !isPriceEditMode;
+    const btn = document.querySelector('.btnTogglePriceEdit');
+    const label = document.querySelector('.btnPriceEditLabel');
+    const cols = document.querySelectorAll('.price-checkbox-col');
+    const floatingBar = document.getElementById('priceFloatingActionBar');
+
+    if (isPriceEditMode) {
+        if (btn) {
+            btn.classList.remove('btn-outline-success');
+            btn.classList.add('btn-success');
+        }
+        if (label) label.textContent = 'Close Price Edit';
+        cols.forEach(c => c.style.display = '');
+    } else {
+        if (btn) {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
+        }
+        if (label) label.textContent = 'Edit Price';
+        cols.forEach(c => c.style.display = 'none');
+        clearPriceSelection();
+        if (floatingBar) floatingBar.style.setProperty('display', 'none', 'important');
+    }
+}
+
+function updateSelectedPriceCount() {
+    const checked = document.querySelectorAll('.price-item-checkbox:checked');
+    const count = checked.length;
+
+    // Update row highlighting
+    document.querySelectorAll('.batch-list-row').forEach(tr => {
+        const chk = tr.querySelector('.price-item-checkbox');
+        if (chk && chk.checked) {
+            tr.classList.add('row-selected');
+        } else {
+            tr.classList.remove('row-selected');
+        }
+    });
+
+    // Update header button
+    const headerBtn = document.querySelector('.btnHeaderApplyPrice');
+    const headerCount = document.querySelector('.headerSelectedPriceCount');
+    if (headerBtn && headerCount) {
+        headerCount.textContent = count;
+        if (count > 0 && isPriceEditMode) {
+            headerBtn.classList.remove('d-none');
+        } else {
+            headerBtn.classList.add('d-none');
+        }
+    }
+
+    // Update floating bottom action bar (Image 2)
+    const floatingBar = document.getElementById('priceFloatingActionBar');
+    const floatingCount = document.getElementById('floatingSelectedCount');
+    if (floatingBar && floatingCount) {
+        floatingCount.textContent = count;
+        if (count > 0 && isPriceEditMode) {
+            floatingBar.style.removeProperty('display');
+            floatingBar.style.display = 'flex';
+        } else {
+            floatingBar.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    // Update master checkbox
+    const allCheckboxes = document.querySelectorAll('.price-item-checkbox');
+    const master = document.getElementById('thSelectAllPrice');
+    if (master && allCheckboxes.length > 0) {
+        master.checked = (checked.length === allCheckboxes.length);
+        master.indeterminate = (checked.length > 0 && checked.length < allCheckboxes.length);
+    }
+}
+
+function toggleSelectAllPrice(master) {
+    const checked = master.checked;
+    document.querySelectorAll('.price-item-checkbox').forEach(chk => {
+        const row = chk.closest('tr');
+        if (!row || row.style.display !== 'none') {
+            chk.checked = checked;
+        }
+    });
+    updateSelectedPriceCount();
+}
+
+function selectAllPriceItems(state) {
+    document.querySelectorAll('.price-item-checkbox').forEach(chk => {
+        const row = chk.closest('tr');
+        if (!row || row.style.display !== 'none') {
+            chk.checked = state;
+        }
+    });
+    updateSelectedPriceCount();
+}
+
+function clearPriceSelection() {
+    document.querySelectorAll('.price-item-checkbox').forEach(chk => {
+        chk.checked = false;
+    });
+    const master = document.getElementById('thSelectAllPrice');
+    if (master) {
+        master.checked = false;
+        master.indeterminate = false;
+    }
+    updateSelectedPriceCount();
+}
+
+// Open modal for a single product (Image 3)
+function openEditPriceModal(data) {
+    if (!data) return;
+    const modalEl = document.getElementById('editProductPriceModal');
+    if (!modalEl) return;
+
+    document.getElementById('modalVariantIdsInput').value = data.variant_id || '';
+    document.getElementById('modalPriceHeaderSku').textContent = 'SKU: ' + (data.sku || '—');
+    document.getElementById('modalPriceProductName').textContent = data.product_name || 'Product';
+    document.getElementById('modalPriceBadgeSku').textContent = data.sku || 'SKU';
+    
+    currentModalCostPrice = parseFloat(data.cost_price || 0);
+    document.getElementById('modalPriceBadgeCost').textContent = 'Cost: ₹' + currentModalCostPrice.toFixed(2);
+
+    const mrp = parseFloat(data.mrp || 0);
+    const sellingPrice = parseFloat(data.selling_price || 0);
+    document.getElementById('modalMrpInput').value = mrp > 0 ? mrp.toFixed(2) : '';
+    document.getElementById('modalSellingPriceInput').value = sellingPrice > 0 ? sellingPrice.toFixed(2) : '';
+    document.getElementById('modalRevisionNotesInput').value = '';
+
+    // Stock reduction
+    const stockQty = parseInt(data.remaining_qty || 0, 10);
+    const noticeEl = document.getElementById('modalCurrentStockNotice');
+    if (noticeEl) noticeEl.textContent = 'Available in stock: ' + stockQty + ' pcs';
+    const reduceInput = document.getElementById('modalReduceQtyInput');
+    if (reduceInput) {
+        reduceInput.max = stockQty;
+        reduceInput.value = '0';
+    }
+    const reduceCheck = document.getElementById('modalEnableStockReduction');
+    if (reduceCheck) {
+        reduceCheck.checked = false;
+        toggleStockReductionFields(false);
+    }
+
+    calculatePriceMargins();
+
+    if (!currentPriceModalInstance) {
+        currentPriceModalInstance = new bootstrap.Modal(modalEl);
+    }
+    currentPriceModalInstance.show();
+}
+
+// Open modal for multiple selected products
+function openBulkPriceModal() {
+    const checked = Array.from(document.querySelectorAll('.price-item-checkbox:checked'));
+    if (!checked.length) return;
+
+    const modalEl = document.getElementById('editProductPriceModal');
+    if (!modalEl) return;
+
+    const variantIds = checked.map(c => c.value);
+    document.getElementById('modalVariantIdsInput').value = variantIds.join(',');
+
+    const first = checked[0];
+    const count = checked.length;
+    document.getElementById('modalPriceHeaderSku').textContent = count > 1 
+        ? `${count} Products Selected` 
+        : ('SKU: ' + (first.getAttribute('data-sku') || '—'));
+    document.getElementById('modalPriceProductName').textContent = count > 1 
+        ? `Bulk Price Update (${count} Selected Items)` 
+        : (first.getAttribute('data-product-name') || 'Product');
+    document.getElementById('modalPriceBadgeSku').textContent = count > 1 
+        ? `${count} Items` 
+        : (first.getAttribute('data-sku') || 'SKU');
+
+    currentModalCostPrice = parseFloat(first.getAttribute('data-cost-price') || 0);
+    document.getElementById('modalPriceBadgeCost').textContent = 'Cost: ₹' + currentModalCostPrice.toFixed(2);
+
+    const mrp = parseFloat(first.getAttribute('data-mrp') || 0);
+    const sellingPrice = parseFloat(first.getAttribute('data-selling-price') || 0);
+    document.getElementById('modalMrpInput').value = mrp > 0 ? mrp.toFixed(2) : '';
+    document.getElementById('modalSellingPriceInput').value = sellingPrice > 0 ? sellingPrice.toFixed(2) : '';
+    document.getElementById('modalRevisionNotesInput').value = '';
+
+    const totalStock = checked.reduce((acc, c) => acc + parseInt(c.getAttribute('data-stock') || 0, 10), 0);
+    const noticeEl = document.getElementById('modalCurrentStockNotice');
+    if (noticeEl) noticeEl.textContent = 'Total selected in stock: ' + totalStock + ' pcs';
+    const reduceInput = document.getElementById('modalReduceQtyInput');
+    if (reduceInput) {
+        reduceInput.max = totalStock;
+        reduceInput.value = '0';
+    }
+    const reduceCheck = document.getElementById('modalEnableStockReduction');
+    if (reduceCheck) {
+        reduceCheck.checked = false;
+        toggleStockReductionFields(false);
+    }
+
+    calculatePriceMargins();
+
+    if (!currentPriceModalInstance) {
+        currentPriceModalInstance = new bootstrap.Modal(modalEl);
+    }
+    currentPriceModalInstance.show();
+}
+
+function toggleStockReductionFields(checked) {
+    const container = document.getElementById('modalStockReductionContainer');
+    if (container) {
+        container.style.display = checked ? 'block' : 'none';
+    }
+}
+
+// Live calculation of markup and discount percentage (Image 3)
+function calculatePriceMargins() {
+    const mrpInput = document.getElementById('modalMrpInput');
+    const sellingInput = document.getElementById('modalSellingPriceInput');
+    const mrp = parseFloat(mrpInput.value || 0);
+    const selling = parseFloat(sellingInput.value || 0);
+    const cost = currentModalCostPrice;
+
+    const validationMsg = document.getElementById('modalPriceValidationMessage');
+    const isInvalid = selling > 0 && mrp > 0 && mrp < selling;
+    if (validationMsg) {
+        validationMsg.style.display = isInvalid ? 'block' : 'none';
+    }
+
+    // Markup over Cost
+    const markupEl = document.getElementById('modalMarkupVal');
+    if (markupEl) {
+        if (cost > 0 && selling > 0) {
+            const markup = ((selling - cost) / cost) * 100;
+            const sign = markup >= 0 ? '+' : '';
+            markupEl.textContent = sign + Math.round(markup) + '%';
+            markupEl.className = (markup >= 0 ? 'text-success' : 'text-danger') + ' ms-1 font-monospace';
+        } else {
+            markupEl.textContent = '+0%';
+            markupEl.className = 'text-success ms-1 font-monospace';
+        }
+    }
+
+    // Discount on MRP
+    const discountValEl = document.getElementById('modalDiscountVal');
+    const discountBadgeEl = document.getElementById('modalDiscountBadge');
+    if (mrp > 0 && mrp >= selling && selling > 0) {
+        const disc = ((mrp - selling) / mrp) * 100;
+        const discRound = Math.round(disc);
+        if (discountValEl) discountValEl.textContent = discRound + '% Off';
+        if (discountBadgeEl) discountBadgeEl.textContent = discRound + '% Discount';
+    } else {
+        if (discountValEl) discountValEl.textContent = '0% Off';
+        if (discountBadgeEl) discountBadgeEl.textContent = '0% Discount';
+    }
+}
+
+// Submit AJAX Price Update
+function submitProductPriceEdit(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnApplyPriceChanges');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+    }
+
+    const form = document.getElementById('editProductPriceForm');
+    const formData = new FormData(form);
+
+    fetch('<?= url('production/inventory/update-price') ?>', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Apply Price Changes';
+        }
+
+        if (data.success) {
+            // Update table rows in place
+            if (data.updated_variants && Array.isArray(data.updated_variants)) {
+                data.updated_variants.forEach(uv => {
+                    const row = document.getElementById('stock-row-' + uv.variant_id);
+                    if (row) {
+                        const mrpEl = row.querySelector('.row-mrp-val');
+                        if (mrpEl) mrpEl.textContent = uv.formatted_mrp || ('₹' + parseFloat(uv.new_mrp).toFixed(2));
+
+                        const sellEl = row.querySelector('.row-selling-val');
+                        if (sellEl) sellEl.textContent = uv.formatted_selling_price || ('₹' + parseFloat(uv.new_selling_price).toFixed(2));
+
+                        const stockEl = row.querySelector('.row-stock-val');
+                        let remQty = parseInt(row.getAttribute('data-stock') || 0, 10);
+                        if (uv.stock_reduced > 0) {
+                            remQty = Math.max(0, remQty - parseInt(uv.stock_reduced, 10));
+                            if (stockEl) stockEl.textContent = remQty + ' pcs';
+                            row.setAttribute('data-stock', remQty);
+                        }
+
+                        const valEl = row.querySelector('.row-val-val');
+                        if (valEl) {
+                            const totalVal = remQty * parseFloat(uv.new_selling_price);
+                            valEl.textContent = '₹' + totalVal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+
+                        // Update checkbox dataset
+                        const chk = row.querySelector('.price-item-checkbox');
+                        if (chk) {
+                            chk.setAttribute('data-mrp', uv.new_mrp);
+                            chk.setAttribute('data-selling-price', uv.new_selling_price);
+                            chk.setAttribute('data-stock', remQty);
+                        }
+                    }
+                });
+            }
+
+            clearPriceSelection();
+            if (currentPriceModalInstance) {
+                currentPriceModalInstance.hide();
+            }
+
+            // Show Toast Alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3 shadow-lg z-3';
+            alertDiv.style.maxWidth = '420px';
+            alertDiv.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill fs-4 me-2 text-success"></i>
+                    <div>
+                        <strong>Price Updated!</strong>
+                        <div class="small">${data.message || 'Product prices and stock updated successfully.'}</div>
+                        ${data.dont_affect_old_qr ? '<div class="small text-muted mt-1"><i class="bi bi-shield-check me-1"></i>Existing printed QR stickers will retain their original price.</div>' : ''}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.classList.remove('show');
+                    setTimeout(() => alertDiv.remove(), 250);
+                }
+            }, 5000);
+        } else {
+            alert(data.message || 'Failed to update prices. Please try again.');
+        }
+    })
+    .catch(err => {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Apply Price Changes';
+        }
+        alert('An error occurred while saving price changes: ' + err.message);
+    });
+}
+
+// Row click to toggle checkbox in Price Edit mode
+document.addEventListener('click', function(e) {
+    if (!isPriceEditMode) return;
+    const tr = e.target.closest('tr[id^="stock-row-"]');
+    if (!tr) return;
+    if (e.target.closest('a, button, input[type="checkbox"], label')) return;
+    const chk = tr.querySelector('.price-item-checkbox');
+    if (chk) {
+        chk.checked = !chk.checked;
+        updateSelectedPriceCount();
+    }
+});
 
 function switchBatchView(mode) {
     const grid = document.getElementById('inventoryBatchesGrid');
     const table = document.getElementById('inventoryBatchList');
     const cardsButton = document.getElementById('batchCardsViewButton');
     const listButton = document.getElementById('batchListViewButton');
-    const title = document.getElementById('inventoryItemsTitle');
-    const badge = document.getElementById('totalBatchBadgeCount');
     const showList = mode === 'list';
     currentBatchView = mode;
 
@@ -843,20 +1137,11 @@ function switchBatchView(mode) {
         cardsButton.classList.toggle('btn-primary', !showList);
         cardsButton.classList.toggle('active', !showList);
         cardsButton.classList.toggle('btn-outline-secondary', showList);
-        cardsButton.setAttribute('aria-pressed', String(!showList));
     }
     if (listButton) {
         listButton.classList.toggle('btn-primary', showList);
         listButton.classList.toggle('active', showList);
         listButton.classList.toggle('btn-outline-secondary', !showList);
-        listButton.setAttribute('aria-pressed', String(showList));
-    }
-    if (title) title.textContent = showList ? 'Inventory Products' : 'Inventory Batches';
-    if (badge) {
-        const count = showList
-            ? document.querySelectorAll('.batch-list-row[data-filter-match="true"]').length
-            : visibleBatchCards.length;
-        badge.textContent = `${count} ${showList ? 'Products' : 'Batches'}`;
     }
     currentBatchPage = 1;
     renderBatchPagination();
@@ -898,9 +1183,7 @@ function filterBatchesLive(query) {
 
     if (badgeEl) {
         const matchingProducts = batchRows.filter(row => row.dataset.filterMatch === 'true').length;
-        badgeEl.textContent = currentBatchView === 'list'
-            ? `${matchingProducts} Products`
-            : `${visibleBatchCards.length} Batches`;
+        badgeEl.textContent = `${matchingProducts} Products`;
     }
 
     if (visibleBatchCards.length === 0 && allCards.length > 0) {
@@ -936,14 +1219,10 @@ function goToBatchPage(page) {
 function renderBatchPagination() {
     const allCards = Array.from(document.querySelectorAll('.batch-card-col'));
     const batchRows = Array.from(document.querySelectorAll('.batch-list-row'));
-    if (allCards.length === 0) return;
+    if (allCards.length === 0 && batchRows.length === 0) return;
 
-    const cardsToPaginate = (visibleBatchCards.length > 0 || (document.getElementById('inventorySearchInput') && document.getElementById('inventorySearchInput').value.trim() === ''))
-        ? (visibleBatchCards.length > 0 ? visibleBatchCards : allCards)
-        : [];
     const productsToPaginate = batchRows.filter(row => row.dataset.filterMatch !== 'false');
-    const entriesToPaginate = currentBatchView === 'list' ? productsToPaginate : cardsToPaginate;
-    const totalEntries = entriesToPaginate.length;
+    const totalEntries = productsToPaginate.length;
     const isAll = (batchPageSize === 'all');
     const effectiveSize = isAll ? totalEntries : parseInt(batchPageSize, 10);
     const totalPages = isAll ? 1 : Math.ceil(totalEntries / effectiveSize) || 1;
@@ -954,22 +1233,20 @@ function renderBatchPagination() {
     const startIdx = isAll ? 0 : (currentBatchPage - 1) * effectiveSize;
     const endIdx = isAll ? totalEntries : Math.min(startIdx + effectiveSize, totalEntries);
 
-    // Hide all entries first, then show the current page in the active view.
     allCards.forEach(card => card.style.display = 'none');
     batchRows.forEach(row => row.style.display = 'none');
 
-    entriesToPaginate.forEach((entry, idx) => {
+    productsToPaginate.forEach((entry, idx) => {
         const isOnPage = idx >= startIdx && idx < endIdx;
         entry.style.display = isOnPage ? '' : 'none';
     });
 
     const infoEl = document.getElementById('batchPageInfo');
     if (infoEl) {
-        const entryType = currentBatchView === 'list' ? 'products' : 'batches';
         if (totalEntries === 0) {
-            infoEl.innerHTML = `Showing <strong>0</strong> ${entryType}`;
+            infoEl.innerHTML = `Showing <strong>0</strong> products`;
         } else {
-            infoEl.innerHTML = `Showing <strong>${startIdx + 1}</strong> to <strong>${endIdx}</strong> of <strong>${totalEntries}</strong> ${entryType}`;
+            infoEl.innerHTML = `Showing <strong>${startIdx + 1}</strong> to <strong>${endIdx}</strong> of <strong>${totalEntries}</strong> products`;
         }
     }
 
@@ -1011,8 +1288,6 @@ function renderBatchPagination() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const allCards = Array.from(document.querySelectorAll('.batch-card-col'));
-    visibleBatchCards = allCards;
     switchBatchView('list');
     renderBatchPagination();
 
@@ -1027,199 +1302,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-function filterByInvType(type) {
-    const input = document.getElementById('filterInvTypeInput');
-    if (input) input.value = type;
-    const form = document.getElementById('inventoryFilterForm');
-    if (form) form.submit();
-}
-
-function openEditSupplyStockModal(data) {
-    if (!data) return;
-    document.getElementById('editModalSupplyItemId').value = data.supply_item_id || '';
-    document.getElementById('editModalProductName').value = data.product_name || '';
-    document.getElementById('editModalPoNumber').value = data.purchase_number || '';
-    document.getElementById('editModalCurrentQty').value = data.remaining_qty !== undefined ? data.remaining_qty : 0;
-    document.getElementById('editModalNewQty').value = data.remaining_qty !== undefined ? data.remaining_qty : 0;
-    document.querySelectorAll('.editModalUnit').forEach(el => el.textContent = data.unit || 'pcs');
-
-    const modalEl = document.getElementById('editSupplyStockModal');
-    if (modalEl && typeof bootstrap !== 'undefined') {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-    }
-}
-
-function confirmDeleteSupplyStock(supplyItemId, productName) {
-    const msg = "Are you sure you want to delete stock for \"" + productName + "\" from Inventory?\n\nThis will remove the product from inventory and mark all its QR label(s) as uninwarded (Pending Inward) in the Purchase module.";
-    if (!confirm(msg)) {
-        return false;
-    }
-    const input = document.getElementById('deleteModalSupplyItemId');
-    const form = document.getElementById('deleteSupplyStockForm');
-    if (input && form) {
-        input.value = supplyItemId;
-        form.submit();
-    }
-}
-
-function openEditQcStockModal(data) {
-    if (!data) return;
-    document.getElementById('editQcModalBatchId').value = data.qc_batch_id || '';
-    document.getElementById('editQcModalVariantId').value = data.variant_id || '';
-    document.getElementById('editQcModalBatchName').value = data.batch_name || '';
-    document.getElementById('editQcModalProgramNo').value = data.program_number || '';
-    document.getElementById('editQcModalProductName').value = data.product_name || '';
-    document.getElementById('editQcModalCurrentQty').value = data.remaining_qty !== undefined ? data.remaining_qty : 0;
-    document.getElementById('editQcModalNewQty').value = data.remaining_qty !== undefined ? data.remaining_qty : 0;
-    document.querySelectorAll('.editQcModalUnit').forEach(el => el.textContent = data.unit || 'pcs');
-
-    const modalEl = document.getElementById('editQcStockModal');
-    if (modalEl && typeof bootstrap !== 'undefined') {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-    }
-}
-
-function confirmDeleteQcStock(qcBatchId, variantId, batchName) {
-    const msg = "Are you sure you want to delete stock for \"" + batchName + "\" from Inventory?\n\nThis will remove the remaining available stock for this batch from Production Inventory.";
-    if (!confirm(msg)) {
-        return false;
-    }
-    const batchInput = document.getElementById('deleteQcModalBatchId');
-    const variantInput = document.getElementById('deleteQcModalVariantId');
-    const form = document.getElementById('deleteQcStockForm');
-    if (batchInput && form) {
-        batchInput.value = qcBatchId;
-        if (variantInput) variantInput.value = variantId || 0;
-        form.submit();
-    }
-}
 </script>
-
-<!-- Modal: Edit Supply Stock -->
-<div class="modal fade" id="editSupplyStockModal" tabindex="-1" aria-labelledby="editSupplyStockModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <form method="POST" action="<?= url('production/inventory/supply/update-stock') ?>" id="editSupplyStockForm">
-                <?= CSRF::field() ?>
-                <input type="hidden" name="supply_item_id" id="editModalSupplyItemId" value="">
-                <div class="modal-header bg-primary text-white py-3">
-                    <h5 class="modal-title fw-bold" id="editSupplyStockModalLabel">
-                        <i class="bi bi-pencil-square me-2"></i>Edit Supply Inventory Stock
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Product</label>
-                        <input type="text" class="form-control bg-light fw-bold" id="editModalProductName" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Purchase Order</label>
-                        <input type="text" class="form-control bg-light font-monospace small" id="editModalPoNumber" readonly>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label small text-muted mb-1">Current Stock</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control bg-light text-end fw-bold" id="editModalCurrentQty" readonly>
-                                <span class="input-group-text bg-light text-muted editModalUnit">pcs</span>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-primary mb-1">New In-Stock Qty *</label>
-                            <div class="input-group">
-                                <input type="number" step="1" min="0" name="new_quantity" class="form-control text-end fw-bold border-primary text-primary" id="editModalNewQty" required>
-                                <span class="input-group-text bg-primary-subtle text-primary fw-semibold editModalUnit">pcs</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small text-muted mb-1">Adjustment Reason / Notes</label>
-                        <input type="text" name="adjustment_reason" class="form-control" id="editModalReason" placeholder="e.g. Physical count correction, stock count update" value="Inventory stock update">
-                    </div>
-                </div>
-                <div class="modal-footer bg-light py-2 px-4 border-top">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-sm fw-bold px-3">
-                        <i class="bi bi-check2-circle me-1"></i> Save Changes
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal: Edit QC Batch Stock -->
-<div class="modal fade" id="editQcStockModal" tabindex="-1" aria-labelledby="editQcStockModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <form method="POST" action="<?= url('production/inventory/qc/update-stock') ?>" id="editQcStockForm">
-                <?= CSRF::field() ?>
-                <input type="hidden" name="qc_batch_id" id="editQcModalBatchId" value="">
-                <input type="hidden" name="variant_id" id="editQcModalVariantId" value="">
-                <div class="modal-header bg-primary text-white py-3">
-                    <h5 class="modal-title fw-bold" id="editQcStockModalLabel">
-                        <i class="bi bi-pencil-square me-2"></i>Edit QC Batch Stock
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">QC Batch</label>
-                        <input type="text" class="form-control bg-light font-monospace small" id="editQcModalBatchName" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Production Program</label>
-                        <input type="text" class="form-control bg-light font-monospace small" id="editQcModalProgramNo" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted mb-1">Product &amp; Variant</label>
-                        <input type="text" class="form-control bg-light fw-bold" id="editQcModalProductName" readonly>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="form-label small text-muted mb-1">Current In-Stock</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control bg-light text-end fw-bold" id="editQcModalCurrentQty" readonly>
-                                <span class="input-group-text bg-light text-muted editQcModalUnit">pcs</span>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-primary mb-1">New In-Stock Qty *</label>
-                            <div class="input-group">
-                                <input type="number" step="1" min="0" name="new_quantity" class="form-control text-end fw-bold border-primary text-primary" id="editQcModalNewQty" required>
-                                <span class="input-group-text bg-primary-subtle text-primary fw-semibold editQcModalUnit">pcs</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small text-muted mb-1">Adjustment Reason / Notes</label>
-                        <input type="text" name="adjustment_reason" class="form-control" id="editQcModalReason" placeholder="e.g. Physical inventory adjustment, count correction" value="QC stock update">
-                    </div>
-                </div>
-                <div class="modal-footer bg-light py-2 px-4 border-top">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-sm fw-bold px-3">
-                        <i class="bi bi-check2-circle me-1"></i> Save Changes
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Hidden Delete Form for Supply Stock -->
-<form method="POST" action="<?= url('production/inventory/supply/delete') ?>" id="deleteSupplyStockForm" style="display: none;">
-    <?= CSRF::field() ?>
-    <input type="hidden" name="supply_item_id" id="deleteModalSupplyItemId" value="">
-</form>
-
-<!-- Hidden Delete Form for QC Batch Stock -->
-<form method="POST" action="<?= url('production/inventory/qc/delete') ?>" id="deleteQcStockForm" style="display: none;">
-    <?= CSRF::field() ?>
-    <input type="hidden" name="qc_batch_id" id="deleteQcModalBatchId" value="">
-    <input type="hidden" name="variant_id" id="deleteQcModalVariantId" value="">
-</form>

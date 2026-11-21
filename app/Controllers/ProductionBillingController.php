@@ -472,7 +472,78 @@ class ProductionBillingController
                 $exactAvailableItems[] = $item;
             }
         }
+        // Helper to cross-check scanned QR price against active catalog prices and price revision logs
+        $checkPriceForItems = static function(array &$itemList, string $scannedQuery) {
+            foreach ($itemList as &$it) {
+                $tagCode = $it['matched_tag'] ?? $scannedQuery;
+                $vId = (int)($it['variant_id'] ?? 0);
+
+                // 1. Check if the printed QR code has a recorded stamped price
+                $qrItem = Database::fetchOne(
+                    "SELECT qri.mrp, qri.selling_price 
+                     FROM qr_generation_items qri 
+                     WHERE UPPER(TRIM(qri.qr_code)) = ? LIMIT 1",
+                    [strtoupper(trim($tagCode))]
+                );
+
+                $priceLog = null;
+                if ($vId > 0) {
+                    $priceLog = Database::fetchOne(
+                        "SELECT old_selling_price, new_selling_price, old_mrp, new_mrp, dont_affect_old_qr, created_at 
+                         FROM product_price_logs 
+                         WHERE variant_id = ? 
+                         ORDER BY id DESC LIMIT 1",
+                        [$vId]
+                    );
+                }
+
+                $catalogPrice = (float)($it['unit_price'] ?? 0);
+                $catalogMrp = (float)($it['mrp'] ?? 0);
+
+                if ($qrItem && !empty($qrItem['selling_price'])) {
+                    $printedPrice = (float)$qrItem['selling_price'];
+                    $printedMrp = (float)($qrItem['mrp'] ?? 0);
+
+                    if (abs($printedPrice - $catalogPrice) > 0.01) {
+                        $it['price_edited'] = true;
+                        $it['printed_price'] = $printedPrice;
+                        $it['printed_mrp'] = $printedMrp;
+                        $it['current_catalog_price'] = $catalogPrice;
+                        $it['current_catalog_mrp'] = $catalogMrp;
+
+                        $isProtected = $priceLog && !empty($priceLog['dont_affect_old_qr']);
+                        if ($isProtected) {
+                            $it['unit_price'] = $printedPrice;
+                            $it['price_alert'] = "Printed Tag Honored: ₹" . number_format($printedPrice, 2) . " (Current Catalog: ₹" . number_format($catalogPrice, 2) . ")";
+                        } else {
+                            $it['unit_price'] = $catalogPrice;
+                            $it['price_alert'] = "Price Updated: Tag was ₹" . number_format($printedPrice, 2) . " -> Billed at Updated ₹" . number_format($catalogPrice, 2);
+                        }
+                    }
+                } elseif ($priceLog) {
+                    $oldLogPrice = (float)$priceLog['old_selling_price'];
+                    $newLogPrice = (float)$priceLog['new_selling_price'];
+                    if (abs($oldLogPrice - $newLogPrice) > 0.01) {
+                        $it['price_edited'] = true;
+                        $it['printed_price'] = $oldLogPrice;
+                        $it['printed_mrp'] = (float)$priceLog['old_mrp'];
+                        $it['current_catalog_price'] = $newLogPrice;
+                        $it['current_catalog_mrp'] = (float)$priceLog['new_mrp'];
+                        if (!empty($priceLog['dont_affect_old_qr'])) {
+                            $it['unit_price'] = $oldLogPrice;
+                            $it['price_alert'] = "Printed Tag Honored: ₹" . number_format($oldLogPrice, 2) . " (Active Catalog: ₹" . number_format($newLogPrice, 2) . ")";
+                        } else {
+                            $it['unit_price'] = $newLogPrice;
+                            $it['price_alert'] = "Price Updated: Tag was ₹" . number_format($oldLogPrice, 2) . " -> Billed at Updated ₹" . number_format($newLogPrice, 2);
+                        }
+                    }
+                }
+            }
+            unset($it);
+        };
+
         if ($exactAvailableItems) {
+            $checkPriceForItems($exactAvailableItems, $needle);
             Response::jsonSuccess('Available finished-goods QR found.', ['items' => $exactAvailableItems]);
             return;
         }
@@ -524,6 +595,7 @@ class ProductionBillingController
             }
 
             if ($variantItems) {
+                $checkPriceForItems($variantItems, $needle);
                 Response::jsonSuccess('Variant QR item found.', ['items' => $variantItems]);
                 return;
             }
@@ -576,6 +648,7 @@ class ProductionBillingController
                         'available_tags'   => $vTags,
                     ];
                 }
+                $checkPriceForItems($variantItems, $needle);
                 Response::jsonSuccess('Variant QC inventory found.', ['items' => $variantItems]);
                 return;
             }
@@ -604,23 +677,26 @@ class ProductionBillingController
                 for ($t = 1; $t <= (int)$availableQty; $t++) {
                     $vTags[] = $vCode . '-' . sprintf('%03d', $t);
                 }
-                $variantItems[] = [
-                    'qc_item_id' => 0,
-                    'qc_batch_id' => 0,
-                    'variant_id' => $varId,
-                    'product_name' => (string)$variantMatch['product_name'],
-                    'program_number' => (string)$variantMatch['parent_sku'],
-                    'sku' => (string)$variantMatch['sku'],
-                    'variant_code' => (string)$variantMatch['variant_code'],
-                    'size_name' => (string)($variantMatch['size_name'] ?? 'STD'),
-                    'color_name' => (string)($variantMatch['color_name'] ?? 'STD'),
-                    'mrp' => $mrp,
-                    'unit_price' => $sellingPrice,
-                    'is_complementary' => $isComp ? 1 : 0,
-                    'gst_percentage' => max(0, (float)($variantMatch['gst_rate'] ?? $variantMatch['prod_gst'] ?? 0)),
-                    'hsn_code' => (string)($variantMatch['hsn_code'] ?? $variantMatch['prod_hsn'] ?? '6109'),
-                    'available_tags' => $vTags,
+                $variantItems = [
+                    [
+                        'qc_item_id' => 0,
+                        'qc_batch_id' => 0,
+                        'variant_id' => $varId,
+                        'product_name' => (string)$variantMatch['product_name'],
+                        'program_number' => (string)$variantMatch['parent_sku'],
+                        'sku' => (string)$variantMatch['sku'],
+                        'variant_code' => (string)$variantMatch['variant_code'],
+                        'size_name' => (string)($variantMatch['size_name'] ?? 'STD'),
+                        'color_name' => (string)($variantMatch['color_name'] ?? 'STD'),
+                        'mrp' => $mrp,
+                        'unit_price' => $sellingPrice,
+                        'is_complementary' => $isComp ? 1 : 0,
+                        'gst_percentage' => max(0, (float)($variantMatch['gst_rate'] ?? $variantMatch['prod_gst'] ?? 0)),
+                        'hsn_code' => (string)($variantMatch['hsn_code'] ?? $variantMatch['prod_hsn'] ?? '6109'),
+                        'available_tags' => $vTags,
+                    ]
                 ];
+                $checkPriceForItems($variantItems, $needle);
                 Response::jsonSuccess('Variant stock found.', ['items' => $variantItems]);
                 return;
             }

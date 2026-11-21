@@ -980,6 +980,14 @@ document.addEventListener('DOMContentLoaded', () => {
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
 
+            if (item.price_edited) {
+                const priceBadge = document.createElement('span');
+                priceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning ms-1';
+                priceBadge.title = item.price_alert || 'Price was recently revised';
+                priceBadge.innerHTML = '<i class="bi bi-tag-fill me-1"></i>Price Checked';
+                productCell.append(priceBadge);
+            }
+
             const details = document.createElement('div');
             details.className = 'small text-muted';
             details.textContent = [item.sku, item.size_name ? `Size: ${item.size_name}` : '', item.color_name ? `Color: ${item.color_name}` : ''].filter(Boolean).join(' · ');
@@ -1377,6 +1385,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         renderCart();
+
+        if (item.price_edited && item.price_alert) {
+            showStockToast('Price Cross-Check', item.price_alert);
+        }
     }
 
     // Hardware Scanner & Input Handling

@@ -337,6 +337,37 @@ class QrFinderService {
                 $currentStatus = 'SOLD';
                 $statusColor = 'dark';
             }
+
+            // 10. Check Price Revision Logs & Old QR Protection
+            $vId = (int)($qri['item_variant_id'] ?: ($qri['variant_id'] ?? 0));
+            if ($vId > 0) {
+                $priceLog = Database::fetchOne("
+                    SELECT ppl.*, u.full_name as editor_name
+                    FROM product_price_logs ppl
+                    LEFT JOIN users u ON u.id = ppl.changed_by
+                    WHERE ppl.variant_id = ?
+                    ORDER BY ppl.id DESC LIMIT 1
+                ", [$vId]);
+                if ($priceLog) {
+                    $isProtected = !empty($priceLog['dont_affect_old_qr']);
+                    $timeline[] = [
+                        'stage'       => 'PRICE_REVISION',
+                        'title'       => 'Price Revision: ₹' . number_format((float)$priceLog['old_selling_price'], 2) . ' ➔ ₹' . number_format((float)$priceLog['new_selling_price'], 2),
+                        'timestamp'   => $priceLog['created_at'],
+                        'badge'       => 'PRICE_REVISED',
+                        'badge_color' => 'warning',
+                        'icon'        => 'bi-tag-fill',
+                        'location'    => 'Pricing & Catalog Engine',
+                        'description' => "Selling price changed from ₹" . number_format((float)$priceLog['old_selling_price'], 2) . " to ₹" . number_format((float)$priceLog['new_selling_price'], 2)
+                            . ($isProtected ? " (Old printed QR tags retain original price)" : " (All QR tags updated to new price)")
+                            . (!empty($priceLog['change_reason']) ? ". Reason: " . $priceLog['change_reason'] : "")
+                            . ($priceLog['editor_name'] ? " by " . $priceLog['editor_name'] : ""),
+                    ];
+                    $details['Price Revision Status'] = $isProtected
+                        ? 'Protected: Scans at Printed Tag Price (₹' . number_format((float)$price, 2) . ')'
+                        : 'Updated: Active Catalog Price (₹' . number_format((float)$priceLog['new_selling_price'], 2) . ')';
+                }
+            }
         }
 
         // =========================================================================
