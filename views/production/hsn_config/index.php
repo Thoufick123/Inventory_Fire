@@ -2,31 +2,13 @@
 /**
  * Production HSN Config – Index View
  */
-$activeModule = $activeModule ?? 'production';
-$activeMenu   = $activeMenu   ?? 'production-hsn-config';
-ob_start();
 ?>
-
 <div class="container-fluid py-4">
-
-    <!-- Flash Messages -->
-    <?php if ($success = \Session::getFlash('success')): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <?= htmlspecialchars($success) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-    <?php if ($error = \Session::getFlash('error')): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <?= htmlspecialchars($error) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
 
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="mb-0 fw-semibold">HSN Config</h4>
+            <h4 class="mb-0 fw-semibold"><i class="bi bi-upc-scan me-2 text-primary"></i>HSN Config</h4>
             <small class="text-muted">Manage Production HSN Codes &amp; GST Percentages</small>
         </div>
         <a href="<?= url('production/hsn-config/create') ?>" class="btn btn-primary">
@@ -57,7 +39,7 @@ ob_start();
                         <?php foreach ($items as $i => $item): ?>
                         <tr>
                             <td class="text-muted small"><?= $i + 1 ?></td>
-                            <td class="fw-semibold"><?= htmlspecialchars($item['hsn_code']) ?></td>
+                            <td class="fw-semibold font-monospace"><?= htmlspecialchars($item['hsn_code']) ?></td>
                             <td><?= number_format((float)$item['gst_percentage'], 2) ?>%</td>
                             <td><?= htmlspecialchars($item['categories'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($item['subcategories'] ?? '—') ?></td>
@@ -79,11 +61,10 @@ ob_start();
                                    class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <!-- Delete Form -->
                                 <form method="POST"
                                       action="<?= url('production/hsn-config/delete/' . $item['id']) ?>"
                                       class="d-inline"
-                                      onsubmit="return confirm('Delete HSN Code <?= htmlspecialchars(addslashes($item['hsn_code'])) ?>? This cannot be undone.');">
+                                      onsubmit="return confirm('Are you sure you want to delete HSN Code <?= htmlspecialchars(addslashes($item['hsn_code'])) ?>? This cannot be undone.');">
                                     <?= CSRF::field() ?>
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                         <i class="bi bi-trash"></i>
@@ -107,8 +88,3 @@ ob_start();
         </div>
     </div>
 </div>
-
-<?php
-$pageContent = ob_get_clean();
-$pageTitle   = 'HSN Config | Production';
-require BASE_PATH . '/views/layouts/main.php';

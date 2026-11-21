@@ -549,16 +549,6 @@ class Router {
         $this->post('production/hsn-config/update/{id}', 'ProductionHsnController', 'update', ['AuthMiddleware']);
         $this->post('production/hsn-config/delete/{id}', 'ProductionHsnController', 'delete', ['AuthMiddleware']);
 
-        // ==========================================
-        // HSN CODE MANAGEMENT MODULE
-        // ==========================================
-        $this->get('hsn', 'HsnController', 'index', ['AuthMiddleware']);
-        $this->get('hsn/create', 'HsnController', 'create', ['AuthMiddleware']);
-        $this->post('hsn/store', 'HsnController', 'store', ['AuthMiddleware']);
-        $this->get('hsn/edit/{id}', 'HsnController', 'edit', ['AuthMiddleware']);
-        $this->post('hsn/update/{id}', 'HsnController', 'update', ['AuthMiddleware']);
-        $this->post('hsn/delete/{id}', 'HsnController', 'delete', ['AuthMiddleware']);
-        $this->get('api/hsn-codes/search', 'HsnController', 'apiSearch', ['AuthMiddleware']);
 
         // ==========================================
         // EXPORT MODULE (STANDALONE)
