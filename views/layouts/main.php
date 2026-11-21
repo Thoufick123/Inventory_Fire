@@ -158,6 +158,7 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if ($modWarehouse && hasPermission('warehouse_rework', 'view')): ?>
                             <li><a href="<?= url('production/warehouse-rework') ?>" class="<?= ($activeMenu ?? '') === 'warehouse-rework' ? 'active' : '' ?>">Warehouse Rework</a></li>
                             <?php endif; ?>
+                            <li><a href="<?= url('production/hsn-config') ?>" class="<?= ($activeMenu ?? '') === 'production-hsn-config' ? 'active' : '' ?>">HSN Config</a></li>
                         </ul>
                     </li>
                     <?php endif; ?>
