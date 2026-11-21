@@ -5,13 +5,6 @@
 ?>
 <div class="container-fluid py-4">
 
-    <?php if ($error = Session::getFlash('error')): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <?= htmlspecialchars($error) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
