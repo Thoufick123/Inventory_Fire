@@ -1035,7 +1035,7 @@ CREATE TABLE IF NOT EXISTS `production_purchases` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
   `purchase_number` varchar(50) NOT NULL,
-  `purchase_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT') NOT NULL DEFAULT 'FABRIC_ROLL',
+  `purchase_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','MIXED') NOT NULL DEFAULT 'FABRIC_ROLL',
   `seller_id` int(10) unsigned NOT NULL,
   `purchase_date` date NOT NULL,
   `invoice_number` varchar(100) DEFAULT NULL,

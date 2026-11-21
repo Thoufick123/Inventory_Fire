@@ -141,51 +141,84 @@
         </div>
     </div>
 
-    <!-- 3-Type Inward Selector -->
+    <!-- Multi-Category Inward Selector (Single Invoice with Multiple Product Categories) -->
     <div class="card shadow-sm border mb-4">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Select Inward &amp; Purchase Type *</h5>
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories *</h5>
+                <small class="text-muted">A single supplier invoice can contain Fabric Rolls, Raw Materials, and Third-Party Products simultaneously. Check one or more categories below.</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectAllCategories" onclick="selectAllPurchaseCategories()">
+                    <i class="bi bi-check-all me-1"></i>Select All 3 Categories
+                </button>
+            </div>
         </div>
         <div class="card-body p-3">
             <div class="row g-3">
                 <div class="col-md-4">
-                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card active" id="cardTypeFabricRoll" onclick="switchPurchaseType('FABRIC_ROLL')">
-                        <div class="form-check p-0">
-                            <div class="d-flex align-items-center mb-1">
-                                <input class="form-check-input me-2 mt-0" type="radio" name="purchase_type" id="typeRadioFabricRoll" value="FABRIC_ROLL" checked>
-                                <label class="form-check-label fw-bold text-dark cursor-pointer" for="typeRadioFabricRoll">
-                                    <i class="bi bi-layers-half text-primary me-1"></i> 1. Fabric Rolls (Roll Method)
+                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card active border-primary shadow-sm" id="cardTypeFabricRoll" onclick="togglePurchaseCategory('FABRIC_ROLL')">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="form-check p-0 m-0 d-flex align-items-center">
+                                <input class="form-check-input me-2 mt-0 cursor-pointer category-checkbox" type="checkbox" id="chkTypeFabricRoll" data-type="FABRIC_ROLL" checked onclick="event.stopPropagation(); togglePurchaseCategory('FABRIC_ROLL', this.checked)">
+                                <label class="form-check-label fw-bold text-dark cursor-pointer fs-6" for="chkTypeFabricRoll">
+                                    <i class="bi bi-layers-half text-primary me-1"></i> 1. Fabric Rolls
                                 </label>
                             </div>
-                            <small class="text-muted d-block ps-4">Add raw fabric rolls with RQ, weight, color, design, and thermal scannable QR tags.</small>
+                            <span class="badge bg-primary text-white" id="badgeFabricRollStatus">Active</span>
+                        </div>
+                        <small class="text-muted d-block ps-4 mb-2">Add raw fabric rolls with RQ, weight, color, design, and thermal scannable QR tags.</small>
+                        <div class="ps-4">
+                            <span class="badge bg-light text-primary border" id="badgeFabricRollCount">1 Roll</span>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card" id="cardTypeRawMaterial" onclick="switchPurchaseType('RAW_MATERIAL')">
-                        <div class="form-check p-0">
-                            <div class="d-flex align-items-center mb-1">
-                                <input class="form-check-input me-2 mt-0" type="radio" name="purchase_type" id="typeRadioRawMaterial" value="RAW_MATERIAL">
-                                <label class="form-check-label fw-bold text-dark cursor-pointer" for="typeRadioRawMaterial">
+                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card" id="cardTypeRawMaterial" onclick="togglePurchaseCategory('RAW_MATERIAL')">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="form-check p-0 m-0 d-flex align-items-center">
+                                <input class="form-check-input me-2 mt-0 cursor-pointer category-checkbox" type="checkbox" id="chkTypeRawMaterial" data-type="RAW_MATERIAL" onclick="event.stopPropagation(); togglePurchaseCategory('RAW_MATERIAL', this.checked)">
+                                <label class="form-check-label fw-bold text-dark cursor-pointer fs-6" for="chkTypeRawMaterial">
                                     <i class="bi bi-boxes text-warning me-1"></i> 2. Raw Materials
                                 </label>
                             </div>
-                            <small class="text-muted d-block ps-4">Manage buying counts for yarn, sewing threads, trims, accessories, and production raw materials.</small>
+                            <span class="badge bg-light text-muted border" id="badgeRawMaterialStatus">Inactive</span>
+                        </div>
+                        <small class="text-muted d-block ps-4 mb-2">Manage buying counts for yarn, sewing threads, trims, accessories, and production raw materials.</small>
+                        <div class="ps-4">
+                            <span class="badge bg-light text-warning-emphasis border" id="badgeRawMaterialCount">0 Items</span>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card" id="cardTypeThirdParty" onclick="switchPurchaseType('THIRD_PARTY')">
-                        <div class="form-check p-0">
-                            <div class="d-flex align-items-center mb-1">
-                                <input class="form-check-input me-2 mt-0" type="radio" name="purchase_type" id="typeRadioThirdParty" value="THIRD_PARTY">
-                                <label class="form-check-label fw-bold text-dark cursor-pointer" for="typeRadioThirdParty">
+                    <div class="p-3 border rounded-3 h-100 cursor-pointer type-card" id="cardTypeThirdParty" onclick="togglePurchaseCategory('THIRD_PARTY')">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="form-check p-0 m-0 d-flex align-items-center">
+                                <input class="form-check-input me-2 mt-0 cursor-pointer category-checkbox" type="checkbox" id="chkTypeThirdParty" data-type="THIRD_PARTY" onclick="event.stopPropagation(); togglePurchaseCategory('THIRD_PARTY', this.checked)">
+                                <label class="form-check-label fw-bold text-dark cursor-pointer fs-6" for="chkTypeThirdParty">
                                     <i class="bi bi-box-seam text-info me-1"></i> 3. Third-Party Products
                                 </label>
                             </div>
-                            <small class="text-muted d-block ps-4">External vendor ready-to-sell goods (SKU, Size, Unit, Cost).</small>
+                            <span class="badge bg-light text-muted border" id="badgeThirdPartyStatus">Inactive</span>
+                        </div>
+                        <small class="text-muted d-block ps-4 mb-2">External vendor ready-to-sell goods (SKU, Size, Unit, Cost).</small>
+                        <div class="ps-4">
+                            <span class="badge bg-light text-info border" id="badgeThirdPartyCount">0 Products</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Category Section Navigation & Jump Links -->
+            <div class="d-flex align-items-center justify-content-between mt-3 pt-3 border-top flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="small fw-semibold text-secondary"><i class="bi bi-arrow-down-circle me-1"></i>Jump to Section:</span>
+                    <a href="#sectionFabricRoll" class="btn btn-xs btn-outline-primary py-0 px-2 category-jump-btn" id="jumpFabricRoll"><i class="bi bi-layers-half me-1"></i>Fabric Rolls</a>
+                    <a href="#sectionRawMaterial" class="btn btn-xs btn-outline-warning text-dark py-0 px-2 category-jump-btn d-none" id="jumpRawMaterial"><i class="bi bi-boxes me-1"></i>Raw Materials</a>
+                    <a href="#sectionThirdParty" class="btn btn-xs btn-outline-info text-dark py-0 px-2 category-jump-btn d-none" id="jumpThirdParty"><i class="bi bi-box-seam me-1"></i>Third-Party Products</a>
+                </div>
+                <div class="small text-muted">
+                    <span class="badge bg-primary-subtle text-primary border" id="activeCategoryPill">1 Category Active</span>
                 </div>
             </div>
         </div>
@@ -471,17 +504,40 @@
         </div>
     </div>
 
+    <!-- Invoice Financial Breakdown Summary (Unified Across Selected Categories) -->
     <div class="card border shadow-sm mb-4">
+        <div class="card-header bg-white py-2 px-3 fw-bold small text-muted text-uppercase d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-receipt me-1 text-primary"></i>Invoice Financial Breakdown</span>
+            <span id="activeCategoriesCountBadge" class="badge bg-primary-subtle text-primary border">1 Category Selected</span>
+        </div>
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span>Subtotal</span><strong id="purchaseSubtotal">₹0.00</strong>
-            </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span>Taxes</span><strong id="purchaseTaxes">₹0.00</strong>
-            </div>
-            <hr class="my-2">
-            <div class="d-flex justify-content-between align-items-center">
-                <strong>Total Price</strong><strong class="fs-5 text-success" id="purchaseTotal">₹0.00</strong>
+            <div class="row g-3">
+                <div class="col-md-7 border-end">
+                    <div id="rowSummaryRoll" class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
+                        <span class="text-dark"><i class="bi bi-layers-half text-primary me-2"></i>1. Fabric Rolls (<span id="summaryRollItemsCount">0</span> rolls, <span id="summaryRollWeight">0.00 kg</span>)</span>
+                        <span class="fw-bold font-monospace text-primary" id="summaryRollVal">₹0.00</span>
+                    </div>
+                    <div id="rowSummaryRm" class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light d-none">
+                        <span class="text-dark"><i class="bi bi-boxes text-warning me-2"></i>2. Raw Materials (<span id="summaryRmItemsCount">0</span> items, <span id="summaryRmUnits">0</span> qty)</span>
+                        <span class="fw-bold font-monospace text-warning-emphasis" id="summaryRmVal">₹0.00</span>
+                    </div>
+                    <div id="rowSummaryTp" class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light d-none">
+                        <span class="text-dark"><i class="bi bi-box-seam text-info me-2"></i>3. Third-Party Products (<span id="summaryTpItemsCount">0</span> products, <span id="summaryTpUnitsCount">0</span> pcs)</span>
+                        <span class="fw-bold font-monospace text-info" id="summaryTpVal">₹0.00</span>
+                    </div>
+                </div>
+                <div class="col-md-5 ps-md-4 d-flex flex-column justify-content-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2 text-muted small">
+                        <span>Taxable Base Subtotal</span><span class="font-monospace fw-semibold fs-6" id="purchaseSubtotal">₹0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 text-muted small">
+                        <span>Total Taxes (GST)</span><span class="font-monospace fw-semibold text-danger fs-6" id="purchaseTaxes">₹0.00</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="fs-6 text-dark">Invoice Grand Total</strong><strong class="fs-4 text-success font-monospace" id="purchaseTotal">₹0.00</strong>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1032,6 +1088,7 @@
     window.MASTER_VARIANTS = <?= json_encode($masterVariants ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
     window.MASTER_SIZES = <?= json_encode($sizes ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
     window.MASTER_COLORS = <?= json_encode($colors ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+    const activePurchaseTypes = new Set(['FABRIC_ROLL']);
     let currentPurchaseType = 'FABRIC_ROLL';
     const money = value => '₹' + (Number(value) || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
     const safe = value => String(value || '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -1705,7 +1762,7 @@
     function updateSummary() {
         const cards = Array.from(rollsContainer.querySelectorAll('.roll-card'));
         const fabDesc = document.getElementById('fabricDescription');
-        if (fabDesc) fabDesc.required = (currentPurchaseType === 'FABRIC_ROLL' && cards.length > 0);
+        if (fabDesc) fabDesc.required = (activePurchaseTypes.has('FABRIC_ROLL') && cards.length > 0);
         const totalWeight = cards.reduce((sum, card) => sum + (Number(card.querySelector('.roll-weight').value) || 0), 0);
         const totalPrice = cards.reduce((sum, card) => {
             const price = Number(card.querySelector('.roll-price').value) || 0;
@@ -1827,32 +1884,50 @@
         return unitSelect.value || 'Pieces';
     }
 
-    window.switchPurchaseType = function(type) {
-        currentPurchaseType = type;
-        const radios = document.querySelectorAll('input[name="purchase_type"]');
-        radios.forEach(r => {
-            r.checked = (r.value === type);
-        });
+    window.isCategoryActive = function(type) {
+        return activePurchaseTypes.has(type);
+    };
 
-        const cRoll = document.getElementById('cardTypeFabricRoll');
-        const cRm = document.getElementById('cardTypeRawMaterial');
-        const cTp = document.getElementById('cardTypeThirdParty');
-        if (cRoll) cRoll.classList.toggle('active', type === 'FABRIC_ROLL');
-        if (cRm) cRm.classList.toggle('active', type === 'RAW_MATERIAL');
-        if (cTp) cTp.classList.toggle('active', type === 'THIRD_PARTY');
+    function syncCategoryCardUI(type, isActive) {
+        let cardId = '', chkId = '', statusBadgeId = '', countBadgeId = '', jumpId = '', sectionId = '';
+        if (type === 'FABRIC_ROLL') {
+            cardId = 'cardTypeFabricRoll'; chkId = 'chkTypeFabricRoll'; statusBadgeId = 'badgeFabricRollStatus';
+            countBadgeId = 'badgeFabricRollCount'; jumpId = 'jumpFabricRoll'; sectionId = 'sectionFabricRoll';
+        } else if (type === 'RAW_MATERIAL') {
+            cardId = 'cardTypeRawMaterial'; chkId = 'chkTypeRawMaterial'; statusBadgeId = 'badgeRawMaterialStatus';
+            countBadgeId = 'badgeRawMaterialCount'; jumpId = 'jumpRawMaterial'; sectionId = 'sectionRawMaterial';
+        } else if (type === 'THIRD_PARTY') {
+            cardId = 'cardTypeThirdParty'; chkId = 'chkTypeThirdParty'; statusBadgeId = 'badgeThirdPartyStatus';
+            countBadgeId = 'badgeThirdPartyCount'; jumpId = 'jumpThirdParty'; sectionId = 'sectionThirdParty';
+        }
 
-        const sRoll = document.getElementById('sectionFabricRoll');
-        const sRm = document.getElementById('sectionRawMaterial');
-        const sTp = document.getElementById('sectionThirdParty');
+        const card = document.getElementById(cardId);
+        const chk = document.getElementById(chkId);
+        const statusBadge = document.getElementById(statusBadgeId);
+        const jump = document.getElementById(jumpId);
+        const section = document.getElementById(sectionId);
 
-        const isRoll = (type === 'FABRIC_ROLL');
-        const isRm = (type === 'RAW_MATERIAL');
-        const isTp = (type === 'THIRD_PARTY');
+        if (chk) chk.checked = isActive;
+        if (card) {
+            card.classList.toggle('active', isActive);
+            card.classList.toggle('shadow-sm', isActive);
+            if (type === 'FABRIC_ROLL') card.classList.toggle('border-primary', isActive);
+            if (type === 'RAW_MATERIAL') card.classList.toggle('border-warning', isActive);
+            if (type === 'THIRD_PARTY') card.classList.toggle('border-info', isActive);
+        }
+        if (statusBadge) {
+            statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+            statusBadge.className = isActive
+                ? (type === 'FABRIC_ROLL' ? 'badge bg-primary text-white' : (type === 'RAW_MATERIAL' ? 'badge bg-warning text-dark' : 'badge bg-info text-white'))
+                : 'badge bg-light text-muted border';
+        }
+        if (jump) {
+            jump.classList.toggle('d-none', !isActive);
+        }
 
-        const toggleSection = (sectionEl, isActive) => {
-            if (!sectionEl) return;
-            sectionEl.classList.toggle('d-none', !isActive);
-            sectionEl.querySelectorAll('input, select, textarea').forEach(el => {
+        if (section) {
+            section.classList.toggle('d-none', !isActive);
+            section.querySelectorAll('input, select, textarea').forEach(el => {
                 el.disabled = !isActive;
                 if (!isActive) {
                     if (el.hasAttribute('required')) {
@@ -1865,34 +1940,65 @@
                     }
                 }
             });
-        };
-
-        toggleSection(sRoll, isRoll);
-        toggleSection(sRm, isRm);
-        toggleSection(sTp, isTp);
+        }
 
         const fabDesc = document.getElementById('fabricDescription');
-        if (fabDesc) {
-            fabDesc.disabled = !isRoll;
-            if (isRoll) {
+        if (fabDesc && type === 'FABRIC_ROLL') {
+            fabDesc.disabled = !isActive;
+            if (isActive) {
                 fabDesc.setAttribute('required', '');
             } else {
                 fabDesc.removeAttribute('required');
             }
         }
 
-        if (type === 'RAW_MATERIAL') {
-            const rmCards = document.querySelectorAll('#rawMaterialContainer .rm-card');
-            if (rmCards.length === 0) {
-                addRawMaterialItem();
-            }
-        } else if (type === 'THIRD_PARTY') {
-            const tpCards = document.querySelectorAll('#thirdPartyContainer .tp-card');
-            if (tpCards.length === 0) {
-                addThirdPartyItem();
+        // Auto-seed first item if newly activated and empty
+        if (isActive) {
+            if (type === 'RAW_MATERIAL') {
+                const rmCards = document.querySelectorAll('#rawMaterialContainer .rm-card');
+                if (rmCards.length === 0) addRawMaterialItem();
+            } else if (type === 'THIRD_PARTY') {
+                const tpCards = document.querySelectorAll('#thirdPartyContainer .tp-card');
+                if (tpCards.length === 0) addThirdPartyItem();
+            } else if (type === 'FABRIC_ROLL') {
+                const rollCards = document.querySelectorAll('#rollsContainer .roll-card');
+                if (rollCards.length === 0) addRoll();
             }
         }
+    }
+
+    window.togglePurchaseCategory = function(type, forceState = null) {
+        const isCurrent = activePurchaseTypes.has(type);
+        const nextState = (forceState !== null) ? !!forceState : !isCurrent;
+
+        // Prevent unselecting the only remaining active category
+        if (!nextState && activePurchaseTypes.size <= 1 && isCurrent) {
+            alert('At least one purchase category must remain selected for this invoice.');
+            syncCategoryCardUI(type, true);
+            return;
+        }
+
+        if (nextState) {
+            activePurchaseTypes.add(type);
+        } else {
+            activePurchaseTypes.delete(type);
+        }
+
+        syncCategoryCardUI(type, nextState);
         updateTotal();
+    };
+
+    window.selectAllPurchaseCategories = function() {
+        ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'].forEach(t => {
+            activePurchaseTypes.add(t);
+            syncCategoryCardUI(t, true);
+        });
+        updateTotal();
+    };
+
+    // Backwards-compatible alias
+    window.switchPurchaseType = function(type) {
+        togglePurchaseCategory(type);
     };
 
     let rmItemIndex = 0;
@@ -1952,7 +2058,7 @@
 
         updateTaxInputs(card);
         card.querySelectorAll('input, select, textarea').forEach(el => {
-            el.disabled = (currentPurchaseType !== 'RAW_MATERIAL');
+            el.disabled = !activePurchaseTypes.has('RAW_MATERIAL');
         });
         container.appendChild(card);
         updateRawMaterialSummary();
@@ -2050,11 +2156,7 @@
         const sTotal = document.getElementById('summaryRmTotal');
         if (sTotal) sTotal.textContent = money(subtotal + totalTax);
 
-        if (currentPurchaseType === 'RAW_MATERIAL') {
-            document.getElementById('purchaseSubtotal').textContent = money(subtotal);
-            document.getElementById('purchaseTaxes').textContent = money(totalTax);
-            document.getElementById('purchaseTotal').textContent = money(subtotal + totalTax);
-        }
+        updateTotal();
     }
 
     function generateThirdPartySku(card, index) {
@@ -2148,7 +2250,7 @@
 
         updateTaxInputs(card);
         card.querySelectorAll('input, select, textarea').forEach(el => {
-            el.disabled = (currentPurchaseType !== 'THIRD_PARTY');
+            el.disabled = !activePurchaseTypes.has('THIRD_PARTY');
         });
         container.appendChild(card);
         updateThirdPartySummary();
@@ -2251,11 +2353,7 @@
         const sTotal = document.getElementById('summaryTpTotal');
         if (sTotal) sTotal.textContent = money(subtotal + totalTax);
 
-        if (currentPurchaseType === 'THIRD_PARTY') {
-            document.getElementById('purchaseSubtotal').textContent = money(subtotal);
-            document.getElementById('purchaseTaxes').textContent = money(totalTax);
-            document.getElementById('purchaseTotal').textContent = money(subtotal + totalTax);
-        }
+        updateTotal();
     }
 
     const btnAddRawMaterial = document.getElementById('btnAddRawMaterialItem');
@@ -2269,29 +2367,133 @@
     }
 
     function updateTotal() {
-        if (currentPurchaseType === 'RAW_MATERIAL') {
-            updateRawMaterialSummary();
-            return;
+        let grandBase = 0;
+        let grandTax = 0;
+        let grandTotal = 0;
+
+        // 1. Fabric Rolls
+        if (activePurchaseTypes.has('FABRIC_ROLL')) {
+            const rollTotals = Array.from(rollsContainer.querySelectorAll('.roll-card')).reduce((totals, card) => {
+                const price = Number(card.querySelector('.roll-price')?.value) || 0;
+                const qty = Math.max(1, Number(card.querySelector('.roll-quantity')?.value) || 1);
+                const lineGross = price * qty;
+                const tax = calculateItemTax(card, lineGross);
+                totals.base += tax.base;
+                totals.tax += tax.tax;
+                totals.total += tax.total;
+                totals.weight += (Number(card.querySelector('.roll-weight')?.value) || 0);
+                totals.count++;
+                return totals;
+            }, {base: 0, tax: 0, total: 0, weight: 0, count: 0});
+
+            grandBase += rollTotals.base;
+            grandTax += rollTotals.tax;
+            grandTotal += rollTotals.total;
+
+            const rowRoll = document.getElementById('rowSummaryRoll');
+            if (rowRoll) rowRoll.classList.remove('d-none');
+            const rollValEl = document.getElementById('summaryRollVal');
+            if (rollValEl) rollValEl.textContent = money(rollTotals.total);
+            const rollCntEl = document.getElementById('summaryRollItemsCount');
+            if (rollCntEl) rollCntEl.textContent = rollTotals.count;
+            const rollWtEl = document.getElementById('summaryRollWeight');
+            if (rollWtEl) rollWtEl.textContent = rollTotals.weight.toFixed(2) + ' kg';
+            const cardBadge = document.getElementById('badgeFabricRollCount');
+            if (cardBadge) cardBadge.textContent = rollTotals.count + (rollTotals.count === 1 ? ' Roll' : ' Rolls');
+        } else {
+            const rowRoll = document.getElementById('rowSummaryRoll');
+            if (rowRoll) rowRoll.classList.add('d-none');
+            const cardBadge = document.getElementById('badgeFabricRollCount');
+            if (cardBadge) cardBadge.textContent = '0 Rolls';
         }
 
-        if (currentPurchaseType === 'THIRD_PARTY') {
-            updateThirdPartySummary();
-            return;
+        // 2. Raw Materials
+        if (activePurchaseTypes.has('RAW_MATERIAL')) {
+            const rmCards = Array.from(document.querySelectorAll('#rawMaterialContainer .rm-card'));
+            const rmTotals = rmCards.reduce((totals, card) => {
+                const qty = Number(card.querySelector('.rm-quantity')?.value) || 0;
+                const cost = Number(card.querySelector('.rm-cost')?.value) || 0;
+                const gross = qty * cost;
+                const tax = calculateItemTax(card, gross);
+                totals.base += tax.base;
+                totals.tax += tax.tax;
+                totals.total += tax.total;
+                totals.qty += qty;
+                totals.count++;
+                return totals;
+            }, {base: 0, tax: 0, total: 0, qty: 0, count: 0});
+
+            grandBase += rmTotals.base;
+            grandTax += rmTotals.tax;
+            grandTotal += rmTotals.total;
+
+            const rowRm = document.getElementById('rowSummaryRm');
+            if (rowRm) rowRm.classList.remove('d-none');
+            const rmValEl = document.getElementById('summaryRmVal');
+            if (rmValEl) rmValEl.textContent = money(rmTotals.total);
+            const rmCntEl = document.getElementById('summaryRmItemsCount');
+            if (rmCntEl) rmCntEl.textContent = rmTotals.count;
+            const rmUnitEl = document.getElementById('summaryRmUnits');
+            if (rmUnitEl) rmUnitEl.textContent = rmTotals.qty.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+            const cardBadge = document.getElementById('badgeRawMaterialCount');
+            if (cardBadge) cardBadge.textContent = rmTotals.count + (rmTotals.count === 1 ? ' Item' : ' Items');
+        } else {
+            const rowRm = document.getElementById('rowSummaryRm');
+            if (rowRm) rowRm.classList.add('d-none');
+            const cardBadge = document.getElementById('badgeRawMaterialCount');
+            if (cardBadge) cardBadge.textContent = '0 Items';
         }
 
-        const rollTotals = Array.from(rollsContainer.querySelectorAll('.roll-card')).reduce((totals, card) => {
-            const price = Number(card.querySelector('.roll-price')?.value) || 0;
-            const qty = Math.max(1, Number(card.querySelector('.roll-quantity')?.value) || 1);
-            const lineGross = price * qty;
-            const tax = calculateItemTax(card, lineGross);
-            totals.base += tax.base;
-            totals.tax += tax.tax;
-            totals.total += tax.total;
-            return totals;
-        }, {base: 0, tax: 0, total: 0});
-        document.getElementById('purchaseSubtotal').textContent = money(rollTotals.base);
-        document.getElementById('purchaseTaxes').textContent = money(rollTotals.tax);
-        document.getElementById('purchaseTotal').textContent = money(rollTotals.total);
+        // 3. Third-Party Products
+        if (activePurchaseTypes.has('THIRD_PARTY')) {
+            const tpCards = Array.from(document.querySelectorAll('#thirdPartyContainer .tp-card'));
+            const tpTotals = tpCards.reduce((totals, card) => {
+                const qty = Number(card.querySelector('.tp-quantity')?.value) || 0;
+                const cost = Number(card.querySelector('.tp-cost')?.value) || 0;
+                const gross = qty * cost;
+                const tax = calculateItemTax(card, gross);
+                totals.base += tax.base;
+                totals.tax += tax.tax;
+                totals.total += tax.total;
+                totals.units += qty;
+                totals.count++;
+                return totals;
+            }, {base: 0, tax: 0, total: 0, units: 0, count: 0});
+
+            grandBase += tpTotals.base;
+            grandTax += tpTotals.tax;
+            grandTotal += tpTotals.total;
+
+            const rowTp = document.getElementById('rowSummaryTp');
+            if (rowTp) rowTp.classList.remove('d-none');
+            const tpValEl = document.getElementById('summaryTpVal');
+            if (tpValEl) tpValEl.textContent = money(tpTotals.total);
+            const tpCntEl = document.getElementById('summaryTpItemsCount');
+            if (tpCntEl) tpCntEl.textContent = tpTotals.count;
+            const tpUnitEl = document.getElementById('summaryTpUnitsCount');
+            if (tpUnitEl) tpUnitEl.textContent = tpTotals.units.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+            const cardBadge = document.getElementById('badgeThirdPartyCount');
+            if (cardBadge) cardBadge.textContent = tpTotals.count + (tpTotals.count === 1 ? ' Product' : ' Products');
+        } else {
+            const rowTp = document.getElementById('rowSummaryTp');
+            if (rowTp) rowTp.classList.add('d-none');
+            const cardBadge = document.getElementById('badgeThirdPartyCount');
+            if (cardBadge) cardBadge.textContent = '0 Products';
+        }
+
+        // Update overall summary fields
+        const subEl = document.getElementById('purchaseSubtotal');
+        if (subEl) subEl.textContent = money(grandBase);
+        const taxEl = document.getElementById('purchaseTaxes');
+        if (taxEl) taxEl.textContent = money(grandTax);
+        const totEl = document.getElementById('purchaseTotal');
+        if (totEl) totEl.textContent = money(grandTotal);
+
+        const actCount = activePurchaseTypes.size;
+        const countBadge = document.getElementById('activeCategoriesCountBadge');
+        if (countBadge) countBadge.textContent = actCount + (actCount === 1 ? ' Category Selected' : ' Categories Combined');
+        const pillBadge = document.getElementById('activeCategoryPill');
+        if (pillBadge) pillBadge.textContent = actCount + (actCount === 1 ? ' Category Active' : ' Categories Combined');
     }
 
     function updateCodes() {
@@ -2382,7 +2584,7 @@
             reader.readAsDataURL(file);
         });
         card.querySelectorAll('input, select, textarea').forEach(el => {
-            el.disabled = (currentPurchaseType !== 'FABRIC_ROLL');
+            el.disabled = !activePurchaseTypes.has('FABRIC_ROLL');
         });
         rollsContainer.appendChild(card);
         updateCodes();
@@ -2577,23 +2779,115 @@
             return;
         }
 
-        const itemsPayload = [];
+        if (activePurchaseTypes.size === 0) {
+            event.preventDefault();
+            alert('Please select at least one purchase category (Fabric Rolls, Raw Materials, or Third-Party Products).');
+            resetPurchaseSubmitState();
+            return;
+        }
 
-        if (currentPurchaseType === 'RAW_MATERIAL') {
-            const rmCards = Array.from(document.querySelectorAll('#rawMaterialContainer .rm-card'));
-            if (rmCards.length === 0) {
+        const itemsPayload = [];
+        let hasError = false;
+        let errorMessage = '';
+
+        // 1. Validate & collect Fabric Rolls (if active)
+        if (activePurchaseTypes.has('FABRIC_ROLL')) {
+            const rollCards = Array.from(rollsContainer.querySelectorAll('.roll-card'));
+            if (rollCards.length === 0) {
                 event.preventDefault();
-                alert('Add at least one raw material before saving.');
+                alert('Add at least one fabric roll or uncheck the Fabric Rolls category.');
+                resetPurchaseSubmitState();
+                return;
+            }
+            const fabDesc = document.getElementById('fabricDescription')?.value?.trim();
+            if (!fabDesc) {
+                event.preventDefault();
+                alert('Please enter a fabric / material description for Fabric Rolls.');
+                document.getElementById('fabricDescription')?.focus();
                 resetPurchaseSubmitState();
                 return;
             }
 
-            let hasError = false;
-            let errorMessage = '';
+            rollCards.forEach((card, idx) => {
+                if (hasError) return;
+                const rollNum = card.querySelector('.roll-number')?.value?.trim() || ('ROLL #' + (idx + 1));
+                const color = card.querySelector('.roll-color')?.value?.trim();
+                const design = card.querySelector('.roll-design')?.value?.trim();
+                const weight = Number(card.querySelector('.roll-weight')?.value) || 0;
+                const price = Number(card.querySelector('.roll-price')?.value) || 0;
+
+                if (!color) {
+                    hasError = true;
+                    errorMessage = `Roll #${idx + 1}: Color / Shade is required.`;
+                    card.querySelector('.roll-color')?.focus();
+                    return;
+                }
+                if (!design) {
+                    hasError = true;
+                    errorMessage = `Roll #${idx + 1}: Design Name / Pattern is required.`;
+                    card.querySelector('.roll-design')?.focus();
+                    return;
+                }
+                if (weight <= 0) {
+                    hasError = true;
+                    errorMessage = `Roll #${idx + 1}: Weight (kg) must be greater than zero.`;
+                    card.querySelector('.roll-weight')?.focus();
+                    return;
+                }
+                if (price <= 0) {
+                    hasError = true;
+                    errorMessage = `Roll #${idx + 1}: Purchase price must be greater than zero.`;
+                    card.querySelector('.roll-price')?.focus();
+                    return;
+                }
+
+                const photoInput = card.querySelector('.roll-photo');
+                let formIdx = String(idx);
+                if (photoInput && photoInput.files && photoInput.files.length > 0) {
+                    photoInput.name = `roll_photo_${idx}`;
+                } else if (photoInput) {
+                    photoInput.removeAttribute('name');
+                }
+
+                itemsPayload.push({
+                    item_type: 'FABRIC_ROLL',
+                    roll_number: rollNum,
+                    color: color,
+                    design_name: design,
+                    design_count: Number(card.querySelector('.roll-design-count')?.value) || 1,
+                    quantity: Number(card.querySelector('.roll-quantity')?.value) || 1,
+                    weight_kg: weight,
+                    unit_price: price,
+                    hsn_code: card.querySelector('.roll-hsn')?.value?.trim() || '',
+                    tax_treatment: card.querySelector('.item-tax-treatment')?.value || 'INCLUDED',
+                    gst_type: card.querySelector('.item-gst-type')?.value || 'EXEMPTED',
+                    tax_mode: card.querySelector('.item-tax-mode')?.value || 'PERCENT',
+                    tax_value: card.querySelector('.item-tax-value')?.value || '0',
+                    cgst_tax_value: card.querySelector('.item-cgst-value')?.value || '0',
+                    form_index: formIdx
+                });
+            });
+        }
+
+        if (hasError) {
+            event.preventDefault();
+            alert(errorMessage);
+            resetPurchaseSubmitState();
+            return;
+        }
+
+        // 2. Validate & collect Raw Materials (if active)
+        if (activePurchaseTypes.has('RAW_MATERIAL')) {
+            const rmCards = Array.from(document.querySelectorAll('#rawMaterialContainer .rm-card'));
+            if (rmCards.length === 0) {
+                event.preventDefault();
+                alert('Add at least one raw material or uncheck the Raw Materials category.');
+                resetPurchaseSubmitState();
+                return;
+            }
 
             rmCards.forEach((card, idx) => {
                 if (hasError) return;
-
                 const name = card.querySelector('.rm-name')?.value?.trim();
                 const qty = Number(card.querySelector('.rm-quantity')?.value) || 0;
                 const cost = Number(card.querySelector('.rm-cost')?.value) || 0;
@@ -2607,21 +2901,18 @@
                     card.querySelector('.rm-name')?.focus();
                     return;
                 }
-
                 if (qty <= 0) {
                     hasError = true;
                     errorMessage = `Raw Material #${idx + 1} ("${name}"): Quantity must be at least 0.01.`;
                     card.querySelector('.rm-quantity')?.focus();
                     return;
                 }
-
                 if (cost <= 0) {
                     hasError = true;
                     errorMessage = `Raw Material #${idx + 1} ("${name}"): Purchase price must be greater than zero.`;
                     card.querySelector('.rm-cost')?.focus();
                     return;
                 }
-
                 if (!hsn) {
                     hasError = true;
                     errorMessage = `Raw Material #${idx + 1} ("${name}"): HSN code is mandatory. Please select or add an HSN code.`;
@@ -2633,11 +2924,6 @@
                 } else if (hsnBtn) {
                     hsnBtn.classList.remove('border-danger', 'is-invalid');
                 }
-
-                const gstType = card.querySelector('.item-gst-type')?.value || 'EXEMPTED';
-                const taxMode = card.querySelector('.item-tax-mode')?.value || 'PERCENT';
-                const taxVal = Number(card.querySelector('.item-tax-value')?.value) || 0;
-                const cgstVal = Number(card.querySelector('.item-cgst-value')?.value) || 0;
 
                 itemsPayload.push({
                     item_type: 'RAW_MATERIAL',
@@ -2651,49 +2937,34 @@
                     selling_price: 0,
                     hsn_code: hsn,
                     tax_treatment: card.querySelector('.item-tax-treatment')?.value || 'INCLUDED',
-                    gst_type: gstType,
-                    tax_mode: taxMode,
-                    tax_value: taxVal,
-                    cgst_tax_value: cgstVal,
-                    form_index: String(idx)
+                    gst_type: card.querySelector('.item-gst-type')?.value || 'EXEMPTED',
+                    tax_mode: card.querySelector('.item-tax-mode')?.value || 'PERCENT',
+                    tax_value: Number(card.querySelector('.item-tax-value')?.value) || 0,
+                    cgst_tax_value: Number(card.querySelector('.item-cgst-value')?.value) || 0,
+                    form_index: String(itemsPayload.length)
                 });
             });
+        }
 
-            if (hasError) {
-                event.preventDefault();
-                alert(errorMessage || 'Please check the raw material fields and correct any errors.');
-                resetPurchaseSubmitState();
-                return;
-            }
-
-            let payloadInput = document.getElementById('itemsPayloadInput');
-            if (!payloadInput) {
-                payloadInput = document.createElement('input');
-                payloadInput.type = 'hidden';
-                payloadInput.name = 'items_payload';
-                payloadInput.id = 'itemsPayloadInput';
-                form.appendChild(payloadInput);
-            }
-            payloadInput.value = JSON.stringify(itemsPayload);
-            lockPurchaseSubmitState();
+        if (hasError) {
+            event.preventDefault();
+            alert(errorMessage);
+            resetPurchaseSubmitState();
             return;
         }
 
-        if (currentPurchaseType === 'THIRD_PARTY') {
+        // 3. Validate & collect Third-Party Products (if active)
+        if (activePurchaseTypes.has('THIRD_PARTY')) {
             const tpCards = Array.from(document.querySelectorAll('#thirdPartyContainer .tp-card'));
             if (tpCards.length === 0) {
                 event.preventDefault();
-                alert('Add at least one third-party product before saving.');
+                alert('Add at least one third-party product or uncheck the Third-Party Products category.');
                 resetPurchaseSubmitState();
                 return;
             }
 
-            let hasError = false;
-            let errorMessage = '';
-
             tpCards.forEach((card, idx) => {
                 if (hasError) return;
-
                 const name = card.querySelector('.tp-name')?.value?.trim();
                 const qty = Number(card.querySelector('.tp-quantity')?.value) || 0;
                 const cost = Number(card.querySelector('.tp-cost')?.value) || 0;
@@ -2707,21 +2978,18 @@
                     card.querySelector('.tp-name')?.focus();
                     return;
                 }
-
                 if (qty <= 0) {
                     hasError = true;
                     errorMessage = `Product #${idx + 1} ("${name}"): Quantity must be at least 1.`;
                     card.querySelector('.tp-quantity')?.focus();
                     return;
                 }
-
                 if (cost <= 0) {
                     hasError = true;
                     errorMessage = `Product #${idx + 1} ("${name}"): Purchase price must be greater than zero.`;
                     card.querySelector('.tp-cost')?.focus();
                     return;
                 }
-
                 if (!hsn) {
                     hasError = true;
                     errorMessage = `Product #${idx + 1} ("${name}"): HSN code is mandatory. Please select or add an HSN code.`;
@@ -2733,11 +3001,6 @@
                 } else if (hsnBtn) {
                     hsnBtn.classList.remove('border-danger', 'is-invalid');
                 }
-
-                const gstType = card.querySelector('.item-gst-type')?.value || 'EXEMPTED';
-                const taxMode = card.querySelector('.item-tax-mode')?.value || 'PERCENT';
-                const taxVal = Number(card.querySelector('.item-tax-value')?.value) || 0;
-                const cgstVal = Number(card.querySelector('.item-cgst-value')?.value) || 0;
 
                 itemsPayload.push({
                     item_type: 'THIRD_PARTY',
@@ -2752,77 +3015,44 @@
                     selling_price: 0,
                     hsn_code: hsn,
                     tax_treatment: card.querySelector('.item-tax-treatment')?.value || 'INCLUDED',
-                    gst_type: gstType,
-                    tax_mode: taxMode,
-                    tax_value: taxVal,
-                    cgst_tax_value: cgstVal,
-                    form_index: String(idx)
+                    gst_type: card.querySelector('.item-gst-type')?.value || 'EXEMPTED',
+                    tax_mode: card.querySelector('.item-tax-mode')?.value || 'PERCENT',
+                    tax_value: Number(card.querySelector('.item-tax-value')?.value) || 0,
+                    cgst_tax_value: Number(card.querySelector('.item-cgst-value')?.value) || 0,
+                    form_index: String(itemsPayload.length)
                 });
             });
-
-            if (hasError) {
-                event.preventDefault();
-                alert(errorMessage || 'Please check the third-party product fields and correct any errors.');
-                resetPurchaseSubmitState();
-                return;
-            }
-
-            let payloadInput = document.getElementById('itemsPayloadInput');
-            if (!payloadInput) {
-                payloadInput = document.createElement('input');
-                payloadInput.type = 'hidden';
-                payloadInput.name = 'items_payload';
-                payloadInput.id = 'itemsPayloadInput';
-                form.appendChild(payloadInput);
-            }
-            payloadInput.value = JSON.stringify(itemsPayload);
-            lockPurchaseSubmitState();
-            return;
         }
 
-        // Default: FABRIC_ROLL
-        const hasRoll = rollsContainer.querySelector('.roll-card');
-        if (!hasRoll) {
+        if (hasError) {
             event.preventDefault();
-            alert('Add at least one fabric roll before saving.');
-            resetPurchaseSubmitState();
-            return;
-        }
-        if (!document.getElementById('fabricDescription').value.trim()) {
-            event.preventDefault();
-            alert('Please enter a fabric / material description.');
-            document.getElementById('fabricDescription').focus();
+            alert(errorMessage);
             resetPurchaseSubmitState();
             return;
         }
 
-        rollsContainer.querySelectorAll('.roll-card').forEach((card, idx) => {
-            const photoInput = card.querySelector('.roll-photo');
-            let formIdx = String(idx);
-            if (photoInput && photoInput.files && photoInput.files.length > 0) {
-                photoInput.name = `roll_photo_${idx}`;
-                formIdx = String(idx);
-            } else if (photoInput) {
-                photoInput.removeAttribute('name');
-            }
+        if (itemsPayload.length === 0) {
+            event.preventDefault();
+            alert('Add at least one purchase item before saving.');
+            resetPurchaseSubmitState();
+            return;
+        }
 
-            itemsPayload.push({
-                item_type: 'FABRIC_ROLL',
-                roll_number: card.querySelector('.roll-number')?.value?.trim() || ('ROLL #' + (idx + 1)),
-                color: card.querySelector('.roll-color')?.value?.trim() || '',
-                design_name: card.querySelector('.roll-design')?.value?.trim() || '',
-                design_count: Number(card.querySelector('.roll-design-count')?.value) || 1,
-                quantity: Number(card.querySelector('.roll-quantity')?.value) || 1,
-                weight_kg: Number(card.querySelector('.roll-weight')?.value) || 0,
-                unit_price: Number(card.querySelector('.roll-price')?.value) || 0,
-                hsn_code: card.querySelector('.roll-hsn')?.value?.trim() || '',
-                gst_type: card.querySelector('.item-gst-type')?.value || 'EXEMPTED',
-                tax_mode: card.querySelector('.item-tax-mode')?.value || 'PERCENT',
-                tax_value: card.querySelector('.item-tax-value')?.value || '0',
-                cgst_tax_value: card.querySelector('.item-cgst-value')?.value || '0',
-                form_index: formIdx
-            });
-        });
+        // Set overall purchase_type hidden input (MIXED if multiple categories present)
+        let purchaseTypeHidden = document.getElementById('purchaseTypeHiddenInput');
+        if (!purchaseTypeHidden) {
+            purchaseTypeHidden = document.createElement('input');
+            purchaseTypeHidden.type = 'hidden';
+            purchaseTypeHidden.name = 'purchase_type';
+            purchaseTypeHidden.id = 'purchaseTypeHiddenInput';
+            form.appendChild(purchaseTypeHidden);
+        }
+        const distinctTypes = new Set(itemsPayload.map(i => i.item_type));
+        if (distinctTypes.size > 1) {
+            purchaseTypeHidden.value = 'MIXED';
+        } else {
+            purchaseTypeHidden.value = Array.from(distinctTypes)[0] || 'FABRIC_ROLL';
+        }
 
         let payloadInput = document.getElementById('itemsPayloadInput');
         if (!payloadInput) {
@@ -2989,13 +3219,30 @@
         renderDocumentPreviews();
     };
 
-    addRoll();
     const urlParams = new URLSearchParams(window.location.search);
     const requestedType = (urlParams.get('type') || 'FABRIC_ROLL').toUpperCase();
-    if (['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'].includes(requestedType)) {
-        switchPurchaseType(requestedType);
+    if (requestedType === 'ALL' || requestedType === 'MIXED') {
+        selectAllPurchaseCategories();
+    } else if (requestedType === 'RAW_MATERIAL') {
+        activePurchaseTypes.clear();
+        activePurchaseTypes.add('RAW_MATERIAL');
+        syncCategoryCardUI('RAW_MATERIAL', true);
+        syncCategoryCardUI('FABRIC_ROLL', false);
+        syncCategoryCardUI('THIRD_PARTY', false);
+    } else if (requestedType === 'THIRD_PARTY') {
+        activePurchaseTypes.clear();
+        activePurchaseTypes.add('THIRD_PARTY');
+        syncCategoryCardUI('THIRD_PARTY', true);
+        syncCategoryCardUI('FABRIC_ROLL', false);
+        syncCategoryCardUI('RAW_MATERIAL', false);
     } else {
-        switchPurchaseType('FABRIC_ROLL');
+        addRoll();
+        activePurchaseTypes.clear();
+        activePurchaseTypes.add('FABRIC_ROLL');
+        syncCategoryCardUI('FABRIC_ROLL', true);
+        syncCategoryCardUI('RAW_MATERIAL', false);
+        syncCategoryCardUI('THIRD_PARTY', false);
     }
+    updateTotal();
 })();
 </script>

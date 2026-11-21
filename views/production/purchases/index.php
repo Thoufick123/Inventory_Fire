@@ -117,6 +117,7 @@
                     <a href="<?= url('purchases?type=FABRIC_ROLL') ?>" class="btn <?= ($filterType === 'FABRIC_ROLL') ? 'btn-primary' : 'btn-outline-secondary' ?>">Rolls</a>
                     <a href="<?= url('purchases?type=RAW_MATERIAL') ?>" class="btn <?= ($filterType === 'RAW_MATERIAL') ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary' ?>">Raw Materials</a>
                     <a href="<?= url('purchases?type=THIRD_PARTY') ?>" class="btn <?= ($filterType === 'THIRD_PARTY') ? 'btn-info text-white' : 'btn-outline-secondary' ?>">3rd-Party</a>
+                    <a href="<?= url('purchases?type=MIXED') ?>" class="btn <?= ($filterType === 'MIXED') ? 'btn-dark text-white' : 'btn-outline-secondary' ?>" title="Invoices containing multiple product types">Combined</a>
                 </div>
                 <input type="text" id="purchasesSearchInput" class="form-control form-control-sm" placeholder="🔍 Search PO #, supplier, invoice..." style="width: 240px;" oninput="filterPurchasesTable(this.value)">
             </div>
@@ -156,7 +157,11 @@
                             <strong class="font-monospace text-primary"><?= e($purchase['purchase_number']) ?></strong>
                         </td>
                         <td>
-                            <?php if ($pType === 'RAW_MATERIAL'): ?>
+                            <?php if ($pType === 'MIXED' || ((int)($rollItemCount > 0) + (int)(count($rawMaterialItems) > 0) + (int)(count($thirdPartyItems) > 0) > 1)): ?>
+                                <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
+                                    <i class="bi bi-collection me-1"></i>Combined (Mixed)
+                                </span>
+                            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
                                 <span class="badge bg-warning-subtle text-warning-emphasis border">
                                     <i class="bi bi-boxes me-1"></i>Raw Material
                                 </span>
@@ -182,7 +187,31 @@
                             <small class="text-muted"><i class="bi bi-person me-1"></i><?= e($purchase['seller_name']) ?></small>
                         </td>
                         <td>
-                            <?php if ($pType === 'RAW_MATERIAL'): 
+                            <?php if ($pType === 'MIXED' || ((int)($rollItemCount > 0) + (int)(count($rawMaterialItems) > 0) + (int)(count($thirdPartyItems) > 0) > 1)): ?>
+                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
+                                    <?php if ($rollItemCount > 0): ?>
+                                        <span class="badge bg-primary-subtle text-primary border">
+                                            <i class="bi bi-layers-half me-1"></i><?= $rollItemCount ?> Rolls (<?= $rollQtySum ?> RQ, <?= number_format($totalWeight, 1) ?> kg)
+                                        </span>
+                                    <?php endif; ?>
+                                    <?php if (count($rawMaterialItems) > 0): ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border">
+                                            <i class="bi bi-boxes me-1"></i><?= count($rawMaterialItems) ?> Raw Material(s) (<?= number_format($rmQtySum) ?> Units)
+                                        </span>
+                                    <?php endif; ?>
+                                    <?php if (count($thirdPartyItems) > 0): ?>
+                                        <span class="badge bg-info-subtle text-info border">
+                                            <i class="bi bi-box-seam me-1"></i><?= count($thirdPartyItems) ?> Product(s) (<?= number_format($tpQtySum) ?> Pcs)
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="small text-muted text-truncate" style="max-width: 340px;">
+                                    <?= e(implode(', ', array_slice(array_column($purchase['items'] ?? [], 'item_name'), 0, 4))) ?>
+                                    <?php if (count($purchase['items'] ?? []) > 4): ?>
+                                        <span class="text-secondary fw-normal">+<?= count($purchase['items']) - 4 ?> more</span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php elseif ($pType === 'RAW_MATERIAL'): 
                                 $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
                             ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">

@@ -88,6 +88,9 @@ class ProductionController {
             if (!$colDocUrls) {
                 Database::execute("ALTER TABLE production_purchases ADD COLUMN document_urls TEXT DEFAULT NULL AFTER document_url");
             }
+            try {
+                Database::execute("ALTER TABLE production_purchases MODIFY COLUMN purchase_type ENUM('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','MIXED') NOT NULL DEFAULT 'FABRIC_ROLL'");
+            } catch (\Throwable $e) {}
             Database::execute("
                 CREATE TABLE IF NOT EXISTS `production_purchase_documents` (
                   `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1442,7 +1445,7 @@ class ProductionController {
             $params[] = $activeCid;
         }
 
-        if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT'], true)) {
+        if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $where[] = "pp.purchase_type = ?";
             $params[] = $filterType;
         }
@@ -1510,7 +1513,8 @@ class ProductionController {
                 COUNT(CASE WHEN purchase_type = 'FABRIC_ROLL' THEN 1 END) AS fabric_roll_count,
                 COUNT(CASE WHEN purchase_type = 'RAW_MATERIAL' THEN 1 END) AS raw_material_count,
                 COUNT(CASE WHEN purchase_type = 'THIRD_PARTY' THEN 1 END) AS third_party_count,
-                COUNT(CASE WHEN purchase_type = 'OWN_PRODUCT' THEN 1 END) AS own_product_count
+                COUNT(CASE WHEN purchase_type = 'OWN_PRODUCT' THEN 1 END) AS own_product_count,
+                COUNT(CASE WHEN purchase_type = 'MIXED' THEN 1 END) AS mixed_count
              FROM production_purchases
              $metricWhereSql",
             $metricParams
@@ -2620,7 +2624,7 @@ class ProductionController {
         }
 
         $purchaseType = strtoupper(trim((string)($_POST['purchase_type'] ?? 'FABRIC_ROLL')));
-        if (!in_array($purchaseType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT'], true)) {
+        if (!in_array($purchaseType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $purchaseType = 'FABRIC_ROLL';
         }
 
@@ -3139,6 +3143,13 @@ class ProductionController {
             Session::flash('error', 'Add at least one valid purchase item.');
             Response::back();
             return;
+        }
+
+        $distinctTypes = array_unique(array_filter(array_column($items, 'type')));
+        if (count($distinctTypes) > 1) {
+            $purchaseType = 'MIXED';
+        } elseif (count($distinctTypes) === 1) {
+            $purchaseType = reset($distinctTypes);
         }
 
         $rollPhotoFiles = [];

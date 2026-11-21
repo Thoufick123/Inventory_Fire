@@ -11,8 +11,10 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
             <h2 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i><?= e($purchase['purchase_number']) ?></h2>
             <?php
                 $pType = $purchase['purchase_type'] ?? 'FABRIC_ROLL';
-                if ($pType === 'RAW_MATERIAL'):
+                if ($pType === 'MIXED'):
             ?>
+                <span class="badge border fs-6" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;"><i class="bi bi-collection me-1"></i>Combined (Mixed Invoice)</span>
+            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
                 <span class="badge bg-warning-subtle text-warning-emphasis border fs-6"><i class="bi bi-boxes me-1"></i>Raw Material</span>
             <?php elseif ($pType === 'THIRD_PARTY'): ?>
                 <span class="badge bg-info-subtle text-info border fs-6"><i class="bi bi-box-seam me-1"></i>Third-Party</span>
