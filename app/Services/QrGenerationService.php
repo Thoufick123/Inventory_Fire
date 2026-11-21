@@ -1278,7 +1278,65 @@ class QrGenerationService {
 
         $itemId = (int)($batch['source_purchase_item_id'] ?? 0);
         if ($itemId <= 0) {
-            throw new RuntimeException('This QR batch is not linked to a purchase item.');
+            $mappingItemId = (int)($batch['source_mapping_item_id'] ?? 0);
+            if ($source !== self::SOURCE_THIRD_PARTY || $mappingItemId <= 0) {
+                throw new RuntimeException('This QR batch is not linked to a purchase or Mapping product.');
+            }
+            $mappingItem = Database::fetchOne(
+                "SELECT mi.*, mb.concern_id
+                 FROM third_party_mapping_items mi
+                 JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                 WHERE mi.id = ? AND mi.qr_generation_id = ?",
+                [$mappingItemId, $generationId]
+            );
+            if (!$mappingItem || (int)$mappingItem['variant_id'] <= 0) {
+                throw new RuntimeException('The Mapping product variant for this QR batch could not be found.');
+            }
+            $alreadyPostedMapping = Database::fetchOne(
+                "SELECT id FROM qr_generations
+                 WHERE source_mapping_item_id = ? AND stock_added = 1 AND id <> ?
+                 LIMIT 1",
+                [$mappingItemId, $generationId]
+            );
+            if ($alreadyPostedMapping) {
+                throw new RuntimeException('Stock for this Mapping product was already added through another QR batch.');
+            }
+
+            $quantity = max(1.0, (float)($batch['quantity'] ?: count($batch['items'])));
+            $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+                ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
+            $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+            if (!class_exists('StockService')) {
+                throw new RuntimeException('Stock service is unavailable; the QR batch was not posted to stock.');
+            }
+            Database::beginTransaction();
+            try {
+                StockService::increase(
+                    (int)$mappingItem['variant_id'],
+                    'WAREHOUSE',
+                    $warehouseId,
+                    'AVAILABLE',
+                    $quantity,
+                    'INWARD',
+                    'QR_BATCH',
+                    $generationId,
+                    $userId ?: null,
+                    "QR batch {$batch['batch_code']} — stock added from Mapping invoice"
+                );
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
+                    [$userId ?: null, $generationId]
+                );
+                Database::commit();
+                return [
+                    'batch_code' => $batch['batch_code'],
+                    'quantity' => $quantity,
+                    'stock_added' => true,
+                ];
+            } catch (Throwable $e) {
+                Database::rollback();
+                throw $e;
+            }
         }
         $item = Database::fetchOne(
             "SELECT ppi.*, pp.purchase_number

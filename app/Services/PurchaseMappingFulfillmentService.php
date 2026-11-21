@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261121'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261204'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -162,6 +162,50 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_category_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_subcategory_id');
+        Database::ensureColumn('qr_generations', 'source_mapping_item_id', 'INT UNSIGNED DEFAULT NULL AFTER source_purchase_item_id');
+        Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_bills (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            concern_id INT UNSIGNED NOT NULL,
+            seller_id INT UNSIGNED NOT NULL,
+            invoice_number VARCHAR(100) NOT NULL,
+            status ENUM('DRAFT','READY','MOVED') NOT NULL DEFAULT 'DRAFT',
+            purchase_id INT UNSIGNED DEFAULT NULL,
+            created_by INT UNSIGNED DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_tpmb_supplier_invoice (concern_id, seller_id, invoice_number),
+            KEY idx_tpmb_match (concern_id, seller_id, status),
+            KEY idx_tpmb_purchase (purchase_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_items (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            mapping_bill_id INT UNSIGNED NOT NULL,
+            purchase_item_id INT UNSIGNED DEFAULT NULL,
+            product_id INT UNSIGNED NOT NULL,
+            variant_id INT UNSIGNED NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            product_code VARCHAR(100) DEFAULT NULL,
+            vendor_sku VARCHAR(100) DEFAULT NULL,
+            quantity DECIMAL(12,3) NOT NULL,
+            unit VARCHAR(30) NOT NULL DEFAULT 'PCS',
+            unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            mrp DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            selling_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+            gst_rate DECIMAL(8,3) NOT NULL DEFAULT 0.000,
+            hsn_code VARCHAR(20) NOT NULL,
+            color VARCHAR(100) DEFAULT NULL,
+            size VARCHAR(50) DEFAULT NULL,
+            category_id INT UNSIGNED NOT NULL,
+            subcategory_id INT UNSIGNED DEFAULT NULL,
+            sub_subcategory_id INT UNSIGNED DEFAULT NULL,
+            qr_generation_id INT UNSIGNED DEFAULT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_tpmi_bill (mapping_bill_id),
+            KEY idx_tpmi_variant (variant_id),
+            KEY idx_tpmi_qr (qr_generation_id),
+            CONSTRAINT fk_tpmi_bill FOREIGN KEY (mapping_bill_id) REFERENCES third_party_mapping_bills (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        Database::ensureColumn('third_party_mapping_items', 'purchase_item_id', 'INT UNSIGNED DEFAULT NULL AFTER mapping_bill_id');
 
         // Repair legacy rows that were flagged as mapped without any taxonomy.
         Database::execute(
@@ -203,7 +247,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261121'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261204'] = 1;
         }
         self::$schemaEnsured = true;
     }
