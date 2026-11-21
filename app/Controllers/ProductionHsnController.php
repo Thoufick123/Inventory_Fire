@@ -84,9 +84,9 @@ class ProductionHsnController {
         $product         = trim($_POST['product'] ?? '') ?: null;
         $isActive        = isset($_POST['is_active']) ? 1 : 0;
 
-        // Validate HSN code: required, exactly 8 digits
-        if ($hsnCode === '' || !preg_match('/^\d{8}$/', $hsnCode)) {
-            Session::flash('error', 'HSN Code must be exactly 8 digits (numbers only).');
+        // Validate HSN code: required, numbers only, up to 8 digits (e.g. 3, 5, 6, 8 digits)
+        if ($hsnCode === '' || !preg_match('/^\d{1,8}$/', $hsnCode)) {
+            Session::flash('error', 'HSN Code must be numbers only and up to 8 digits.');
             Response::back();
             return;
         }
@@ -181,9 +181,9 @@ class ProductionHsnController {
         $product          = trim($_POST['product'] ?? '') ?: null;
         $isActive         = isset($_POST['is_active']) ? 1 : 0;
 
-        // Validate HSN code
-        if ($hsnCode === '' || !preg_match('/^\d{8}$/', $hsnCode)) {
-            Session::flash('error', 'HSN Code must be exactly 8 digits (numbers only).');
+        // Validate HSN code: required, numbers only, up to 8 digits (e.g. 3, 5, 6, 8 digits)
+        if ($hsnCode === '' || !preg_match('/^\d{1,8}$/', $hsnCode)) {
+            Session::flash('error', 'HSN Code must be numbers only and up to 8 digits.');
             Response::back();
             return;
         }
