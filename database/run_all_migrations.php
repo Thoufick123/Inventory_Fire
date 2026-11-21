@@ -487,10 +487,15 @@ if (tableExists($db, 'third_party_product_variants')) {
 }
 
 // Migration 1: 2026_05_28_add_return_settlement_modes.sql
-if (tableExists($db, 'returns')) {
+if (tableExists($db, 'returns') || tableExists($db, 'production_returns')) {
+    $returnTable = tableExists($db, 'returns') ? 'returns' : 'production_returns';
     echo "  Applying 2026_05_28_add_return_settlement_modes.sql...\n";
     try {
-        $db->exec("ALTER TABLE `returns` MODIFY COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE') DEFAULT NULL");
+        if (columnExists($db, $returnTable, 'refund_mode')) {
+            $db->exec("ALTER TABLE `{$returnTable}` MODIFY COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL");
+        } else {
+            $db->exec("ALTER TABLE `{$returnTable}` ADD COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL");
+        }
     } catch (Exception $e) {
         echo "    Notice: " . $e->getMessage() . "\n";
     }

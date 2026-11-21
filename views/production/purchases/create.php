@@ -77,14 +77,66 @@
                     <input type="date" class="form-control" name="purchase_date" id="purchaseDate" required value="<?= e(date('Y-m-d')) ?>">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="invoiceNumber">Invoice / Bill Number</label>
+                    <label class="form-label" for="invoiceNumber">Invoice / Bill Number <span id="invoiceNumberRequiredMarker" class="text-danger d-none">*</span></label>
                     <input type="text" class="form-control" name="invoice_number" id="invoiceNumber" maxlength="100">
                 </div>
                 <div class="col-12">
-                    <div class="form-check border rounded bg-light p-3 ps-5">
-                        <input class="form-check-input" type="checkbox" name="use_mapping_invoice" id="useMappingInvoice" value="1">
-                        <label class="form-check-label fw-semibold" for="useMappingInvoice">Use products saved in Purchase Item Mapping</label>
-                        <div class="small text-muted">Mark the entry <strong>Move to Purchase</strong> in Mapping first, then select the same supplier and enter the same invoice number here. Saved products will be added automatically.</div>
+                        <div class="row g-2">
+                            <div class="col-lg-6">
+                                <div class="form-check border rounded bg-info-subtle p-3 ps-5 h-100">
+                                    <input class="form-check-input" type="checkbox" name="quick_purchase_entry" id="quickPurchaseEntry" value="1">
+                                    <label class="form-check-label fw-semibold" for="quickPurchaseEntry">Quick bill entry (map products later)</label>
+                                    <div class="small text-muted">Enter product name, quantity, purchase price, GST % and HSN. Invoice number is required; complete product mapping afterward.</div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="form-check border rounded bg-light p-3 ps-5 h-100">
+                                    <input class="form-check-input" type="checkbox" name="use_mapping_invoice" id="useMappingInvoice" value="1">
+                                    <label class="form-check-label fw-semibold" for="useMappingInvoice">Import products saved in Purchase Item Mapping</label>
+                                    <div class="small text-muted">Mark the entry <strong>Move to Purchase</strong> in Mapping first, then enter the same supplier and invoice number here.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 d-none" id="quickPurchaseEntryPanel">
+                        <div class="card border-info shadow-sm">
+                            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <strong class="text-info-emphasis"><i class="bi bi-lightning-charge me-1"></i>Simple Product Lines</strong>
+                                    <div class="small text-muted">Purchase price is before GST; these items will appear in Product Mapping after saving.</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-info" id="addQuickPurchaseLine"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Product Name</th>
+                                            <th style="width: 110px;">Qty</th>
+                                            <th style="width: 160px;">Purchase Price (₹)</th>
+                                            <th style="width: 120px;">GST %</th>
+                                            <th style="width: 150px;">HSN</th>
+                                            <th style="width: 55px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quickPurchaseLines">
+                                        <tr class="quick-purchase-line">
+                                            <td><input class="form-control form-control-sm quick-line-name" maxlength="255" placeholder="Product name"></td>
+                                            <td><input class="form-control form-control-sm quick-line-quantity" type="number" min="0.001" step="0.001" placeholder="Qty"></td>
+                                            <td><input class="form-control form-control-sm quick-line-price" type="number" min="0.01" step="0.01" placeholder="Rate before GST"></td>
+                                            <td><input class="form-control form-control-sm quick-line-gst" type="number" min="0" max="100" step="0.001" value="0" placeholder="GST %"></td>
+                                            <td><input class="form-control form-control-sm quick-line-hsn font-monospace" maxlength="20" placeholder="HSN code"></td>
+                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-quick-line" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="card-footer bg-light d-flex justify-content-end gap-4 flex-wrap">
+                                <span>Subtotal: <strong id="quickEntrySubtotal">₹0.00</strong></span>
+                                <span>GST: <strong id="quickEntryTax">₹0.00</strong></span>
+                                <span>Invoice total: <strong class="text-success" id="quickEntryTotal">₹0.00</strong></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -512,7 +564,7 @@
     </div>
 
     <!-- Invoice Financial Breakdown Summary (Unified Across Selected Categories) -->
-    <div class="card border shadow-sm mb-4">
+    <div class="card border shadow-sm mb-4" id="invoiceFinancialBreakdownCard">
         <div class="card-header bg-white py-2 px-3 fw-bold small text-muted text-uppercase d-flex justify-content-between align-items-center">
             <span><i class="bi bi-receipt me-1 text-primary"></i>Invoice Financial Breakdown</span>
             <span id="activeCategoriesCountBadge" class="badge bg-primary-subtle text-primary border">1 Category Selected</span>
@@ -1088,9 +1140,13 @@
     const supplierSelect = document.getElementById('purchaseSeller');
     const supplierDetails = document.getElementById('selectedSupplierDetails');
     const useMappingInvoice = document.getElementById('useMappingInvoice');
+    const quickPurchaseEntry = document.getElementById('quickPurchaseEntry');
+    const quickPurchaseEntryPanel = document.getElementById('quickPurchaseEntryPanel');
     const purchaseCategorySelectorCard = document.getElementById('purchaseCategorySelectorCard');
     const purchaseItemSections = ['sectionFabricRoll', 'sectionRawMaterial', 'sectionThirdParty']
         .map(id => document.getElementById(id)).filter(Boolean);
+    const quickPurchaseLines = document.getElementById('quickPurchaseLines');
+    const quickPurchaseLineTemplate = quickPurchaseLines?.querySelector('.quick-purchase-line')?.outerHTML || '';
     let rollIndex = 0;
     let nextSequence = 1;
     let sequencePrefix = 'FB<?= date('my') ?>';
@@ -1106,17 +1162,75 @@
     const numericTextPattern = /^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/;
     let activeHsnTarget = null;
 
-    useMappingInvoice?.addEventListener('change', function () {
-        const useMapping = useMappingInvoice.checked;
-        purchaseCategorySelectorCard?.classList.toggle('d-none', useMapping);
+    function syncPurchaseEntryMode() {
+        const useMapping = !!useMappingInvoice?.checked;
+        const useQuickEntry = !!quickPurchaseEntry?.checked;
+        const hideStandardItems = useMapping || useQuickEntry;
+        purchaseCategorySelectorCard?.classList.toggle('d-none', hideStandardItems);
+        quickPurchaseEntryPanel?.classList.toggle('d-none', !useQuickEntry);
+        document.getElementById('invoiceFinancialBreakdownCard')?.classList.toggle('d-none', useQuickEntry);
+        const invoiceNumberInput = document.getElementById('invoiceNumber');
+        if (invoiceNumberInput) {
+            invoiceNumberInput.required = hideStandardItems;
+        }
+        document.getElementById('invoiceNumberRequiredMarker')?.classList.toggle('d-none', !hideStandardItems);
         const typeBySection = {
             sectionFabricRoll: 'FABRIC_ROLL',
             sectionRawMaterial: 'RAW_MATERIAL',
             sectionThirdParty: 'THIRD_PARTY'
         };
         purchaseItemSections.forEach(section => {
-            section.classList.toggle('d-none', useMapping || !activePurchaseTypes.has(typeBySection[section.id]));
+            section.classList.toggle('d-none', hideStandardItems || !activePurchaseTypes.has(typeBySection[section.id]));
         });
+    }
+
+    useMappingInvoice?.addEventListener('change', function () {
+        if (useMappingInvoice.checked && quickPurchaseEntry) quickPurchaseEntry.checked = false;
+        syncPurchaseEntryMode();
+    });
+    quickPurchaseEntry?.addEventListener('change', function () {
+        if (quickPurchaseEntry.checked && useMappingInvoice) useMappingInvoice.checked = false;
+        syncPurchaseEntryMode();
+    });
+
+    function updateQuickPurchaseTotals() {
+        if (!quickPurchaseLines) return;
+        let subtotal = 0;
+        let taxTotal = 0;
+        quickPurchaseLines.querySelectorAll('.quick-purchase-line').forEach(row => {
+            const quantity = Number(row.querySelector('.quick-line-quantity')?.value) || 0;
+            const price = Number(row.querySelector('.quick-line-price')?.value) || 0;
+            const gstRate = Number(row.querySelector('.quick-line-gst')?.value) || 0;
+            const lineBase = quantity * price;
+            subtotal += lineBase;
+            taxTotal += lineBase * gstRate / 100;
+        });
+        document.getElementById('quickEntrySubtotal').textContent = money(subtotal);
+        document.getElementById('quickEntryTax').textContent = money(taxTotal);
+        document.getElementById('quickEntryTotal').textContent = money(subtotal + taxTotal);
+    }
+
+    function addQuickPurchaseLine() {
+        if (!quickPurchaseLines || !quickPurchaseLineTemplate) return;
+        quickPurchaseLines.insertAdjacentHTML('beforeend', quickPurchaseLineTemplate);
+        updateQuickPurchaseTotals();
+    }
+
+    document.getElementById('addQuickPurchaseLine')?.addEventListener('click', addQuickPurchaseLine);
+    quickPurchaseLines?.addEventListener('input', updateQuickPurchaseTotals);
+    quickPurchaseLines?.addEventListener('click', function (event) {
+        const removeButton = event.target.closest('.remove-quick-line');
+        if (!removeButton) return;
+        const rows = quickPurchaseLines.querySelectorAll('.quick-purchase-line');
+        const row = removeButton.closest('.quick-purchase-line');
+        if (rows.length > 1) {
+            row.remove();
+        } else {
+            row.querySelectorAll('input').forEach(input => {
+                input.value = input.classList.contains('quick-line-gst') ? '0' : '';
+            });
+        }
+        updateQuickPurchaseTotals();
     });
 
     function sanitizeNumericInput(input) {
@@ -1275,7 +1389,7 @@
         }
     });
     form.addEventListener('submit', event => {
-        if (useMappingInvoice?.checked) return;
+        if (useMappingInvoice?.checked || quickPurchaseEntry?.checked) return;
         const invalidInput = Array.from(form.querySelectorAll('.numeric-text-input'))
             .filter(input => !input.disabled && !input.closest('.d-none') && input.offsetParent !== null)
             .find(input => !validateNumericTextInput(input));
@@ -2801,6 +2915,87 @@
             alert('Please choose a valid purchase date.');
             purchaseDateInput?.focus();
             resetPurchaseSubmitState();
+            return;
+        }
+
+        if (quickPurchaseEntry?.checked) {
+            const invoiceNumber = document.getElementById('invoiceNumber')?.value?.trim() || '';
+            if (!invoiceNumber) {
+                event.preventDefault();
+                alert('Enter the invoice number before saving the quick bill.');
+                document.getElementById('invoiceNumber')?.focus();
+                resetPurchaseSubmitState();
+                return;
+            }
+
+            const quickItems = [];
+            let quickEntryError = '';
+            Array.from(quickPurchaseLines?.querySelectorAll('.quick-purchase-line') || []).forEach((row, index) => {
+                if (quickEntryError) return;
+                const name = row.querySelector('.quick-line-name')?.value?.trim() || '';
+                const quantityText = row.querySelector('.quick-line-quantity')?.value?.trim() || '';
+                const priceText = row.querySelector('.quick-line-price')?.value?.trim() || '';
+                const gstText = row.querySelector('.quick-line-gst')?.value?.trim() || '0';
+                const hsn = row.querySelector('.quick-line-hsn')?.value?.trim() || '';
+                if (!name && !quantityText && !priceText && !hsn) return;
+
+                const quantity = Number(quantityText);
+                const price = Number(priceText);
+                const gstRate = Number(gstText);
+                if (!name) {
+                    quickEntryError = `Product line #${index + 1}: enter a product name.`;
+                } else if (!Number.isFinite(quantity) || quantity <= 0) {
+                    quickEntryError = `Product line #${index + 1}: enter a quantity greater than zero.`;
+                } else if (!Number.isFinite(price) || price <= 0) {
+                    quickEntryError = `Product line #${index + 1}: enter a purchase price greater than zero.`;
+                } else if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 100) {
+                    quickEntryError = `Product line #${index + 1}: enter a GST rate between 0 and 100%.`;
+                } else if (!hsn || hsn.length > 20) {
+                    quickEntryError = `Product line #${index + 1}: enter a valid HSN code (up to 20 characters).`;
+                } else {
+                    quickItems.push({
+                        item_type: 'THIRD_PARTY',
+                        item_name: name,
+                        quantity: quantity,
+                        unit: 'PCS',
+                        unit_price: price,
+                        tax_treatment: 'EXCLUDED',
+                        gst_type: gstRate > 0 ? 'BOTH' : 'EXEMPTED',
+                        tax_mode: 'PERCENT',
+                        tax_value: gstRate / 2,
+                        cgst_tax_value: gstRate / 2,
+                        hsn_code: hsn,
+                        form_index: String(quickItems.length)
+                    });
+                }
+            });
+
+            if (quickEntryError || quickItems.length === 0) {
+                event.preventDefault();
+                alert(quickEntryError || 'Add at least one product line before saving.');
+                resetPurchaseSubmitState();
+                return;
+            }
+
+            let quickPurchaseType = document.getElementById('purchaseTypeHiddenInput');
+            if (!quickPurchaseType) {
+                quickPurchaseType = document.createElement('input');
+                quickPurchaseType.type = 'hidden';
+                quickPurchaseType.name = 'purchase_type';
+                quickPurchaseType.id = 'purchaseTypeHiddenInput';
+                form.appendChild(quickPurchaseType);
+            }
+            quickPurchaseType.value = 'THIRD_PARTY';
+            let quickPayload = document.getElementById('itemsPayloadInput');
+            if (!quickPayload) {
+                quickPayload = document.createElement('input');
+                quickPayload.type = 'hidden';
+                quickPayload.name = 'items_payload';
+                quickPayload.id = 'itemsPayloadInput';
+                form.appendChild(quickPayload);
+            }
+            quickPayload.value = JSON.stringify(quickItems);
+            lockPurchaseSubmitState();
             return;
         }
 

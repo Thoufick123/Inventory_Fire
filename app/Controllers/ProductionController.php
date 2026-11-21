@@ -2627,6 +2627,15 @@ class ProductionController {
         if (!in_array($purchaseType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $purchaseType = 'FABRIC_ROLL';
         }
+        $quickPurchaseEntry = !empty($_POST['quick_purchase_entry']);
+        if ($quickPurchaseEntry) {
+            if (!empty($_POST['use_mapping_invoice'])) {
+                Session::flash('error', 'Choose either Quick Bill Entry or Import Saved Mapping Products, not both.');
+                Response::back();
+                return;
+            }
+            $purchaseType = 'THIRD_PARTY';
+        }
 
         $submittedItems = [];
         if (!empty($_POST['items_payload']) && is_string($_POST['items_payload'])) {
@@ -2717,7 +2726,9 @@ class ProductionController {
             if (!is_array($submitted)) {
                 continue;
             }
-            $itemType = strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
+            $itemType = $quickPurchaseEntry
+                ? 'THIRD_PARTY'
+                : strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
             if (!in_array($itemType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT'], true)) {
                 $itemType = $purchaseType;
             }
@@ -2942,6 +2953,11 @@ class ProductionController {
                     Response::back();
                     return;
                 }
+                if (mb_strlen($itemName) > 255) {
+                    Session::flash('error', "Product line #" . ($index + 1) . " product name cannot exceed 255 characters.");
+                    Response::back();
+                    return;
+                }
 
                 if ($quantity <= 0) {
                     Session::flash('error', "Product line #" . ($index + 1) . " requires a quantity greater than zero.");
@@ -2955,8 +2971,8 @@ class ProductionController {
                     return;
                 }
 
-                if ($hsnCode === '') {
-                    Session::flash('error', "Product line #" . ($index + 1) . " (" . $itemName . "): HSN code is mandatory.");
+                if ($hsnCode === '' || mb_strlen($hsnCode) > 20) {
+                    Session::flash('error', "Product line #" . ($index + 1) . " (" . $itemName . "): enter a valid HSN code up to 20 characters.");
                     Response::back();
                     return;
                 }
@@ -3141,6 +3157,16 @@ class ProductionController {
 
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
         $useMappingInvoice = !empty($_POST['use_mapping_invoice']);
+        if ($quickPurchaseEntry && $invoiceNumber === '') {
+            Session::flash('error', 'Enter the invoice number before saving the quick bill.');
+            Response::back();
+            return;
+        }
+        if ($quickPurchaseEntry && !$items) {
+            Session::flash('error', 'Add at least one product line before saving the quick bill.');
+            Response::back();
+            return;
+        }
         if (!$items && $useMappingInvoice) {
             PurchaseMappingFulfillmentService::ensureSchema();
             $mappingConcernId = currentConcernId() ?: 1;
