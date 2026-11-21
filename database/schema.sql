@@ -1,7 +1,7 @@
 -- ============================================================
 -- GRM INVENTORY SOFTWARE - SAFE ADDITIVE MASTER SCHEMA
 -- Generated: 2026-11-20
--- Tables: 93 (Master Complete Database Schema & Safe Migration)
+-- Tables: 95 (Master Complete Database Schema & Safe Migration)
 -- Existing-database upgrade: creates missing tables and adds missing columns/indexes.
 -- Does not drop tables, delete rows, or insert seed/demo users.
 -- Review and back up the live database before importing.
@@ -1576,6 +1576,7 @@ CREATE TABLE IF NOT EXISTS `qr_generations` (
   `qr_source` varchar(30) NOT NULL DEFAULT 'THIRD_PARTY',
   `source_purchase_id` int(10) unsigned DEFAULT NULL,
   `source_purchase_item_id` int(10) unsigned DEFAULT NULL,
+  `source_mapping_item_id` int(10) unsigned DEFAULT NULL,
   `stitching_batch_id` int(10) unsigned DEFAULT NULL,
   `program_id` int(10) unsigned DEFAULT NULL,
   `qc_batch_id` int(10) unsigned DEFAULT NULL,
@@ -1613,6 +1614,7 @@ CREATE TABLE IF NOT EXISTS `qr_generations` (
   KEY `idx_qrg_var` (`variant_id`),
   KEY `idx_qrg_source` (`qr_source`),
   KEY `idx_qrg_source_purchase` (`source_purchase_id`,`qr_source`),
+  KEY `idx_qrg_source_mapping_item` (`source_mapping_item_id`),
   KEY `idx_qr_generations_concern_id` (`concern_id`),
   KEY `idx_qrg_source_concern` (`qr_source`,`concern_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -4280,5 +4282,52 @@ ALTER TABLE `production_stock_requests` MODIFY COLUMN `status` enum('PENDING','R
 ALTER TABLE `roll_damages` MODIFY COLUMN `status` enum('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED') NOT NULL DEFAULT 'LOGGED';
 ALTER TABLE `shop_damages` MODIFY COLUMN `status` enum('LOGGED','INSPECTED','SALVAGED','WRITTEN_OFF','REPAIRED','RETURN_TO_WH','REWORK','CANCELLED') DEFAULT 'LOGGED';
 ALTER TABLE `product_variants` MODIFY COLUMN `attr_hash` varchar(64) DEFAULT NULL;
+
+CREATE TABLE IF NOT EXISTS `third_party_mapping_bills` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(10) unsigned NOT NULL,
+  `seller_id` int(10) unsigned NOT NULL,
+  `invoice_number` varchar(100) NOT NULL,
+  `status` enum('DRAFT','READY','MOVED') NOT NULL DEFAULT 'DRAFT',
+  `purchase_id` int(10) unsigned DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tpmb_supplier_invoice` (`concern_id`,`seller_id`,`invoice_number`),
+  KEY `idx_tpmb_match` (`concern_id`,`seller_id`,`status`),
+  KEY `idx_tpmb_purchase` (`purchase_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `third_party_mapping_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `mapping_bill_id` int(10) unsigned NOT NULL,
+  `purchase_item_id` int(10) unsigned DEFAULT NULL,
+  `product_id` int(10) unsigned NOT NULL,
+  `variant_id` int(10) unsigned NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `product_code` varchar(100) DEFAULT NULL,
+  `vendor_sku` varchar(100) DEFAULT NULL,
+  `quantity` decimal(12,3) NOT NULL,
+  `unit` varchar(30) NOT NULL DEFAULT 'PCS',
+  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `gst_rate` decimal(8,3) NOT NULL DEFAULT 0.000,
+  `hsn_code` varchar(20) NOT NULL,
+  `color` varchar(100) DEFAULT NULL,
+  `size` varchar(50) DEFAULT NULL,
+  `category_id` int(10) unsigned NOT NULL,
+  `subcategory_id` int(10) unsigned DEFAULT NULL,
+  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `qr_generation_id` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tpmi_bill` (`mapping_bill_id`),
+  KEY `idx_tpmi_purchase_item` (`purchase_item_id`),
+  KEY `idx_tpmi_variant` (`variant_id`),
+  KEY `idx_tpmi_qr` (`qr_generation_id`),
+  CONSTRAINT `fk_tpmi_bill` FOREIGN KEY (`mapping_bill_id`) REFERENCES `third_party_mapping_bills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
