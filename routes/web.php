@@ -537,6 +537,17 @@ class Router {
         $this->get('production/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
 
         // ==========================================
+        // PRODUCTION HSN CONFIG MODULE
+        // ==========================================
+        $this->get('production/hsn-config', 'ProductionHsnController', 'index', ['AuthMiddleware']);
+        $this->get('production/hsn-config/create', 'ProductionHsnController', 'create', ['AuthMiddleware']);
+        $this->post('production/hsn-config/store', 'ProductionHsnController', 'store', ['AuthMiddleware']);
+        $this->get('production/hsn-config/view/{id}', 'ProductionHsnController', 'view', ['AuthMiddleware']);
+        $this->get('production/hsn-config/edit/{id}', 'ProductionHsnController', 'edit', ['AuthMiddleware']);
+        $this->post('production/hsn-config/update/{id}', 'ProductionHsnController', 'update', ['AuthMiddleware']);
+        $this->post('production/hsn-config/delete/{id}', 'ProductionHsnController', 'delete', ['AuthMiddleware']);
+
+        // ==========================================
         // HSN CODE MANAGEMENT MODULE
         // ==========================================
         $this->get('hsn', 'HsnController', 'index', ['AuthMiddleware']);
