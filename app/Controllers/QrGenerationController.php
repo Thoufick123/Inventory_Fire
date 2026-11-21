@@ -128,6 +128,8 @@ class QrGenerationController {
             'activeTab'        => $activeTab,
             'purchaseGroups'   => self::getPurchaseGroups(),
             'stitchingBatches' => self::getStitchingBatches(),
+            'preselectedPurchaseId' => (int)($_GET['purchase_id'] ?? 0),
+            'preselectedPurchaseItemId' => (int)($_GET['purchase_item_id'] ?? 0),
             'breadcrumb'       => [
                 ['label' => 'Production', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('production/qr-generations')],

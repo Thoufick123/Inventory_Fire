@@ -471,6 +471,21 @@ echo "  Updated " . count($variants) . " product variants with collision-safe co
 // -------------------------------------------------------------
 echo "\n[5/7] Executing incremental database migrations...\n";
 
+// Per-variant third-party mapping taxonomy and HSN.
+if (tableExists($db, 'third_party_product_variants')) {
+    $variantTaxonomyColumns = [
+        'third_party_category_id' => 'int(10) unsigned DEFAULT NULL AFTER `barcode`',
+        'third_party_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_category_id`',
+        'third_party_sub_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_subcategory_id`',
+        'hsn_code' => 'varchar(20) DEFAULT NULL AFTER `third_party_sub_subcategory_id`',
+    ];
+    foreach ($variantTaxonomyColumns as $column => $definition) {
+        if (!columnExists($db, 'third_party_product_variants', $column)) {
+            $db->exec("ALTER TABLE `third_party_product_variants` ADD COLUMN `{$column}` {$definition}");
+        }
+    }
+}
+
 // Migration 1: 2026_05_28_add_return_settlement_modes.sql
 if (tableExists($db, 'returns')) {
     echo "  Applying 2026_05_28_add_return_settlement_modes.sql...\n";
