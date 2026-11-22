@@ -1,7 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i>Product Variants &amp; QR Identities</h2>
-        <p class="text-muted small mb-0">Manage individual sellable variants, collision-safe Variant IDs, unique SKUs, and scannable QR identities.</p>
+        <h2 class="mb-1"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i>Product Variants</h2>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <?php if (hasPermission('catalog', 'create')): ?>
@@ -320,44 +319,28 @@
                         </td>
 
                         <!-- Actions -->
-                        <td class="text-end pe-3">
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-light border dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    Actions
+                        <td class="text-end text-nowrap pe-3">
+                            <div class="action-btns-group justify-content-end">
+                                <a href="<?= url('production/variants/view/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="<?= url('production/variants/qr-label/' . $v['id']) ?>" target="_blank" class="btn btn-action-icon btn-outline-secondary" title="Print Single QR Label">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                <button type="button" class="btn btn-action-icon btn-outline-success" onclick="openBatchPrintModal(<?= (int)$v['id'] ?>, '<?= e($v['sku']) ?>', '<?= e($v['variant_code']) ?>')" title="Batch Print Labels">
+                                    <i class="bi bi-grid-3x2-gap"></i>
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                    <li>
-                                        <a class="dropdown-item" href="<?= url('production/variants/view/' . $v['id']) ?>">
-                                            <i class="bi bi-eye text-primary me-2"></i> View Details
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="<?= url('production/variants/qr-label/' . $v['id']) ?>" target="_blank">
-                                            <i class="bi bi-printer text-success me-2"></i> Print Single QR Label
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <button class="dropdown-item" type="button" onclick="openBatchPrintModal(<?= (int)$v['id'] ?>, '<?= e($v['sku']) ?>', '<?= e($v['variant_code']) ?>')">
-                                            <i class="bi bi-grid-3x2-gap text-info me-2"></i> Batch Print Labels
-                                        </button>
-                                    </li>
-                                    <?php if (hasPermission('catalog', 'edit')): ?>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item" href="<?= url('production/variants/edit/' . $v['id']) ?>">
-                                            <i class="bi bi-pencil text-warning me-2"></i> Edit Details
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <form method="POST" action="<?= url('production/variants/toggle/' . $v['id']) ?>" class="d-inline" onsubmit="return confirm('Change active status for this variant?');">
-                                            <?= csrf_field() ?>
-                                            <button type="submit" class="dropdown-item text-<?= (int)$v['is_active'] === 1 ? 'danger' : 'success' ?>">
-                                                <i class="bi bi-power me-2"></i> <?= (int)$v['is_active'] === 1 ? 'Deactivate' : 'Activate' ?>
-                                            </button>
-                                        </form>
-                                    </li>
-                                    <?php endif; ?>
-                                </ul>
+                                <?php if (hasPermission('catalog', 'edit')): ?>
+                                <a href="<?= url('production/variants/edit/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-primary" title="Edit Details">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="<?= url('production/variants/toggle/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-<?= (int)$v['is_active'] === 1 ? 'danger' : 'success' ?>" title="<?= (int)$v['is_active'] === 1 ? 'Deactivate Variant' : 'Activate Variant' ?>" onclick="event.preventDefault(); if (confirm('Change active status for this variant?')) { document.getElementById('toggleVariantForm_<?= $v['id'] ?>').submit(); }">
+                                    <i class="bi bi-power"></i>
+                                </a>
+                                <form id="toggleVariantForm_<?= $v['id'] ?>" method="POST" action="<?= url('production/variants/toggle/' . $v['id']) ?>" class="d-none">
+                                    <?= csrf_field() ?>
+                                </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

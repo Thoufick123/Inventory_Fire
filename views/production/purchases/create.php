@@ -941,8 +941,8 @@
                     <label class="form-label">Color / Shade</label>
                     <input class="form-control rm-color text-uppercase" maxlength="100" placeholder="E.G. RAW WHITE / NAVY BLUE" list="colorDataList">
                 </div>
-                <div class="col-lg-2 col-md-3">
-                    <label class="form-label">Count / Size</label>
+                <div class="col-lg-1 col-md-3">
+                    <label class="form-label text-nowrap">Count / Size</label>
                     <input class="form-control rm-size text-uppercase" maxlength="50" placeholder="E.G. 30S / 40/2 / 1 INCH" list="countSizeSuggestions">
                 </div>
                 <div class="col-lg-2 col-md-3">
@@ -961,12 +961,12 @@
                     </select>
                     <input type="text" class="form-control form-control-sm rm-custom-unit mt-1 d-none" placeholder="Enter custom unit">
                 </div>
-                <div class="col-lg-1 col-md-3">
-                    <label class="form-label required rm-qty-label">Qty (Kilograms) *</label>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label required rm-qty-label text-nowrap">Qty (Kilograms) *</label>
                     <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control rm-quantity numeric-text-input fw-bold text-end" value="1" required>
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required">Purchase Price (₹) *</label>
+                    <label class="form-label required text-nowrap">Purchase Price (₹) *</label>
                     <div class="input-group">
                         <span class="input-group-text p-1">₹</span>
                         <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control rm-cost numeric-text-input fw-semibold text-end" value="0.00" required>
@@ -985,7 +985,7 @@
                             </div>
                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                 <input type="hidden" class="rm-hsn">
-                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
                                 </button>
                                 <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1055;">
@@ -1104,7 +1104,7 @@
                             </div>
                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                 <input type="hidden" class="tp-hsn">
-                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
                                 </button>
                                 <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1055;">

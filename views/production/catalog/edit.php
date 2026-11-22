@@ -25,8 +25,8 @@ if (empty($existingColorIds)) {
 <form method="POST" action="<?= url('production/catalog/update/' . $product['id']) ?>" id="editCatalogForm">
     <?= CSRF::field() ?>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-10 col-xl-9">
+    <div class="row">
+        <div class="col-12">
             <!-- 1. CATEGORY HIERARCHY -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
@@ -181,7 +181,7 @@ if (empty($existingColorIds)) {
                                     </button>
                                 </div>
                                 <div class="position-relative" id="hsnSearchContainer">
-                                    <div class="input-group input-group-sm">
+                                    <div class="input-group">
                                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                                         <input type="text" id="hsnSearchInput" class="form-control border-start-0 ps-0" placeholder="Type HSN code or description (e.g. 6109, Shirt, Cotton)..." autocomplete="off" onfocus="openHsnDropdown()" oninput="filterHsnList(this.value)">
                                         <button class="btn btn-outline-secondary" type="button" onclick="toggleHsnDropdown()" title="Toggle HSN list">
@@ -249,7 +249,6 @@ if (empty($existingColorIds)) {
                                         </div>
                                     </div>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Type to live filter HSN codes or click to open dropdown</small>
                             </div>
 
                             <!-- HSN Code -->
@@ -259,11 +258,10 @@ if (empty($existingColorIds)) {
                                 </label>
                                 <div class="input-group">
                                     <input type="text" name="hsn_code" id="hsn_code" class="form-control text-uppercase fw-bold" placeholder="e.g. 6109" maxlength="15" value="<?= e($product['hsn_code'] ?? '') ?>" required>
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearHsnFields()" title="Clear HSN">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="clearHsnFields()" title="Clear HSN">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Harmonized System of Nomenclature code for tax invoices</small>
                             </div>
 
                             <!-- Default GST Rate -->

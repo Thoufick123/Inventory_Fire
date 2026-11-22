@@ -5,7 +5,6 @@ $activeMeta = $tabs[$activeTab] ?? reset($tabs);
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-qr-code me-2 text-primary"></i>Generate QR Code Batch</h2>
-        <p class="text-muted small mb-0">Choose the product area, then generate QR labels from a purchase or a custom catalog hierarchy.</p>
     </div>
     <div>
         <a href="<?= url('production/qr-generations?tab=' . e($activeTab)) ?>" class="btn btn-outline-secondary">

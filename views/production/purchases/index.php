@@ -87,19 +87,23 @@
 
 <style>
 .purchase-action-buttons {
-    display: flex;
-    flex-wrap: wrap;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     justify-content: center;
     gap: 0.35rem;
+    white-space: nowrap;
 }
 .purchase-action-buttons .btn-action-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     padding: 0;
+    border-radius: 8px;
 }
 </style>
 
@@ -135,7 +139,7 @@
                         <th>Inward Items &amp; Summary</th>
                         <th>Invoice #</th>
                         <th class="text-end">Total Amount (₹)</th>
-                        <th class="text-center" style="width: 170px;">Actions</th>
+                        <th class="text-center text-nowrap" style="width: 170px; min-width: 160px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="purchasesTableBody">
@@ -328,7 +332,7 @@
                         <td class="text-end fw-bold text-success fs-6">
                             ₹<?= number_format((float)$purchase['total_amount'], 2) ?>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center text-nowrap">
                             <div class="purchase-action-buttons">
                                 <?php if (hasPermission('production_purchases', 'view') || hasPermission('sellers', 'view')): ?>
                                     <a class="btn btn-action-icon btn-outline-info" href="<?= url('purchases/view/' . $purchase['id']) ?>" title="View Purchase Details">

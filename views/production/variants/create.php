@@ -1,11 +1,10 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-plus-circle-fill me-2 text-primary"></i>Create Product Variant</h2>
-        <p class="text-muted small mb-0">Follow the 11-step wizard to register a unique variant, auto-generate collision-safe identifiers, and link a scannable QR identity.</p>
+        <h2 class="mb-1"><i class="bi bi-plus-circle-fill me-2 text-primary"></i>Add Product Variants</h2>
     </div>
     <div>
         <a href="<?= url('production/variants') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to Variants Roster
+            <i class="bi bi-arrow-left me-1"></i> Back to Product Variants
         </a>
     </div>
 </div>

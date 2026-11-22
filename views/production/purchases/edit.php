@@ -242,8 +242,8 @@ $taxValueForItem = static function (array $item, string $type): float {
                                     <label class="form-label">Color / Shade</label>
                                     <input class="form-control rm-color text-uppercase" name="items[<?= $rmId ?>][color]" maxlength="100" value="<?= e($item['color'] ?? '') ?>" placeholder="E.G. RAW WHITE / NAVY BLUE" list="colorDataList">
                                 </div>
-                                <div class="col-lg-2 col-md-3">
-                                    <label class="form-label">Count / Size</label>
+                                <div class="col-lg-1 col-md-3">
+                                    <label class="form-label text-nowrap">Count / Size</label>
                                     <input class="form-control rm-size text-uppercase" name="items[<?= $rmId ?>][size]" maxlength="50" value="<?= e($item['size'] ?? '') ?>" placeholder="E.G. 30S / 40/2 / 1 INCH" list="countSizeSuggestions">
                                 </div>
                                 <div class="col-lg-2 col-md-3">
@@ -255,12 +255,12 @@ $taxValueForItem = static function (array $item, string $type): float {
                                     </select>
                                     <input type="text" class="form-control form-control-sm rm-custom-unit mt-1 <?= $isCustomUnit ? '' : 'd-none' ?>" name="items[<?= $rmId ?>][custom_unit]" value="<?= $isCustomUnit ? e($item['unit']) : '' ?>" placeholder="Enter custom unit">
                                 </div>
-                                <div class="col-lg-1 col-md-3">
-                                    <label class="form-label required rm-qty-label">Qty (<?= e($isCustomUnit ? ($item['unit'] ?: 'Kilograms') : $currentUnit) ?>) *</label>
+                                <div class="col-lg-2 col-md-3">
+                                    <label class="form-label required rm-qty-label text-nowrap">Qty (<?= e($isCustomUnit ? ($item['unit'] ?: 'Kilograms') : $currentUnit) ?>) *</label>
                                     <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" name="items[<?= $rmId ?>][quantity]" class="form-control rm-quantity numeric-text-input fw-bold text-end" value="<?= (float)$item['quantity'] ?>" required>
                                 </div>
                                 <div class="col-lg-2 col-md-3">
-                                    <label class="form-label required">Purchase Price (₹) *</label>
+                                    <label class="form-label required text-nowrap">Purchase Price (₹) *</label>
                                     <div class="input-group">
                                         <span class="input-group-text p-1">₹</span>
                                         <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" name="items[<?= $rmId ?>][unit_price]" class="form-control rm-cost numeric-text-input fw-semibold text-end" value="<?= number_format((float)$item['unit_price'], 2, '.', '') ?>" required>
@@ -279,7 +279,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                                             </div>
                                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                                 <input type="hidden" name="items[<?= $rmId ?>][hsn_code]" class="rm-hsn" value="<?= e($item['hsn_code'] ?? '') ?>">
-                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                                     <span class="hsn-btn-text text-truncate">
                                                         <?php if (!empty($item['hsn_code'])): ?>
                                                             <span class="fw-bold text-primary"><?= e($item['hsn_code']) ?></span> <span class="badge bg-success-subtle text-success border border-success-subtle py-0 px-1 ms-1" style="font-size:10px;"><?= (float)($taxVal + $cgstVal > 0 ? ($taxVal + $cgstVal) : 5) ?>% GST</span>
@@ -480,7 +480,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                                             </div>
                                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                                 <input type="hidden" name="items[<?= $tpId ?>][hsn_code]" class="tp-hsn" value="<?= e($item['hsn_code'] ?? '') ?>">
-                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                                     <span class="hsn-btn-text text-truncate">
                                                         <?php if (!empty($item['hsn_code'])): ?>
                                                             <span class="fw-bold text-primary"><?= e($item['hsn_code']) ?></span> <span class="badge bg-success-subtle text-success border border-success-subtle py-0 px-1 ms-1" style="font-size:10px;"><?= (float)($taxVal + $cgstVal > 0 ? ($taxVal + $cgstVal) : 5) ?>% GST</span>
@@ -821,7 +821,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                             </div>
                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                 <input type="hidden" class="tp-hsn">
-                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
                                 </button>
                                 <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1055;">
@@ -904,8 +904,8 @@ $taxValueForItem = static function (array $item, string $type): float {
                     <label class="form-label">Color / Shade</label>
                     <input class="form-control rm-color text-uppercase" maxlength="100" placeholder="E.G. RAW WHITE / NAVY BLUE" list="colorDataList">
                 </div>
-                <div class="col-lg-2 col-md-3">
-                    <label class="form-label">Count / Size</label>
+                <div class="col-lg-1 col-md-3">
+                    <label class="form-label text-nowrap">Count / Size</label>
                     <input class="form-control rm-size text-uppercase" maxlength="50" placeholder="E.G. 30S / 40/2 / 1 INCH" list="countSizeSuggestions">
                 </div>
                 <div class="col-lg-2 col-md-3">
@@ -924,12 +924,12 @@ $taxValueForItem = static function (array $item, string $type): float {
                     </select>
                     <input type="text" class="form-control form-control-sm rm-custom-unit mt-1 d-none" placeholder="Enter custom unit">
                 </div>
-                <div class="col-lg-1 col-md-3">
-                    <label class="form-label required rm-qty-label">Qty (Kilograms) *</label>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label required rm-qty-label text-nowrap">Qty (Kilograms) *</label>
                     <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control rm-quantity numeric-text-input fw-bold text-end" value="1" required>
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required">Purchase Price (₹) *</label>
+                    <label class="form-label required text-nowrap">Purchase Price (₹) *</label>
                     <div class="input-group">
                         <span class="input-group-text p-1">₹</span>
                         <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control rm-cost numeric-text-input fw-semibold text-end" value="0.00" required>
@@ -948,7 +948,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                             </div>
                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                 <input type="hidden" class="rm-hsn">
-                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 35px;">
+                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1.5 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.82rem; height: 38px;">
                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
                                 </button>
                                 <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1055;">

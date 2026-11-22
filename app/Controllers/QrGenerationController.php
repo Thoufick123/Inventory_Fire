@@ -80,8 +80,8 @@ class QrGenerationController {
             'activeTab'    => $activeTab,
             'tabCounts'    => $tabCounts,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'QR Code Generations'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations'],
             ],
         ]);
     }
@@ -131,7 +131,7 @@ class QrGenerationController {
             'preselectedPurchaseId' => (int)($_GET['purchase_id'] ?? 0),
             'preselectedPurchaseItemId' => (int)($_GET['purchase_item_id'] ?? 0),
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('production/qr-generations')],
                 ['label' => 'Generate QR Labels'],
             ],
@@ -412,7 +412,7 @@ class QrGenerationController {
             'batch'        => $batch,
             'activeTab'    => QrGenerationService::normalizeTab($_GET['tab'] ?? $batch['qr_source'] ?? null),
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('production/qr-generations')],
                 ['label' => $batch['batch_code']],
             ],

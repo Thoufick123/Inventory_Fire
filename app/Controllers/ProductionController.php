@@ -8456,8 +8456,8 @@ class ProductionController {
             'resolutionType' => $resolutionType,
             'damageReasons'  => $damageReasons,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Damages'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Damage Management'],
             ],
         ]);
     }
@@ -9633,7 +9633,7 @@ class ProductionController {
         $subcategories = Database::fetchAll("SELECT * FROM subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
 
         Response::view('production.catalog.index', [
-            'pageTitle'      => 'Production Catalog',
+            'pageTitle'      => 'Product Catalog',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-catalog',
             'products'       => $products,
@@ -9643,8 +9643,8 @@ class ProductionController {
             'categoryId'     => $categoryId,
             'subcategoryId'  => $subcategoryId,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog'],
             ],
         ]);
     }
@@ -9662,7 +9662,7 @@ class ProductionController {
         $suggestedCode = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
         Response::view('production.catalog.create', [
-            'pageTitle'     => 'Add Product Style | Production Catalog',
+            'pageTitle'     => 'Add Product Style | Product Catalog',
             'activeModule'  => 'production',
             'activeMenu'    => 'prod-catalog',
             'categories'    => $categories,
@@ -9672,9 +9672,9 @@ class ProductionController {
             'hsnCodes'      => $hsnCodes,
             'suggestedCode' => $suggestedCode,
             'breadcrumb'    => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
-                ['label' => 'Add Style Form'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Add Product Catalog'],
             ],
         ]);
     }
@@ -9901,15 +9901,15 @@ class ProductionController {
         );
 
         Response::view('production.catalog.view', [
-            'pageTitle'    => $product['name'] . ' | Production Catalog',
+            'pageTitle'    => $product['name'] . ' | Product Catalog',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-catalog',
             'product'      => $product,
             'variants'     => $variants,
             'programs'     => $programs,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
                 ['label' => $product['code']],
             ],
         ]);
@@ -9995,9 +9995,9 @@ class ProductionController {
             'colors'           => $colors,
             'hsnCodes'         => Database::fetchAll("SELECT * FROM hsn_codes ORDER BY hsn_code ASC"),
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
-                ['label' => 'Edit ' . $product['code']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Edit Product Catlog ' . $product['code']],
             ],
         ]);
     }
@@ -21199,16 +21199,22 @@ class ProductionController {
             ];
         }
 
+        $damageNumber = $damage['damage_number'] ?? ('#' . $damage['id']);
         $this->renderProductionRecord(
-            'Damage Record ' . ($damage['damage_number'] ?? ('#' . $damage['id'])),
-            'damages',
-            'Damages',
+            'Damage Record ' . $damageNumber,
+            'prod-damages',
+            'Damage Management',
             url('production/damages'),
             $fields,
             [],
             [],
             'Damage Details',
-            $qrLabelData
+            $qrLabelData,
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Damage Management', 'url' => url('production/damages')],
+                ['label' => $damageNumber],
+            ]
         );
     }
 
@@ -21400,14 +21406,15 @@ class ProductionController {
         array $items,
         array $itemColumns,
         string $itemsTitle,
-        array $qrLabel = []
+        array $qrLabel = [],
+        ?array $customBreadcrumb = null
     ): void {
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
             'activeModule' => 'production',
             'activeMenu'   => $activeMenu,
-            'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+            'breadcrumb'   => $customBreadcrumb ?? [
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => $sectionTitle, 'url' => $backUrl],
                 ['label' => 'Details'],
             ],
