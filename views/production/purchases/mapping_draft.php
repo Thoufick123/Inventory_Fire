@@ -130,10 +130,20 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm">
-                            <thead class="table-light">
+                        <table class="table table-bordered align-middle table-sm" style="min-width: 1360px;">
+                            <thead class="table-light small text-uppercase text-muted">
                                 <tr>
-                                    <th>Size</th><th>Color</th><th>SKU</th><th>Qty</th><th>Purchase Rate</th><th>MRP</th><th>Selling</th><th>GST %</th><th>HSN</th><th>Category hierarchy</th><th></th>
+                                    <th style="width: 110px; min-width: 110px;">Size</th>
+                                    <th style="width: 120px; min-width: 120px;">Color</th>
+                                    <th style="width: 160px; min-width: 150px;">SKU</th>
+                                    <th style="width: 95px; min-width: 90px;">Qty</th>
+                                    <th style="width: 115px; min-width: 110px;">Purchase Rate</th>
+                                    <th style="width: 115px; min-width: 110px;">MRP</th>
+                                    <th style="width: 115px; min-width: 110px;">Selling</th>
+                                    <th style="width: 90px; min-width: 85px;">GST %</th>
+                                    <th style="width: 115px; min-width: 110px;">HSN</th>
+                                    <th style="width: 260px; min-width: 250px;">Category hierarchy</th>
+                                    <th style="width: 50px; min-width: 50px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
@@ -420,16 +430,49 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
     const addRowsButton = document.getElementById('addMappingVariantRows');
     const rowsToAddInput = document.getElementById('mappingVariantRowsToAdd');
     if (!body || !addButton) return;
+
+    function updateRowCascade(row) {
+        const catSelect = row.querySelector('.mapping-category');
+        const subcatSelect = row.querySelector('.mapping-subcategory');
+        const subSubcatSelect = row.querySelector('.mapping-subsubcategory');
+        if (!catSelect || !subcatSelect || !subSubcatSelect) return;
+
+        const categoryId = String(catSelect.value || '');
+        const subcategoryId = String(subcatSelect.value || '');
+
+        // Subcategory options: only show if belongs to chosen category
+        Array.from(subcatSelect.options).forEach(function (option) {
+            if (!option.value) return;
+            const matches = Boolean(categoryId && option.dataset.parent === categoryId);
+            option.hidden = !matches;
+            if (!matches && option.selected) option.selected = false;
+        });
+
+        // Sub-subcategory options: only show if belongs to chosen subcategory (and subcategory is chosen)
+        Array.from(subSubcatSelect.options).forEach(function (option) {
+            if (!option.value) return;
+            const matches = Boolean(subcategoryId && option.dataset.parent === subcategoryId);
+            option.hidden = !matches;
+            if (!matches && option.selected) option.selected = false;
+        });
+    }
+
     let nextIndex = 1;
     const template = body.querySelector('tr').outerHTML;
     const addRows = function (count) {
         for (let rowIndex = 0; rowIndex < count; rowIndex++) {
-            const row = document.createElement('tbody');
-            row.innerHTML = template.replace(/variants\[0\]/g, 'variants[' + nextIndex + ']');
-            body.appendChild(row.firstElementChild);
+            const rowWrapper = document.createElement('tbody');
+            rowWrapper.innerHTML = template.replace(/variants\[0\]/g, 'variants[' + nextIndex + ']');
+            const newRow = rowWrapper.firstElementChild;
+            body.appendChild(newRow);
+            updateRowCascade(newRow);
             nextIndex++;
         }
     };
+
+    // Initial cascade on existing rows
+    body.querySelectorAll('tr').forEach(updateRowCascade);
+
     addButton.addEventListener('click', function () { addRows(1); });
     addRowsButton?.addEventListener('click', function () {
         if (!rowsToAddInput.reportValidity()) return;
@@ -441,32 +484,19 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         if (body.querySelectorAll('tr').length > 1) button.closest('tr').remove();
     });
     body.addEventListener('change', function (event) {
+        const row = event.target.closest('tr');
+        if (!row) return;
+
         if (event.target.classList.contains('mapping-category')) {
-            const row = event.target.closest('tr');
-            const categoryId = event.target.value;
-            const subcategory = row.querySelector('.mapping-subcategory');
-            const previousSubcategory = subcategory.value;
-            Array.from(subcategory.options).forEach(function (option) {
-                if (!option.value) return;
-                option.hidden = option.dataset.parent !== categoryId;
-                if (option.hidden && option.selected) option.selected = false;
-            });
-            if (previousSubcategory !== subcategory.value) {
-                const subSubcategory = row.querySelector('.mapping-subsubcategory');
-                Array.from(subSubcategory.options).forEach(function (option) {
-                    if (!option.value) return;
-                    option.hidden = option.dataset.parent !== subcategory.value;
-                    if (option.hidden && option.selected) option.selected = false;
-                });
-            }
+            const subcat = row.querySelector('.mapping-subcategory');
+            const subSubcat = row.querySelector('.mapping-subsubcategory');
+            if (subcat) subcat.value = '';
+            if (subSubcat) subSubcat.value = '';
+            updateRowCascade(row);
         } else if (event.target.classList.contains('mapping-subcategory')) {
-            const subcategoryId = event.target.value;
-            const subSubcategory = event.target.closest('tr').querySelector('.mapping-subsubcategory');
-            Array.from(subSubcategory.options).forEach(function (option) {
-                if (!option.value) return;
-                option.hidden = option.dataset.parent !== subcategoryId;
-                if (option.hidden && option.selected) option.selected = false;
-            });
+            const subSubcat = row.querySelector('.mapping-subsubcategory');
+            if (subSubcat) subSubcat.value = '';
+            updateRowCascade(row);
         }
     });
 })();
@@ -695,6 +725,26 @@ document.addEventListener('DOMContentLoaded', function() {
     if (draftProductForm) {
         draftProductForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            // Validate category hierarchy on all variant rows
+            const variantRows = draftProductForm.querySelectorAll('#mappingVariantRows tr');
+            for (let i = 0; i < variantRows.length; i++) {
+                const vRow = variantRows[i];
+                const catVal = vRow.querySelector('.mapping-category')?.value;
+                const subcatVal = vRow.querySelector('.mapping-subcategory')?.value;
+                const subSubcatVal = vRow.querySelector('.mapping-subsubcategory')?.value;
+                if (!catVal) {
+                    alert('Validation Error: Please select a Category for variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.mapping-category')?.focus();
+                    return;
+                }
+                if (subSubcatVal && !subcatVal) {
+                    alert('Validation Error: Please select a Subcategory for variant row #' + (i + 1) + ' before selecting a Sub-subcategory.');
+                    vRow.querySelector('.mapping-subcategory')?.focus();
+                    return;
+                }
+            }
+
             const submitBtn = draftProductForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;

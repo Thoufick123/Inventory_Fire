@@ -555,35 +555,35 @@ tr.table-danger, tr.table-danger > td {
             $vSubSubcatId = !empty($v['third_party_sub_subcategory_id']) ? (int)$v['third_party_sub_subcategory_id'] : (!empty($v['sub_subcategory_id']) ? (int)$v['sub_subcategory_id'] : $activeSubSubcatId);
         ?>
         <tr class="variant-row" data-index="<?= $index ?>">
-            <td class="text-center text-muted fw-bold row-num" style="width: 40px;"><?= $index + 1 ?></td>
-            <td style="width: 100px;">
-                <input class="form-control form-control-sm var-size" name="variants[<?= $index ?>][size]" value="<?= e($vSize) ?>" placeholder="Size" required>
+            <td class="text-center text-muted fw-bold row-num" style="width: 45px; min-width: 45px;"><?= $index + 1 ?></td>
+            <td style="width: 110px; min-width: 110px;">
+                <input class="form-control form-control-sm var-size" name="variants[<?= $index ?>][size]" value="<?= e($vSize) ?>" placeholder="Size" required style="min-width: 95px;">
             </td>
-            <td style="width: 110px;">
-                <input class="form-control form-control-sm var-color" name="variants[<?= $index ?>][color]" value="<?= e($vColor) ?>" placeholder="Color" required>
+            <td style="width: 120px; min-width: 120px;">
+                <input class="form-control form-control-sm var-color" name="variants[<?= $index ?>][color]" value="<?= e($vColor) ?>" placeholder="Color" required style="min-width: 105px;">
             </td>
-            <td style="min-width: 140px;">
-                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required>
+            <td style="width: 170px; min-width: 160px;">
+                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required style="min-width: 150px;">
             </td>
-            <td style="width: 100px;">
-                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="number" step="1" min="1" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty">
+            <td style="width: 95px; min-width: 90px;">
+                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="number" step="1" min="1" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;">
             </td>
-            <td style="width: 110px;">
-                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="number" step="0.01" min="0" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate">
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="number" step="0.01" min="0" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate" style="min-width: 95px;">
             </td>
-            <td style="width: 110px;">
-                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="number" step="0.01" min="0.01" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP">
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="number" step="0.01" min="0.01" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP" style="min-width: 95px;">
             </td>
-            <td style="width: 110px;">
-                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="number" step="0.01" min="0.01" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale">
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="number" step="0.01" min="0.01" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale" style="min-width: 95px;">
             </td>
-            <td style="width: 90px;">
-                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="number" step="0.01" min="0" max="100" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %">
+            <td style="width: 90px; min-width: 85px;">
+                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="number" step="0.01" min="0" max="100" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %" style="min-width: 75px;">
             </td>
-            <td style="width: 100px;">
-                <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN">
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
             </td>
-            <td style="min-width: 220px;">
+            <td style="width: 260px; min-width: 250px;">
                 <select class="form-select form-select-sm var-category mb-1" name="variants[<?= $index ?>][category_id]" required>
                     <option value="">-- Main Category --</option>
                     <?php foreach ($categories as $cat): ?>
@@ -603,7 +603,7 @@ tr.table-danger, tr.table-danger > td {
                     <?php endforeach; ?>
                 </select>
             </td>
-            <td class="text-center" style="width: 50px;">
+            <td class="text-center" style="width: 50px; min-width: 50px;">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Remove variant"><i class="bi bi-x-lg"></i></button>
             </td>
         </tr>
@@ -635,21 +635,21 @@ tr.table-danger, tr.table-danger > td {
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="tableVariantRows">
+                    <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1360px;">
                         <thead class="table-light small text-uppercase text-muted">
                             <tr>
-                                <th style="width: 40px;" class="text-center">#</th>
-                                <th style="width: 100px;">Size <span class="text-danger">*</span></th>
-                                <th style="width: 110px;">Color <span class="text-danger">*</span></th>
-                                <th style="min-width: 140px;">SKU <span class="text-danger">*</span></th>
-                                <th style="width: 100px;" class="text-end">Qty <span class="text-danger">*</span></th>
-                                <th style="width: 110px;" class="text-end">Rate (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 90px;" class="text-end">GST %</th>
-                                <th style="width: 100px;">HSN Code <span class="text-danger">*</span></th>
-                                <th style="min-width: 220px;">Category Hierarchy <span class="text-danger">*</span></th>
-                                <th style="width: 50px;" class="text-center"></th>
+                                <th style="width: 45px; min-width: 45px;" class="text-center">#</th>
+                                <th style="width: 110px; min-width: 110px;">Size <span class="text-danger">*</span></th>
+                                <th style="width: 120px; min-width: 120px;">Color <span class="text-danger">*</span></th>
+                                <th style="width: 170px; min-width: 160px;">SKU <span class="text-danger">*</span></th>
+                                <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
+                                <th style="width: 115px; min-width: 110px;" class="text-end">Rate (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 115px; min-width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 115px; min-width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 90px; min-width: 85px;" class="text-end">GST %</th>
+                                <th style="width: 115px; min-width: 110px;">HSN Code <span class="text-danger">*</span></th>
+                                <th style="width: 260px; min-width: 250px;">Category Hierarchy <span class="text-danger">*</span></th>
+                                <th style="width: 50px; min-width: 50px;" class="text-center"></th>
                             </tr>
                         </thead>
                         <tbody id="tbodyVariantRows">
@@ -1136,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Replace input names
             clone.querySelectorAll('input, select').forEach(input => {
                 if (input.name) {
-                    input.name = input.name.replace(/variants\[\d+\]/, ariants[ + nextIdx + ]);
+                    input.name = input.name.replace(/variants\[\d+\]/, 'variants[' + nextIdx + ']');
                 }
             });
 
@@ -1297,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const sp = parseFloat(batchInputSp?.value || '0') || 0;
 
             if (mrp > 0 && sp > 0 && mrp < sp) {
-                alert(Validation Error: MRP (₹ + mrp.toFixed(2) + ) cannot be lower than Selling Price (₹ + sp.toFixed(2) + ).);
+                alert('Validation Error: MRP (₹' + mrp.toFixed(2) + ') cannot be lower than Selling Price (₹' + sp.toFixed(2) + ').');
                 batchInputMrp?.focus();
                 return;
             }
@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (Math.abs(totalAllocated - purchasedQty) > 0.001) {
-                const proceed = confirm(The allocated variant quantity ( + totalAllocated + ) differs from the purchased bill quantity ( + purchasedQty + ). Proceed anyway?);
+                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') differs from the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
                 if (!proceed) {
                     e.preventDefault();
                     return false;
