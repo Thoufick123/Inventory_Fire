@@ -151,7 +151,10 @@
                                     </div>
                                     <div class="qr-canvas-holder" id="qr-canvas-<?= (int)$item['id'] ?>" data-code="<?= e($item['qr_code']) ?>"></div>
                                     <div class="font-monospace fw-bold text-primary mt-1" style="font-size: 10px;">
-                                        <?= $dateLabel !== '' ? e($dateLabel) : e($item['qr_code']) ?>
+                                        <?= e($item['qr_code']) ?>
+                                        <?php if ($dateLabel !== ''): ?>
+                                            <span class="text-muted fw-normal" style="font-size: 9px;">(<?= e($dateLabel) ?>)</span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </td>

@@ -127,8 +127,8 @@
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="text-muted small fw-semibold text-uppercase"><?= $isFabricBatch ? 'Month/Year' : 'QR Code Prefix' ?></div>
-                <div class="font-monospace fw-bold text-primary mt-1"><?= e($isFabricBatch ? ($fabricMonthYear ?: '—') : $batch['qr_prefix']) ?></div>
+                <div class="text-muted small fw-semibold text-uppercase">QR Code Prefix</div>
+                <div class="font-monospace fw-bold text-primary mt-1"><?= e($batch['qr_prefix'] ?: ($isFabricBatch && $fabricMonthYear ? $fabricMonthYear : '—')) ?><?php if ($isFabricBatch && $fabricMonthYear && $batch['qr_prefix']): ?> <span class="text-muted fw-normal" style="font-size: 11px;">(<?= e($fabricMonthYear) ?>)</span><?php endif; ?></div>
             </div>
             <?php if ($isProduction): ?>
             <div class="col-12 pt-3 border-top d-flex gap-3 flex-wrap align-items-center">
@@ -197,7 +197,7 @@
             <?php foreach ($batch['items'] as $item): ?>
             <?php
                 $itemQrCode = (string)($item['qr_code'] ?? '');
-                $displayQrLabel = $isFabricBatch ? ($fabricMonthYear ?: $itemQrCode) : $itemQrCode;
+                $displayQrLabel = $itemQrCode;
                 $sizeName = trim((string)($item['size_name'] ?: ($batch['size_name'] ?? '')));
                 $colorName = trim((string)($item['color_name'] ?: ($batch['color_name'] ?? '')));
                 $itemVariantId = !empty($item['variant_id']) ? (int)$item['variant_id'] : (!empty($batch['variant_id']) ? (int)$batch['variant_id'] : null);
@@ -213,7 +213,7 @@
                             <div class="batch-qr-canvas p-1 bg-white border rounded" data-code="<?= e($item['qr_code']) ?>"></div>
                         </div>
                         <div class="font-monospace fw-bold text-primary text-truncate" style="font-size: 11px;">
-                            <?= e($displayQrLabel) ?>
+                            <?= e($item['qr_code']) ?><?php if ($isFabricBatch && $fabricMonthYear): ?> <span class="text-muted fw-normal" style="font-size: 10px;">(<?= e($fabricMonthYear) ?>)</span><?php endif; ?>
                         </div>
                         <?php if ($itemVariantId): ?>
                         <div class="mt-1">

@@ -97,15 +97,12 @@
                                         <?= e($brandDisplay) ?>
                                     </div>
                                     <div class="qr-canvas-holder" id="qr-canvas-<?= (int)$item['id'] ?>" data-code="<?= e($item['qr_code']) ?>"></div>
-                                    <?php if ($dateLabel !== ''): ?>
-                                        <div class="mt-1 font-monospace text-primary" style="font-size: 10px; font-weight: bold;">
-                                            <?= e($dateLabel) ?>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="mt-1 font-monospace text-muted" style="font-size: 9px;">
-                                            <?= e($item['qr_code']) ?>
-                                        </div>
-                                    <?php endif; ?>
+                                    <div class="mt-1 font-monospace text-primary" style="font-size: 10px; font-weight: bold;">
+                                        <?= e($item['qr_code']) ?>
+                                        <?php if ($dateLabel !== ''): ?>
+                                            <span class="text-muted fw-normal" style="font-size: 9px;">(<?= e($dateLabel) ?>)</span>
+                                        <?php endif; ?>
+                                    </div>
 
                                     <!-- Used Roll / In Stock indicator in second column -->
                                     <?php if (!empty($item['is_used_in_program'])): ?>

@@ -127,16 +127,13 @@
                                 <div class="d-flex justify-content-center my-2">
                                     <div class="qr-canvas-holder p-1 bg-white border rounded" id="qr-canvas-<?= (int)$item['id'] ?>" data-code="<?= e($item['qr_code']) ?>"></div>
                                 </div>
-                                <!-- MM/YYYY Date at Bottom in Monospace Blue -->
-                                <?php if ($dateLabel !== ''): ?>
-                                    <div class="font-monospace fw-bold text-primary" style="font-size: 12px;">
-                                        <?= e($dateLabel) ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="font-monospace fw-bold text-primary" style="font-size: 11px;">
-                                        <?= e($item['qr_code']) ?>
-                                    </div>
-                                <?php endif; ?>
+                                <!-- QR Code at Bottom in Monospace Blue -->
+                                <div class="font-monospace fw-bold text-primary" style="font-size: 11px;">
+                                    <?= e($item['qr_code']) ?>
+                                    <?php if ($dateLabel !== ''): ?>
+                                        <span class="text-muted fw-normal" style="font-size: 10px;">(<?= e($dateLabel) ?>)</span>
+                                    <?php endif; ?>
+                                </div>
 
                                 <!-- Color & Design Pattern -->
                                 <?php
