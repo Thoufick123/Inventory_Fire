@@ -39,10 +39,9 @@ input[type=number] {
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-threads me-2 text-warning"></i>New Stitching Batch</h2>
-        <span class="text-muted">Select cutting batch by name, dynamically identify multi-catalog hierarchies, and set variant-wise quantities, weights &amp; distinct prices</span>
     </div>
     <a href="<?= url('production/stitching') ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i> Back to Stitching Batches
+        <i class="bi bi-arrow-left me-1"></i> Back to Stitching
     </a>
 </div>
 

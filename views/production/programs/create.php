@@ -1,7 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-calendar-plus me-2 text-primary"></i>Create Production Program</h2>
-        <span class="text-muted">Set program name, assign multiple raw material rolls with individual 3-tier catalog category hierarchies, and configure schedule dates.</span>
     </div>
     <a href="<?= url('production/programs') ?>" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Back to Programs
@@ -96,13 +95,13 @@
                                 <span>Scan Fabric Roll Barcode / QR Tag</span>
                                 <span class="badge bg-success-subtle text-success border px-2 py-1" style="font-size: 10px;">Auto-Add Ready</span>
                             </span>
-                            <small class="text-muted" style="font-size: 11px;">Hardware Gun &amp; Camera Scanner (e.g. <code>FB1126141</code>, <code>ROLL #1</code>)</small>
+                            <small class="text-muted" style="font-size: 11px;">Hardware Gun &amp; Camera Scanner (e.g. <code>FB112601</code>, <code>ROLL #1</code>)</small>
                         </div>
                         <div class="input-group">
                             <span class="input-group-text bg-white text-success border-end-0">
                                 <i class="bi bi-qr-code"></i>
                             </span>
-                            <input type="text" id="quickRollScanInput" class="form-control border-start-0 font-monospace fw-semibold" placeholder="Scan roll QR or type piece tag (e.g. FB1126141) and press Enter to auto-add..." autocomplete="off">
+                            <input type="text" id="quickRollScanInput" class="form-control border-start-0 font-monospace fw-semibold" placeholder="Scan roll QR or type piece tag (e.g. FB112601) and press Enter to auto-add..." autocomplete="off">
                             <button type="button" class="btn btn-success fw-semibold px-3" onclick="triggerQuickRollScan()">
                                 <i class="bi bi-plus-circle me-1"></i> Scan / Add
                             </button>
@@ -347,7 +346,7 @@
             </div>
             <div class="modal-body p-3 text-center">
                 <div id="cameraScannerPreview" style="width: 100%; min-height: 240px; background: #000; border-radius: 8px; overflow: hidden;" class="mb-2"></div>
-                <small class="text-muted d-block mb-2">Aim camera at Fabric Roll QR label or piece tag (e.g. <code>FB1126141</code>)</small>
+                <small class="text-muted d-block mb-2">Aim camera at Fabric Roll QR label or piece tag (e.g. <code>FB112601</code>)</small>
                 <div id="cameraScanFeedback" class="small p-2 rounded-2 d-none"></div>
             </div>
             <div class="modal-footer bg-light py-2 px-3 justify-content-between">
@@ -766,6 +765,22 @@ function handleRollQtyInput(counterId) {
         calculateTotalRollMetrics();
         return;
     }
+    const allocatedCodesInput = document.getElementById('roll_allocated_qrs_' + counterId);
+    const qtyInput = document.getElementById('roll_qty_' + counterId);
+    const rollObj = availableSellerRolls.find(r => String(r.id) === String(select.value));
+    if (rollObj && rollObj.pieces && rollObj.pieces.length > 0 && allocatedCodesInput) {
+        const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
+        const wantedQty = parseInt(qtyInput?.value || '1', 10) || 0;
+        const autoAllocated = [];
+        for (const p of rollObj.pieces) {
+            const pCode = String(p.code || '').toUpperCase();
+            if (p.status === 'AVAILABLE' && !codesInOtherRows.has(pCode)) {
+                autoAllocated.push(pCode);
+                if (autoAllocated.length >= wantedQty) break;
+            }
+        }
+        allocatedCodesInput.value = autoAllocated.join(',');
+    }
     syncRollStockAllocations();
     renderRollPieces(counterId);
 }
@@ -1037,6 +1052,22 @@ function handleRollRowChange(selectElement, counterId, autoPopulate = true) {
         qtyInput.setAttribute('max', totalAvail);
         if (autoPopulate && (!qtyInput.value || parseInt(qtyInput.value) <= 0)) {
             qtyInput.value = currentAvail > 0 ? 1 : 0;
+        }
+    }
+
+    if (allocatedCodesInput && !allocatedCodesInput.value.trim() && rollObj.pieces && rollObj.pieces.length > 0) {
+        const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
+        const wantedQty = parseInt(qtyInput?.value || '1', 10) || 1;
+        const autoAllocated = [];
+        for (const p of rollObj.pieces) {
+            const pCode = String(p.code || '').toUpperCase();
+            if (p.status === 'AVAILABLE' && !codesInOtherRows.has(pCode)) {
+                autoAllocated.push(pCode);
+                if (autoAllocated.length >= wantedQty) break;
+            }
+        }
+        if (autoAllocated.length > 0) {
+            allocatedCodesInput.value = autoAllocated.join(',');
         }
     }
 

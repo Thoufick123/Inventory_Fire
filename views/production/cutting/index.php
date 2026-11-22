@@ -1,7 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-scissors me-2 text-info"></i>Cutting Batches</h2>
-        <span class="text-muted">Fabric laying, pattern cutting, material yield, and dynamic variant wastage tracking</span>
     </div>
     <?php if (hasPermission('cutting', 'create')): ?>
     <a href="<?= url('production/cutting/create') ?>" class="btn btn-primary px-3 py-2 fw-semibold">
@@ -92,12 +91,12 @@
 </div>
 
 <!-- Filters -->
-<div class="card shadow-sm border-0 mb-4">
+<div class="card shadow-sm border mb-4">
     <div class="card-body p-3">
-        <form method="GET" action="<?= url('production/cutting') ?>" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label small text-muted fw-semibold">Status</label>
-                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+        <form method="GET" action="<?= url('production/cutting') ?>" class="row g-3 align-items-end">
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <label class="form-label small text-muted fw-semibold mb-1">Status</label>
+                <select name="status" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem;" onchange="this.form.submit()">
                     <option value="">All Statuses</option>
                     <option value="IN_PROGRESS" <?= ($filters['status'] ?? '') === 'IN_PROGRESS' ? 'selected' : '' ?>>In Progress</option>
                     <option value="PENDING" <?= ($filters['status'] ?? '') === 'PENDING' ? 'selected' : '' ?>>Pending</option>
@@ -106,22 +105,31 @@
                     <option value="CANCELLED" <?= ($filters['status'] ?? '') === 'CANCELLED' ? 'selected' : '' ?>>Cancelled</option>
                 </select>
             </div>
-            <div class="col-md-7">
-                <label class="form-label small text-muted fw-semibold">Search</label>
-                <input type="text" name="search" id="cuttingSearchInput" class="form-control form-control-sm" placeholder="Cutting name, batch #, program #, product name, roll #, color, design..." value="<?= e($filters['search'] ?? '') ?>" autocomplete="off">
+            <div class="col-lg-7 col-md-4 col-sm-12">
+                <label class="form-label small text-muted fw-semibold mb-1">Search</label>
+                <input type="text" name="search" id="cuttingSearchInput" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem;" placeholder="Cutting name, batch #, program #, product name, roll #, color, design..." value="<?= e($filters['search'] ?? '') ?>" autocomplete="off">
             </div>
-            <div class="col-md-2 d-flex align-items-end gap-1">
-                <button type="submit" class="btn btn-secondary btn-sm flex-fill" title="Filter"><i class="bi bi-filter me-1"></i> Filter</button>
-                <?php if (!empty($filters['status']) || !empty($filters['search']) || !empty($filters['program_id'])): ?>
-                    <a href="<?= url('production/cutting') ?>" class="btn btn-outline-danger btn-sm" title="Clear Filters"><i class="bi bi-x-lg"></i></a>
-                <?php endif; ?>
+            <div class="col-lg-2 col-md-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center fw-semibold px-3" style="height: 38px; border-radius: 8px; font-size: 0.875rem; gap: 6px;" title="Filter Records">
+                    <i class="bi bi-filter"></i>
+                    <span>Filter</span>
+                </button>
+                <a href="<?= url('production/cutting') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; min-width: 38px; padding: 0; border-radius: 8px; border-color: #cbd5e1;" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Batches Table -->
-<div class="card shadow-sm border-0">
+<div class="card shadow-sm border">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h5 class="mb-0 fw-semibold text-dark"><i class="bi bi-scissors me-2 text-primary"></i>Cutting Batches List</h5>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold">
+            <?= count($batches) ?> Batches Found
+        </span>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="cuttingTable">
@@ -292,15 +300,18 @@
             </table>
         </div>
     </div>
-    <!-- Pagination Controls Footer -->
-    <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="cuttingPaginationFooter">
+</div>
+
+<!-- Cutting Pagination Controls Card -->
+<div class="card bg-white mt-4 shadow-sm border" id="cuttingPaginationFooter">
+    <div class="card-body py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="cuttingPageInfo">
-                Showing 1 to 10 of <?= count($batches) ?> cutting batches
+                Showing 1 to <?= min(10, count($batches)) ?> of <?= count($batches) ?> cutting batches
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted mb-0 fw-medium">Show:</label>
-                <select id="cuttingPageSizeSelect" class="form-select form-select-sm" style="width: auto;">
+                <select id="cuttingPageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2.25rem;">
                     <option value="10" selected>10 per page</option>
                     <option value="25">25 per page</option>
                     <option value="50">50 per page</option>

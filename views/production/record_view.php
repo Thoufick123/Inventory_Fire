@@ -3,7 +3,7 @@
         <h2 class="mb-1"><i class="bi bi-eye me-2 text-primary"></i><?= e($recordTitle) ?></h2>
     </div>
     <a href="<?= e($backUrl) ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i> Back To Damages
+        <i class="bi bi-arrow-left me-1"></i> Back to <?= e($sectionTitle ?? 'List') ?>
     </a>
 </div>
 

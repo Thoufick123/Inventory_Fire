@@ -100,7 +100,7 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if ($modPurchases && hasPermission('production_purchase_mapping', 'view')): ?>
                             <li><a href="<?= url('production/purchases/mapping') ?>" class="<?= in_array($activeMenu ?? '', ['purchases-mapping', 'prod-purchases-mapping']) ? 'active' : '' ?>">Product Mapping</a></li>
                             <?php endif; ?>
-                            <li><a href="<?= url('production/cash-flow') ?>" class="<?= in_array($activeMenu ?? '', ['cash-flow', 'shop-cash-flow']) ? 'active' : '' ?>"><i class="bi bi-cash-stack me-1"></i>Cash &amp; Cash Flow</a></li>
+                            <li><a href="<?= url('production/cash-flow') ?>" class="<?= in_array($activeMenu ?? '', ['cash-flow', 'shop-cash-flow']) ? 'active' : '' ?>">Cash &amp; Cash Flow</a></li>
                             <?php if ($modProduction && hasPermission('damages', 'view')): ?>
                             <li><a href="<?= url('production/damages') ?>" class="<?= ($activeMenu ?? '') === 'prod-damages' ? 'active' : '' ?>">Damage Management</a></li>
                             <?php endif; ?>
@@ -115,49 +115,49 @@ if (!empty($authUser['production_unit_name'])) {
                             <li><a href="<?= url('production/purchased-stock') ?>" class="<?= ($activeMenu ?? '') === 'prod-purchased-stock' ? 'active' : '' ?>">Purchased Stock</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('programs', 'view')): ?>
-                            <li><a href="<?= url('production/programs') ?>" class="<?= ($activeMenu ?? '') === 'programs' ? 'active' : '' ?>">Production Programs</a></li>
+                            <li><a href="<?= url('production/programs') ?>" class="<?= ($activeMenu ?? '') === 'programs' ? 'active' : '' ?>">Programs</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('cutting', 'view')): ?>
-                            <li><a href="<?= url('production/cutting') ?>" class="<?= ($activeMenu ?? '') === 'cutting' ? 'active' : '' ?>">Cutting Unit</a></li>
+                            <li><a href="<?= url('production/cutting') ?>" class="<?= ($activeMenu ?? '') === 'cutting' ? 'active' : '' ?>">Cutting</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('wastage', 'view')): ?>
-                            <li><a href="<?= url('production/wastage') ?>" class="<?= ($activeMenu ?? '') === 'wastage-selling' ? 'active' : '' ?>">Fabric Wastage Sales</a></li>
+                            <li><a href="<?= url('production/wastage') ?>" class="<?= ($activeMenu ?? '') === 'wastage-selling' ? 'active' : '' ?>">Cutting Wastage</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('stitching', 'view')): ?>
-                            <li><a href="<?= url('production/stitching') ?>" class="<?= ($activeMenu ?? '') === 'stitching' ? 'active' : '' ?>">Stitching Unit</a></li>
+                            <li><a href="<?= url('production/stitching') ?>" class="<?= ($activeMenu ?? '') === 'stitching' ? 'active' : '' ?>">Stitching</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('stitching_wastage', 'view')): ?>
-                            <li><a href="<?= url('production/stitching-wastage') ?>" class="<?= ($activeMenu ?? '') === 'stitching-wastage' ? 'active' : '' ?>">Stitching Wastage Sales</a></li>
+                            <li><a href="<?= url('production/stitching-wastage') ?>" class="<?= ($activeMenu ?? '') === 'stitching-wastage' ? 'active' : '' ?>">Stitching Wastage</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('qc', 'view')): ?>
-                            <li><a href="<?= url('production/qc') ?>" class="<?= ($activeMenu ?? '') === 'qc' ? 'active' : '' ?>">Quality Control (QC)</a></li>
+                            <li><a href="<?= url('production/qc') ?>" class="<?= ($activeMenu ?? '') === 'qc' ? 'active' : '' ?>">Quality Control</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && hasPermission('inventory', 'view')): ?>
                             <li><a href="<?= url('production/inventory') ?>" class="<?= ($activeMenu ?? '') === 'prod-inventory' ? 'active' : '' ?>">Finished Goods Inventory</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && hasPermission('inward', 'view')): ?>
-                            <li><a href="<?= url('production/inwards') ?>" class="<?= in_array($activeMenu ?? '', ['inwards', 'prod-inwards']) ? 'active' : '' ?>">Goods Inward (GRN)</a></li>
+                            <li><a href="<?= url('production/inwards') ?>" class="<?= in_array($activeMenu ?? '', ['inwards', 'prod-inwards']) ? 'active' : '' ?>">Goods Inward</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && (hasPermission('production_stock_requests', 'view') || hasPermission('stock_requests', 'view') || hasPermission('inventory', 'view'))): ?>
                             <li><a href="<?= url('production/stock-requests') ?>" class="<?= in_array($activeMenu ?? '', ['prod-stock-requests', 'stock-requests', 'stock-requirements']) ? 'active' : '' ?>">Stock Requirements</a></li>
                             <?php endif; ?>
                             <?php if ($modExpenses && hasPermission('production_expenses', 'view')): ?>
-                            <li><a href="<?= url('production/expenses') ?>" class="<?= ($activeMenu ?? '') === 'production-expenses' ? 'active' : '' ?>">Production Expenses</a></li>
+                            <li><a href="<?= url('production/expenses') ?>" class="<?= ($activeMenu ?? '') === 'production-expenses' ? 'active' : '' ?>">Expenses</a></li>
                             <?php endif; ?>
                             <?php if ($modRetailPos && hasPermission('production_billing', 'view')): ?>
-                            <li><a href="<?= url('production/billing') ?>" class="<?= ($activeMenu ?? '') === 'prod-billing' ? 'active' : '' ?>">Production Billing / POS</a></li>
+                            <li><a href="<?= url('production/billing') ?>" class="<?= ($activeMenu ?? '') === 'prod-billing' ? 'active' : '' ?>">Billing / POS</a></li>
                             <?php endif; ?>
                             <?php if ($modReturns && hasPermission('production_returns', 'view')): ?>
-                            <li><a href="<?= url('production/returns') ?>" class="<?= ($activeMenu ?? '') === 'prod-returns' ? 'active' : '' ?>">Customer Returns &amp; Exchanges</a></li>
+                            <li><a href="<?= url('production/returns') ?>" class="<?= ($activeMenu ?? '') === 'prod-returns' ? 'active' : '' ?>">Returns &amp; Exchanges</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && hasPermission('batches', 'view')): ?>
                             <li><a href="<?= url('production/batches') ?>" class="<?= in_array($activeMenu ?? '', ['batches', 'prod-batches']) ? 'active' : '' ?>">Packing Batches</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && hasPermission('outward', 'view')): ?>
-                            <li><a href="<?= url('production/outward') ?>" class="<?= in_array($activeMenu ?? '', ['outward', 'prod-outward', 'batch-outward']) ? 'active' : '' ?>">Warehouse Outward Dispatch</a></li>
+                            <li><a href="<?= url('production/outward') ?>" class="<?= in_array($activeMenu ?? '', ['outward', 'prod-outward', 'batch-outward']) ? 'active' : '' ?>">Outward Dispatch</a></li>
                             <?php endif; ?>
                             <?php if ($modWarehouse && hasPermission('warehouse_rework', 'view')): ?>
-                            <li><a href="<?= url('production/warehouse-rework') ?>" class="<?= ($activeMenu ?? '') === 'warehouse-rework' ? 'active' : '' ?>">Warehouse Rework</a></li>
+                            <li><a href="<?= url('production/warehouse-rework') ?>" class="<?= ($activeMenu ?? '') === 'warehouse-rework' ? 'active' : '' ?>">Rework</a></li>
                             <?php endif; ?>
                             <li><a href="<?= url('production/hsn-config') ?>" class="<?= ($activeMenu ?? '') === 'production-hsn-config' ? 'active' : '' ?>">HSN Config</a></li>
                         </ul>

@@ -11716,7 +11716,7 @@ class ProductionController {
             'filters'          => $filters,
             'scopedUnitId'     => $scopedUnitId,
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs'],
             ],
         ]);
@@ -12006,7 +12006,7 @@ class ProductionController {
             'scopedUnitId'           => $scopedUnitId,
             'suggestedProgramNumber' => $suggestedProgramNumber,
             'breadcrumb'             => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
                 ['label' => 'Create Program'],
             ],
@@ -12085,6 +12085,19 @@ class ProductionController {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
                 if ($rWeight <= 0) $rWeight = (float)$sellerData['weight'];
                 if ($rPrice <= 0) $rPrice = (float)$sellerData['price'];
+                $allocatedCodes = !empty($r['allocated_qr_codes']) ? trim((string)$r['allocated_qr_codes']) : null;
+                if (empty($allocatedCodes)) {
+                    $availRolls = $this->getAvailableSellerRollsWithPieces();
+                    foreach ($availRolls as $ar) {
+                        if ((int)$ar['id'] === (int)$rId && !empty($ar['available_codes'])) {
+                            $slice = array_slice($ar['available_codes'], 0, $rQty);
+                            if (!empty($slice)) {
+                                $allocatedCodes = implode(',', $slice);
+                            }
+                            break;
+                        }
+                    }
+                }
                 $validRolls[] = [
                     'seller_roll_id'     => $rId,
                     'seller_id'          => (int)$sellerData['seller_id'],
@@ -12096,7 +12109,7 @@ class ProductionController {
                     'roll_price'         => $rPrice,
                     'roll_color'         => $sellerData['color'] ?? '',
                     'roll_design'        => $sellerData['design_name'] ?? '',
-                    'allocated_qr_codes' => !empty($r['allocated_qr_codes']) ? $r['allocated_qr_codes'] : null,
+                    'allocated_qr_codes' => $allocatedCodes,
                     'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $totalRollQty += $rQty;
@@ -12332,10 +12345,9 @@ class ProductionController {
             'users'               => $users,
             'scopedUnitId'        => $scopedUnitId,
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
-                ['label' => $program['program_number'], 'url' => url('production/programs/view/' . $id)],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Program ' . $program['program_number']],
             ],
         ]);
     }
@@ -12412,6 +12424,19 @@ class ProductionController {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
                 if ($rWeight <= 0) $rWeight = (float)$sellerData['weight'];
                 if ($rPrice <= 0) $rPrice = (float)$sellerData['price'];
+                $allocatedCodes = !empty($r['allocated_qr_codes']) ? trim((string)$r['allocated_qr_codes']) : null;
+                if (empty($allocatedCodes)) {
+                    $availRolls = $this->getAvailableSellerRollsWithPieces();
+                    foreach ($availRolls as $ar) {
+                        if ((int)$ar['id'] === (int)$rId && !empty($ar['available_codes'])) {
+                            $slice = array_slice($ar['available_codes'], 0, $rQty);
+                            if (!empty($slice)) {
+                                $allocatedCodes = implode(',', $slice);
+                            }
+                            break;
+                        }
+                    }
+                }
                 $validRolls[] = [
                     'seller_roll_id'     => $rId,
                     'seller_id'          => (int)$sellerData['seller_id'],
@@ -12423,7 +12448,7 @@ class ProductionController {
                     'roll_price'         => $rPrice,
                     'roll_color'         => $sellerData['color'] ?? '',
                     'roll_design'        => $sellerData['design_name'] ?? '',
-                    'allocated_qr_codes' => !empty($r['allocated_qr_codes']) ? $r['allocated_qr_codes'] : null,
+                    'allocated_qr_codes' => $allocatedCodes,
                     'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $totalRollQty += $rQty;
@@ -12570,7 +12595,7 @@ class ProductionController {
             'activeMenu'   => 'programs',
             'programRolls' => $programRolls,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
                 ['label' => $timeline['program']['program_number']],
             ],
@@ -12659,7 +12684,7 @@ class ProductionController {
             'filters'         => $filters,
             'scopedUnitId'    => $scopedUnitId,
             'breadcrumb'      => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting'],
             ],
         ]);
@@ -12762,7 +12787,32 @@ class ProductionController {
         $parsedSizes = [];
         $parsedColors = [];
 
-        if ($product) {
+        $programRollSizes = [];
+        if (!empty($assignedRolls)) {
+            foreach ($assignedRolls as $ar) {
+                if (!empty($ar['attributes'])) {
+                    $dec = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : $ar['attributes'];
+                    if (is_array($dec)) {
+                        foreach ($dec as $k => $v) {
+                            $upperK = strtoupper(trim((string)$k));
+                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                                $vArr = is_array($v) ? $v : explode(',', (string)$v);
+                                foreach ($vArr as $sz) {
+                                    $sz = trim((string)$sz);
+                                    if ($sz !== '' && !in_array($sz, $programRollSizes, true)) {
+                                        $programRollSizes[] = $sz;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!empty($programRollSizes)) {
+            $parsedSizes = $programRollSizes;
+        } elseif ($product) {
             $pvRows = Database::fetchAll(
                 "SELECT pv.*, s.name as size_name, s.code as size_code, c.name as color_name, c.hex_code as color_hex, d.name as design_name, d.code as design_code
                  FROM product_variants pv
@@ -12811,27 +12861,6 @@ class ProductionController {
                     $colorName = trim((string)$colorName);
                     if ($colorName !== '' && !in_array($colorName, $parsedColors, true)) {
                         $parsedColors[] = $colorName;
-                    }
-                }
-            }
-        }
-
-        // Also parse attributes from assigned rolls for sizes
-        if (!empty($assignedRolls)) {
-            foreach ($assignedRolls as $ar) {
-                if (!empty($ar['attributes'])) {
-                    $dec = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : $ar['attributes'];
-                    if (is_array($dec)) {
-                        foreach ($dec as $k => $v) {
-                            if (in_array(strtoupper($k), ['SIZE', 'SIZES'], true) && is_array($v)) {
-                                foreach ($v as $sz) {
-                                    $sz = trim((string)$sz);
-                                    if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
-                                        $parsedSizes[] = $sz;
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -13218,16 +13247,20 @@ class ProductionController {
                     [$programId, $programId]
                 );
             }
+            $hasProgramSizes = false;
             if ($ppr) {
                 if (!empty($ppr['attributes'])) {
                     $dec = is_string($ppr['attributes']) ? json_decode($ppr['attributes'], true) : $ppr['attributes'];
                     if (is_array($dec)) {
                         foreach ($dec as $k => $v) {
-                            if (in_array(strtoupper($k), ['SIZE', 'SIZES'], true) && is_array($v) && !empty($v)) {
-                                foreach ($v as $sz) {
+                            $upperK = strtoupper(trim((string)$k));
+                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                                $vArr = is_array($v) ? $v : explode(',', (string)$v);
+                                foreach ($vArr as $sz) {
                                     $sz = trim((string)$sz);
                                     if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
                                         $parsedSizes[] = $sz;
+                                        $hasProgramSizes = true;
                                     }
                                 }
                             }
@@ -13251,6 +13284,7 @@ class ProductionController {
             }
         }
 
+        $pvRows = [];
         if ($product) {
             $pvRows = Database::fetchAll(
                 "SELECT pv.*, s.name as size_name, s.code as size_code, c.name as color_name, c.hex_code as color_hex, d.name as design_name, d.code as design_code
@@ -13263,34 +13297,50 @@ class ProductionController {
                 [$product['id']]
             );
 
-            foreach ($pvRows as $pv) {
-                $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
-                if (!empty($sName)) {
-                    if (str_contains($sName, ',')) {
-                        foreach (explode(',', $sName) as $sp) {
-                            $sp = trim($sp);
-                            if ($sp !== '' && !in_array($sp, $parsedSizes, true)) $parsedSizes[] = $sp;
+            if ($hasProgramSizes) {
+                // Program roll explicitly selected specific sizes! Filter pvRows to ONLY those sizes!
+                $filteredPvRows = [];
+                foreach ($pvRows as $pv) {
+                    $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
+                    foreach ($parsedSizes as $psz) {
+                        if (strcasecmp(trim($sName), trim($psz)) === 0) {
+                            $filteredPvRows[] = $pv;
+                            break;
                         }
-                    } else {
-                        if (!in_array($sName, $parsedSizes, true)) $parsedSizes[] = $sName;
                     }
                 }
-
-                $cName = $pv['color_name'] ?: '';
-                if (!empty($cName)) {
-                    if (str_contains($cName, ',')) {
-                        foreach (explode(',', $cName) as $cp) {
-                            $cp = trim($cp);
-                            if ($cp !== '' && !in_array($cp, $parsedColors, true)) $parsedColors[] = $cp;
+                $pvRows = $filteredPvRows;
+            } else {
+                // No specific sizes configured on program roll: populate parsedSizes from product variants
+                foreach ($pvRows as $pv) {
+                    $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
+                    if (!empty($sName)) {
+                        if (str_contains($sName, ',')) {
+                            foreach (explode(',', $sName) as $sp) {
+                                $sp = trim($sp);
+                                if ($sp !== '' && !in_array($sp, $parsedSizes, true)) $parsedSizes[] = $sp;
+                            }
+                        } else {
+                            if (!in_array($sName, $parsedSizes, true)) $parsedSizes[] = $sName;
                         }
-                    } else {
-                        if (!in_array($cName, $parsedColors, true)) $parsedColors[] = $cName;
+                    }
+
+                    $cName = $pv['color_name'] ?: '';
+                    if (!empty($cName)) {
+                        if (str_contains($cName, ',')) {
+                            foreach (explode(',', $cName) as $cp) {
+                                $cp = trim($cp);
+                                if ($cp !== '' && !in_array($cp, $parsedColors, true)) $parsedColors[] = $cp;
+                            }
+                        } else {
+                            if (!in_array($cName, $parsedColors, true)) $parsedColors[] = $cName;
+                        }
                     }
                 }
             }
         }
 
-        // Fallback to active sizes in DB if empty
+        // Fallback to active sizes in DB only if parsedSizes is still empty
         if (empty($parsedSizes)) {
             $rawSizes = Database::fetchAll("SELECT * FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
             foreach ($rawSizes as $s) {
@@ -13332,20 +13382,30 @@ class ProductionController {
 
         $prodCode = $product ? ($product['code'] ?: 'CUT') : 'CUT';
         $variants = [];
-        foreach ($parsedSizes as $sz) {
-            foreach ($parsedColors as $col) {
+        if (!empty($pvRows)) {
+            foreach ($pvRows as $pv) {
+                $sName = $pv['size_name'] ?: ($pv['size_code'] ?: 'FREE SIZE');
+                $cName = !empty($rollColor) && $rollColor !== '-' && $rollColor !== 'Standard' ? $rollColor : ($pv['color_name'] ?: 'STANDARD');
                 $variants[] = [
-                    'id'              => null,
-                    'sku'             => $prodCode . '-' . strtoupper(substr($sz, 0, 3)) . '-' . strtoupper(substr($col, 0, 3)),
-                    'size_name'       => $sz,
-                    'color_name'      => $col,
-                    'planned_quantity'=> 0,
+                    'id'               => $pv['id'],
+                    'sku'              => $pv['sku'] ?: ($prodCode . '-' . strtoupper(substr($sName, 0, 3)) . '-' . strtoupper(substr($cName, 0, 3))),
+                    'size_name'        => $sName,
+                    'color_name'       => $cName,
+                    'planned_quantity' => 0,
                 ];
             }
-        }
-
-        if ($productId && !empty($pvRows)) {
-            $variants = $pvRows;
+        } else {
+            foreach ($parsedSizes as $sz) {
+                foreach ($parsedColors as $col) {
+                    $variants[] = [
+                        'id'              => null,
+                        'sku'             => $prodCode . '-' . strtoupper(substr($sz, 0, 3)) . '-' . strtoupper(substr($col, 0, 3)),
+                        'size_name'       => $sz,
+                        'color_name'      => $col,
+                        'planned_quantity'=> 0,
+                    ];
+                }
+            }
         }
 
         Response::json([
@@ -13435,9 +13495,9 @@ class ProductionController {
             'scopedUnitId'         => $scopedUnitId,
             'suggestedBatchNumber' => $suggestedBatchNumber,
             'breadcrumb'           => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting', 'url' => url('production/cutting')],
-                ['label' => 'New Cutting Batch'],
+                ['label' => 'Add Cutting'],
             ],
         ]);
     }
@@ -13708,10 +13768,9 @@ class ProductionController {
             'users'        => $users,
             'units'        => $units,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting', 'url' => url('production/cutting')],
-                ['label' => $batch['batch_number']],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Cutting ' . $batch['batch_number']],
             ],
         ]);
     }
@@ -13953,7 +14012,7 @@ class ProductionController {
             'filters'      => $filters,
             'scopedUnitId' => $scopedUnitId,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching'],
             ],
         ]);
@@ -14059,9 +14118,9 @@ class ProductionController {
             'items'                => $items,
             'users'                => $users,
             'breadcrumb'           => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching', 'url' => url('production/stitching')],
-                ['label' => 'New Stitching Batch'],
+                ['label' => 'Add Stitching'],
             ],
         ]);
     }
@@ -14348,10 +14407,9 @@ class ProductionController {
             'items'               => $items,
             'users'               => $users,
             'breadcrumb'          => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching', 'url' => url('production/stitching')],
-                ['label' => $batch['batch_number'] ?: ('Batch #' . $batch['id'])],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Stitching ' . ($batch['batch_number'] ?: ('#' . $batch['id']))],
             ],
         ]);
     }
@@ -19226,8 +19284,8 @@ class ProductionController {
             'dateFrom'       => $dateFrom,
             'dateTo'         => $dateTo,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Wastage Selling'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Cutting Wastage'],
             ],
         ]);
     }
@@ -21498,7 +21556,13 @@ class ProductionController {
                 'Cut'             => 'cut_qty',
                 'Cutting Wastage' => 'display_wastage',
             ],
-            'Cut Items'
+            'Cut Items',
+            [],
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Cutting', 'url' => url('production/cutting')],
+                ['label' => $batch['batch_number'] ?? ('#' . $batch['id'])],
+            ]
         );
     }
 
@@ -21568,7 +21632,13 @@ class ProductionController {
                 'Rework'  => 'rework_qty',
                 'Weight'  => 'weight',
             ],
-            'Stitching Items'
+            'Stitching Items',
+            [],
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Stitching', 'url' => url('production/stitching')],
+                ['label' => $batch['batch_number'] ?? ('#' . $batch['id'])],
+            ]
         );
     }
 
@@ -21632,6 +21702,7 @@ class ProductionController {
                 ['label' => 'Details'],
             ],
             'recordTitle'  => $recordTitle,
+            'sectionTitle' => $sectionTitle,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
             'items'        => $items,
