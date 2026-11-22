@@ -6815,14 +6815,18 @@ class ProductionController {
         }
 
         // 4. Check seller_rolls (Fabric Roll QR)
+        $cleanRollScan = preg_replace('/[^A-Z0-9]/', '', $scanCode);
         $roll = Database::fetchOne("
             SELECT sr.*, s.name as seller_name, s.company as seller_company,
                    s.concern_id as record_concern_id
             FROM seller_rolls sr
             JOIN sellers s ON s.id = sr.seller_id
-            WHERE UPPER(TRIM(sr.qr_code)) = ? OR UPPER(TRIM(sr.start_code)) = ? OR UPPER(TRIM(sr.roll_number)) = ?
+            WHERE UPPER(TRIM(sr.qr_code)) = ?
+               OR UPPER(TRIM(sr.start_code)) = ?
+               OR UPPER(TRIM(sr.roll_number)) = ?
+               OR (LENGTH(?) >= 3 AND REPLACE(REPLACE(REPLACE(UPPER(sr.roll_number), ' ', ''), '#', ''), '-', '') = ?)
             LIMIT 1
-        ", [$scanCode, $scanCode, $scanCode]);
+        ", [$scanCode, $scanCode, $scanCode, $cleanRollScan, $cleanRollScan]);
 
         if ($roll && !$this->damageItemMatchesActiveConcern(
             isset($roll['record_concern_id']) ? (int)$roll['record_concern_id'] : null
@@ -6851,6 +6855,29 @@ class ProductionController {
                     && $sequence >= (int)$cand['start_seq']
                     && $sequence <= (int)$cand['end_seq']) {
                     $roll = $cand;
+                    break;
+                }
+            }
+        }
+
+        // If user typed MM/YYYY date (e.g. 11/2026) and only 1 active roll matches that month prefix
+        if (!$roll && preg_match('#^(\d{1,2})/(\d{4})$#', $scanCode, $dm)) {
+            $month = str_pad($dm[1], 2, '0', STR_PAD_LEFT);
+            $year2 = substr($dm[2], -2);
+            $datePrefixes = ['FB' . $month . $year2, 'RM' . $month . $year2];
+            foreach ($datePrefixes as $dpfx) {
+                $candidates = Database::fetchAll("
+                    SELECT sr.*, s.name as seller_name, s.company as seller_company,
+                           s.concern_id as record_concern_id
+                    FROM seller_rolls sr
+                    JOIN sellers s ON s.id = sr.seller_id
+                    WHERE sr.start_code LIKE ?
+                ", [$dpfx . '%']);
+                $matching = array_values(array_filter($candidates, fn($c) => $this->damageItemMatchesActiveConcern(
+                    isset($c['record_concern_id']) ? (int)$c['record_concern_id'] : null
+                )));
+                if (count($matching) === 1) {
+                    $roll = $matching[0];
                     break;
                 }
             }
@@ -6975,16 +7002,20 @@ class ProductionController {
             ];
         }
 
-        // 7. Check production_purchase_items (Third-party / raw supplies)
+        // 7. Check production_purchase_items (Third-party / raw supplies / fabric rolls)
         $ppi = Database::fetchOne("
             SELECT ppi.*, pp.purchase_number, pp.concern_id as record_concern_id,
                    s.name as supplier_name, s.company as supplier_company
             FROM production_purchase_items ppi
             JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
-            WHERE UPPER(TRIM(ppi.qr_code)) = ? OR UPPER(TRIM(ppi.qr_batch_code)) = ?
+            WHERE UPPER(TRIM(ppi.qr_code)) = ?
+               OR UPPER(TRIM(ppi.qr_batch_code)) = ?
+               OR UPPER(TRIM(ppi.start_code)) = ?
+               OR UPPER(TRIM(ppi.vendor_sku)) = ?
+               OR UPPER(TRIM(ppi.product_code)) = ?
             LIMIT 1
-        ", [$scanCode, $scanCode]);
+        ", [$scanCode, $scanCode, $scanCode, $scanCode, $scanCode]);
 
         if ($ppi && $this->damageItemMatchesActiveConcern(
             isset($ppi['record_concern_id']) ? (int)$ppi['record_concern_id'] : null
@@ -7062,9 +7093,39 @@ class ProductionController {
         // 3. Universal QR Lookup
         $item = $this->universalDamageQrLookup($scanCode);
         if (!$item) {
+            $msg = "QR code '{$scanCode}' was not found. Please scan a valid product QR, fabric roll QR, or variant tag.";
+            if (preg_match('#^(\d{1,2})/(\d{4})$#', $scanCode, $dm)) {
+                $month = str_pad($dm[1], 2, '0', STR_PAD_LEFT);
+                $year2 = substr($dm[2], -2);
+                $datePfx = 'FB' . $month . $year2;
+                $activeCid = currentConcernId();
+                $cWhere = "";
+                $cParams = [$datePfx . '%'];
+                if ($activeCid !== null) {
+                    $cWhere = $activeCid === 1 ? " AND (s.concern_id = ? OR s.concern_id IS NULL)" : " AND s.concern_id = ?";
+                    $cParams[] = $activeCid;
+                }
+                $cands = Database::fetchAll("
+                    SELECT sr.roll_number, sr.start_code, sr.end_code
+                    FROM seller_rolls sr
+                    JOIN sellers s ON s.id = sr.seller_id
+                    WHERE sr.start_code LIKE ? {$cWhere}
+                    LIMIT 4
+                ", $cParams);
+                if (!empty($cands)) {
+                    $rollExamples = [];
+                    foreach ($cands as $c) {
+                        $codeRange = $c['start_code'] . ($c['end_code'] && $c['end_code'] !== $c['start_code'] ? '–' . $c['end_code'] : '');
+                        $rollExamples[] = "{$c['roll_number']} ({$codeRange})";
+                    }
+                    $msg = "'{$scanCode}' is the purchase Month/Year date, not a roll QR code. To report damage, enter the specific roll code, e.g.: " . implode(', ', $rollExamples);
+                } else {
+                    $msg = "'{$scanCode}' is a Month/Year date, not a QR code. Please scan or enter the actual roll QR code (e.g. FB112601 or ROLL #1).";
+                }
+            }
             Response::json([
                 'success' => false,
-                'message' => "QR code '{$scanCode}' was not found. Please scan a valid product QR, fabric roll QR, or variant tag."
+                'message' => $msg
             ], 404);
             return;
         }
