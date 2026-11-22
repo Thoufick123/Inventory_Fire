@@ -836,7 +836,7 @@
 <template id="fabricRollTemplate">
     <div class="roll-card card border shadow-sm mb-3" data-index="">
         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
-            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #1</span> <span class="badge bg-dark roll-code-text"></span></strong>
+            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #1</span></strong>
             <button type="button" class="btn btn-sm btn-outline-danger remove-roll" title="Delete roll"><i class="bi bi-trash me-1"></i>Delete</button>
         </div>
         <div class="card-body p-3">
@@ -2670,7 +2670,8 @@
             const quantity = Math.max(1, Number(card.querySelector('.roll-quantity').value) || 1);
             const first = sequencePrefix + String(sequence).padStart(2, '0');
             const last = sequencePrefix + String(sequence + quantity - 1).padStart(2, '0');
-            card.querySelector('.roll-code-text').textContent = first === last ? first : first + '–' + last;
+            const codeBadge = card.querySelector('.roll-code-text');
+            if (codeBadge) codeBadge.textContent = first === last ? first : first + '–' + last;
             sequence += quantity;
         });
         updateSummary();

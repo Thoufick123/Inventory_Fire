@@ -628,9 +628,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                     ?>
                     <div class="roll-card card border shadow-sm" data-item-key="<?= $key ?>" data-item-id="<?= $key ?>" data-sequence-start="<?= $startSeq ?>" data-code-prefix="<?= e($prefix) ?>" data-start-code="<?= e($item['start_code'] ?? '') ?>" data-photo-url="<?= e(!empty($item['photo_url']) ? uploadUrl($item['photo_url']) : '') ?>">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-                            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #<?= $index + 1 ?></span>
-                                <span class="badge bg-dark roll-code-text"><?= e($item['start_code'] ?? '') ?><?= !empty($item['end_code']) && $item['end_code'] !== ($item['start_code'] ?? '') ? '–' . e($item['end_code']) : '' ?></span>
-                            </strong>
+                            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #<?= $index + 1 ?></span></strong>
                             <button type="button" class="btn btn-sm btn-outline-danger remove-roll" title="Delete roll"><i class="bi bi-trash me-1"></i>Delete</button>
                         </div>
                         <div class="card-body p-3">
