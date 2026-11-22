@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Modern ERP Product Mapping Workspace — Map Purchase Bill Lines
  * Matches Image 2, 3, 4 & 5 Format with User Refinements:
@@ -526,6 +526,16 @@ tr.table-danger, tr.table-danger > td {
         <!-- ========================================================================= -->
         <!-- SECTION 2: MANUAL PRODUCT VARIANTS ENTRY                                  -->
         <!-- ========================================================================= -->
+        <div class="alert alert-light border border-primary-subtle d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 py-2 px-3 shadow-sm rounded-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="badge bg-primary px-2 py-1"><i class="bi bi-receipt me-1"></i>Purchase Bill Base Tax</span>
+                <div><strong>Base HSN:</strong> <span class="badge bg-light text-dark border font-monospace"><?= e($activeHsn ?: 'Not Specified') ?></span></div>
+                <div><strong>Base GST:</strong> <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold"><?= number_format($gstRate, 2) ?>%</span></div>
+            </div>
+            <div class="small text-muted">
+                <i class="bi bi-info-circle me-1"></i>Product variants automatically inherit and show this bill's HSN and GST rate.
+            </div>
+        </div>
         <?php
         $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId): void {
             $vSize = !empty($v['size']) ? $v['size'] : ($activeItem['size'] ?: 'Free Size');
@@ -1009,7 +1019,13 @@ tr.table-danger, tr.table-danger > td {
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Inventory Status</div>
-                                <div><?php if (!empty($itemVar['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></div>
+                                <div id="modalBillStockStatus_<?= (int)$itemVar['qr_generation_id'] ?>">
+                                    <?php if (!empty($itemVar['stock_added'])): ?>
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Not stocked</span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1034,11 +1050,32 @@ tr.table-danger, tr.table-danger > td {
                     <?php endforeach; endif; ?>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" class="btn btn-primary">
-                    <i class="bi bi-printer me-1"></i>Print Labels
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <?php if (empty($itemVar['stock_added'])): ?>
+                        <div class="input-group input-group-sm" style="max-width: 320px;">
+                            <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Warehouse:</span>
+                            <select class="form-select" id="billWhSelect_<?= (int)$itemVar['qr_generation_id'] ?>">
+                                <?php foreach (($warehouses ?? []) as $wh): ?>
+                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-success btn-add-inventory-bill"
+                                data-generation-id="<?= (int)$itemVar['qr_generation_id'] ?>"
+                                data-purchase-id="<?= (int)$purchase['id'] ?>">
+                            <i class="bi bi-box-seam me-1"></i>Add to Inventory
+                        </button>
+                    <?php else: ?>
+                        <span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Stock posted to warehouse inventory</span>
+                    <?php endif; ?>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" class="btn btn-primary btn-sm">
+                        <i class="bi bi-printer me-1"></i>Print Labels
+                    </a>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1118,6 +1155,12 @@ document.addEventListener('DOMContentLoaded', function () {
             // Reset quantity to 1 for new rows
             const qtyInput = clone.querySelector('.var-qty');
             if (qtyInput) qtyInput.value = '1';
+
+            // Ensure HSN and GST on cloned rows are explicitly inherited from this purchase bill
+            const hsnInput = clone.querySelector('.var-hsn');
+            if (hsnInput) hsnInput.value = <?= json_encode($activeHsn) ?>;
+            const gstInput = clone.querySelector('.var-gst');
+            if (gstInput) gstInput.value = <?= json_encode(number_format($gstRate, 2, '.', '')) ?>;
 
             tbodyVariantRows.appendChild(clone);
         }
@@ -1344,6 +1387,55 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 el.dataset.rendered = '1';
             });
+        });
+    });
+
+    // In-panel AJAX Add to Inventory for Purchase Bill Mapping
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-add-inventory-bill');
+        if (!btn) return;
+
+        const genId = btn.getAttribute('data-generation-id');
+        const purchaseId = btn.getAttribute('data-purchase-id');
+        const whSelect = document.getElementById('billWhSelect_' + genId);
+        const whId = whSelect ? whSelect.value : '';
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Adding...';
+
+        const formData = new FormData();
+        formData.append('generation_id', genId);
+        formData.append('warehouse_id', whId);
+        formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+        fetch('<?= url("api/purchases/mapping/add-to-stock") ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                btn.className = 'btn btn-sm btn-success disabled';
+                btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Stock Added';
+                const statusEl = document.getElementById('modalBillStockStatus_' + genId);
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
+                }
+                alert('Success: ' + (data.message || 'Stock added to inventory!'));
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+                alert('Error: ' + (data.message || 'Could not add stock.'));
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+            alert('Server error: ' + err.message);
         });
     });
 

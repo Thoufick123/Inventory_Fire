@@ -3655,13 +3655,28 @@ class ProductionController {
             return;
         }
 
+        // Check if an existing purchase bill with the same supplier & invoice number exists
+        $concernCondition = ($cid === 1) ? "(concern_id = ? OR concern_id IS NULL)" : "concern_id = ?";
+        $existingPurchase = Database::fetchOne(
+            "SELECT id, purchase_number FROM production_purchases
+             WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
+               AND {$concernCondition}
+             ORDER BY id DESC LIMIT 1",
+            [$sellerId, $invoiceNumber, $cid]
+        );
+        $linkedPurchaseId = $existingPurchase ? (int)$existingPurchase['id'] : null;
+
         Database::execute(
-            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, created_by)
-             VALUES (?, ?, ?, ?)",
-            [$cid, $sellerId, $invoiceNumber, (int)(Session::get('user_id') ?? 0) ?: null]
+            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, created_by)
+             VALUES (?, ?, ?, ?, ?)",
+            [$cid, $sellerId, $invoiceNumber, $linkedPurchaseId, (int)(Session::get('user_id') ?? 0) ?: null]
         );
         $mappingBillId = (int)Database::lastInsertId();
-        Session::flash('success', 'Mapping entry created. Add the products and variants below.');
+        if ($existingPurchase) {
+            Session::flash('success', "Mapping entry created and linked to existing Purchase {$existingPurchase['purchase_number']}. Products entered below will be assigned directly to that purchase bill.");
+        } else {
+            Session::flash('success', 'Mapping entry created. Add the products and variants below.');
+        }
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
@@ -3738,6 +3753,23 @@ class ProductionController {
             }
         }
 
+        // Auto-match existing purchase bill by supplier and invoice number if not already linked
+        if (empty($bill['purchase_id'])) {
+            $matchedPurchase = Database::fetchOne(
+                "SELECT pp.id, pp.purchase_number FROM production_purchases pp
+                 WHERE pp.seller_id = ? AND UPPER(TRIM(COALESCE(pp.invoice_number, ''))) = UPPER(TRIM(?)) {$candidateScope}
+                 ORDER BY pp.id DESC LIMIT 1",
+                array_merge([(int)$bill['seller_id'], $bill['invoice_number']], $cid !== null ? [$cid] : [])
+            );
+            if ($matchedPurchase) {
+                Database::execute("UPDATE third_party_mapping_bills SET purchase_id = ? WHERE id = ?", [(int)$matchedPurchase['id'], $mappingBillId]);
+                $bill['purchase_id'] = (int)$matchedPurchase['id'];
+                $bill['purchase_number'] = $matchedPurchase['purchase_number'];
+            }
+        }
+
+        $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
@@ -3748,6 +3780,7 @@ class ProductionController {
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
             'candidatePurchases' => $candidatePurchases,
+            'warehouses' => $warehouses,
             'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
@@ -3851,15 +3884,18 @@ class ProductionController {
                 $rate = (float)($variant['unit_price'] ?? 0);
                 $mrp = (float)($variant['mrp'] ?? 0);
                 $sellingPrice = (float)($variant['selling_price'] ?? 0);
-                $gstRate = (float)($variant['gst_rate'] ?? 0);
+                $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
                 $hsn = trim((string)($variant['hsn_code'] ?? ''));
+                if ($hsn === '') {
+                    $hsn = 'PENDING';
+                }
                 $categoryId = (int)($variant['category_id'] ?? 0);
                 $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
                 $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
                 $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
 
                 if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
-                    || $gstRate < 0 || $gstRate > 100 || $hsn === '' || mb_strlen($hsn) > 20) {
+                    || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
                     throw new InvalidArgumentException('Each variant needs a whole-number quantity, valid prices, GST rate and HSN code.');
                 }
                 if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
@@ -3925,9 +3961,21 @@ class ProductionController {
             } else {
                 Session::flash('success', "QR batch {$result['batch_code']} generated successfully.");
             }
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'created' => $result['created'],
+                    'generation_id' => (int)$result['generation_id'],
+                    'batch_code' => $result['batch_code'],
+                    'message' => "QR batch {$result['batch_code']} generated successfully."
+                ]);
+                return;
+            }
             $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
             if ($mappingBillId > 0) {
-                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . (int)$result['generation_id']));
             } else {
                 Response::back();
             }
@@ -3994,6 +4042,67 @@ class ProductionController {
 
         Session::flash('success', "QR batches generated for {$generatedCount} variant(s).");
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
+    /**
+     * In-panel action: add a generated QR batch directly to warehouse inventory
+     * without navigating away to the separate QR generation module.
+     */
+    public function ajaxAddMappingStockToInventory(): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 403);
+            return;
+        }
+
+        $generationId = (int)($_POST['generation_id'] ?? 0);
+        $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
+        $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
+
+        if ($generationId <= 0) {
+            Response::json(['success' => false, 'message' => 'Invalid QR batch specified.'], 400);
+            return;
+        }
+
+        try {
+            $userId = (int)(Session::get('user_id') ?? 0) ?: (int)(Auth::id() ?? 0);
+            $result = QrGenerationService::addToStock($generationId, $userId, $warehouseId > 0 ? $warehouseId : null);
+
+            // Mark stock_added on qr_generations
+            Database::execute("UPDATE qr_generations SET stock_added = 1 WHERE id = ?", [$generationId]);
+
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.",
+                    'quantity' => $result['quantity'],
+                    'batch_code' => $result['batch_code'],
+                    'stock_added' => true,
+                ]);
+                return;
+            }
+
+            Session::flash('success', "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.");
+            if ($mappingBillId > 0) {
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . $generationId));
+            } else {
+                Response::back();
+            }
+        } catch (\Throwable $e) {
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                return;
+            }
+
+            Session::flash('error', 'Error adding to inventory: ' . $e->getMessage());
+            Response::back();
+        }
     }
 
     /**
@@ -5040,6 +5149,7 @@ class ProductionController {
 
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
+        $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
 
         Response::view('production.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
@@ -5056,6 +5166,7 @@ class ProductionController {
             'existingStyles' => $existingStyles,
             'existingVariants' => $existingVariants,
             'savedVariants' => $savedVariants,
+            'warehouses' => $warehouses,
             'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,

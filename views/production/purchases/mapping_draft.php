@@ -1,9 +1,12 @@
 <?php
 $mappingBillId = (int)$bill['id'];
 $pendingQrCount = 0;
+$firstQrId = 0;
 foreach ($items as $savedItem) {
     if (empty($savedItem['qr_generation_id'])) {
         $pendingQrCount++;
+    } elseif ($firstQrId === 0) {
+        $firstQrId = (int)$savedItem['qr_generation_id'];
     }
 }
 $variantRow = static function (int $index = 0) use ($categories, $subcategories, $subSubcategories): void { ?>
@@ -158,7 +161,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                 <button type="button" class="badge bg-dark border-0 cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
                                     <i class="bi bi-qr-code me-1"></i><?= e($item['batch_code']) ?>
                                 </button>
-                                <?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?>
+                                <span class="qr-status-badge-<?= (int)$item['qr_generation_id'] ?>"><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></span>
                             <?php else: ?><span class="badge bg-secondary">No QR</span><?php endif; ?>
                         </td>
                         <td class="text-end">
@@ -184,37 +187,107 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </tbody>
         </table>
     </div>
-    <?php if ($bill['status'] !== 'MOVED' || $pendingQrCount > 0): ?>
-        <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div class="small text-muted">
-                <?php if ($bill['status'] === 'MOVED'): ?>
-                    Linked to the purchase already. You can still generate QR batches for variants that do not have one.
-                <?php else: ?>
-                    Click <strong>Move to Purchase</strong> to create or link this bill in the Purchases module.
-                <?php endif; ?>
-            </div>
-            <div class="d-flex align-items-center flex-wrap gap-2">
-                <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all saved variants that do not already have QR codes?')">
-                    <?= CSRF::field() ?>
-                    <button class="btn btn-outline-info" type="submit" <?= $pendingQrCount === 0 ? 'disabled' : '' ?>>
-                        <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
-                    </button>
-                </form>
-                <?php if ($bill['status'] !== 'MOVED'): ?>
-                    <?php if (!empty($candidatePurchases)): ?>
-                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#linkExistingPurchaseModal" <?= !$items ? 'disabled' : '' ?>>
-                            <i class="bi bi-link-45deg me-1"></i>Link to Existing Purchase
-                        </button>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 3 ACTION OPTIONS CONTAINER (Scenario 2)                                  -->
+<!-- ========================================================================= -->
+<div class="card border shadow-sm mb-4">
+    <div class="card-header bg-white py-3 border-bottom">
+        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-gear-wide-connected me-2 text-primary"></i>Mapping Actions &amp; Workflows</h5>
+        <div class="small text-muted mt-1">Execute one of the three primary paths for this mapping entry.</div>
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-4 align-items-stretch">
+            <!-- OPTION 1: Move to Purchase -->
+            <div class="col-lg-4 col-md-6">
+                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm">
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-success mb-0"><i class="bi bi-box-arrow-in-right me-1"></i>Option 1: Move to Purchase</h6>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">Purchases</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Moves this mapping entry directly into the Purchases module. If a purchase bill for this invoice already exists, items attach directly below it. The purchase person can then review and fill the HSN code and GST tax.
+                        </p>
+                    </div>
+                    <?php if ($bill['status'] === 'MOVED'): ?>
+                        <div class="alert alert-success py-2 px-3 mb-0 text-center small fw-semibold">
+                            <i class="bi bi-check-circle-fill me-1"></i>Moved to Purchase <?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?>
+                        </div>
+                    <?php else: ?>
+                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Move this mapping invoice to Purchases? It will create or link the purchase order for the purchase team to fill GST & HSN.')" class="m-0">
+                            <?= CSRF::field() ?>
+                            <button class="btn btn-success w-100 py-2 fw-semibold" type="submit" <?= !$items ? 'disabled' : '' ?>>
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
+                            </button>
+                        </form>
                     <?php endif; ?>
-                    <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Move this mapping invoice to Purchases? It will create or link the purchase order.')">
-                        <?= CSRF::field() ?>
-                        <button class="btn btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>><i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase</button>
-                    </form>
-                <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- OPTION 2: QR Generations & In-Panel Inventory Addition -->
+            <div class="col-lg-4 col-md-6">
+                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm">
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-info mb-0"><i class="bi bi-qr-code me-1"></i>Option 2: QR Generations</h6>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle">Labels &amp; Stock</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Generates QR labels storing product category, price, design, and variant ID. View in popup box and click <strong>Add to Inventory</strong> to credit stock directly to your chosen warehouse/concern.
+                        </p>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all saved variants that do not already have QR codes?')" class="m-0">
+                            <?= CSRF::field() ?>
+                            <button class="btn btn-outline-info w-100 py-2 fw-semibold" type="submit" <?= $pendingQrCount === 0 ? 'disabled' : '' ?>>
+                                <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
+                            </button>
+                        </form>
+                        <?php if (!empty($firstQrId)): ?>
+                            <button type="button" class="btn btn-dark btn-sm w-100 py-1" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$firstQrId ?>">
+                                <i class="bi bi-eye me-1"></i>View QR &amp; Stock in Popup
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPTION 3: Waiting for Purchase Bill / Link to Bill -->
+            <div class="col-lg-4 col-md-12">
+                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm">
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-warning mb-0"><i class="bi bi-clock-history me-1"></i>Option 3: Purchase Bill Status</h6>
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Mapping Status</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            <?php if ($bill['status'] === 'MOVED'): ?>
+                                <span class="badge bg-success mb-1">Status: MOVED</span><br>
+                                Linked to Purchase Order <strong><?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?></strong>.
+                            <?php elseif (!empty($bill['purchase_id'])): ?>
+                                <span class="badge bg-info text-dark mb-1">Status: MATCHED</span><br>
+                                Matched with existing Purchase Order <strong><?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?></strong>.
+                            <?php else: ?>
+                                <span class="badge bg-warning text-dark mb-1">Status: WAITING FOR PURCHASE BILL</span><br>
+                                Pre-mapped invoice waiting for the Purchases bill. As soon as the Purchases team records invoice <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>, it will automatically link.
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <?php if ($bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
+                        <button type="button" class="btn btn-outline-primary w-100 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#linkExistingPurchaseModal" <?= !$items ? 'disabled' : '' ?>>
+                            <i class="bi bi-link-45deg me-1"></i>Link to Existing Purchase Bill
+                        </button>
+                    <?php else: ?>
+                        <div class="bg-white border rounded p-2 text-center small text-muted">
+                            <i class="bi bi-info-circle me-1"></i><?= $bill['status'] === 'MOVED' ? 'Synchronization complete' : 'Automatic linking active on invoice match' ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
-    <?php endif; ?>
-</div>
+    </div>
 
 <?php if ($bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
 <div class="modal fade" id="linkExistingPurchaseModal" tabindex="-1" aria-labelledby="linkExistingPurchaseModalLabel" aria-hidden="true">
@@ -344,7 +417,13 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Inventory Status</div>
-                                <div><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></div>
+                                <div id="modalStockStatus_<?= (int)$item['qr_generation_id'] ?>">
+                                    <?php if (!empty($item['stock_added'])): ?>
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Not stocked</span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -369,11 +448,32 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <?php endforeach; endif; ?>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" class="btn btn-primary">
-                    <i class="bi bi-printer me-1"></i>Print Labels
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <?php if (empty($item['stock_added'])): ?>
+                        <div class="input-group input-group-sm" style="max-width: 320px;">
+                            <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Stock to:</span>
+                            <select class="form-select" id="whSelect_<?= (int)$item['qr_generation_id'] ?>">
+                                <?php foreach (($warehouses ?? []) as $wh): ?>
+                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-success btn-add-inventory-draft"
+                                data-generation-id="<?= (int)$item['qr_generation_id'] ?>"
+                                data-mapping-bill-id="<?= $mappingBillId ?>">
+                            <i class="bi bi-box-seam me-1"></i>Add to Inventory
+                        </button>
+                    <?php else: ?>
+                        <span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Stock already added to warehouse</span>
+                    <?php endif; ?>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" class="btn btn-primary btn-sm">
+                        <i class="bi bi-printer me-1"></i>Print Labels
+                    </a>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -383,6 +483,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 1. QR Code canvas rendering on modal open
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
         modalEl.addEventListener('shown.bs.modal', function () {
             modalEl.querySelectorAll('.panel-qr-canvas').forEach(function(el) {
@@ -396,6 +497,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 el.dataset.rendered = '1';
             });
+        });
+    });
+
+    // 2. Auto-open QR modal if 'open_qr' parameter is present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const openQrId = urlParams.get('open_qr');
+    if (openQrId) {
+        const modalTarget = document.getElementById('modalQrBatch_' + openQrId);
+        if (modalTarget) {
+            const modalInstance = new bootstrap.Modal(modalTarget);
+            modalInstance.show();
+        }
+    }
+
+    // 3. In-panel AJAX Add to Inventory
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-add-inventory-draft');
+        if (!btn) return;
+
+        const genId = btn.getAttribute('data-generation-id');
+        const mappingBillId = btn.getAttribute('data-mapping-bill-id');
+        const whSelect = document.getElementById('whSelect_' + genId);
+        const whId = whSelect ? whSelect.value : '';
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Adding...';
+
+        const formData = new FormData();
+        formData.append('generation_id', genId);
+        formData.append('warehouse_id', whId);
+        formData.append('mapping_bill_id', mappingBillId);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) formData.append('csrf_token', csrfToken);
+
+        fetch('<?= url("api/purchases/mapping/add-to-stock") ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                btn.className = 'btn btn-sm btn-success disabled';
+                btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Stock Added';
+                const statusEl = document.getElementById('modalStockStatus_' + genId);
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
+                }
+                document.querySelectorAll('.qr-status-badge-' + genId).forEach(function(el) {
+                    el.innerHTML = '<span class="badge bg-success">Stocked</span>';
+                });
+                alert('Success: ' + (data.message || 'Stock added to inventory!'));
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+                alert('Error: ' + (data.message || 'Could not add stock.'));
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+            alert('Server error: ' + err.message);
         });
     });
 });

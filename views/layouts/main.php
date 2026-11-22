@@ -457,6 +457,8 @@ if (!empty($authUser['production_unit_name'])) {
     <script>if (typeof Html5Qrcode === 'undefined') document.write('<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"><\/script>');</script>
     <!-- Custom JS -->
     <script src="<?= asset('js/app.js') ?>?v=<?= file_exists(BASE_PATH . '/public/assets/js/app.js') ? filemtime(BASE_PATH . '/public/assets/js/app.js') : '1.1' ?>"></script>
+    <!-- Ultra-Fast Client Image Compressor -->
+    <script src="<?= asset('js/image-compressor.js') ?>?v=<?= file_exists(BASE_PATH . '/public/assets/js/image-compressor.js') ? filemtime(BASE_PATH . '/public/assets/js/image-compressor.js') : '1.0' ?>"></script>
     <!-- Page-specific scripts -->
     <?php if (isset($scripts)): ?>
         <?php foreach ($scripts as $script): ?>
