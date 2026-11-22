@@ -211,6 +211,27 @@ class PurchaseMappingFulfillmentService {
             CONSTRAINT fk_tpmi_bill FOREIGN KEY (mapping_bill_id) REFERENCES third_party_mapping_bills (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         Database::ensureColumn('third_party_mapping_items', 'purchase_item_id', 'INT UNSIGNED DEFAULT NULL AFTER mapping_bill_id');
+        Database::ensureColumn('third_party_mapping_items', 'item_type', "ENUM('THIRD_PARTY','FABRIC_ROLL') NOT NULL DEFAULT 'THIRD_PARTY' AFTER purchase_item_id");
+        Database::ensureColumn('third_party_mapping_items', 'roll_code', "VARCHAR(100) DEFAULT NULL AFTER product_code");
+        Database::ensureColumn('third_party_mapping_items', 'weight_kg', "DECIMAL(10,3) DEFAULT NULL AFTER quantity");
+        Database::ensureColumn('third_party_mapping_items', 'meters', "DECIMAL(10,3) DEFAULT NULL AFTER weight_kg");
+
+        // High-Performance Composite Indexes for ERP mapping, purchases, QR and stock ledger
+        Database::ensureIndex('production_purchases', 'idx_pp_seller_inv', '`seller_id`, `invoice_number`');
+        Database::ensureIndex('production_purchases', 'idx_pp_concern_type', '`concern_id`, `purchase_type`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_purchase_type', '`purchase_id`, `item_type`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_variant', '`variant_id`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_qr', '`qr_generation_id`');
+        Database::ensureIndex('third_party_mapping_bills', 'idx_tpmb_match_inv', '`concern_id`, `seller_id`, `invoice_number`');
+        Database::ensureIndex('third_party_mapping_bills', 'idx_tpmb_purchase_link', '`purchase_id`');
+        Database::ensureIndex('third_party_mapping_items', 'idx_tpmi_purchase_item', '`purchase_item_id`');
+        Database::ensureIndex('third_party_mapping_items', 'idx_tpmi_variant_link', '`variant_id`');
+        Database::ensureIndex('stock_transactions', 'idx_st_variant_loc_state', '`variant_id`, `location_type`, `location_id`');
+        Database::ensureIndex('stock_balances', 'idx_sb_variant_loc_state', '`variant_id`, `location_type`, `location_id`, `stock_state`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_source_mapping', '`source_mapping_item_id`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_source_purchase', '`source_purchase_item_id`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_stock_status', '`stock_added`');
+        Database::ensureIndex('product_variants', 'idx_pv_product_active', '`product_id`, `is_active`');
 
         // Repair legacy rows that were flagged as mapped without any taxonomy.
         Database::execute(

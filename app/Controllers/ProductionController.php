@@ -1448,6 +1448,8 @@ class ProductionController {
         if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $where[] = "pp.purchase_type = ?";
             $params[] = $filterType;
+        } elseif ($filterType === 'MAPPING') {
+            $where[] = "(mb.id IS NOT NULL OR pp.notes LIKE '%Mapping Invoice%')";
         }
         if ($search !== '') {
             $where[] = "(pp.purchase_number LIKE ? OR pp.invoice_number LIKE ? OR s.company LIKE ? OR s.name LIKE ?)";
@@ -1463,9 +1465,11 @@ class ProductionController {
         $purchases = Database::fetchAll(
             "SELECT pp.id, pp.purchase_number, pp.purchase_type, pp.seller_id, pp.purchase_date,
                     pp.invoice_number, pp.document_url, pp.document_urls, pp.notes, pp.total_amount, pp.created_by, pp.created_at,
-                    s.name AS seller_name, s.company, s.seller_type
+                    s.name AS seller_name, s.company, s.seller_type,
+                    mb.id AS mapping_bill_id, mb.invoice_number AS mapping_invoice_number
              FROM production_purchases pp
              INNER JOIN sellers s ON s.id = pp.seller_id
+             LEFT JOIN third_party_mapping_bills mb ON mb.purchase_id = pp.id
              $whereSql
              ORDER BY pp.purchase_date DESC, pp.id DESC",
             $params
@@ -3768,7 +3772,7 @@ class ProductionController {
             }
         }
 
-        $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
@@ -3816,7 +3820,124 @@ class ProductionController {
             Response::redirect(url('purchases/mapping'));
             return;
         }
+
+        $entryType = strtoupper(trim((string)($_POST['entry_type'] ?? 'THIRD_PARTY')));
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+        if ($entryType === 'FABRIC_ROLL') {
+            $rolls = $_POST['rolls'] ?? [];
+            $fabricName = mb_strtoupper(trim((string)($_POST['fabric_name'] ?? 'FABRIC ROLL')));
+            if ($fabricName === '' || !is_array($rolls) || empty($rolls)) {
+                if ($isAjax) {
+                    Response::json(['success' => false, 'message' => 'Enter a fabric name and at least one roll row.'], 422);
+                    return;
+                }
+                Session::flash('error', 'Enter a fabric name and at least one roll row.');
+                Response::back();
+                return;
+            }
+            Database::beginTransaction();
+            try {
+                $product = Database::fetchOne(
+                    "SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id = ? LIMIT 1",
+                    [$fabricName, (int)$bill['seller_id']]
+                );
+                if (!$product) {
+                    $baseCode = 'ROL-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $fabricName)), 0, 8);
+                    $fCode = $baseCode ?: 'ROL-FABRIC';
+                    $suf = 1;
+                    while (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$fCode])) {
+                        $fCode = $baseCode . '-' . $suf++;
+                    }
+                    Database::execute(
+                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$fabricName, $fCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                    );
+                    $productId = (int)Database::lastInsertId();
+                    $productCode = $fCode;
+                } else {
+                    $productId = (int)$product['id'];
+                    $productCode = (string)$product['code'];
+                }
+
+                $rollCount = 0;
+                foreach ($rolls as $idx => $r) {
+                    if (!is_array($r)) continue;
+                    $rollCode = trim((string)($r['roll_code'] ?? ''));
+                    $color = trim((string)($r['color'] ?? 'Standard'));
+                    $meters = (float)($r['meters'] ?? 0);
+                    $weightKg = (float)($r['weight_kg'] ?? 0);
+                    $rate = (float)($r['rate'] ?? 0);
+                    $gstRate = isset($r['gst_rate']) ? (float)$r['gst_rate'] : 5.0;
+                    $hsn = trim((string)($r['hsn_code'] ?? '5208')) ?: '5208';
+                    if ($meters <= 0 && $weightKg <= 0) continue;
+                    if ($rollCode === '') {
+                        $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
+                    }
+                    $sku = $productCode . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $rollCode), 0, 10));
+
+                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
+                        'color' => $color,
+                        'size' => ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg')),
+                        'vendor_sku' => $sku,
+                        'hsn_code' => $hsn,
+                        'gst_rate' => $gstRate,
+                        'mrp' => round($rate * 1.3, 2),
+                        'selling_price' => round($rate * 1.2, 2),
+                        'unit_price' => $rate,
+                    ]);
+
+                    Database::execute(
+                        "INSERT INTO third_party_mapping_items
+                            (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
+                             roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                             category_id, subcategory_id, sub_subcategory_id)
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MTR', ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                        [
+                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode, $sku,
+                            $rollCode, $weightKg, $meters, ($meters > 0 ? $meters : $weightKg),
+                            $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
+                            ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg'))
+                        ]
+                    );
+                    $rollCount++;
+                }
+
+                if ($rollCount === 0) {
+                    throw new InvalidArgumentException('Enter at least one valid fabric roll with length or weight.');
+                }
+                Database::commit();
+
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Successfully added {$rollCount} fabric roll(s) to mapping draft.",
+                        'redirect_url' => url('purchases/mapping/draft/' . $mappingBillId)
+                    ]);
+                    return;
+                }
+                Session::flash('success', "Added {$rollCount} fabric roll(s) to mapping draft.");
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) Database::rollback();
+                if ($isAjax) {
+                    Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+                    return;
+                }
+                Session::flash('error', $e->getMessage());
+                Response::back();
+                return;
+            }
+        }
+
         if ($productName === '' || !is_array($variants) || empty($variants)) {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Enter a product name and at least one product variant.'], 422);
+                return;
+            }
             Session::flash('error', 'Enter a product name and at least one product variant.');
             Response::back();
             return;
@@ -3939,9 +4060,29 @@ class ProductionController {
                 'product_name' => $productName,
                 'variant_count' => $variantCount,
             ]);
+
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Product '{$productName}' and its variants were saved to Mapping.",
+                    'product_name' => $productName,
+                    'variant_count' => $variantCount
+                ]);
+                return;
+            }
+
             Session::flash('success', "Product '{$productName}' and its variants were saved to Mapping.");
         } catch (Throwable $e) {
             Database::rollback();
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                return;
+            }
             Session::flash('error', $e->getMessage());
         }
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
@@ -4032,11 +4173,28 @@ class ProductionController {
                 }
             }
         } catch (Throwable $e) {
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => "QR generation stopped: " . $e->getMessage()], 400);
+                return;
+            }
             Session::flash(
                 'error',
                 "QR generation stopped after {$generatedCount} variant(s): " . $e->getMessage()
             );
             Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+        if ($isAjax) {
+            Response::json([
+                'success' => true,
+                'message' => "QR batches generated for {$generatedCount} variant(s).",
+                'generated_count' => $generatedCount
+            ]);
             return;
         }
 
@@ -4517,6 +4675,16 @@ class ProductionController {
                 $this->linkThirdPartyMappingDraftToPurchase($billId, (int)$matches[0]['id']);
                 Database::commit();
                 $poNumber = $matches[0]['purchase_number'] ?? ('#' . $matches[0]['id']);
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Mapping products were added to matching purchase bill {$poNumber}.",
+                        'redirect_url' => url('purchases/view/' . (int)$matches[0]['id'])
+                    ]);
+                    return;
+                }
                 Session::flash('success', "Mapping products were added to matching purchase bill {$poNumber}.");
                 Response::redirect(url('purchases'));
                 return;
@@ -4568,6 +4736,16 @@ class ProductionController {
                 $this->linkThirdPartyMappingDraftToPurchase($billId, $purchaseId);
                 Database::commit();
 
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.",
+                        'redirect_url' => url('purchases/view/' . $purchaseId)
+                    ]);
+                    return;
+                }
                 Session::flash('success', "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.");
                 Response::redirect(url('purchases'));
                 return;
@@ -4607,7 +4785,7 @@ class ProductionController {
             [$purchaseId, (int)$bill['seller_id'], (int)$bill['concern_id']]
         );
         if (!$purchase
-            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED'], true)) {
+            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED', 'FABRIC_ROLL'], true)) {
             throw new InvalidArgumentException('The selected purchase does not match the mapping supplier or type.');
         }
 
@@ -4629,20 +4807,39 @@ class ProductionController {
             $lineTotal = round((float)$item['quantity'] * (float)$item['unit_price'] + $taxAmount, 2);
             $taxHalf = round($taxAmount / 2, 2);
             $taxRateHalf = round((float)$item['gst_rate'] / 2, 3);
-            Database::execute(
-                "INSERT INTO production_purchase_items
-                    (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
-                     quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
-                     tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
-                     is_mapped, created_at)
-                 VALUES (?, 'THIRD_PARTY', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
-                         ?, ?, ?, ?, ?, ?, ?, 0, NOW())",
-                [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
-                    $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'],
-                    $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
-                    $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
-                    $item['color'], $item['size'], $item['hsn_code']]
-            );
+            $isRoll = (($item['item_type'] ?? 'THIRD_PARTY') === 'FABRIC_ROLL');
+
+            if ($isRoll) {
+                Database::execute(
+                    "INSERT INTO production_purchase_items
+                        (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
+                         roll_number, weight_kg, quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
+                         tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
+                         is_mapped, created_at)
+                     VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
+                             ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'MTR',
+                        $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
+                        $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
+                        $item['color'], $item['size'], $item['hsn_code']]
+                );
+            } else {
+                Database::execute(
+                    "INSERT INTO production_purchase_items
+                        (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
+                         quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
+                         tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
+                         is_mapped, created_at)
+                     VALUES (?, 'THIRD_PARTY', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
+                             ?, ?, ?, ?, ?, ?, ?, 0, NOW())",
+                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                        $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'],
+                        $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
+                        $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
+                        $item['color'], $item['size'], $item['hsn_code']]
+                );
+            }
             $purchaseItemId = (int)Database::lastInsertId();
             Database::execute(
                 "UPDATE third_party_mapping_items SET purchase_item_id = ? WHERE id = ?",
@@ -4653,15 +4850,17 @@ class ProductionController {
                 'color' => $item['color'],
                 'vendor_sku' => $item['vendor_sku'],
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            PurchaseMappingFulfillmentService::fulfill($purchaseItemId, [
-                'category_id' => (int)$item['category_id'],
-                'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
-                'sub_subcategory_id' => (int)($item['sub_subcategory_id'] ?? 0) ?: null,
-                'attributes' => $attributes,
-                'is_complementary' => 0,
-                'mrp' => (float)$item['mrp'],
-                'selling_price' => (float)$item['selling_price'],
-            ], $userId);
+            if (!$isRoll) {
+                PurchaseMappingFulfillmentService::fulfill($purchaseItemId, [
+                    'category_id' => (int)$item['category_id'],
+                    'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
+                    'sub_subcategory_id' => (int)($item['sub_subcategory_id'] ?? 0) ?: null,
+                    'attributes' => $attributes,
+                    'is_complementary' => 0,
+                    'mrp' => (float)$item['mrp'],
+                    'selling_price' => (float)$item['selling_price'],
+                ], $userId);
+            }
 
             if (!empty($item['qr_generation_id'])) {
                 $qr = Database::fetchOne("SELECT batch_code, stock_added FROM qr_generations WHERE id = ?", [(int)$item['qr_generation_id']]);
@@ -4697,12 +4896,26 @@ class ProductionController {
              FROM production_purchase_items WHERE purchase_id = ?",
             [(int)$purchase['id']]
         );
+        $distinctTypes = Database::fetchAll(
+            "SELECT DISTINCT item_type FROM production_purchase_items WHERE purchase_id = ?",
+            [(int)$purchase['id']]
+        );
+        $typesList = array_column($distinctTypes, 'item_type');
+        $resolvedType = 'THIRD_PARTY';
+        if (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) > 1) {
+            $resolvedType = 'MIXED';
+        } elseif (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) === 1) {
+            $resolvedType = 'FABRIC_ROLL';
+        } elseif (count($typesList) > 1) {
+            $resolvedType = 'MIXED';
+        }
         Database::execute(
             "UPDATE production_purchases
              SET total_amount = ?, is_inwarded = GREATEST(COALESCE(is_inwarded, 0), ?),
+                 purchase_type = ?,
                  updated_at = NOW()
              WHERE id = ?",
-            [(float)($purchaseTotals['total_amount'] ?? 0), (int)($purchaseTotals['has_inwarded_items'] ?? 0), (int)$purchase['id']]
+            [(float)($purchaseTotals['total_amount'] ?? 0), (int)($purchaseTotals['has_inwarded_items'] ?? 0), $resolvedType, (int)$purchase['id']]
         );
         Database::execute(
             "UPDATE third_party_mapping_bills SET status = 'MOVED', purchase_id = ? WHERE id = ?",
@@ -5149,7 +5362,7 @@ class ProductionController {
 
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
-        $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
         Response::view('production.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),

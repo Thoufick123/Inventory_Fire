@@ -244,6 +244,16 @@ class Router {
         $this->post('production/purchases/mapping/draft/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('api/purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
         $this->post('purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+
+        // Shop & Production Cash & Cash Flow Management
+        $this->get('production/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
+        $this->get('shop/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
+        $this->post('production/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware']);
+        $this->post('production/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware']);
+        $this->post('production/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware']);
+        $this->post('production/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware']);
+        $this->post('production/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware']);
+        $this->get('production/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware']);
         $this->get('production/purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
