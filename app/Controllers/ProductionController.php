@@ -603,7 +603,7 @@ class ProductionController {
         $cities = Database::fetchAll("SELECT DISTINCT city FROM sellers $cityWhere ORDER BY city ASC", $cityParams);
 
         Response::view('production.sellers.index', [
-            'pageTitle'      => 'Production Suppliers',
+            'pageTitle'      => 'Suppliers',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-sellers',
             'sellers'        => $sellers,
@@ -613,7 +613,7 @@ class ProductionController {
             'cities'         => $cities,
             'damageFilter'   => $damageFilter,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers'],
             ],
         ]);
@@ -626,7 +626,7 @@ class ProductionController {
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => 'Add Supplier'],
             ],
@@ -1100,7 +1100,7 @@ class ProductionController {
             'totalActiveRollsCount'     => count($activeRolls),
             'totalDamagesCount'         => count($allDamages),
             'breadcrumb'                => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => $seller['name']],
             ],
@@ -1143,7 +1143,7 @@ class ProductionController {
             'activeMenu'   => 'prod-sellers',
             'seller'       => $seller,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => 'Edit Supplier'],
             ],
@@ -1535,8 +1535,8 @@ class ProductionController {
             'filterType' => $filterType,
             'search' => $search,
             'breadcrumb' => [
-                ['label' => 'Dashboard', 'url' => url('admin/dashboard')],
-                ['label' => 'Purchases'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase'],
             ],
         ]);
     }
@@ -1832,7 +1832,8 @@ class ProductionController {
             'items' => $items,
             'documents' => $documents,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
                 ['label' => $purchase['purchase_number']],
             ],
         ]);
@@ -1855,7 +1856,7 @@ class ProductionController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
         $documents = self::getPurchaseDocuments((int)$purchase['id'], $purchase['document_url'] ?? null, $purchase['document_urls'] ?? null);
         Response::view('production.purchases.edit', [
-            'pageTitle' => 'Edit Purchase ' . $purchase['purchase_number'],
+            'pageTitle' => 'Edit Record Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-purchases',
             'purchase' => $purchase,
@@ -1863,9 +1864,9 @@ class ProductionController {
             'documents' => $documents,
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Purchases', 'url' => url('production/purchases')],
-                ['label' => 'Edit ' . $purchase['purchase_number']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
+                ['label' => 'Edit Record Purchase'],
             ],
         ]);
     }
@@ -2573,7 +2574,7 @@ class ProductionController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
         Response::view('production.purchases.create', [
-            'pageTitle' => 'Record Purchase',
+            'pageTitle' => 'Add Record Purchase',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-create',
             'sellers' => $sellers,
@@ -2583,8 +2584,9 @@ class ProductionController {
             'colors' => $colors,
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Record Purchase'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
+                ['label' => 'Add Record Purchase'],
             ],
         ]);
     }

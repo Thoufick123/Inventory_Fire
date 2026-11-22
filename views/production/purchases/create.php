@@ -1,6 +1,6 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1"><i class="bi bi-bag-plus me-2 text-primary"></i>Record Purchase</h2>
+        <h2 class="mb-1"><i class="bi bi-bag-plus me-2 text-primary"></i>Add Record Purchase</h2>
     </div>
     <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Purchases</a>
 </div>
@@ -8,8 +8,8 @@
 <form method="POST" action="<?= url('purchases/store') ?>" enctype="multipart/form-data" id="productionPurchaseForm" novalidate>
     <?= CSRF::field() ?>
     <div class="card shadow-sm border mb-4">
-        <div class="card-header bg-white py-3"><h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Purchase &amp; Supplier Details</h5></div>
-        <div class="card-body">
+        <div class="card-header bg-white py-3 px-4"><h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Purchase &amp; Supplier Details</h5></div>
+        <div class="card-body p-4">
             <div class="row g-3">
                 <div class="col-md-5">
                     <label class="form-label required" for="purchaseSeller">Supplier / Vendor *</label>
@@ -138,8 +138,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-6">
+                <div class="col-12 mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label mb-0 fw-semibold" for="purchaseDocuments">
                             <i class="bi bi-receipt-cutoff me-1 text-primary"></i>Tax Invoice / Bill Attachments (Optional)
@@ -178,9 +177,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 mt-2">
                     <label class="form-label" for="purchaseNotes">Purchase Notes</label>
-                    <input type="text" class="form-control" name="notes" id="purchaseNotes" maxlength="500">
+                    <input type="text" class="form-control" name="notes" id="purchaseNotes" maxlength="500" placeholder="Optional notes regarding this purchase order or delivery...">
                 </div>
                 <div class="col-12 d-none" id="selectedSupplierDetails" aria-live="polite">
                     <div class="border rounded bg-light p-3">
@@ -202,7 +201,7 @@
 
     <!-- Multi-Category Inward Selector (Single Invoice with Multiple Product Categories) -->
     <div class="card shadow-sm border mb-4" id="purchaseCategorySelectorCard">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories *</h5>
                 <small class="text-muted">A single supplier invoice can contain Fabric Rolls, Raw Materials, and Third-Party Products simultaneously. Check one or more categories below.</small>
@@ -213,7 +212,7 @@
                 </button>
             </div>
         </div>
-        <div class="card-body p-3">
+        <div class="card-body p-4">
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="p-3 border rounded-3 h-100 cursor-pointer type-card active border-primary shadow-sm" id="cardTypeFabricRoll" onclick="togglePurchaseCategory('FABRIC_ROLL')">
@@ -286,117 +285,111 @@
     <!-- 1. FABRIC ROLL SECTION -->
     <div id="sectionFabricRoll">
     <div class="card shadow-sm border mb-4">
-        <div class="card-header bg-white py-3">
-            <div class="row g-3 align-items-center">
-                <div class="col">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll &amp; Material Supply Details</h5>
-                   </div>
-                <div class="col-auto">
-                    <button type="button" class="btn btn-sm btn-primary" id="addFabricRoll"><i class="bi bi-plus-circle me-1"></i>Add Fabric Roll</button>
-                </div>
-                <div class="col-12">
-                    <label class="form-label required" for="fabricDescription">Fabric / Material Description *</label>
-                    <input type="text" name="fabric_description" id="fabricDescription" class="form-control text-uppercase" maxlength="150" placeholder="E.G. 100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)" list="materialTypeSuggestions">
-                    <datalist id="materialTypeSuggestions">
-                        <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
-                        <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
-                        <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
-                        <option value="100% COTTON FRENCH TERRY (240 GSM)">
-                        <option value="100% COTTON 3-THREAD FLEECE (320 GSM)">
-                        <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
-                        <option value="100% COTTON PIQUE POLO KNIT (220 GSM)">
-                        <option value="100% COTTON 2X2 RIB KNIT (220 GSM)">
-                        <option value="DENIM TWILL 12OZ INDIGO">
-                        <option value="RAYON / VISCOSE PRINTED FABRIC">
-                    </datalist>
-                    <datalist id="sizeDataList">
-                        <option value="XS">
-                        <option value="S">
-                        <option value="M">
-                        <option value="L">
-                        <option value="XL">
-                        <option value="XXL">
-                        <option value="3XL">
-                        <option value="28">
-                        <option value="30">
-                        <option value="32">
-                        <option value="34">
-                        <option value="36">
-                        <option value="38">
-                        <option value="40">
-                        <option value="42">
-                        <option value="FREE SIZE">
-                        <?php foreach (($sizes ?? []) as $sz): ?>
-                            <option value="<?= e($sz['name'] ?? '') ?>">
-                        <?php endforeach; ?>
-                    </datalist>
-                    <datalist id="colorDataList">
-                        <option value="BLACK">
-                        <option value="WHITE">
-                        <option value="NAVY BLUE">
-                        <option value="ROYAL BLUE">
-                        <option value="RED">
-                        <option value="MAROON">
-                        <option value="OLIVE GREEN">
-                        <option value="BOTTLE GREEN">
-                        <option value="GREY / HEATHER">
-                        <option value="CHARCOAL">
-                        <option value="BEIGE">
-                        <option value="YELLOW">
-                        <option value="ORANGE">
-                        <option value="PINK">
-                        <option value="LAVENDER">
-                        <?php foreach (($colors ?? []) as $cl): ?>
-                            <option value="<?= e($cl['name'] ?? '') ?>">
-                        <?php endforeach; ?>
-                    </datalist>
-                    <datalist id="yarnSuggestions">
-                        <option value="30S COMBED COTTON YARN">
-                        <option value="40S COMBED COTTON YARN">
-                        <option value="24S CARDED COTTON YARN">
-                        <option value="34S COMBED COTTON YARN">
-                        <option value="POLYESTER SEWING THREAD 40/2">
-                        <option value="SPUN POLYESTER THREAD 20/2">
-                        <option value="OVERLOCK LOOPER THREAD">
-                        <option value="HIGH TENACITY EMBROIDERY THREAD">
-                        <option value="ELASTIC TAPE 1 INCH">
-                        <option value="ELASTIC TAPE 1.5 INCH">
-                        <option value="COTTON DRAWCORD / ROPE">
-                        <option value="TWILL NECK TAPE 12MM">
-                        <option value="BUTTONS 18L 4-HOLE POLYESTER">
-                        <option value="BUTTONS 24L 2-HOLE">
-                        <option value="ZIPPERS #5 NYLON COIL">
-                        <option value="ZIPPERS #3 CONCEALED">
-                        <option value="WOVEN MAIN LABELS">
-                        <option value="PRINTED CARE &amp; WASH LABELS">
-                        <option value="FUSIBLE INTERLINING (WHITE)">
-                    </datalist>
-                    <datalist id="countSizeSuggestions">
-                        <option value="20s">
-                        <option value="24s">
-                        <option value="30s">
-                        <option value="34s">
-                        <option value="40s">
-                        <option value="2/40">
-                        <option value="2/30">
-                        <option value="1/20">
-                        <option value="1 inch">
-                        <option value="1.25 inch">
-                        <option value="1.5 inch">
-                        <option value="2 inch">
-                        <option value="12mm">
-                        <option value="18L">
-                        <option value="24L">
-                        <option value="32L">
-                        <option value="#3">
-                        <option value="#5">
-                        <option value="1000m">
-                        <option value="5000m">
-                    </datalist>
-                </div>
-            </div>
+        <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll &amp; Material Supply Details</h5>
+            <button type="button" class="btn btn-sm btn-primary" id="addFabricRoll"><i class="bi bi-plus-circle me-1"></i>Add Fabric Roll</button>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
+            <div class="mb-4">
+                <label class="form-label required fw-semibold" for="fabricDescription">Fabric / Material Description *</label>
+                <input type="text" name="fabric_description" id="fabricDescription" class="form-control text-uppercase" maxlength="150" placeholder="E.G. 100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)" list="materialTypeSuggestions">
+                <datalist id="materialTypeSuggestions">
+                    <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
+                    <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
+                    <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
+                    <option value="100% COTTON FRENCH TERRY (240 GSM)">
+                    <option value="100% COTTON 3-THREAD FLEECE (320 GSM)">
+                    <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
+                    <option value="100% COTTON PIQUE POLO KNIT (220 GSM)">
+                    <option value="100% COTTON 2X2 RIB KNIT (220 GSM)">
+                    <option value="DENIM TWILL 12OZ INDIGO">
+                    <option value="RAYON / VISCOSE PRINTED FABRIC">
+                </datalist>
+                <datalist id="sizeDataList">
+                    <option value="XS">
+                    <option value="S">
+                    <option value="M">
+                    <option value="L">
+                    <option value="XL">
+                    <option value="XXL">
+                    <option value="3XL">
+                    <option value="28">
+                    <option value="30">
+                    <option value="32">
+                    <option value="34">
+                    <option value="36">
+                    <option value="38">
+                    <option value="40">
+                    <option value="42">
+                    <option value="FREE SIZE">
+                    <?php foreach (($sizes ?? []) as $sz): ?>
+                        <option value="<?= e($sz['name'] ?? '') ?>">
+                    <?php endforeach; ?>
+                </datalist>
+                <datalist id="colorDataList">
+                    <option value="BLACK">
+                    <option value="WHITE">
+                    <option value="NAVY BLUE">
+                    <option value="ROYAL BLUE">
+                    <option value="RED">
+                    <option value="MAROON">
+                    <option value="OLIVE GREEN">
+                    <option value="BOTTLE GREEN">
+                    <option value="GREY / HEATHER">
+                    <option value="CHARCOAL">
+                    <option value="BEIGE">
+                    <option value="YELLOW">
+                    <option value="ORANGE">
+                    <option value="PINK">
+                    <option value="LAVENDER">
+                    <?php foreach (($colors ?? []) as $cl): ?>
+                        <option value="<?= e($cl['name'] ?? '') ?>">
+                    <?php endforeach; ?>
+                </datalist>
+                <datalist id="yarnSuggestions">
+                    <option value="30S COMBED COTTON YARN">
+                    <option value="40S COMBED COTTON YARN">
+                    <option value="24S CARDED COTTON YARN">
+                    <option value="34S COMBED COTTON YARN">
+                    <option value="POLYESTER SEWING THREAD 40/2">
+                    <option value="SPUN POLYESTER THREAD 20/2">
+                    <option value="OVERLOCK LOOPER THREAD">
+                    <option value="HIGH TENACITY EMBROIDERY THREAD">
+                    <option value="ELASTIC TAPE 1 INCH">
+                    <option value="ELASTIC TAPE 1.5 INCH">
+                    <option value="COTTON DRAWCORD / ROPE">
+                    <option value="TWILL NECK TAPE 12MM">
+                    <option value="BUTTONS 18L 4-HOLE POLYESTER">
+                    <option value="BUTTONS 24L 2-HOLE">
+                    <option value="ZIPPERS #5 NYLON COIL">
+                    <option value="ZIPPERS #3 CONCEALED">
+                    <option value="WOVEN MAIN LABELS">
+                    <option value="PRINTED CARE &amp; WASH LABELS">
+                    <option value="FUSIBLE INTERLINING (WHITE)">
+                </datalist>
+                <datalist id="countSizeSuggestions">
+                    <option value="20s">
+                    <option value="24s">
+                    <option value="30s">
+                    <option value="34s">
+                    <option value="40s">
+                    <option value="2/40">
+                    <option value="2/30">
+                    <option value="1/20">
+                    <option value="1 inch">
+                    <option value="1.25 inch">
+                    <option value="1.5 inch">
+                    <option value="2 inch">
+                    <option value="12mm">
+                    <option value="18L">
+                    <option value="24L">
+                    <option value="32L">
+                    <option value="#3">
+                    <option value="#5">
+                    <option value="1000m">
+                    <option value="5000m">
+                </datalist>
+            </div>
             <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                 <h6 class="fw-bold mb-0"><i class="bi bi-stack me-1 text-primary"></i>Individual Fabric Rolls (<span id="rollCountBadge">0</span>)</h6>
             </div>
@@ -416,7 +409,7 @@
                     </table>
                 </div>
             </div>
-            <div class="p-3 bg-primary-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="p-3 bg-primary-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                 <div><strong class="text-primary"><i class="bi bi-calculator me-1"></i>Batch Metrics Summary</strong></div>
                 <div class="d-flex flex-wrap gap-4">
                     <div><small class="text-muted d-block">Total Rolls</small><strong id="summaryTotalRolls">0 Rolls</strong></div>
@@ -433,7 +426,7 @@
     <!-- 2. RAW MATERIALS SECTION -->
     <div id="sectionRawMaterial" class="d-none">
         <div class="card shadow-sm border mb-4">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h5 class="mb-0 fw-bold"><i class="bi bi-boxes me-2 text-warning"></i>Raw Materials Procurement (Yarn, Thread &amp; Accessories)</h5>
                 </div>
@@ -441,7 +434,7 @@
                     <i class="bi bi-plus-circle me-1"></i> Add Raw Material
                 </button>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 <!-- Individual Cards Container -->
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                     <h6 class="fw-bold mb-0"><i class="bi bi-box-seam me-1 text-warning"></i>Individual Raw Materials (<span id="rmCountBadge">0</span>)</h6>
@@ -481,7 +474,7 @@
                 </div>
 
                 <!-- Batch Metrics Summary -->
-                <div class="p-3 bg-warning-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="p-3 bg-warning-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                     <div>
                         <strong class="text-dark"><i class="bi bi-calculator me-1"></i>Raw Materials Procurement Summary</strong>
                     </div>
@@ -500,7 +493,7 @@
     <!-- 3. THIRD-PARTY PRODUCTS SECTION -->
     <div id="sectionThirdParty" class="d-none">
         <div class="card shadow-sm border mb-4">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h5 class="mb-0 fw-bold"><i class="bi bi-box-seam me-2 text-info"></i>Third-Party Finished Products Inward</h5>
                 </div>
@@ -508,7 +501,7 @@
                     <i class="bi bi-plus-circle me-1"></i> Add Third-Party Product
                 </button>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 <!-- Individual Cards Container -->
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                     <h6 class="fw-bold mb-0"><i class="bi bi-boxes me-1 text-info"></i>Individual Third-Party Products (<span id="tpCountBadge">0</span>)</h6>
@@ -547,7 +540,7 @@
                 </div>
 
                 <!-- Batch Metrics Summary -->
-                <div class="p-3 bg-info-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="p-3 bg-info-subtle rounded border d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                     <div>
                         <strong class="text-info-emphasis"><i class="bi bi-calculator me-1"></i>Third-Party Inward Summary</strong>
                     </div>
@@ -565,11 +558,11 @@
 
     <!-- Invoice Financial Breakdown Summary (Unified Across Selected Categories) -->
     <div class="card border shadow-sm mb-4" id="invoiceFinancialBreakdownCard">
-        <div class="card-header bg-white py-2 px-3 fw-bold small text-muted text-uppercase d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white py-3 px-4 fw-bold small text-muted text-uppercase d-flex justify-content-between align-items-center">
             <span><i class="bi bi-receipt me-1 text-primary"></i>Invoice Financial Breakdown</span>
             <span id="activeCategoriesCountBadge" class="badge bg-primary-subtle text-primary border">1 Category Selected</span>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
             <div class="row g-3">
                 <div class="col-md-7 border-end">
                     <div id="rowSummaryRoll" class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
@@ -600,9 +593,9 @@
             </div>
         </div>
     </div>
-    <div class="d-flex justify-content-end gap-2 mb-4">
-        <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary">Cancel</a>
-        <button type="submit" id="savePurchaseSubmitBtn" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i>Save Purchase</button>
+    <div class="d-flex justify-content-end gap-2 mb-4 mt-3">
+        <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary px-4">Cancel</a>
+        <button type="submit" id="savePurchaseSubmitBtn" class="btn btn-primary px-4"><i class="bi bi-check-circle me-1"></i>Save Purchase</button>
     </div>
 </form>
 
@@ -818,8 +811,7 @@
     margin-top: 8px !important;
     margin-bottom: 8px !important;
 }
-.tax-strip-container .item-gst-type,
-.item-gst-type {
+.tax-strip-container .item-gst-type {
     min-width: 195px;
     padding-right: 1.85rem !important;
     font-size: 0.84rem;
@@ -842,10 +834,10 @@
 </style>
 
 <template id="fabricRollTemplate">
-    <div class="roll-card card border shadow-sm" data-index="">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #1</span> <span class="badge bg-dark roll-code-text"></span></strong>
-            <button type="button" class="btn btn-sm btn-outline-danger remove-roll"><i class="bi bi-trash me-1"></i>Delete</button>
+    <div class="roll-card card border shadow-sm mb-3" data-index="">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
+            <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #1</span></strong>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-roll" title="Delete roll"><i class="bi bi-trash me-1"></i>Delete</button>
         </div>
         <div class="card-body p-3">
             <div class="row g-3">
@@ -877,13 +869,49 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-2 col-md-3"><label class="form-label">GST</label><select class="form-select item-gst-type"><option value="SGST">SGST</option><option value="IGST">IGST</option><option value="CGST">CGST</option><option value="BOTH">Both (CGST and SGST)</option><option value="EXEMPTED" selected>Exempted</option></select></div>
-                <div class="col-lg-2 col-md-3"><label class="form-label">GST Included / Excluded</label><select class="form-select item-tax-treatment"><option value="INCLUDED" selected>GST Included</option><option value="EXCLUDED">GST Excluded</option></select></div>
-                <div class="col-lg-2 col-md-3 tax-mode-field d-none"><label class="form-label">Tax Input Type</label><select class="form-select item-tax-mode"><option value="PERCENT">Percentage (%)</option><option value="AMOUNT">Amount (₹)</option></select></div>
-                <div class="col-lg-2 col-md-3 tax-value-field d-none"><label class="form-label item-tax-label">Tax</label><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.01" class="form-control item-tax-value numeric-text-input" value="0"></div>
-                <div class="col-lg-2 col-md-3 tax-cgst-field d-none"><label class="form-label item-cgst-label">CGST</label><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.01" class="form-control item-cgst-value numeric-text-input" value="0"></div>
-                <div class="col-md-6"><label class="form-label">Roll Sample Photo <small class="text-muted">(Optional — JPG, PNG, WEBP)</small></label><input type="file" class="form-control roll-photo" accept=".jpg,.jpeg,.png,.webp"></div>
-                <div class="col-md-6 roll-preview d-none"><img class="img-thumbnail" style="height:54px" alt="Roll photo preview"></div>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label">Tax Treatment</label>
+                    <select class="form-select item-tax-treatment">
+                        <option value="INCLUDED" selected>Included in Price</option>
+                        <option value="EXCLUDED">Excluded (+ GST)</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label">GST</label>
+                    <select class="form-select item-gst-type">
+                        <option value="EXEMPTED" selected>Exempted</option>
+                        <option value="BOTH">Both (CGST and SGST)</option>
+                        <option value="SGST">SGST</option>
+                        <option value="CGST">CGST</option>
+                        <option value="IGST">IGST</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-3 tax-mode-field d-none">
+                    <label class="form-label">Tax Input Type</label>
+                    <select class="form-select item-tax-mode">
+                        <option value="PERCENT">Percentage (%)</option>
+                        <option value="AMOUNT">Amount (₹)</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-3 tax-value-field d-none">
+                    <label class="form-label item-tax-label">Tax</label>
+                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.01" class="form-control item-tax-value numeric-text-input" value="0">
+                </div>
+                <div class="col-lg-2 col-md-3 tax-cgst-field d-none">
+                    <label class="form-label item-cgst-label">CGST</label>
+                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.01" class="form-control item-cgst-value numeric-text-input" value="0">
+                </div>
+                <div class="col-12 mt-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-lg-4 col-md-6">
+                            <label class="form-label mb-1">Roll Sample Photo <small class="text-muted">(Optional — JPG, PNG, WEBP)</small></label>
+                            <input type="file" class="form-control roll-photo" accept=".jpg,.jpeg,.png,.webp">
+                        </div>
+                        <div class="col-auto roll-preview d-none">
+                            <img class="img-thumbnail" style="height:54px" alt="Roll photo preview">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2642,7 +2670,8 @@
             const quantity = Math.max(1, Number(card.querySelector('.roll-quantity').value) || 1);
             const first = sequencePrefix + String(sequence).padStart(2, '0');
             const last = sequencePrefix + String(sequence + quantity - 1).padStart(2, '0');
-            card.querySelector('.roll-code-text').textContent = first === last ? first : first + '–' + last;
+            const codeBadge = card.querySelector('.roll-code-text');
+            if (codeBadge) codeBadge.textContent = first === last ? first : first + '–' + last;
             sequence += quantity;
         });
         updateSummary();

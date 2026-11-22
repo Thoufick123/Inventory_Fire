@@ -64,7 +64,7 @@ if (!empty($authUser['production_unit_name'])) {
 
                     <li class="nav-divider"></li>
 
-                    <!-- Production -->
+                    <!-- All Modules (formerly Production) -->
                     <?php 
                     $modProduction = isSuperAdmin() || hasConcernModule('production');
                     $modPurchases  = isSuperAdmin() || hasConcernModule('purchases');
@@ -87,15 +87,15 @@ if (!empty($authUser['production_unit_name'])) {
                     <li class="nav-item has-submenu">
                         <a href="#" class="nav-link <?= ($activeModule ?? '') === 'production' ? 'active' : '' ?>">
                             <i class="bi bi-gear-wide-connected"></i>
-                            <span>Production</span>
+                            <span>All Modules</span>
                             <i class="bi bi-chevron-down submenu-arrow"></i>
                         </a>
                         <ul class="submenu <?= ($activeModule ?? '') === 'production' ? 'show' : '' ?>">
                             <?php if ($modPurchases && hasPermission('sellers', 'view')): ?>
-                            <li><a href="<?= url('production/sellers') ?>" class="<?= ($activeMenu ?? '') === 'prod-sellers' ? 'active' : '' ?>">Suppliers &amp; Mills</a></li>
+                            <li><a href="<?= url('production/sellers') ?>" class="<?= ($activeMenu ?? '') === 'prod-sellers' ? 'active' : '' ?>">Suppliers</a></li>
                             <?php endif; ?>
                             <?php if ($modPurchases && (hasPermission('production_purchases', 'view') || hasPermission('purchases', 'view'))): ?>
-                            <li><a href="<?= url('production/purchases') ?>" class="<?= in_array($activeMenu ?? '', ['purchases', 'prod-purchases']) ? 'active' : '' ?>">Purchases</a></li>
+                            <li><a href="<?= url('production/purchases') ?>" class="<?= in_array($activeMenu ?? '', ['purchases', 'prod-purchases']) ? 'active' : '' ?>">Record Purchases</a></li>
                             <?php endif; ?>
                             <?php if ($modPurchases && hasPermission('production_purchase_mapping', 'view')): ?>
                             <li><a href="<?= url('production/purchases/mapping') ?>" class="<?= in_array($activeMenu ?? '', ['purchases-mapping', 'prod-purchases-mapping']) ? 'active' : '' ?>">Product Mapping</a></li>
@@ -404,7 +404,7 @@ if (!empty($authUser['production_unit_name'])) {
                 </div>
             </header>
 
-            <div class="content-wrapper p-3 p-md-4">
+            <div class="content-wrapper flex-grow-1 p-3 p-md-4 px-xl-5">
                 <!-- Flash Alerts -->
                 <?php
                 $alertTypes = ['success', 'error', 'warning', 'info'];
