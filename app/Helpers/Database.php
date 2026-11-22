@@ -216,6 +216,20 @@ class Database {
     }
 
     /**
+     * Ensure an index exists on a table (idempotent schema helper).
+     */
+    public static function ensureIndex(string $table, string $indexName, string $columnsSql): void {
+        try {
+            $indexes = array_column(self::fetchAll("SHOW INDEX FROM `$table`"), 'Key_name');
+            if (!in_array($indexName, $indexes, true)) {
+                self::execute("ALTER TABLE `$table` ADD INDEX `$indexName` ($columnsSql)");
+            }
+        } catch (Throwable $e) {
+            // Silently ignore if already exists
+        }
+    }
+
+    /**
      * Prevent cloning.
      */
     private function __clone() {}

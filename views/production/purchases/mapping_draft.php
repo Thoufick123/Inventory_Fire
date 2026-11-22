@@ -564,5 +564,131 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Server error: ' + err.message);
         });
     });
+
+    // 4. AJAX Save Product and Variants Form
+    const draftProductForm = document.getElementById('mappingDraftProductForm');
+    if (draftProductForm) {
+        draftProductForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = draftProductForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Product...';
+            }
+            const formData = new FormData(draftProductForm);
+            fetch(draftProductForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Success: ' + data.message);
+                    window.location.reload();
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Product to Mapping';
+                    }
+                    alert('Error: ' + (data.message || 'Failed to save product.'));
+                }
+            })
+            .catch(function(err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Product to Mapping';
+                }
+                alert('Server error: ' + err.message);
+            });
+        });
+    }
+
+    // 5. AJAX Move to Purchase Handlers
+    document.querySelectorAll('form[action$="/move"]').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!confirm('Move this mapping invoice to Purchases?')) return;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Moving...';
+            }
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Success: ' + data.message);
+                    window.location.href = data.redirect_url || '<?= url("purchases") ?>';
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase';
+                    }
+                    alert('Error: ' + (data.message || 'Failed to move to purchases.'));
+                }
+            })
+            .catch(function(err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase';
+                }
+                alert('Server error: ' + err.message);
+            });
+        });
+    });
+
+    // 6. AJAX Generate All QRs
+    document.querySelectorAll('form[action$="/generate-all-qr"]').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!confirm('Generate QR batches for all saved variants?')) return;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Generating...';
+            }
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Success: ' + data.message);
+                    window.location.reload();
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-qr-code me-1"></i>Generate QR';
+                    }
+                    alert('Error: ' + (data.message || 'QR generation failed.'));
+                }
+            })
+            .catch(function(err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-qr-code me-1"></i>Generate QR';
+                }
+                alert('Server error: ' + err.message);
+            });
+        });
+    });
 });
 </script>

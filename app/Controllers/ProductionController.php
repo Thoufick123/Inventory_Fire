@@ -3937,9 +3937,29 @@ class ProductionController {
                 'product_name' => $productName,
                 'variant_count' => $variantCount,
             ]);
+
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Product '{$productName}' and its variants were saved to Mapping.",
+                    'product_name' => $productName,
+                    'variant_count' => $variantCount
+                ]);
+                return;
+            }
+
             Session::flash('success', "Product '{$productName}' and its variants were saved to Mapping.");
         } catch (Throwable $e) {
             Database::rollback();
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                return;
+            }
             Session::flash('error', $e->getMessage());
         }
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
@@ -4030,11 +4050,28 @@ class ProductionController {
                 }
             }
         } catch (Throwable $e) {
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => "QR generation stopped: " . $e->getMessage()], 400);
+                return;
+            }
             Session::flash(
                 'error',
                 "QR generation stopped after {$generatedCount} variant(s): " . $e->getMessage()
             );
             Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+        if ($isAjax) {
+            Response::json([
+                'success' => true,
+                'message' => "QR batches generated for {$generatedCount} variant(s).",
+                'generated_count' => $generatedCount
+            ]);
             return;
         }
 
@@ -4515,6 +4552,16 @@ class ProductionController {
                 $this->linkThirdPartyMappingDraftToPurchase($billId, (int)$matches[0]['id']);
                 Database::commit();
                 $poNumber = $matches[0]['purchase_number'] ?? ('#' . $matches[0]['id']);
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Mapping products were added to matching purchase bill {$poNumber}.",
+                        'redirect_url' => url('purchases/view/' . (int)$matches[0]['id'])
+                    ]);
+                    return;
+                }
                 Session::flash('success', "Mapping products were added to matching purchase bill {$poNumber}.");
                 Response::redirect(url('purchases'));
                 return;
@@ -4566,6 +4613,16 @@ class ProductionController {
                 $this->linkThirdPartyMappingDraftToPurchase($billId, $purchaseId);
                 Database::commit();
 
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.",
+                        'redirect_url' => url('purchases/view/' . $purchaseId)
+                    ]);
+                    return;
+                }
                 Session::flash('success', "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.");
                 Response::redirect(url('purchases'));
                 return;
