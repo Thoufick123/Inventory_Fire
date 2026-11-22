@@ -436,6 +436,145 @@ class QrGenerationController {
     }
 
     /**
+     * Show edit form for a QR Generation Batch.
+     */
+    public function edit(string $id): void {
+        QrGenerationService::ensureSourceSchema();
+        $batch = QrGenerationService::getBatch((int)$id);
+        if (!$batch) {
+            Session::flash('error', 'QR Generation batch not found.');
+            Response::redirect(url('production/qr-generations'));
+            return;
+        }
+
+        $categories = Database::fetchAll("SELECT id, name, code FROM categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
+        $brands = Database::fetchAll("SELECT id, name FROM brands WHERE is_active = 1 ORDER BY name ASC");
+        $colors = Database::fetchAll("SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC");
+        $designs = Design::allActive();
+        $sizes = Database::fetchAll("SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
+
+        $activeTab = QrGenerationService::normalizeTab($_GET['tab'] ?? $batch['qr_source'] ?? null);
+
+        Response::view('production.qr_generation.edit', [
+            'pageTitle'    => 'Edit QR Batch: ' . $batch['batch_code'],
+            'activeModule' => 'production',
+            'activeMenu'   => 'prod-qr-generation',
+            'batch'        => $batch,
+            'items'        => $batch['items'] ?? [],
+            'categories'   => $categories,
+            'brands'       => $brands,
+            'colors'       => $colors,
+            'designs'      => $designs,
+            'sizes'        => $sizes,
+            'activeTab'    => $activeTab,
+            'viewUrl'      => url('production/qr-generations/view/' . $batch['id'] . '?tab=' . $activeTab),
+            'listUrl'      => url('production/qr-generations?tab=' . $activeTab),
+            'breadcrumb'   => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('production/qr-generations')],
+                ['label' => 'Edit QR Batch ' . $batch['batch_code']],
+            ],
+        ]);
+    }
+
+    /**
+     * POST: Update QR Generation Batch & individual item labels.
+     */
+    public function update(string $id): void {
+        QrGenerationService::ensureSourceSchema();
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::back();
+            return;
+        }
+
+        $batchId = (int)$id;
+        $batch = QrGenerationService::getBatch($batchId);
+        if (!$batch) {
+            Session::flash('error', 'QR Generation batch not found.');
+            Response::redirect(url('production/qr-generations'));
+            return;
+        }
+
+        $brandName = trim($_POST['brand_name'] ?? '');
+        $colorName = trim($_POST['color_name'] ?? '');
+        $designName = trim($_POST['design_name'] ?? '');
+        $sizeName = trim($_POST['size_name'] ?? '');
+        $mrp = isset($_POST['mrp']) && $_POST['mrp'] !== '' ? (float)$_POST['mrp'] : (float)($batch['mrp'] ?? 0);
+        $sellingPrice = isset($_POST['selling_price']) && $_POST['selling_price'] !== '' ? (float)$_POST['selling_price'] : (float)($batch['selling_price'] ?? 0);
+        $notes = trim($_POST['notes'] ?? '');
+
+        Database::beginTransaction();
+        try {
+            // Update batch-level details
+            Database::execute("
+                UPDATE qr_generations
+                SET brand_name = ?,
+                    color_name = ?,
+                    design_name = ?,
+                    size_name = ?,
+                    mrp = ?,
+                    selling_price = ?,
+                    notes = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+            ", [
+                $brandName !== '' ? $brandName : $batch['brand_name'],
+                $colorName !== '' ? $colorName : null,
+                $designName !== '' ? $designName : null,
+                $sizeName !== '' ? $sizeName : null,
+                $mrp,
+                $sellingPrice,
+                $notes,
+                $batchId
+            ]);
+
+            // Sync with purchase item if linked
+            if (!empty($batch['source_purchase_item_id'])) {
+                Database::execute("
+                    UPDATE production_purchase_items
+                    SET color = COALESCE(NULLIF(?, ''), color),
+                        design_name = COALESCE(NULLIF(?, ''), design_name)
+                    WHERE id = ?
+                ", [$colorName, $designName, (int)$batch['source_purchase_item_id']]);
+            }
+
+            // Update individual QR items if provided
+            if (!empty($_POST['items']) && is_array($_POST['items'])) {
+                foreach ($_POST['items'] as $itemId => $itemData) {
+                    $qItemId = (int)$itemId;
+                    $qColor = trim($itemData['color_name'] ?? '') ?: ($colorName ?: null);
+                    $qDesign = trim($itemData['design_name'] ?? '') ?: ($designName ?: null);
+                    $qSize = trim($itemData['size_name'] ?? '') ?: ($sizeName ?: null);
+                    $qMrp = isset($itemData['mrp']) && $itemData['mrp'] !== '' ? (float)$itemData['mrp'] : $mrp;
+                    $qSelling = isset($itemData['selling_price']) && $itemData['selling_price'] !== '' ? (float)$itemData['selling_price'] : $sellingPrice;
+                    $qStatus = in_array($itemData['status'] ?? '', ['ACTIVE', 'DAMAGED', 'CANCELLED', 'USED'], true) ? $itemData['status'] : 'ACTIVE';
+
+                    Database::execute("
+                        UPDATE qr_generation_items
+                        SET color_name = ?,
+                            design_name = ?,
+                            size_name = ?,
+                            mrp = ?,
+                            selling_price = ?,
+                            status = ?
+                        WHERE id = ? AND generation_id = ?
+                    ", [$qColor, $qDesign, $qSize, $qMrp, $qSelling, $qStatus, $qItemId, $batchId]);
+                }
+            }
+
+            Database::commit();
+            Session::flash('success', "QR Batch {$batch['batch_code']} updated successfully.");
+        } catch (Throwable $e) {
+            Database::rollback();
+            Session::flash('error', 'Failed to update QR batch: ' . $e->getMessage());
+        }
+
+        $activeTab = QrGenerationService::normalizeTab($_POST['tab'] ?? $_GET['tab'] ?? $batch['qr_source'] ?? null);
+        Response::redirect(url('production/qr-generations/view/' . $batchId . '?tab=' . $activeTab));
+    }
+
+    /**
      * Delete a generation batch.
      */
     public function delete(string $id): void {

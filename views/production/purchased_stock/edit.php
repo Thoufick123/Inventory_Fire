@@ -1,12 +1,12 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <div class="d-flex align-items-center gap-2">
-            <h2 class="mb-1"><i class="bi bi-pencil-square text-warning me-2"></i>Edit QR &amp; Stock Details: <span class="font-monospace text-primary"><?= e($stock['batch_code']) ?></span></h2>
+            <h2 class="mb-1"><i class="bi bi-pencil-square text-warning me-2"></i>Edit Purchased Stock: <span class="font-monospace text-primary"><?= e($stock['batch_code']) ?></span></h2>
         </div>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to List
+            <i class="bi bi-arrow-left me-1"></i> Back to Purchased Stock
         </a>
     </div>
 </div>

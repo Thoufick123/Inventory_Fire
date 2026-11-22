@@ -14,13 +14,7 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to List
-        </a>
-        <a href="<?= e($editUrl) ?>" class="btn btn-warning text-dark fw-bold">
-            <i class="bi bi-pencil-square me-1"></i> Edit Details
-        </a>
-        <a href="<?= e($printUrl) ?>" target="_blank" class="btn btn-primary fw-bold">
-            <i class="bi bi-printer-fill me-1"></i> Print All Labels
+            <i class="bi bi-arrow-left me-1"></i> Back to Purchased Stock
         </a>
     </div>
 </div>
@@ -184,20 +178,6 @@
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
-    </div>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i> Back to Stock List
-    </a>
-    <div class="d-flex gap-2">
-        <a href="<?= e($editUrl) ?>" class="btn btn-warning text-dark fw-bold">
-            <i class="bi bi-pencil-square me-1"></i> Edit Details
-        </a>
-        <a href="<?= e($printUrl) ?>" target="_blank" class="btn btn-primary fw-bold">
-            <i class="bi bi-printer-fill me-1"></i> Print All Labels
-        </a>
     </div>
 </div>
 

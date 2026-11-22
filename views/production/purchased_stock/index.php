@@ -1,6 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-boxes me-2 text-primary"></i>Purchased Stock Inventory</h2>
+        <h2 class="mb-1"><i class="bi bi-boxes me-2 text-primary"></i>Purchased Stock</h2>
     </div>
 </div>
 
@@ -103,7 +103,7 @@
                     <th class="text-end" style="min-width: 110px;">Stocked Qty</th>
                     <th style="min-width: 160px;">Taxonomy / Category</th>
                     <th style="min-width: 140px;">Stocked Date</th>
-                    <th class="text-center" style="min-width: 130px;">Actions</th>
+                    <th class="text-end pe-3" style="min-width: 130px;">Actions</th>
                 </tr>
             </thead>
             <tbody id="stockTableBody">
@@ -199,15 +199,15 @@
                                     <div class="small text-muted">by <?= e($item['stock_added_by_name']) ?></div>
                                 <?php endif; ?>
                             </td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm shadow-xs" role="group">
-                                    <a href="<?= url('production/purchased-stock/view/' . (int)$item['generation_id']) ?>" class="btn btn-outline-primary" title="View Product Details & QR Codes">
+                            <td class="text-end text-nowrap pe-3">
+                                <div class="action-btns-group justify-content-end">
+                                    <a href="<?= url('production/purchased-stock/view/' . (int)$item['generation_id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Product Details & QR Codes">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="<?= url('production/purchased-stock/edit/' . (int)$item['generation_id']) ?>" class="btn btn-outline-warning text-dark" title="Edit QR Details">
-                                        <i class="bi bi-pencil-square"></i>
+                                    <a href="<?= url('production/purchased-stock/edit/' . (int)$item['generation_id']) ?>" class="btn btn-action-icon btn-outline-primary" title="Edit QR Details">
+                                        <i class="bi bi-pencil"></i>
                                     </a>
-                                    <button type="button" class="btn btn-outline-danger" title="Delete Stock Line" onclick="confirmDeleteRow(<?= (int)$item['generation_id'] ?>, '<?= e($item['batch_code']) ?>')">
+                                    <button type="button" class="btn btn-action-icon btn-outline-danger" title="Delete Stock Line" onclick="confirmDeleteRow(<?= (int)$item['generation_id'] ?>, '<?= e($item['batch_code']) ?>')">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>

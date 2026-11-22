@@ -217,6 +217,9 @@
                                 <a href="<?= url('production/qr-generations/view/' . $batch['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Generated Codes">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                <a href="<?= url('production/qr-generations/edit/' . $batch['id']) ?>" class="btn btn-action-icon btn-outline-primary" title="Edit QR Batch">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
                                 <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-action-icon btn-outline-secondary" title="Print Sticker Labels">
                                     <i class="bi bi-printer"></i>
                                 </a>

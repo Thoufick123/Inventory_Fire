@@ -429,6 +429,8 @@ class Router {
         $this->post('production/qr-generations/store-stitching', 'QrGenerationController', 'storeStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->post('production/qr-generations/add-to-stock/{id}', 'QrGenerationController', 'addToStock', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->get('production/qr-generations/view/{id}', 'QrGenerationController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
+        $this->get('production/qr-generations/edit/{id}', 'QrGenerationController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('production/qr-generations/edit/{id}', 'QrGenerationController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->get('production/qr-generations/print/{id}', 'QrGenerationController', 'printLabels', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
         $this->post('production/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
 

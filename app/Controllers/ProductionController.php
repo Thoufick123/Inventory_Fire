@@ -23147,7 +23147,7 @@ class ProductionController {
             'search'       => $search,
             'metrics'      => $metrics,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock'],
             ],
         ]);
@@ -23324,7 +23324,7 @@ class ProductionController {
             'listUrl'      => url('production/purchased-stock'),
             'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
                 ['label' => $stock['batch_code']],
             ],
@@ -23399,10 +23399,9 @@ class ProductionController {
             'listUrl'      => url('production/purchased-stock'),
             'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
-                ['label' => $stock['batch_code'], 'url' => url('production/purchased-stock/view/' . $genId)],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Purchased Stock ' . $stock['batch_code']],
             ],
         ]);
     }

@@ -53,8 +53,11 @@
         <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-primary fw-bold qr-square-action">
             <i class="bi bi-printer-fill me-1"></i> Print All <?= count($batch['items']) ?> Labels
         </a>
+        <a href="<?= url('production/qr-generations/edit/' . $batch['id'] . '?tab=' . e($activeTab)) ?>" class="btn btn-warning text-dark fw-bold qr-square-action">
+            <i class="bi bi-pencil-square me-1"></i> Edit Batch
+        </a>
         <a href="<?= url('production/qr-generations?tab=' . e($activeTab)) ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to List
+            <i class="bi bi-arrow-left me-1"></i> Back to QR Generations
         </a>
     </div>
 </div>
