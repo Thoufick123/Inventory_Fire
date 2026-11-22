@@ -1057,7 +1057,7 @@ tr.table-danger, tr.table-danger > td {
                             <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Warehouse:</span>
                             <select class="form-select" id="billWhSelect_<?= (int)$itemVar['qr_generation_id'] ?>">
                                 <?php foreach (($warehouses ?? []) as $wh): ?>
-                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?></option>
+                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?><?= !empty($wh['concern_name']) ? ' (' . e($wh['concern_name']) . ')' : '' ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

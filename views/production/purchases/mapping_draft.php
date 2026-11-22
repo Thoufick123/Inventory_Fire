@@ -88,51 +88,132 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 
 <?php if ($bill['status'] === 'DRAFT'): ?>
 <div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Product and Variants</h5>
-        <div class="small text-muted mt-1">Each variant has its own quantity, prices, category hierarchy and HSN code.</div>
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Items to Mapping</h5>
+            <div class="small text-muted mt-1">Add both Third-Party Product Variants and Fabric Rolls with HSN, GST, quantities and rates.</div>
+        </div>
+        <ul class="nav nav-pills" id="mappingEntryTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active py-1 px-3 fw-semibold" id="tabThirdPartyBtn" data-bs-toggle="pill" data-bs-target="#tabThirdParty" type="button" role="tab">
+                    <i class="bi bi-tag me-1"></i>Third-Party Products &amp; Variants
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 px-3 fw-semibold text-primary border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
+                    <i class="bi bi-layers-half me-1"></i>Fabric Rolls (Multiple Rolls)
+                </button>
+            </li>
+        </ul>
     </div>
     <div class="card-body">
-        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftProductForm">
-            <?= CSRF::field() ?>
-            <div class="row g-3 mb-3">
-                <div class="col-md-8">
-                    <label class="form-label fw-semibold">Product / Style Name <span class="text-danger">*</span></label>
-                    <input class="form-control" name="product_name" required maxlength="255">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Style Code</label>
-                    <input class="form-control" name="product_code" maxlength="50">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Unit</label>
-                    <select class="form-select" name="unit">
-                        <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
-                    </select>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle table-sm">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Size</th><th>Color</th><th>SKU</th><th>Qty</th><th>Purchase Rate</th><th>MRP</th><th>Selling</th><th>GST %</th><th>HSN</th><th>Category hierarchy</th><th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
-                </table>
-            </div>
-            <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
-                <div class="d-flex align-items-end gap-2">
-                    <div>
-                        <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
-                        <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+        <div class="tab-content" id="mappingEntryTabContent">
+            <!-- PANE 1: Third-Party Products -->
+            <div class="tab-pane fade show active" id="tabThirdParty" role="tabpanel">
+                <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftProductForm">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="entry_type" value="THIRD_PARTY">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Product / Style Name <span class="text-danger">*</span></label>
+                            <input class="form-control" name="product_name" required maxlength="255" placeholder="e.g. TESTING Men Casual Shirt">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Style Code</label>
+                            <input class="form-control" name="product_code" maxlength="50" placeholder="e.g. SHT-001">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Unit</label>
+                            <select class="form-select" name="unit">
+                                <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
+                            </select>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
-                </div>
-                <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save Product to Mapping</button>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Size</th><th>Color</th><th>SKU</th><th>Qty</th><th>Purchase Rate</th><th>MRP</th><th>Selling</th><th>GST %</th><th>HSN</th><th>Category hierarchy</th><th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                        <div class="d-flex align-items-end gap-2">
+                            <div>
+                                <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
+                                <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
+                        </div>
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save Product to Mapping</button>
+                    </div>
+                </form>
             </div>
-        </form>
+
+            <!-- PANE 2: Fabric Rolls -->
+            <div class="tab-pane fade" id="tabFabricRolls" role="tabpanel">
+                <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftRollsForm">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="entry_type" value="FABRIC_ROLL">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Fabric / Material Name <span class="text-danger">*</span></label>
+                            <input class="form-control" name="fabric_name" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Default HSN Code</label>
+                            <input class="form-control font-monospace" name="default_hsn" id="defaultRollHsn" value="5208" maxlength="20">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Default GST Rate %</label>
+                            <input class="form-control" type="number" step="0.01" min="0" max="100" id="defaultRollGst" value="5">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 140px;">Roll Code / #</th>
+                                    <th>Color / Shade *</th>
+                                    <th style="width: 120px;">Length (Mtr) *</th>
+                                    <th style="width: 120px;">Weight (kg)</th>
+                                    <th style="width: 130px;">Rate (₹/Mtr) *</th>
+                                    <th style="width: 90px;">GST %</th>
+                                    <th style="width: 110px;">HSN</th>
+                                    <th style="width: 45px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingRollRows">
+                                <tr class="mapping-roll-row">
+                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
+                                    <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
+                                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[0][meters]" placeholder="100.00" required></td>
+                                    <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="rolls[0][weight_kg]" placeholder="22.50"></td>
+                                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[0][rate]" placeholder="150.00" required></td>
+                                    <td><input class="form-control form-control-sm roll-gst-input" type="number" step="0.01" min="0" max="100" name="rolls[0][gst_rate]" value="5"></td>
+                                    <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[0][hsn_code]" value="5208"></td>
+                                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row" title="Remove roll"><i class="bi bi-x-lg"></i></button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                        <div class="d-flex align-items-end gap-2">
+                            <div>
+                                <label class="form-label small mb-1" for="mappingRollRowsToAdd">Roll rows to add</label>
+                                <input class="form-control form-control-sm" id="mappingRollRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingRollRows"><i class="bi bi-plus-lg me-1"></i>Add Roll Rows</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingRollOne"><i class="bi bi-plus-lg me-1"></i>Add 1 Roll</button>
+                        </div>
+                        <button class="btn btn-success" type="submit"><i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 <?php endif; ?>
@@ -150,7 +231,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <tr><td colspan="8" class="text-center text-muted py-4">No products saved yet.</td></tr>
                 <?php else: foreach ($items as $item): ?>
                     <tr>
-                        <td><strong><?= e($item['item_name']) ?></strong><div class="small text-muted"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · <?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></div></td>
+                        <td><strong><?= e($item['item_name']) ?></strong><div class="small text-muted"><span class="badge bg-secondary-subtle text-secondary border font-monospace me-1">VID: #<?= (int)$item['variant_id'] ?></span><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · <?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></div></td>
                         <td><?= e($item['category_name'] ?? '—') ?><?php if (!empty($item['subcategory_name'])): ?><div class="small text-muted"><?= e($item['subcategory_name']) ?><?= !empty($item['sub_subcategory_name']) ? ' / ' . e($item['sub_subcategory_name']) : '' ?></div><?php endif; ?></td>
                         <td class="font-monospace"><?= e($item['hsn_code']) ?></td>
                         <td><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?></td>
@@ -247,8 +328,17 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </form>
                         <?php if (!empty($firstQrId)): ?>
                             <button type="button" class="btn btn-dark btn-sm w-100 py-1" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$firstQrId ?>">
-                                <i class="bi bi-eye me-1"></i>View QR &amp; Stock in Popup
+                                <i class="bi bi-eye me-1"></i>View QRs &amp; Stock in Popup
                             </button>
+                            <?php if (count($items) > 1): ?>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <?php foreach ($items as $v): if (!empty($v['qr_generation_id'])): ?>
+                                        <button type="button" class="btn btn-outline-dark btn-sm py-0 px-2 flex-grow-1" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$v['qr_generation_id'] ?>" title="Open <?= e($v['item_name']) ?> QR modal">
+                                            <i class="bi bi-qr-code me-1"></i><?= e(trim(($v['color'] ?? '') . ' ' . ($v['size'] ?? ''))) ?: e($v['item_name']) ?> (VID: #<?= (int)$v['variant_id'] ?>)
+                                        </button>
+                                    <?php endif; endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -390,12 +480,40 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
-                    <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($item['batch_code']) ?>
-                </h5>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <h5 class="modal-title mb-0" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
+                        <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($item['batch_code']) ?>
+                    </h5>
+                    <span class="badge bg-primary fs-6"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
+                <?php if (count($items) > 1): ?>
+                    <div class="mb-3 p-3 bg-light rounded-3 border">
+                        <div class="small fw-bold text-muted mb-2 text-uppercase d-flex justify-content-between align-items-center flex-wrap gap-1">
+                            <span><i class="bi bi-collection me-1 text-primary"></i>Switch Variant QRs (<?= count($items) ?> Total Variants):</span>
+                            <span class="text-primary fw-semibold"><i class="bi bi-eye me-1"></i>Currently viewing: <?= e($item['item_name']) ?> (VID: #<?= (int)($item['variant_id'] ?? 0) ?>)</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach ($items as $vItem): if (!empty($vItem['qr_generation_id'])): 
+                                $isActiveVariant = ((int)$vItem['id'] === (int)$item['id']);
+                                $vCount = count($qrItemMap[(int)$vItem['qr_generation_id']] ?? []);
+                            ?>
+                                <button type="button" 
+                                        class="btn btn-sm <?= $isActiveVariant ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+                                        data-bs-target="#modalQrBatch_<?= (int)$vItem['qr_generation_id'] ?>" 
+                                        data-bs-toggle="modal">
+                                    <i class="bi bi-box-seam me-1"></i><?= e($vItem['item_name']) ?>
+                                    <span class="opacity-75">(<?= e(trim(($vItem['color'] ?? '') . ' ' . ($vItem['size'] ?? ''))) ?>)</span>
+                                    <span class="badge bg-light text-dark ms-1">VID: #<?= (int)($vItem['variant_id'] ?? 0) ?></span>
+                                    <span class="badge <?= $isActiveVariant ? 'bg-dark text-white' : 'bg-secondary text-white' ?> ms-1"><?= $vCount ?> QRs</span>
+                                </button>
+                            <?php endif; endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="card bg-light border-0 mb-4">
                     <div class="card-body p-3">
                         <div class="row g-2">
@@ -405,7 +523,11 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             </div>
                             <div class="col-sm-6">
                                 <div class="text-muted small">Variant &amp; SKU</div>
-                                <div class="fw-semibold"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></span></div>
+                                <div class="fw-semibold">
+                                    <?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · 
+                                    <span class="font-monospace text-primary"><?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></span>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                                </div>
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Total Qty</div>
@@ -436,7 +558,10 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <?php else: foreach ($batchQrItems as $q): ?>
                         <div class="col-md-4 col-sm-6">
                             <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
-                                <div class="small fw-bold text-truncate text-dark mb-1"><?= e($item['item_name']) ?></div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small fw-bold text-truncate text-dark"><?= e($item['item_name']) ?></span>
+                                    <span class="badge bg-light text-secondary border" style="font-size: 10px;">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                                </div>
                                 <div class="small text-muted mb-2"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?></div>
                                 <div class="d-flex justify-content-center my-2">
                                     <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
@@ -455,7 +580,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Stock to:</span>
                             <select class="form-select" id="whSelect_<?= (int)$item['qr_generation_id'] ?>">
                                 <?php foreach (($warehouses ?? []) as $wh): ?>
-                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?></option>
+                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?><?= !empty($wh['concern_name']) ? ' (' . e($wh['concern_name']) . ')' : '' ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -601,6 +726,92 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Product to Mapping';
+                }
+                alert('Server error: ' + err.message);
+            });
+        });
+    }
+
+    // 4b. Fabric Roll Rows Dynamic Addition & AJAX Save
+    const rollBody = document.getElementById('mappingRollRows');
+    const addRollOneBtn = document.getElementById('addMappingRollOne');
+    const addRollRowsBtn = document.getElementById('addMappingRollRows');
+    const rollRowsToAddInput = document.getElementById('mappingRollRowsToAdd');
+    const defaultRollHsn = document.getElementById('defaultRollHsn');
+    const defaultRollGst = document.getElementById('defaultRollGst');
+
+    if (rollBody && addRollOneBtn) {
+        let nextRollIndex = 1;
+        const addRolls = function(count) {
+            const hsnVal = defaultRollHsn ? defaultRollHsn.value : '5208';
+            const gstVal = defaultRollGst ? defaultRollGst.value : '5';
+            for (let i = 0; i < count; i++) {
+                const tr = document.createElement('tr');
+                tr.className = 'mapping-roll-row';
+                tr.innerHTML = `
+                    <td><input class="form-control form-control-sm font-monospace" name="rolls[${nextRollIndex}][roll_code]" placeholder="ROLL-${String(nextRollIndex + 1).padStart(3, '0')}"></td>
+                    <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][color]" placeholder="Navy Blue" required></td>
+                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[${nextRollIndex}][meters]" placeholder="100.00" required></td>
+                    <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50"></td>
+                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
+                    <td><input class="form-control form-control-sm roll-gst-input" type="number" step="0.01" min="0" max="100" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
+                    <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[${nextRollIndex}][hsn_code]" value="${hsnVal}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row"><i class="bi bi-x-lg"></i></button></td>
+                `;
+                rollBody.appendChild(tr);
+                nextRollIndex++;
+            }
+        };
+
+        addRollOneBtn.addEventListener('click', function() { addRolls(1); });
+        addRollRowsBtn?.addEventListener('click', function() {
+            const n = parseInt(rollRowsToAddInput.value, 10) || 1;
+            addRolls(Math.max(1, Math.min(50, n)));
+        });
+        rollBody.addEventListener('click', function(e) {
+            const btn = e.target.closest('.remove-roll-row');
+            if (!btn) return;
+            if (rollBody.querySelectorAll('tr').length > 1) {
+                btn.closest('tr').remove();
+            }
+        });
+    }
+
+    const draftRollsForm = document.getElementById('mappingDraftRollsForm');
+    if (draftRollsForm) {
+        draftRollsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = draftRollsForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Rolls...';
+            }
+            const formData = new FormData(draftRollsForm);
+            fetch(draftRollsForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Success: ' + data.message);
+                    window.location.reload();
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
+                    }
+                    alert('Error: ' + (data.message || 'Failed to save rolls.'));
+                }
+            })
+            .catch(function(err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
                 }
                 alert('Server error: ' + err.message);
             });
