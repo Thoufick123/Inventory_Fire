@@ -42,7 +42,7 @@ $taxValueForItem = static function (array $item, string $type): float {
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
-            <h2 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit <?= e($purchase['purchase_number']) ?></h2>
+            <h2 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Record Purchase — <?= e($purchase['purchase_number']) ?></h2>
             <?php if ($purchaseType === 'THIRD_PARTY'): ?>
                 <span class="badge bg-info-subtle text-info border fs-6"><i class="bi bi-box-seam me-1"></i>Third-Party Products</span>
             <?php elseif ($purchaseType === 'RAW_MATERIAL'): ?>
@@ -53,10 +53,9 @@ $taxValueForItem = static function (array $item, string $type): float {
                 <span class="badge bg-primary-subtle text-primary border fs-6"><i class="bi bi-layers-half me-1"></i>Fabric Roll</span>
             <?php endif; ?>
         </div>
-        <div class="text-muted small">Update invoice lines, pricing, HSN codes, and vendor GST details.</div>
     </div>
     <div class="d-flex gap-2">
-        <a href="<?= url('production/purchases') ?>" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to Purchases</a>
+        <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Purchases</a>
     </div>
 </div>
 
@@ -75,7 +74,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                 </div>
                 <div class="col-md-3"><label class="form-label required">Purchase Date *</label><input type="date" name="purchase_date" class="form-control" value="<?= e($purchase['purchase_date']) ?>" required></div>
                 <div class="col-md-4"><label class="form-label">Invoice / Bill Number</label><input name="invoice_number" class="form-control" maxlength="100" value="<?= e($purchase['invoice_number']) ?>"></div>
-                <div class="col-md-6">
+                <div class="col-12 mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label mb-0 fw-semibold" for="editPurchaseDocuments">
                             <i class="bi bi-receipt-cutoff me-1 text-primary"></i>Tax Invoice / Bill Attachments
@@ -103,7 +102,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                                     $isPdf = str_ends_with(strtolower($docUrl), '.pdf') || strtolower($doc['file_type'] ?? '') === 'pdf';
                                     $isImg = $isAvif || preg_match('/\.(jpg|jpeg|png|webp|avif)$/i', $docUrl);
                                 ?>
-                                    <div class="col-sm-6" id="existingDocCard_<?= (int)$doc['id'] ?>">
+                                    <div class="col-sm-6 col-md-4 col-lg-3" id="existingDocCard_<?= (int)$doc['id'] ?>">
                                         <div class="card h-100 border shadow-xs bg-white">
                                             <div class="card-body p-2 d-flex flex-column justify-content-between" style="font-size:11px;">
                                                 <div class="d-flex align-items-center gap-2 mb-1">
@@ -167,7 +166,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6"><label class="form-label">Purchase Notes</label><input name="notes" class="form-control" maxlength="500" value="<?= e($purchase['notes']) ?>"></div>
+                <div class="col-12 mt-2"><label class="form-label" for="editPurchaseNotes">Purchase Notes</label><input name="notes" id="editPurchaseNotes" class="form-control" maxlength="500" value="<?= e($purchase['notes']) ?>" placeholder="Optional purchase notes or comments"></div>
                 <div class="col-12">
                     <div class="border rounded bg-light p-3">
                         <div class="fw-semibold mb-3"><i class="bi bi-person-vcard me-1 text-primary"></i>Selected Supplier Information</div>
@@ -590,14 +589,18 @@ $taxValueForItem = static function (array $item, string $type): float {
     <!-- 3. FABRIC ROLL SECTION -->
     <?php if ($purchaseType === 'FABRIC_ROLL'): ?>
     <div class="card shadow-sm border mb-4" id="sectionFabricRoll">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll &amp; Material Supply Details</h5>
-        </div>
-        <div class="card-body">
-            <div class="mb-3">
-                <label class="form-label required">Fabric / Material Description *</label>
-                <input type="text" id="editFabricDescription" class="form-control text-uppercase" maxlength="150" value="<?= e($fabricDescription) ?>" <?= $fabricItems ? 'required' : '' ?>>
+        <div class="card-header bg-white py-3 px-4">
+            <div class="row g-3 align-items-center">
+                <div class="col">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll &amp; Material Supply Details</h5>
+                </div>
+                <div class="col-12">
+                    <label class="form-label required" for="editFabricDescription">Fabric / Material Description *</label>
+                    <input type="text" id="editFabricDescription" class="form-control text-uppercase" maxlength="150" placeholder="E.G. 100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)" value="<?= e($fabricDescription) ?>" <?= $fabricItems ? 'required' : '' ?>>
+                </div>
             </div>
+        </div>
+        <div class="card-body p-4">
             <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
                 <h6 class="fw-bold mb-0"><i class="bi bi-stack me-1 text-primary"></i>Individual Fabric Rolls (<span id="rollCountBadge"><?= count($fabricItems) ?></span>)</h6>
             </div>
@@ -628,6 +631,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                             <strong><i class="bi bi-layers text-primary me-1"></i><span class="roll-title">ROLL #<?= $index + 1 ?></span>
                                 <span class="badge bg-dark roll-code-text"><?= e($item['start_code'] ?? '') ?><?= !empty($item['end_code']) && $item['end_code'] !== ($item['start_code'] ?? '') ? '–' . e($item['end_code']) : '' ?></span>
                             </strong>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-roll" title="Delete roll"><i class="bi bi-trash me-1"></i>Delete</button>
                         </div>
                         <div class="card-body p-3">
                             <input type="hidden" name="items[<?= $key ?>][id]" value="<?= $key ?>">
@@ -2631,6 +2635,26 @@ $taxValueForItem = static function (array $item, string $type): float {
             if (taxModeEl) taxModeEl.addEventListener('change', () => { updateTaxFields(card); updateSummary(); });
             updateTaxFields(card);
         });
+
+        rollsContainer.addEventListener('click', e => {
+            const btn = e.target.closest('.remove-roll');
+            if (!btn) return;
+            const card = btn.closest('.roll-card');
+            if (!card) return;
+            if (rollsContainer.querySelectorAll('.roll-card').length <= 1) {
+                alert('At least one fabric roll is required.');
+                return;
+            }
+            card.remove();
+            Array.from(rollsContainer.querySelectorAll('.roll-card')).forEach((item, i) => {
+                const t = item.querySelector('.roll-title');
+                if (t) t.textContent = 'ROLL #' + (i + 1);
+            });
+            const badge = document.getElementById('rollCountBadge');
+            if (badge) badge.textContent = rollsContainer.querySelectorAll('.roll-card').length;
+            updateSummary();
+        });
+
         const editFabDesc = document.getElementById('editFabricDescription');
         if (editFabDesc) editFabDesc.addEventListener('input', updateSummary);
         const prevBtn = document.getElementById('previewPurchaseLabels');
@@ -2926,7 +2950,7 @@ $taxValueForItem = static function (array $item, string $type): float {
                 : Math.max(1, Math.round(file.size / 1024)) + ' KB';
 
             const col = document.createElement('div');
-            col.className = 'col-sm-6';
+            col.className = 'col-sm-6 col-md-4 col-lg-3';
 
             const card = document.createElement('div');
             card.className = 'card h-100 border shadow-xs bg-white';

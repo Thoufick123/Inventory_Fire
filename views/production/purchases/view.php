@@ -33,8 +33,8 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
 <div class="row g-3 mb-4">
     <div class="col-lg-6">
         <div class="card border shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Purchase &amp; Order Details</div>
-            <div class="card-body">
+            <div class="card-header bg-white py-3 px-4 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Purchase &amp; Order Details</div>
+            <div class="card-body p-4">
                 <div class="row g-3">
                     <div class="col-sm-6"><small class="text-muted d-block">Purchase Number</small><strong><?= e($purchase['purchase_number']) ?></strong></div>
                     <div class="col-sm-6"><small class="text-muted d-block">Purchase Type</small><strong class="text-uppercase"><?= str_replace('_', ' ', $pType) ?></strong></div>
@@ -60,8 +60,8 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
     </div>
     <div class="col-lg-6">
         <div class="card border shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Supplier / Vendor Details</div>
-            <div class="card-body">
+            <div class="card-header bg-white py-3 px-4 fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Supplier / Vendor Details</div>
+            <div class="card-body p-4">
                 <strong><?= e($purchase['seller_company'] ?: $purchase['seller_name']) ?></strong>
                 <?php if (!empty($purchase['seller_company'])): ?><div><?= e($purchase['seller_name']) ?></div><?php endif; ?>
                 <div class="mt-2"><?= e($purchase['seller_phone'] ?: '—') ?><?= !empty($purchase['seller_email']) ? ' · ' . e($purchase['seller_email']) : '' ?></div>
@@ -75,7 +75,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
 
 <?php if (!empty($documents)): ?>
 <div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
             <h6 class="mb-0 fw-bold"><i class="bi bi-receipt-cutoff me-2 text-primary"></i>Attached Invoices &amp; Bills</h6>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><?= count($documents) ?> Invoice<?= count($documents) > 1 ? 's' : '' ?></span>
@@ -84,7 +84,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
             <i class="bi bi-filetype-avif me-1"></i>Optimized in AVIF Format
         </span>
     </div>
-    <div class="card-body">
+    <div class="card-body p-4">
         <div class="row g-3">
             <?php foreach ($documents as $idx => $doc): 
                 $docUrl = $doc['document_url'] ?? '';
@@ -129,7 +129,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
 <?php endif; ?>
 
 <div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
             <h5 class="mb-0 fw-bold"><i class="bi bi-box-seam me-2 text-primary"></i>Inwarded Products &amp; Lines</h5>
             <span class="badge bg-secondary-subtle text-secondary border" id="itemCountBadge"><?= count($items) ?> Items</span>
@@ -364,8 +364,6 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
                 </tr>
             </tfoot>
         </table>
-    </div>
-</div>
     </div>
 </div>
 

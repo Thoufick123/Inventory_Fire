@@ -1,6 +1,6 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i>Purchases</h2>
+        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i> Record Purchases</h2>
     </div>
     <div class="d-flex align-items-center gap-2">
         <?php if (hasPermission('production_purchases', 'create') || hasPermission('sellers', 'create')): ?>

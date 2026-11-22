@@ -1,7 +1,6 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Product Mapping</h2>
-        <span class="text-muted small">Create products and prepare invoice mapping before the Purchases entry is available. Existing purchase lines can still be mapped below.</span>
     </div>
     <a href="<?= url('purchases/mapping/create') ?>" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i>New Mapping Invoice

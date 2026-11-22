@@ -39,6 +39,7 @@ body {
    APP WRAPPER
    ============================================================ */
 
+.app-layout,
 .app-wrapper {
     display: block;
     position: relative;
@@ -221,6 +222,10 @@ body {
     flex-direction: column;
     transition: var(--transition);
     min-width: 0;
+}
+
+.content-wrapper {
+    flex: 1 0 auto;
 }
 
 /* ============================================================
@@ -728,13 +733,20 @@ body {
    ============================================================ */
 
 .app-footer {
-    padding: 1rem 1.5rem;
+    margin-top: auto;
+    padding: 1.25rem 1.5rem;
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     font-size: 0.8rem;
     color: var(--secondary);
     background: #fff;
+}
+
+@media (min-width: 1200px) {
+    .app-footer {
+        padding: 1.25rem 3rem;
+    }
 }
 
 /* ============================================================
