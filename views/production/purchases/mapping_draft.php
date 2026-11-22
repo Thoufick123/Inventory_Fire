@@ -179,11 +179,11 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Default GST Rate %</label>
-                            <input class="form-control" type="number" step="0.01" min="0" max="100" id="defaultRollGst" value="5">
+                            <input class="form-control roll-num-dec" type="text" inputmode="decimal" autocomplete="off" id="defaultRollGst" value="5">
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable">
+                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 900px;">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 140px;">Roll Code / #</th>
@@ -200,10 +200,10 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                 <tr class="mapping-roll-row">
                                     <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
-                                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[0][meters]" placeholder="100.00" required></td>
-                                    <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="rolls[0][weight_kg]" placeholder="22.50"></td>
-                                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[0][rate]" placeholder="150.00" required></td>
-                                    <td><input class="form-control form-control-sm roll-gst-input" type="number" step="0.01" min="0" max="100" name="rolls[0][gst_rate]" value="5"></td>
+                                    <td><input class="form-control form-control-sm roll-num-dec roll-meters" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][meters]" placeholder="100.00" required></td>
+                                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50"></td>
+                                    <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
+                                    <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
                                     <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[0][hsn_code]" value="5208"></td>
                                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row" title="Remove roll"><i class="bi bi-x-lg"></i></button></td>
                                 </tr>
@@ -214,7 +214,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         <div class="d-flex align-items-end gap-2">
                             <div>
                                 <label class="form-label small mb-1" for="mappingRollRowsToAdd">Roll rows to add</label>
-                                <input class="form-control form-control-sm" id="mappingRollRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+                                <input class="form-control form-control-sm roll-num-int" id="mappingRollRowsToAdd" type="text" inputmode="numeric" autocomplete="off" value="1" style="width: 110px;">
                             </div>
                             <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingRollRows"><i class="bi bi-plus-lg me-1"></i>Add Roll Rows</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingRollOne"><i class="bi bi-plus-lg me-1"></i>Add 1 Roll</button>
@@ -846,10 +846,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML = `
                     <td><input class="form-control form-control-sm font-monospace" name="rolls[${nextRollIndex}][roll_code]" placeholder="ROLL-${String(nextRollIndex + 1).padStart(3, '0')}"></td>
                     <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][color]" placeholder="Navy Blue" required></td>
-                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[${nextRollIndex}][meters]" placeholder="100.00" required></td>
-                    <td><input class="form-control form-control-sm" type="number" step="0.001" min="0" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50"></td>
-                    <td><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
-                    <td><input class="form-control form-control-sm roll-gst-input" type="number" step="0.01" min="0" max="100" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
+                    <td><input class="form-control form-control-sm roll-num-dec roll-meters" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][meters]" placeholder="100.00" required></td>
+                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50"></td>
+                    <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
+                    <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
                     <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[${nextRollIndex}][hsn_code]" value="${hsnVal}"></td>
                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row"><i class="bi bi-x-lg"></i></button></td>
                 `;
@@ -870,12 +870,83 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.closest('tr').remove();
             }
         });
+
+        // Live input validation on roll rows: numbers only
+        rollBody.addEventListener('input', function(event) {
+            if (event.target.classList.contains('roll-num-int')) {
+                event.target.value = event.target.value.replace(/[^0-9]/g, '');
+            } else if (event.target.classList.contains('roll-num-dec')) {
+                event.target.value = event.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+            }
+        });
+
+        if (rollRowsToAddInput) {
+            rollRowsToAddInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        }
+        if (defaultRollGst) {
+            defaultRollGst.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+            });
+        }
     }
 
     const draftRollsForm = document.getElementById('mappingDraftRollsForm');
     if (draftRollsForm) {
         draftRollsForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            const fabricNameInput = draftRollsForm.querySelector('[name="fabric_name"]');
+            const fabricName = (fabricNameInput?.value || '').trim();
+            if (!fabricName) {
+                alert('Validation Error: Please enter Fabric / Material Name.');
+                fabricNameInput?.focus();
+                return;
+            }
+
+            const rRows = draftRollsForm.querySelectorAll('#mappingRollRows tr');
+            if (rRows.length === 0) {
+                alert('Validation Error: Please add at least one fabric roll.');
+                return;
+            }
+
+            for (let i = 0; i < rRows.length; i++) {
+                const rRow = rRows[i];
+                const colorInput = rRow.querySelector('[name$="[color]"]');
+                const metersInput = rRow.querySelector('[name$="[meters]"]');
+                const weightInput = rRow.querySelector('[name$="[weight_kg]"]');
+                const rateInput = rRow.querySelector('[name$="[rate]"]');
+                const gstInput = rRow.querySelector('[name$="[gst_rate]"]');
+
+                const colorVal = (colorInput?.value || '').trim();
+                const metersVal = parseFloat(metersInput?.value || '0') || 0;
+                const weightVal = parseFloat(weightInput?.value || '0') || 0;
+                const rateVal = parseFloat(rateInput?.value || '0') || 0;
+                const gstVal = parseFloat(gstInput?.value || '0') || 0;
+
+                if (!colorVal) {
+                    alert('Validation Error: Please enter Color / Shade for roll #' + (i + 1) + '.');
+                    colorInput?.focus();
+                    return;
+                }
+                if (metersVal <= 0 && weightVal <= 0) {
+                    alert('Validation Error: Please enter a valid Length (Mtr) or Weight (kg) for roll #' + (i + 1) + '.');
+                    metersInput?.focus();
+                    return;
+                }
+                if (rateVal <= 0) {
+                    alert('Validation Error: Please enter a valid Rate (₹/Mtr) for roll #' + (i + 1) + '.');
+                    rateInput?.focus();
+                    return;
+                }
+                if (gstVal < 0 || gstVal > 100) {
+                    alert('Validation Error: GST rate must be between 0 and 100% on roll #' + (i + 1) + '.');
+                    gstInput?.focus();
+                    return;
+                }
+            }
+
             const submitBtn = draftRollsForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;

@@ -846,7 +846,7 @@ tr.table-danger, tr.table-danger > td {
                     </div>
                     <div class="col-md-3">
                         <label for="newBillQuantity" class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="newBillQuantity" min="0.001" step="0.001" required>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="newBillQuantity" required>
                     </div>
                     <div class="col-md-3">
                         <label for="newBillUnit" class="form-label fw-semibold">Unit</label>
@@ -854,19 +854,19 @@ tr.table-danger, tr.table-danger > td {
                     </div>
                     <div class="col-md-3">
                         <label for="newBillUnitPrice" class="form-label fw-semibold">Purchase Rate (₹) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="newBillUnitPrice" min="0" step="0.01" required>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="newBillUnitPrice" required>
                     </div>
                     <div class="col-md-3">
                         <label for="newBillGstRate" class="form-label fw-semibold">GST Rate (%)</label>
-                        <input type="number" class="form-control" id="newBillGstRate" min="0" max="100" step="0.01" value="5">
+                        <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="newBillGstRate" value="5">
                     </div>
                     <div class="col-md-4">
                         <label for="newBillMrp" class="form-label fw-semibold">MRP (₹) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="newBillMrp" min="0.01" step="0.01" required>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="newBillMrp" required>
                     </div>
                     <div class="col-md-4">
                         <label for="newBillSellingPrice" class="form-label fw-semibold">Selling Price (₹) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="newBillSellingPrice" min="0.01" step="0.01" required>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="newBillSellingPrice" required>
                     </div>
                     <div class="col-md-4">
                         <label for="newBillHsn" class="form-label fw-semibold">HSN Code <span class="text-danger">*</span></label>
@@ -1256,6 +1256,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 this.value = this.value.replace(/[^0-9]/g, '');
             });
         }
+
+        ['newBillQuantity', 'newBillUnitPrice', 'newBillGstRate', 'newBillMrp', 'newBillSellingPrice'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', function () {
+                    this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                });
+            }
+        });
     }
 
     // 3. Live Quantity Allocation Calculation
