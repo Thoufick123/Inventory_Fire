@@ -154,7 +154,10 @@
                     $ownProductItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'OWN_PRODUCT');
                     $rollItemCount = count($rollItems);
                     $rollQtySum = (int)array_sum(array_map(fn($it) => max(1, (int)($it['quantity'] ?? 1)), $rollItems));
-                    $totalWeight = array_sum(array_column($rollItems, 'weight_kg'));
+                    $totalWeight = (float)array_sum(array_column($rollItems, 'weight_kg'));
+                    $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
+                    $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
+                    $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
                 ?>
                     <tr class="purchase-row" data-search="<?= strtolower(e($purchase['purchase_number'] . ' ' . $pType . ' ' . ($purchase['company'] ?? '') . ' ' . ($purchase['seller_name'] ?? '') . ' ' . ($purchase['invoice_number'] ?? ''))) ?>">
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
@@ -223,9 +226,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($purchase['items']) - 4 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'RAW_MATERIAL'): 
-                                $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-warning-subtle text-warning-emphasis border fw-semibold">
                                         <i class="bi bi-boxes me-1"></i><?= count($rawMaterialItems) ?> Raw Material(s) (<?= number_format($rmQtySum) ?> Units)
@@ -237,9 +238,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($rawMaterialItems) - 3 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'THIRD_PARTY'): 
-                                $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'THIRD_PARTY'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-info-subtle text-info border fw-semibold">
                                         <i class="bi bi-box-seam me-1"></i><?= count($thirdPartyItems) ?> Product(s) (<?= number_format($tpQtySum) ?> Units)
@@ -251,9 +250,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($thirdPartyItems) - 3 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'OWN_PRODUCT'): 
-                                $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'OWN_PRODUCT'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-secondary-subtle text-secondary border fw-semibold">
                                         <i class="bi bi-building-check me-1"></i><?= count($ownProductItems) ?> Inward Line(s) (<?= number_format($opQtySum) ?> Units)
