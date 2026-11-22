@@ -566,19 +566,19 @@ tr.table-danger, tr.table-danger > td {
                 <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required style="min-width: 150px;">
             </td>
             <td style="width: 95px; min-width: 90px;">
-                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="number" step="1" min="1" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;">
+                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="text" inputmode="numeric" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;" autocomplete="off">
             </td>
             <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="number" step="0.01" min="0" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate" style="min-width: 95px;">
+                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="text" inputmode="decimal" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate" style="min-width: 95px;" autocomplete="off">
             </td>
             <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="number" step="0.01" min="0.01" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP" style="min-width: 95px;">
+                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP" style="min-width: 95px;" autocomplete="off">
             </td>
             <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="number" step="0.01" min="0.01" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale" style="min-width: 95px;">
+                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale" style="min-width: 95px;" autocomplete="off">
             </td>
             <td style="width: 90px; min-width: 85px;">
-                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="number" step="0.01" min="0" max="100" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %" style="min-width: 75px;">
+                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %" style="min-width: 75px;" autocomplete="off">
             </td>
             <td style="width: 115px; min-width: 110px;">
                 <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
@@ -619,11 +619,11 @@ tr.table-danger, tr.table-danger > td {
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="input-group input-group-sm" style="width: 170px;">
                         <span class="input-group-text bg-light text-muted">MRP ₹</span>
-                        <input type="number" step="0.01" min="0.01" class="form-control text-end" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00">
+                        <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
                     </div>
                     <div class="input-group input-group-sm" style="width: 180px;">
                         <span class="input-group-text bg-light text-muted">SP ₹</span>
-                        <input type="number" step="0.01" min="0.01" class="form-control text-end" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00">
+                        <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnReplicatePricing" title="Copy MRP &amp; Selling Price to all variant rows">
                         <i class="bi bi-arrow-repeat me-1"></i>Replicate to All
@@ -670,7 +670,7 @@ tr.table-danger, tr.table-danger > td {
                 <div class="p-3 bg-light-subtle border-top d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <div class="d-flex align-items-center gap-2">
-                            <input class="form-control form-control-sm" id="variantRowsToAdd" type="number" min="1" max="20" value="1" style="width: 80px;">
+                            <input class="form-control form-control-sm" id="variantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 80px;" autocomplete="off">
                             <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAddVariantRows">
                                 <i class="bi bi-plus-lg me-1"></i>Add Rows
                             </button>
@@ -1236,9 +1236,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
         tbodyVariantRows.addEventListener('input', function (e) {
             if (e.target.classList.contains('var-qty')) {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
                 updateAllocationStatus();
+            } else if (e.target.classList.contains('var-rate') || e.target.classList.contains('var-mrp') || e.target.classList.contains('var-sp') || e.target.classList.contains('var-gst')) {
+                e.target.value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
             }
         });
+
+        [batchInputMrp, batchInputSp].forEach(input => {
+            if (input) {
+                input.addEventListener('input', function () {
+                    this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                });
+            }
+        });
+
+        if (variantRowsToAdd) {
+            variantRowsToAdd.addEventListener('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        }
     }
 
     // 3. Live Quantity Allocation Calculation

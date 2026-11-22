@@ -14,11 +14,11 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][size]" placeholder="Size"></td>
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][color]" placeholder="Color"></td>
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][sku]" placeholder="SKU"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][quantity]" type="number" step="1" min="1" required placeholder="Qty"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][unit_price]" type="number" step="0.01" min="0" required placeholder="Rate"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][mrp]" type="number" step="0.01" min="0.01" required placeholder="MRP"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][selling_price]" type="number" step="0.01" min="0.01" required placeholder="Sale"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][gst_rate]" type="number" step="0.001" min="0" max="100" value="0" required placeholder="GST %"></td>
+        <td><input class="form-control form-control-sm map-qty" name="variants[<?= $index ?>][quantity]" type="text" inputmode="numeric" required placeholder="Qty" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-rate" name="variants[<?= $index ?>][unit_price]" type="text" inputmode="decimal" required placeholder="Rate" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" required placeholder="MRP" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" required placeholder="Sale" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="0" required placeholder="GST %" autocomplete="off"></td>
         <td><input class="form-control form-control-sm font-monospace" name="variants[<?= $index ?>][hsn_code]" maxlength="20" required placeholder="HSN"></td>
         <td>
             <select class="form-select form-select-sm mapping-category" name="variants[<?= $index ?>][category_id]" required>
@@ -153,7 +153,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         <div class="d-flex align-items-end gap-2">
                             <div>
                                 <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
-                                <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="number" min="1" max="50" value="1" style="width: 110px;">
+                                <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 110px;" autocomplete="off">
                             </div>
                             <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
@@ -483,6 +483,20 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         if (!button) return;
         if (body.querySelectorAll('tr').length > 1) button.closest('tr').remove();
     });
+    body.addEventListener('input', function (event) {
+        if (event.target.classList.contains('map-qty')) {
+            event.target.value = event.target.value.replace(/[^0-9]/g, '');
+        } else if (event.target.classList.contains('map-rate') || event.target.classList.contains('map-mrp') || event.target.classList.contains('map-sp') || event.target.classList.contains('map-gst')) {
+            event.target.value = event.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+        }
+    });
+
+    if (rowsToAddInput) {
+        rowsToAddInput.addEventListener('input', function () {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    }
+
     body.addEventListener('change', function (event) {
         const row = event.target.closest('tr');
         if (!row) return;
@@ -726,7 +740,7 @@ document.addEventListener('DOMContentLoaded', function() {
         draftProductForm.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Validate category hierarchy on all variant rows
+            // Validate category hierarchy and numeric fields on all variant rows
             const variantRows = draftProductForm.querySelectorAll('#mappingVariantRows tr');
             for (let i = 0; i < variantRows.length; i++) {
                 const vRow = variantRows[i];
@@ -741,6 +755,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (subSubcatVal && !subcatVal) {
                     alert('Validation Error: Please select a Subcategory for variant row #' + (i + 1) + ' before selecting a Sub-subcategory.');
                     vRow.querySelector('.mapping-subcategory')?.focus();
+                    return;
+                }
+
+                const qVal = parseFloat(vRow.querySelector('.map-qty')?.value || '0') || 0;
+                const mrpVal = parseFloat(vRow.querySelector('.map-mrp')?.value || '0') || 0;
+                const spVal = parseFloat(vRow.querySelector('.map-sp')?.value || '0') || 0;
+                const gstVal = parseFloat(vRow.querySelector('.map-gst')?.value || '0') || 0;
+
+                if (qVal <= 0) {
+                    alert('Validation Error: Please enter a valid quantity for variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-qty')?.focus();
+                    return;
+                }
+                if (mrpVal <= 0) {
+                    alert('Validation Error: Please enter a valid MRP for variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-mrp')?.focus();
+                    return;
+                }
+                if (spVal <= 0) {
+                    alert('Validation Error: Please enter a valid Selling Price for variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-sp')?.focus();
+                    return;
+                }
+                if (mrpVal < spVal) {
+                    alert('Validation Error: MRP (₹' + mrpVal.toFixed(2) + ') cannot be lower than Selling Price (₹' + spVal.toFixed(2) + ') on variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-mrp')?.focus();
+                    return;
+                }
+                if (gstVal < 0 || gstVal > 100) {
+                    alert('Validation Error: GST rate must be between 0 and 100% on variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-gst')?.focus();
                     return;
                 }
             }
