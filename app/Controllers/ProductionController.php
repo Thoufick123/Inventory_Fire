@@ -4165,159 +4165,175 @@ class ProductionController {
             }
         }
 
-        if ($productName === '' || !is_array($variants) || empty($variants)) {
+        $productsInput = $_POST['products'] ?? null;
+        if (!is_array($productsInput) || empty($productsInput)) {
+            $singleProdName = mb_strtoupper(trim((string)($_POST['product_name'] ?? '')));
+            if ($singleProdName !== '') {
+                $productsInput = [[
+                    'product_name' => $singleProdName,
+                    'unit' => $_POST['unit'] ?? 'PCS',
+                    'variants' => $_POST['variants'] ?? [],
+                ]];
+            }
+        }
+
+        if (empty($productsInput)) {
             if ($isAjax) {
-                Response::json(['success' => false, 'message' => 'Enter a product name and at least one product variant.'], 422);
+                Response::json(['success' => false, 'message' => 'Enter at least one product with variants.'], 422);
                 return;
             }
-            Session::flash('error', 'Enter a product name and at least one product variant.');
-            Response::back();
-            return;
-        }
-        if (count($variants) > 100) {
-            Session::flash('error', 'Add no more than 100 variants to one product at a time.');
+            Session::flash('error', 'Enter at least one product with variants.');
             Response::back();
             return;
         }
 
-        $styleCode = mb_strtoupper(trim((string)($_POST['product_code'] ?? '')));
-        if (mb_strlen($productName) > 300 || mb_strlen($styleCode) > 50) {
-            Session::flash('error', 'Product name is limited to 300 characters and style code to 50 characters.');
-            Response::back();
-            return;
-        }
-        $unit = strtoupper(trim((string)($_POST['unit'] ?? 'PCS'))) ?: 'PCS';
         $userId = (int)(Session::get('user_id') ?? 0);
         Database::beginTransaction();
         try {
-            $product = Database::fetchOne(
-                "SELECT id, code FROM products
-                 WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
-                   AND seller_id = ?
-                 ORDER BY id ASC LIMIT 1",
-                [$productName, (int)$bill['seller_id']]
-            );
-            if (!$product) {
-                if ($styleCode === '') {
-                    $base = 'TP-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $productName)), 0, 10);
+            $totalProducts = 0;
+            $totalVariants = 0;
+            $savedNames = [];
+
+            foreach ($productsInput as $pIdx => $pData) {
+                if (!is_array($pData)) continue;
+                $pName = mb_strtoupper(trim((string)($pData['product_name'] ?? '')));
+                $pUnit = strtoupper(trim((string)($pData['unit'] ?? 'PCS'))) ?: 'PCS';
+                $pVariants = $pData['variants'] ?? [];
+
+                if ($pName === '' || !is_array($pVariants) || empty($pVariants)) {
+                    continue;
+                }
+
+                $product = Database::fetchOne(
+                    "SELECT id, code FROM products
+                     WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
+                       AND seller_id = ?
+                     ORDER BY id ASC LIMIT 1",
+                    [$pName, (int)$bill['seller_id']]
+                );
+                if (!$product) {
+                    $base = 'TP-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $pName)), 0, 10);
                     $styleCode = $base ?: 'TP-PRODUCT';
                     $suffix = 1;
                     while (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$styleCode])) {
                         $styleCode = $base . '-' . $suffix++;
                     }
-                } elseif (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$styleCode])) {
-                    throw new InvalidArgumentException("Product code '{$styleCode}' is already in use.");
-                }
-                Database::execute(
-                    "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
-                     VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
-                    [$productName, $styleCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
-                );
-                $productId = (int)Database::lastInsertId();
-                $productCode = $styleCode;
-            } else {
-                $productId = (int)$product['id'];
-                $productCode = (string)$product['code'];
-            }
-
-            $seenCombinations = [];
-            $variantCount = 0;
-            foreach ($variants as $index => $variant) {
-                if (!is_array($variant)) {
-                    continue;
-                }
-                $size = trim((string)($variant['size'] ?? ''));
-                $color = trim((string)($variant['color'] ?? ''));
-                $combination = mb_strtoupper($size) . "\0" . mb_strtoupper($color);
-                if (isset($seenCombinations[$combination])) {
-                    throw new InvalidArgumentException('A size and color variant combination was entered more than once.');
-                }
-                $seenCombinations[$combination] = true;
-                $qty = (float)($variant['quantity'] ?? 0);
-                $rate = (float)($variant['unit_price'] ?? 0);
-                $mrp = (float)($variant['mrp'] ?? 0);
-                $sellingPrice = (float)($variant['selling_price'] ?? 0);
-                $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
-                $hsn = trim((string)($variant['hsn_code'] ?? ''));
-                if ($hsn === '') {
-                    $hsn = 'PENDING';
-                }
-                $categoryId = (int)($variant['category_id'] ?? 0);
-                $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
-                $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
-                $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
-
-                if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
-                    || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
-                    throw new InvalidArgumentException('Each variant needs a whole-number quantity, valid prices, GST rate and HSN code.');
-                }
-                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
-                    throw new InvalidArgumentException('Select a valid category hierarchy for every variant.');
-                }
-                if ($sku === '') {
-                    $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
-                        . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
-                }
-                if (mb_strlen($sku) > 100) {
-                    throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
+                    Database::execute(
+                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$pName, $styleCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                    );
+                    $productId = (int)Database::lastInsertId();
+                    $productCode = $styleCode;
+                } else {
+                    $productId = (int)$product['id'];
+                    $productCode = (string)$product['code'];
                 }
 
-                $productVariant = VariantService::findOrCreateVariantForInward($productId, [
-                    'color' => $color ?: null,
-                    'size' => $size ?: 'Standard',
-                    'vendor_sku' => $sku,
-                    'hsn_code' => $hsn,
-                    'gst_rate' => $gstRate,
-                    'mrp' => $mrp,
-                    'selling_price' => $sellingPrice,
-                    'unit_price' => $rate,
-                ]);
-                Database::execute(
-                    "INSERT INTO third_party_mapping_items
-                        (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
-                         quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
-                         category_id, subcategory_id, sub_subcategory_id)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$mappingBillId, $productId, (int)$productVariant['id'], $productName, $productCode, $sku,
-                        $qty, $unit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
-                        $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
-                );
-                $variantCount++;
+                $seenCombinations = [];
+                $vCount = 0;
+                foreach ($pVariants as $index => $variant) {
+                    if (!is_array($variant)) continue;
+                    $size = trim((string)($variant['size'] ?? ''));
+                    $color = trim((string)($variant['color'] ?? ''));
+                    $combination = mb_strtoupper($size) . "\0" . mb_strtoupper($color);
+                    if (isset($seenCombinations[$combination])) {
+                        throw new InvalidArgumentException("Duplicate size and color variant combination for product '{$pName}'.");
+                    }
+                    $seenCombinations[$combination] = true;
+                    $qty = (float)($variant['quantity'] ?? 0);
+                    $rate = (float)($variant['unit_price'] ?? 0);
+                    $mrp = (float)($variant['mrp'] ?? 0);
+                    $sellingPrice = (float)($variant['selling_price'] ?? 0);
+                    $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
+                    $hsn = trim((string)($variant['hsn_code'] ?? ''));
+                    if ($hsn === '') {
+                        $hsn = 'PENDING';
+                    }
+                    $categoryId = (int)($variant['category_id'] ?? 0);
+                    $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
+                    $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
+                    $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
+
+                    if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
+                        || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
+                        throw new InvalidArgumentException("Check quantities, prices, GST and HSN for product '{$pName}'.");
+                    }
+                    if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
+                        throw new InvalidArgumentException("Select a valid category for every variant of '{$pName}'.");
+                    }
+                    if ($sku === '') {
+                        $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
+                            . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
+                    }
+                    if (mb_strlen($sku) > 100) {
+                        throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
+                    }
+
+                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
+                        'color' => $color ?: null,
+                        'size' => $size ?: 'Standard',
+                        'vendor_sku' => $sku,
+                        'hsn_code' => $hsn,
+                        'gst_rate' => $gstRate,
+                        'mrp' => $mrp,
+                        'selling_price' => $sellingPrice,
+                        'unit_price' => $rate,
+                    ]);
+                    Database::execute(
+                        "INSERT INTO third_party_mapping_items
+                            (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
+                             quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                             category_id, subcategory_id, sub_subcategory_id)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode, $sku,
+                            $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
+                            $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
+                    );
+                    $vCount++;
+                    $totalVariants++;
+                }
+                if ($vCount > 0) {
+                    $totalProducts++;
+                    $savedNames[] = $pName;
+                }
             }
-            if ($variantCount === 0) {
-                throw new InvalidArgumentException('Enter at least one valid product variant.');
+
+            if ($totalProducts === 0 || $totalVariants === 0) {
+                throw new InvalidArgumentException('Enter at least one product with valid variants.');
             }
+
             Database::commit();
             AuditService::log('purchases', 'CREATE', 'third_party_mapping_bills', $mappingBillId, null, [
-                'product_name' => $productName,
-                'variant_count' => $variantCount,
+                'products' => $savedNames,
+                'total_products' => $totalProducts,
+                'total_variants' => $totalVariants,
             ]);
 
-            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
-
+            $successMsg = "Successfully saved {$totalProducts} product(s) (" . implode(', ', array_slice($savedNames, 0, 3)) . (count($savedNames) > 3 ? '...' : '') . ") with {$totalVariants} variant(s) to Mapping.";
             if ($isAjax) {
                 Response::json([
                     'success' => true,
-                    'message' => "Product '{$productName}' and its variants were saved to Mapping.",
-                    'product_name' => $productName,
-                    'variant_count' => $variantCount
+                    'message' => $successMsg,
+                    'total_products' => $totalProducts,
+                    'total_variants' => $totalVariants
                 ]);
                 return;
             }
 
-            Session::flash('success', "Product '{$productName}' and its variants were saved to Mapping.");
+            Session::flash('success', $successMsg);
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
         } catch (Throwable $e) {
             Database::rollback();
-            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
             if ($isAjax) {
-                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                Response::json(['success' => false, 'message' => $e->getMessage()], 422);
                 return;
             }
             Session::flash('error', $e->getMessage());
+            Response::back();
+            return;
         }
-        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
     public function generateThirdPartyMappingDraftQr(string $id): void {
@@ -23725,12 +23741,12 @@ class ProductionController {
         }
 
         if ($typeFilter !== 'ALL' && in_array($typeFilter, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'], true)) {
-            $where[] = "ppi.item_type = ?";
+            $where[] = "COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) = ?";
             $params[] = $typeFilter;
         }
 
         if (!empty($search)) {
-            $where[] = "(ppi.item_name LIKE ? OR qrg.batch_code LIKE ? OR pp.purchase_number LIKE ? OR s.name LIKE ? OR s.company LIKE ? OR ppi.vendor_sku LIKE ? OR ppi.roll_number LIKE ?)";
+            $where[] = "(COALESCE(ppi.item_name, mi.item_name, qrg.design_name) LIKE ? OR qrg.batch_code LIKE ? OR COALESCE(pp.purchase_number, mb.invoice_number) LIKE ? OR COALESCE(s.name, mb_s.name) LIKE ? OR COALESCE(s.company, mb_s.company) LIKE ? OR COALESCE(ppi.vendor_sku, mi.vendor_sku) LIKE ? OR COALESCE(ppi.roll_number, mi.roll_code) LIKE ?)";
             $term = '%' . $search . '%';
             $params = array_merge($params, [$term, $term, $term, $term, $term, $term, $term]);
         }
@@ -23740,30 +23756,49 @@ class ProductionController {
         $stockItems = Database::fetchAll("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
                    qrg.stock_added_at, qrg.brand_name,
-                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
-                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
-                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color, mi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name, mi.item_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size, mi.size) AS size_name,
                    qrg.mrp,
-                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS purchase_price,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price, mi.unit_price) AS purchase_price,
                    qrg.selling_price,
-                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
-                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   COALESCE(ppi.id, mi.id) AS item_id,
+                   COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) AS item_type,
+                   COALESCE(ppi.item_name, mi.item_name, qrg.design_name) AS item_name,
+                   COALESCE(ppi.unit, mi.unit, 'ROLL') AS unit,
+                   COALESCE(ppi.weight_kg, mi.weight_kg, 0) AS weight_kg,
+                   COALESCE(ppi.unit_price, mi.unit_price, 0) AS unit_price,
+                   COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0) AS total_price,
+                   COALESCE(ppi.vendor_sku, mi.vendor_sku, '') AS vendor_sku,
+                   COALESCE(ppi.product_code, mi.product_code, '') AS product_code,
+                   COALESCE(ppi.roll_number, mi.roll_code, qrg.qr_prefix) AS roll_number,
+                   COALESCE(ppi.quantity, mi.quantity, qrg.quantity) AS purchase_qty,
                    ppi.seller_roll_id,
-                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
-                   s.name AS seller_name, s.company AS seller_company,
-                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
-                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
-                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   COALESCE(pp.id, mb.id) AS purchase_id,
+                   COALESCE(pp.purchase_number, CONCAT('[Mapping] ', mb.invoice_number)) AS purchase_number,
+                   COALESCE(pp.purchase_date, mb.created_at, qrg.created_at) AS purchase_date,
+                   COALESCE(pp.invoice_number, mb.invoice_number) AS invoice_number,
+                   COALESCE(s.name, mb_s.name) AS seller_name,
+                   COALESCE(s.company, mb_s.company, qrg.brand_name) AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name, mi_c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name, mi_sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name,
                    used_prog.program_number AS used_program_number,
                    used_prog.program_name AS used_program_name
             FROM qr_generations qrg
-            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
-            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+            LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN sellers mb_s ON mb_s.id = mb.seller_id
             LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN categories mi_c ON mi_c.id = mi.category_id
+            LEFT JOIN subcategories mi_sc ON mi_sc.id = mi.subcategory_id
+            LEFT JOIN sub_subcategories mi_ssc ON mi_ssc.id = mi.sub_subcategory_id
             LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
@@ -23790,12 +23825,13 @@ class ProductionController {
         $metrics = Database::fetchOne("
             SELECT COUNT(*) AS total_batches,
                    COALESCE(SUM(qrg.quantity), 0) AS total_units,
-                   COUNT(CASE WHEN ppi.item_type = 'FABRIC_ROLL' THEN 1 END) AS fabric_count,
-                   COUNT(CASE WHEN ppi.item_type = 'RAW_MATERIAL' THEN 1 END) AS raw_count,
-                   COUNT(CASE WHEN ppi.item_type = 'THIRD_PARTY' THEN 1 END) AS third_party_count,
-                   COALESCE(SUM(ppi.total_price), 0) AS total_stock_value
+                   COUNT(CASE WHEN COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) = 'FABRIC_ROLL' THEN 1 END) AS fabric_count,
+                   COUNT(CASE WHEN COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) = 'RAW_MATERIAL' THEN 1 END) AS raw_count,
+                   COUNT(CASE WHEN COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) = 'THIRD_PARTY' THEN 1 END) AS third_party_count,
+                   COALESCE(SUM(COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0)), 0) AS total_stock_value
             FROM qr_generations qrg
-            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
             {$metricWhere}
         ", $metricParams);
 
@@ -23925,29 +23961,49 @@ class ProductionController {
         $stock = Database::fetchOne("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
                    qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
-                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
-                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
-                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color, mi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name, mi.item_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size, mi.size) AS size_name,
                    qrg.mrp,
-                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
-                   ppi.unit_price AS purchase_price,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price, mi.selling_price) AS selling_price,
+                   COALESCE(ppi.unit_price, mi.unit_price) AS purchase_price,
                    qrg.notes, qrg.qr_prefix,
-                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
-                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   COALESCE(ppi.id, mi.id) AS item_id,
+                   COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) AS item_type,
+                   COALESCE(ppi.item_name, mi.item_name, qrg.design_name) AS item_name,
+                   COALESCE(ppi.unit, mi.unit, 'ROLL') AS unit,
+                   COALESCE(ppi.weight_kg, mi.weight_kg, 0) AS weight_kg,
+                   COALESCE(ppi.unit_price, mi.unit_price, 0) AS unit_price,
+                   COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0) AS total_price,
+                   COALESCE(ppi.vendor_sku, mi.vendor_sku, '') AS vendor_sku,
+                   COALESCE(ppi.product_code, mi.product_code, '') AS product_code,
+                   COALESCE(ppi.roll_number, mi.roll_code, qrg.qr_prefix) AS roll_number,
+                   COALESCE(ppi.quantity, mi.quantity, qrg.quantity) AS purchase_qty,
                    ppi.seller_roll_id,
-                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
-                   s.name AS seller_name, s.company AS seller_company,
-                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
-                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
-                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   COALESCE(pp.id, mb.id) AS purchase_id,
+                   mb.id AS mapping_bill_id,
+                   COALESCE(pp.purchase_number, CONCAT('[Mapping] ', mb.invoice_number)) AS purchase_number,
+                   COALESCE(pp.purchase_date, mb.created_at, qrg.created_at) AS purchase_date,
+                   COALESCE(pp.invoice_number, mb.invoice_number) AS invoice_number,
+                   COALESCE(s.name, mb_s.name) AS seller_name,
+                   COALESCE(s.company, mb_s.company, qrg.brand_name) AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name, mi_c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name, mi_sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
-            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
-            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+            LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN sellers mb_s ON mb_s.id = mb.seller_id
             LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN categories mi_c ON mi_c.id = mi.category_id
+            LEFT JOIN subcategories mi_sc ON mi_sc.id = mi.subcategory_id
+            LEFT JOIN sub_subcategories mi_ssc ON mi_ssc.id = mi.sub_subcategory_id
             LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
@@ -23973,6 +24029,10 @@ class ProductionController {
 
         $progInfo = $this->resolveProgramUsage((int)($stock['seller_roll_id'] ?? 0), $items);
 
+        $purchaseUrl = !empty($stock['mapping_bill_id'])
+            ? url('purchases/mapping/draft/' . $stock['mapping_bill_id'])
+            : url('purchases/view/' . (int)($stock['purchase_id'] ?? 0));
+
         Response::view('production.purchased_stock.view', [
             'pageTitle'    => 'Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
@@ -23983,7 +24043,7 @@ class ProductionController {
             'printUrl'     => url('production/qr-generations/print/' . $genId),
             'editUrl'      => url('production/purchased-stock/edit/' . $genId),
             'listUrl'      => url('production/purchased-stock'),
-            'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
+            'purchaseUrl'  => $purchaseUrl,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
@@ -24001,29 +24061,49 @@ class ProductionController {
         $stock = Database::fetchOne("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
                    qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
-                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
-                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
-                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color, mi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name, mi.item_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size, mi.size) AS size_name,
                    qrg.mrp,
-                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
-                   ppi.unit_price AS purchase_price,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price, mi.selling_price) AS selling_price,
+                   COALESCE(ppi.unit_price, mi.unit_price) AS purchase_price,
                    qrg.notes, qrg.qr_prefix,
-                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
-                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
+                   COALESCE(ppi.id, mi.id) AS item_id,
+                   COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) AS item_type,
+                   COALESCE(ppi.item_name, mi.item_name, qrg.design_name) AS item_name,
+                   COALESCE(ppi.unit, mi.unit, 'ROLL') AS unit,
+                   COALESCE(ppi.weight_kg, mi.weight_kg, 0) AS weight_kg,
+                   COALESCE(ppi.unit_price, mi.unit_price, 0) AS unit_price,
+                   COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0) AS total_price,
+                   COALESCE(ppi.vendor_sku, mi.vendor_sku, '') AS vendor_sku,
+                   COALESCE(ppi.product_code, mi.product_code, '') AS product_code,
+                   COALESCE(ppi.roll_number, mi.roll_code, qrg.qr_prefix) AS roll_number,
+                   COALESCE(ppi.quantity, mi.quantity, qrg.quantity) AS purchase_qty,
                    ppi.seller_roll_id,
-                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
-                   s.name AS seller_name, s.company AS seller_company,
-                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
-                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
-                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   COALESCE(pp.id, mb.id) AS purchase_id,
+                   mb.id AS mapping_bill_id,
+                   COALESCE(pp.purchase_number, CONCAT('[Mapping] ', mb.invoice_number)) AS purchase_number,
+                   COALESCE(pp.purchase_date, mb.created_at, qrg.created_at) AS purchase_date,
+                   COALESCE(pp.invoice_number, mb.invoice_number) AS invoice_number,
+                   COALESCE(s.name, mb_s.name) AS seller_name,
+                   COALESCE(s.company, mb_s.company, qrg.brand_name) AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name, mi_c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name, mi_sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
-            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
-            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+            LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN sellers mb_s ON mb_s.id = mb.seller_id
             LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN categories mi_c ON mi_c.id = mi.category_id
+            LEFT JOIN subcategories mi_sc ON mi_sc.id = mi.subcategory_id
+            LEFT JOIN sub_subcategories mi_ssc ON mi_ssc.id = mi.sub_subcategory_id
             LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
@@ -24049,6 +24129,10 @@ class ProductionController {
 
         $progInfo = $this->resolveProgramUsage((int)($stock['seller_roll_id'] ?? 0), $items);
 
+        $purchaseUrl = !empty($stock['mapping_bill_id'])
+            ? url('purchases/mapping/draft/' . $stock['mapping_bill_id'])
+            : url('purchases/view/' . (int)($stock['purchase_id'] ?? 0));
+
         Response::view('production.purchased_stock.edit', [
             'pageTitle'    => 'Edit Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
@@ -24058,7 +24142,7 @@ class ProductionController {
             'progInfo'     => $progInfo,
             'viewUrl'      => url('production/purchased-stock/view/' . $genId),
             'listUrl'      => url('production/purchased-stock'),
-            'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
+            'purchaseUrl'  => $purchaseUrl,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
@@ -24158,28 +24242,48 @@ class ProductionController {
         $stock = Database::fetchOne("
             SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
                    qrg.stock_added, qrg.stock_added_at, qrg.brand_name,
-                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color) AS color_name,
-                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name) AS design_name,
-                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size) AS size_name,
+                   COALESCE(NULLIF(qrg.color_name, ''), ppi.color, mi.color) AS color_name,
+                   COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name, mi.item_name) AS design_name,
+                   COALESCE(NULLIF(qrg.size_name, ''), ppi.size, mi.size) AS size_name,
                    qrg.mrp,
-                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price) AS selling_price,
-                   ppi.unit_price AS purchase_price,
+                   COALESCE(NULLIF(qrg.selling_price, 0), ppi.unit_price, mi.selling_price) AS selling_price,
+                   COALESCE(ppi.unit_price, mi.unit_price) AS purchase_price,
                    qrg.notes, qrg.qr_prefix,
-                   ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.unit, ppi.weight_kg, ppi.unit_price,
-                   ppi.total_price, ppi.vendor_sku, ppi.product_code, ppi.roll_number, ppi.quantity AS purchase_qty,
-                   pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
-                   s.name AS seller_name, s.company AS seller_company,
-                   COALESCE(qrg.category_name, tpc.name, c.name) AS category_name,
-                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name) AS subcategory_name,
-                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name) AS sub_subcategory_name,
+                   COALESCE(ppi.id, mi.id) AS item_id,
+                   COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) AS item_type,
+                   COALESCE(ppi.item_name, mi.item_name, qrg.design_name) AS item_name,
+                   COALESCE(ppi.unit, mi.unit, 'ROLL') AS unit,
+                   COALESCE(ppi.weight_kg, mi.weight_kg, 0) AS weight_kg,
+                   COALESCE(ppi.unit_price, mi.unit_price, 0) AS unit_price,
+                   COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0) AS total_price,
+                   COALESCE(ppi.vendor_sku, mi.vendor_sku, '') AS vendor_sku,
+                   COALESCE(ppi.product_code, mi.product_code, '') AS product_code,
+                   COALESCE(ppi.roll_number, mi.roll_code, qrg.qr_prefix) AS roll_number,
+                   COALESCE(ppi.quantity, mi.quantity, qrg.quantity) AS purchase_qty,
+                   COALESCE(pp.id, mb.id) AS purchase_id,
+                   mb.id AS mapping_bill_id,
+                   COALESCE(pp.purchase_number, CONCAT('[Mapping] ', mb.invoice_number)) AS purchase_number,
+                   COALESCE(pp.purchase_date, mb.created_at, qrg.created_at) AS purchase_date,
+                   COALESCE(pp.invoice_number, mb.invoice_number) AS invoice_number,
+                   COALESCE(s.name, mb_s.name) AS seller_name,
+                   COALESCE(s.company, mb_s.company, qrg.brand_name) AS seller_company,
+                   COALESCE(qrg.category_name, tpc.name, c.name, mi_c.name) AS category_name,
+                   COALESCE(qrg.subcategory_name, tpsc.name, sc.name, mi_sc.name) AS subcategory_name,
+                   COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
-            INNER JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
-            INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+            LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+            LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+            LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
+            LEFT JOIN sellers mb_s ON mb_s.id = mb.seller_id
             LEFT JOIN categories c ON c.id = COALESCE(qrg.category_id, ppi.mapped_category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(qrg.subcategory_id, ppi.mapped_subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(qrg.sub_subcategory_id, ppi.mapped_sub_subcategory_id)
+            LEFT JOIN categories mi_c ON mi_c.id = mi.category_id
+            LEFT JOIN subcategories mi_sc ON mi_sc.id = mi.subcategory_id
+            LEFT JOIN sub_subcategories mi_ssc ON mi_ssc.id = mi.sub_subcategory_id
             LEFT JOIN third_party_categories tpc ON tpc.id = ppi.mapped_third_party_category_id
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = ppi.mapped_third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = ppi.mapped_third_party_sub_subcategory_id
@@ -24202,13 +24306,17 @@ class ProductionController {
             ORDER BY sequence_num ASC, id ASC
         ", [$stock['color_name'] ?? '', $stock['design_name'] ?? '', $genId]);
 
+        $purchaseUrl = !empty($stock['mapping_bill_id'])
+            ? url('purchases/mapping/draft/' . $stock['mapping_bill_id'])
+            : url('purchases/view/' . (int)($stock['purchase_id'] ?? 0));
+
         Response::json([
             'success' => true,
             'data'    => [
                 'stock'        => $stock,
                 'items'        => $items,
                 'print_url'    => url('production/qr-generations/print/' . $genId),
-                'purchase_url' => url('purchases/view/' . $stock['purchase_id']),
+                'purchase_url' => $purchaseUrl,
             ],
         ]);
     }

@@ -23,8 +23,8 @@ $purchaseData = json_encode(array_values($purchases), JSON_UNESCAPED_UNICODE | J
                             <select name="purchase_id" id="tpPurchase_<?= e($sourceKey) ?>" class="form-select form-select-lg" required onchange="onTpPurchaseChanged('<?= e($sourceKey) ?>')">
                                 <option value="">-- Select Purchase Bill --</option>
                                 <?php foreach ($purchases as $purchase): ?>
-                                    <option value="<?= (int)$purchase['id'] ?>"
-                                        <?= $activeTab === 'third_party' && (int)($preselectedPurchaseId ?? 0) === (int)$purchase['id'] ? 'selected' : '' ?>>
+                                    <option value="<?= e($purchase['id']) ?>"
+                                        <?= $activeTab === 'third_party' && (string)($preselectedPurchaseId ?? '') === (string)$purchase['id'] ? 'selected' : '' ?>>
                                         <?= e($purchase['purchase_number']) ?> · <?= e(date('d M Y', strtotime($purchase['purchase_date']))) ?> · <?= e($purchase['seller_label']) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -126,6 +126,12 @@ function onTpPurchaseChanged(key) {
 
     const purchase = (window.tpPurchasesByKey[key] || []).find(p => String(p.id) === String(purchaseId));
     if (!purchase) return;
+
+    const brandInput = document.getElementById('tpBrandName_' + key);
+    if (brandInput && !brandInput.value && purchase.seller_label) {
+        brandInput.value = purchase.seller_label.replace(/\s*\(.*?\)\s*/g, '').trim();
+    }
+
     (purchase.items || []).forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.item_id;
@@ -191,13 +197,18 @@ function updateTpPreview(key) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const purchaseId = <?= json_encode((int)($preselectedPurchaseId ?? 0)) ?>;
-    const itemId = <?= json_encode((int)($preselectedPurchaseItemId ?? 0)) ?>;
+    const purchaseId = <?= json_encode((string)($preselectedPurchaseId ?? '')) ?>;
+    const itemId = <?= json_encode((string)($preselectedPurchaseItemId ?? '')) ?>;
     const purchaseSelect = document.getElementById('tpPurchase_third_party');
     const itemSelect = document.getElementById('tpItem_third_party');
     if (!purchaseSelect || !itemSelect || !purchaseId) return;
     purchaseSelect.value = String(purchaseId);
     onTpPurchaseChanged('third_party');
+    if (itemId) {
+        itemSelect.value = String(itemId);
+        onTpItemChanged('third_party');
+    }
+});
     if (itemId) {
         itemSelect.value = String(itemId);
         onTpItemChanged('third_party');

@@ -24,7 +24,8 @@ $purchaseData = json_encode(array_values($purchases), JSON_UNESCAPED_UNICODE | J
                     <select name="purchase_id" id="purchase_<?= e($sourceKey) ?>" class="form-select form-select-lg" required onchange="onQrPurchaseChanged('<?= e($sourceKey) ?>')">
                         <option value="">-- Select Purchase Bill --</option>
                         <?php foreach ($purchases as $purchase): ?>
-                            <option value="<?= (int)$purchase['id'] ?>">
+                            <option value="<?= e($purchase['id']) ?>"
+                                <?= (string)($preselectedPurchaseId ?? '') === (string)$purchase['id'] ? 'selected' : '' ?>>
                                 <?= e($purchase['purchase_number']) ?> · <?= e(date('d M Y', strtotime($purchase['purchase_date']))) ?> · <?= e($purchase['seller_label']) ?>
                             </option>
                         <?php endforeach; ?>
@@ -88,11 +89,14 @@ function onQrPurchaseChanged(key) {
         opt.value = item.item_id;
         const variantLabel = Number(item.variant_id || 0) > 0 ? 'Variant ID ' + Number(item.variant_id) : 'Variant not assigned';
         let rollLabel = '';
-        if (item.roll_number) {
-            const trimmed = String(item.roll_number).trim();
+        if (item.roll_number || item.roll_code) {
+            const rawRoll = item.roll_number || item.roll_code;
+            const trimmed = String(rawRoll).trim();
             rollLabel = /^roll\b/i.test(trimmed) ? trimmed : ('Roll ' + trimmed);
         }
-        const label = [item.item_name, variantLabel, rollLabel].filter(Boolean).join(' · ');
+        const weightLabel = item.weight_kg ? Number(item.weight_kg) + ' kg' : '';
+        const colorLabel = item.color ? item.color : '';
+        const label = [item.item_name, colorLabel, variantLabel, rollLabel, weightLabel].filter(Boolean).join(' · ');
         opt.textContent = label + ' — ' + Number(item.quantity).toLocaleString() + ' ' + (item.unit || 'pcs');
         opt.dataset.item = JSON.stringify(item);
         itemSelect.appendChild(opt);
@@ -118,9 +122,26 @@ function onQrItemChanged(key) {
         '<div class="row g-2 small">' +
             '<div class="col-md-3"><span class="text-muted">Item</span><div class="fw-bold">' + (item.item_name || '') + '</div></div>' +
             '<div class="col-md-2"><span class="text-muted">Variant ID</span><div class="fw-bold font-monospace">' + (variantId > 0 ? variantId : 'Not assigned') + '</div></div>' +
-            '<div class="col-md-2"><span class="text-muted">Roll #</span><div class="fw-bold font-monospace">' + (item.roll_number || '—') + '</div></div>' +
-            '<div class="col-md-2"><span class="text-muted">Qty</span><div class="fw-bold text-primary">' + Number(item.quantity).toLocaleString() + ' ' + (item.unit || 'pcs') + '</div></div>' +
+            '<div class="col-md-2"><span class="text-muted">Color / Shade</span><div class="fw-bold">' + (item.color || '—') + '</div></div>' +
+            '<div class="col-md-2"><span class="text-muted">Roll / Weight</span><div class="fw-bold font-monospace">' + (item.roll_code || item.roll_number || '—') + (item.weight_kg ? ' (' + Number(item.weight_kg) + ' kg)' : '') + '</div></div>' +
             '<div class="col-md-3"><span class="text-muted">Existing batch</span><div>' + existing + '</div></div>' +
         '</div>';
 }
+
+// Auto-trigger if preselected
+document.addEventListener('DOMContentLoaded', function() {
+    const key = '<?= e($sourceKey) ?>';
+    const purchaseSelect = document.getElementById('purchase_' + key);
+    if (purchaseSelect && purchaseSelect.value) {
+        onQrPurchaseChanged(key);
+        const preselectedItem = '<?= e($preselectedPurchaseItemId ?? '') ?>';
+        if (preselectedItem) {
+            const itemSelect = document.getElementById('item_' + key);
+            if (itemSelect) {
+                itemSelect.value = preselectedItem;
+                onQrItemChanged(key);
+            }
+        }
+    }
+});
 </script>

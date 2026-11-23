@@ -80,6 +80,23 @@ class QrGenerationService {
         Database::ensureColumn('qr_generations', 'stock_added_by', 'INT UNSIGNED DEFAULT NULL AFTER stock_added_at');
         Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
 
+        // Auto-heal any mapping roll rows that had item_type set to THIRD_PARTY
+        try {
+            Database::execute("
+                UPDATE third_party_mapping_items 
+                SET item_type = 'FABRIC_ROLL'
+                WHERE item_type != 'FABRIC_ROLL'
+                  AND (
+                      (roll_code IS NOT NULL AND TRIM(roll_code) != '')
+                      OR (weight_kg IS NOT NULL AND weight_kg > 0)
+                      OR (meters IS NOT NULL AND meters > 0)
+                      OR UPPER(TRIM(unit)) IN ('ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG', 'KGS')
+                      OR LOWER(item_name) LIKE '%roll%'
+                      OR LOWER(item_name) LIKE '%fabric%'
+                  )
+            ");
+        } catch (\Throwable $e) {}
+
         Database::ensureColumn('stitching_batches', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER status');
         Database::ensureColumn('stitching_batches', 'qr_batch_code', 'VARCHAR(50) DEFAULT NULL AFTER qr_generation_id');
         Database::ensureColumn('qc_batches', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER label_batch_id');
@@ -532,7 +549,15 @@ class QrGenerationService {
              PurchaseMappingFulfillmentService::ensureSchema();
          }
 
-        $itemId = (int)($data['purchase_item_id'] ?? 0);
+        $rawItemId = trim((string)($data['purchase_item_id'] ?? ''));
+        $isMapping = str_starts_with($rawItemId, 'map_') || !empty($data['is_mapping']);
+        $mappingItemId = $isMapping ? (int)preg_replace('/^map_/', '', $rawItemId) : 0;
+        $itemId = !$isMapping ? (int)$rawItemId : 0;
+
+        if ($isMapping) {
+            return self::generateMappingBatch($mappingItemId, $source, $data);
+        }
+
         if ($itemId <= 0) {
             throw new InvalidArgumentException('Select a purchase item.');
         }
@@ -809,6 +834,15 @@ class QrGenerationService {
                 [$batchCode, $itemId]
             );
 
+            // Move roll directly to purchased stock upon QR generation
+            if ($source === self::SOURCE_FABRIC) {
+                $curUserId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null;
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
+                    [$curUserId, $generationId]
+                );
+            }
+
             Database::commit();
 
             return [
@@ -817,6 +851,309 @@ class QrGenerationService {
                 'brand_name'    => $brandName,
                 'qr_prefix'     => $qrPrefix,
                 'quantity'      => $inserted,
+                'source'        => $source,
+            ];
+        } catch (Throwable $e) {
+            Database::rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate QR code batch directly from a Purchase Item Mapping creation (mapping invoice/items).
+     */
+    public static function generateMappingBatch(int $mappingItemId, string $source, array $data): array {
+        if ($mappingItemId <= 0) {
+            throw new InvalidArgumentException('Select a mapping item.');
+        }
+
+        $item = Database::fetchOne(
+            "SELECT mi.*, mb.invoice_number, mb.concern_id, mb.seller_id, mb.status AS bill_status, mb.purchase_id,
+                    s.name AS seller_name, s.company AS seller_company,
+                    pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                    c.name AS category_name, c.code AS category_code,
+                    sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
+             FROM third_party_mapping_items mi
+             INNER JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             LEFT JOIN sellers s ON s.id = mb.seller_id
+             LEFT JOIN product_variants pv ON pv.id = mi.variant_id
+             LEFT JOIN categories c ON c.id = mi.category_id
+             LEFT JOIN subcategories sc ON sc.id = mi.subcategory_id
+             LEFT JOIN sub_subcategories ssc ON ssc.id = mi.sub_subcategory_id
+             WHERE mi.id = ?",
+            [$mappingItemId]
+        );
+        if (!$item) {
+            throw new InvalidArgumentException('Mapping item not found.');
+        }
+
+        if (strtoupper((string)($item['item_type'] ?? '')) !== $source) {
+            throw new InvalidArgumentException('This item does not belong to the selected QR area.');
+        }
+
+        if (!empty($item['qr_generation_id'])) {
+            throw new RuntimeException('A QR batch has already been generated for this item.');
+        }
+        if (Database::fetchOne("SELECT id FROM qr_generations WHERE source_mapping_item_id = ? LIMIT 1", [$mappingItemId])) {
+            throw new RuntimeException('A QR batch has already been generated for this item.');
+        }
+
+        $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $generationConcernId = !empty($item['concern_id']) ? (int)$item['concern_id'] : $activeCid;
+
+        $brandInput = trim((string)($data['brand_name'] ?? ''));
+        if ($source === self::SOURCE_THIRD_PARTY) {
+            if ($brandInput === '') {
+                $brandInput = trim((string)($item['seller_company'] ?: ($item['seller_name'] ?? 'GRM')));
+            }
+            if ($brandInput === '') {
+                throw new InvalidArgumentException('Enter the brand name exactly as it should appear on the QR labels.');
+            }
+            $brandName = $brandInput;
+        } else {
+            $brandName = mb_strtoupper(trim((string)($item['seller_company'] ?: ($item['seller_name'] ?? 'GRM'))));
+        }
+
+        $productId = (int)($item['product_id'] ?? 0);
+        $variantId = (int)($item['variant_id'] ?? 0);
+        $categoryId = !empty($item['category_id']) ? (int)$item['category_id'] : null;
+        $subcategoryId = !empty($item['subcategory_id']) ? (int)$item['subcategory_id'] : null;
+        $subSubcategoryId = !empty($item['sub_subcategory_id']) ? (int)$item['sub_subcategory_id'] : null;
+
+        // Ensure product & variant exist
+        if (($variantId <= 0 || $productId <= 0) && class_exists('VariantService')) {
+            try {
+                if ($productId <= 0) {
+                    $prodName = trim((string)($item['item_name'] ?: 'Mapping Item ' . $mappingItemId));
+                    $newProd = Database::fetchOne("SELECT id FROM products WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1", [$prodName]);
+                    if ($newProd) {
+                        $productId = (int)$newProd['id'];
+                    } else {
+                        Database::execute(
+                            "INSERT INTO products (name, code, category_id, subcategory_id, concern_id, is_active, created_at)
+                             VALUES (?, ?, ?, ?, ?, 1, NOW())",
+                            [$prodName, 'MAP-' . $mappingItemId, $categoryId, $subcategoryId, $generationConcernId]
+                        );
+                        $productId = (int)Database::lastInsertId();
+                    }
+                    Database::execute("UPDATE third_party_mapping_items SET product_id = ? WHERE id = ?", [$productId, $mappingItemId]);
+                }
+                $resolvedVariant = VariantService::findOrCreateVariantForInward($productId, [
+                    'color'         => $item['color'] ?? null,
+                    'size'          => $item['size'] ?? null,
+                    'design_name'   => $item['item_name'] ?? null,
+                    'hsn_code'      => $item['hsn_code'] ?: null,
+                    'mrp'           => (float)($item['mrp'] ?? 0),
+                    'selling_price' => (float)($item['selling_price'] ?? 0),
+                    'unit_price'    => (float)($item['unit_price'] ?? 0),
+                ]);
+                if (!empty($resolvedVariant['id'])) {
+                    $variantId = (int)$resolvedVariant['id'];
+                    Database::execute("UPDATE third_party_mapping_items SET variant_id = ? WHERE id = ?", [$variantId, $mappingItemId]);
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        $codes = [];
+        $mrp = (float)($item['mrp'] ?: ($item['variant_mrp'] ?? 0));
+        $sellingPrice = (float)($item['selling_price'] ?: ($item['variant_selling_price'] ?? ($item['unit_price'] ?? 0)));
+
+        if ($source === self::SOURCE_THIRD_PARTY) {
+            $qrPrefix = self::catalogPrefix($productId ?: 1, $variantId ?: 1, $brandName);
+            $qty = max(1, min(1000, (int)round((float)($item['quantity'] ?? 1))));
+            $startSeq = self::nextSequence($qrPrefix);
+            for ($i = 0; $i < $qty; $i++) {
+                $seq = $startSeq + $i;
+                $code = $qrPrefix . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+                while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$code])) {
+                    $seq++;
+                    $code = $qrPrefix . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+                }
+                $codes[] = ['code' => $code, 'sequence' => $seq, 'status' => 'ACTIVE'];
+            }
+        } else {
+            // Fabric roll
+            $defaultPrefix = 'FB' . date('my');
+            $startCode = trim((string)($item['roll_code'] ?? ''));
+            $padLen = 2;
+            if ($startCode !== '' && preg_match('/^([A-Za-z]{2}\d{4})(\d+)$/', $startCode, $m)) {
+                $qrPrefix = $m[1];
+                $padLen = max(2, strlen($m[2]));
+            } elseif ($startCode !== '' && preg_match('/^([A-Za-z0-9_-]+?)(\d+)$/', $startCode, $m)) {
+                $qrPrefix = $m[1];
+                $padLen = max(2, strlen($m[2]));
+            } else {
+                $qrPrefix = $defaultPrefix;
+            }
+            $startSeq = self::nextSequence($qrPrefix);
+            $qty = max(1, (int)round((float)($item['quantity'] ?? 1)));
+            for ($i = 0; $i < $qty; $i++) {
+                $seq = $startSeq + $i;
+                $code = sprintf('%s%0' . $padLen . 'd', $qrPrefix, $seq);
+                while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$code])) {
+                    $seq++;
+                    $code = sprintf('%s%0' . $padLen . 'd', $qrPrefix, $seq);
+                }
+                $codes[] = ['code' => $code, 'sequence' => $seq, 'status' => 'ACTIVE'];
+            }
+        }
+
+        if (empty($codes)) {
+            throw new InvalidArgumentException('No QR labels could be derived from this mapping item.');
+        }
+
+        $batchCode = self::generateBatchCode();
+        $generationType = $source === self::SOURCE_THIRD_PARTY ? 'CATALOG_VARIANT' : 'MANUAL';
+        $notes = trim((string)($data['notes'] ?? ''));
+        if ($notes === '') {
+            $notes = "Generated from Mapping Bill {$item['invoice_number']} — {$item['item_name']}";
+        }
+
+        Database::beginTransaction();
+        try {
+            Database::execute(
+                "INSERT INTO qr_generations
+                    (batch_code, generation_type, qr_source, concern_id, source_purchase_id, source_purchase_item_id,
+                     source_mapping_item_id, source_variant_id,
+                     brand_name, category_id, subcategory_id, sub_subcategory_id,
+                     category_name, subcategory_name, sub_subcategory_name,
+                     product_id, variant_id, color_name, design_name, size_name, mrp, selling_price, quantity, qr_prefix, notes, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    $batchCode, $generationType, $source, $generationConcernId,
+                    !empty($item['purchase_id']) ? (int)$item['purchase_id'] : null,
+                    !empty($item['purchase_item_id']) ? (int)$item['purchase_item_id'] : null,
+                    $mappingItemId, $variantId ?: null,
+                    $brandName, $categoryId, $subcategoryId, $subSubcategoryId,
+                    $item['category_name'] ?? null, $item['subcategory_name'] ?? null, $item['sub_subcategory_name'] ?? null,
+                    $productId ?: null, $variantId ?: null,
+                    $item['color'] ?? null, $item['item_name'] ?? null, $item['size'] ?? null,
+                    $mrp, $sellingPrice, count($codes), $qrPrefix, $notes,
+                    (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null,
+                ]
+            );
+            $generationId = (int)Database::lastInsertId();
+
+            $inserted = 0;
+            $qrItemColumns = array_column(Database::fetchAll("SHOW COLUMNS FROM qr_generation_items"), 'Field');
+            $insertColumns = ['generation_id', 'qr_code', 'sequence_num', 'status', 'color_name', 'design_name', 'size_name'];
+            if (in_array('item_code', $qrItemColumns, true)) {
+                $insertColumns[] = 'item_code';
+            }
+            if (in_array('sequence_number', $qrItemColumns, true)) {
+                $insertColumns[] = 'sequence_number';
+            }
+            $insertSql = "INSERT INTO qr_generation_items (`" . implode('`, `', $insertColumns) . "`) VALUES ("
+                . implode(', ', array_fill(0, count($insertColumns), '?')) . ")";
+
+            foreach ($codes as $codeRow) {
+                try {
+                    Database::execute(
+                        $insertSql,
+                        array_merge(
+                            [
+                                $generationId,
+                                $codeRow['code'],
+                                (int)$codeRow['sequence'],
+                                $codeRow['status'],
+                                $item['color'] ?? null,
+                                $item['item_name'] ?? null,
+                                $item['size'] ?? null,
+                            ],
+                            in_array('item_code', $qrItemColumns, true) ? [$codeRow['code']] : [],
+                            in_array('sequence_number', $qrItemColumns, true) ? [(int)$codeRow['sequence']] : []
+                        )
+                    );
+                    $inserted++;
+                } catch (PDOException $e) {
+                    if ((int)($e->errorInfo[1] ?? 0) !== 1062) {
+                        throw $e;
+                    }
+                }
+            }
+            if ($inserted === 0) {
+                throw new RuntimeException("No QR labels were inserted. Every label in this code range already exists.");
+            }
+
+            Database::execute("UPDATE qr_generations SET quantity = ? WHERE id = ?", [$inserted, $generationId]);
+            Database::execute(
+                "UPDATE third_party_mapping_items SET qr_generation_id = ? WHERE id = ?",
+                [$generationId, $mappingItemId]
+            );
+
+            if (!empty($item['purchase_item_id'])) {
+                Database::execute(
+                    "UPDATE production_purchase_items SET qr_generation_id = ?, qr_batch_code = ? WHERE id = ?",
+                    [$generationId, $batchCode, (int)$item['purchase_item_id']]
+                );
+            }
+
+            // Move roll directly to purchased stock upon QR generation
+            if ($source === self::SOURCE_FABRIC) {
+                $curUserId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null;
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
+                    [$curUserId, $generationId]
+                );
+
+                // Create or link seller_rolls record
+                try {
+                    $rollNumber = trim((string)($item['roll_code'] ?: ($codes[0]['code'] ?? 'ROLL-1')));
+                    $existingSr = Database::fetchOne(
+                        "SELECT id FROM seller_rolls WHERE qr_code = ? OR (seller_id = ? AND roll_number = ?) LIMIT 1",
+                        [$codes[0]['code'] ?? '', !empty($item['seller_id']) ? (int)$item['seller_id'] : 1, $rollNumber]
+                    );
+                    if (!$existingSr) {
+                        Database::execute(
+                            "INSERT INTO seller_rolls 
+                                (concern_id, seller_id, roll_number, color, design_name, weight, price, material_type, qr_code, hsn_code, quantity, created_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                            [
+                                $generationConcernId ?: 1,
+                                !empty($item['seller_id']) ? (int)$item['seller_id'] : 1,
+                                $rollNumber,
+                                $item['color'] ?? null,
+                                $item['item_name'] ?? null,
+                                (float)($item['weight_kg'] ?? 0),
+                                (float)($item['unit_price'] ?? 0),
+                                $item['item_name'] ?? null,
+                                $codes[0]['code'] ?? null,
+                                $item['hsn_code'] ?? null,
+                            ]
+                        );
+                    }
+                } catch (\Throwable $e) {}
+
+                // Increase warehouse stock
+                if ($variantId > 0 && class_exists('StockService')) {
+                    $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+                        ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
+                    $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+                    try {
+                        StockService::increase(
+                            $variantId,
+                            'WAREHOUSE',
+                            $warehouseId,
+                            'AVAILABLE',
+                            (float)($item['quantity'] ?: 1),
+                            'INWARD',
+                            'QR_BATCH',
+                            $generationId,
+                            $curUserId,
+                            "QR batch {$batchCode} — fabric roll credited to purchased stock"
+                        );
+                    } catch (\Throwable $e) {}
+                }
+            }
+
+            Database::commit();
+
+            return [
+                'generation_id' => $generationId,
+                'batch_code'    => $batchCode,
+                'quantity'      => $inserted,
+                'brand_name'    => $brandName,
+                'qr_prefix'     => $qrPrefix,
                 'source'        => $source,
             ];
         } catch (Throwable $e) {
@@ -1232,7 +1569,7 @@ class QrGenerationService {
         $itemId = (int)($batch['source_purchase_item_id'] ?? 0);
         if ($itemId <= 0) {
             $mappingItemId = (int)($batch['source_mapping_item_id'] ?? 0);
-            if ($source !== self::SOURCE_THIRD_PARTY || $mappingItemId <= 0) {
+            if ($mappingItemId <= 0) {
                 throw new RuntimeException('This QR batch is not linked to a purchase or Mapping product.');
             }
             $mappingItem = Database::fetchOne(
@@ -1242,6 +1579,23 @@ class QrGenerationService {
                  WHERE mi.id = ? AND mi.qr_generation_id = ?",
                 [$mappingItemId, $generationId]
             );
+            if (!$mappingItem || (int)$mappingItem['variant_id'] <= 0) {
+                if (!empty($mappingItem['product_id']) && class_exists('VariantService')) {
+                    try {
+                        $resolved = VariantService::findOrCreateVariantForInward((int)$mappingItem['product_id'], [
+                            'color' => $mappingItem['color'] ?? null,
+                            'size' => $mappingItem['size'] ?? null,
+                            'mrp' => (float)($mappingItem['mrp'] ?? 0),
+                            'selling_price' => (float)($mappingItem['selling_price'] ?? 0),
+                            'unit_price' => (float)($mappingItem['unit_price'] ?? 0),
+                        ]);
+                        if (!empty($resolved['id'])) {
+                            Database::execute("UPDATE third_party_mapping_items SET variant_id = ? WHERE id = ?", [(int)$resolved['id'], $mappingItemId]);
+                            $mappingItem['variant_id'] = (int)$resolved['id'];
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
             if (!$mappingItem || (int)$mappingItem['variant_id'] <= 0) {
                 throw new RuntimeException('The Mapping product variant for this QR batch could not be found.');
             }
