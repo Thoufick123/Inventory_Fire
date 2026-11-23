@@ -1383,8 +1383,8 @@ class ProductionService {
         $sizeName = trim($sizeName ?? '');
         $colorName = trim($colorName ?? '');
         $product = Database::fetchOne("SELECT * FROM products WHERE id = ?", [$productId]);
-        if ((int)($product['variants_deferred'] ?? 0) === 1) {
-            throw new RuntimeException('Variants for this production style are created after stitching is completed and QR codes are generated.');
+        if (!$product) {
+            return 0;
         }
 
         $sizeId = null;

@@ -15829,22 +15829,26 @@ class ProductionController {
 
                 foreach ($primaryItems as &$it) {
                     if (empty($it['variant_id']) && $productId > 0) {
-                        $vId = ProductionService::findOrCreateVariant(
-                            $productId,
-                            $it['size_name'] ?? $it['display_size'] ?? '',
-                            $it['color_name'] ?? $it['display_color'] ?? '',
-                            $it['sku'] ?? ''
-                        );
-                        if ($vId > 0) {
-                            $it['variant_id'] = $vId;
-                            Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, $it['id']]);
-                            if (!empty($it['base_price']) || !empty($it['discount_price'])) {
-                                Database::execute("UPDATE product_variants SET mrp = ?, selling_price = ? WHERE id = ?", [
-                                    (float)($it['base_price'] ?? 0),
-                                    (float)($it['discount_price'] ?? 0),
-                                    $vId
-                                ]);
+                        try {
+                            $vId = ProductionService::findOrCreateVariant(
+                                $productId,
+                                $it['size_name'] ?? $it['display_size'] ?? '',
+                                $it['color_name'] ?? $it['display_color'] ?? '',
+                                $it['sku'] ?? ''
+                            );
+                            if ($vId > 0) {
+                                $it['variant_id'] = $vId;
+                                Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, $it['id']]);
+                                if (!empty($it['base_price']) || !empty($it['discount_price'])) {
+                                    Database::execute("UPDATE product_variants SET mrp = ?, selling_price = ? WHERE id = ?", [
+                                        (float)($it['base_price'] ?? 0),
+                                        (float)($it['discount_price'] ?? 0),
+                                        $vId
+                                    ]);
+                                }
                             }
+                        } catch (Throwable $ve) {
+                            error_log("findOrCreateVariant error in createBatch: " . $ve->getMessage());
                         }
                     }
                     $vId = (int)($it['variant_id'] ?? 0);
@@ -15914,22 +15918,26 @@ class ProductionController {
                     $addProdId = ProductionService::findOrCreateProductForProgram((int)$addQC['program_id']);
                     foreach ($addItems as &$ait) {
                         if (empty($ait['variant_id']) && $addProdId > 0) {
-                            $vId = ProductionService::findOrCreateVariant(
-                                $addProdId,
-                                $ait['size_name'] ?? $ait['display_size'] ?? '',
-                                $ait['color_name'] ?? $ait['display_color'] ?? '',
-                                $ait['sku'] ?? ''
-                            );
-                            if ($vId > 0) {
-                                $ait['variant_id'] = $vId;
-                                Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, $ait['id']]);
-                                if (!empty($ait['base_price']) || !empty($ait['discount_price'])) {
-                                    Database::execute("UPDATE product_variants SET mrp = ?, selling_price = ? WHERE id = ?", [
-                                        (float)($ait['base_price'] ?? 0),
-                                        (float)($ait['discount_price'] ?? 0),
-                                        $vId
-                                    ]);
+                            try {
+                                $vId = ProductionService::findOrCreateVariant(
+                                    $addProdId,
+                                    $ait['size_name'] ?? $ait['display_size'] ?? '',
+                                    $ait['color_name'] ?? $ait['display_color'] ?? '',
+                                    $ait['sku'] ?? ''
+                                );
+                                if ($vId > 0) {
+                                    $ait['variant_id'] = $vId;
+                                    Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, $ait['id']]);
+                                    if (!empty($ait['base_price']) || !empty($ait['discount_price'])) {
+                                        Database::execute("UPDATE product_variants SET mrp = ?, selling_price = ? WHERE id = ?", [
+                                            (float)($ait['base_price'] ?? 0),
+                                            (float)($ait['discount_price'] ?? 0),
+                                            $vId
+                                        ]);
+                                    }
                                 }
+                            } catch (Throwable $ve) {
+                                error_log("findOrCreateVariant error in createBatch additional QC: " . $ve->getMessage());
                             }
                         }
                         $vId = (int)($ait['variant_id'] ?? 0);
@@ -16067,10 +16075,13 @@ class ProductionController {
                     $sizeName = $vals['size_name'] ?? '';
                     $colorName = $vals['color_name'] ?? '';
                     $sku = $vals['sku'] ?? '';
-                    $variantId = ProductionService::findOrCreateVariant($productId, $sizeName, $colorName, $sku);
-
-                    if (!empty($vals['qc_item_id']) && $variantId > 0) {
-                        Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$vals['qc_item_id']]);
+                    try {
+                        $variantId = ProductionService::findOrCreateVariant($productId, $sizeName, $colorName, $sku);
+                        if (!empty($vals['qc_item_id']) && $variantId > 0) {
+                            Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$variantId, (int)$vals['qc_item_id']]);
+                        }
+                    } catch (Throwable $ve) {
+                        error_log("findOrCreateVariant error in storeBatch: " . $ve->getMessage());
                     }
                 }
 
