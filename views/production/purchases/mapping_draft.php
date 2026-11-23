@@ -128,6 +128,12 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         <div class="tab-content" id="mappingEntryTabContent">
             <!-- PANE 1: Third-Party Products -->
             <div class="tab-pane fade show active" id="tabThirdParty" role="tabpanel">
+                <div class="alert alert-light border d-flex align-items-center gap-3 py-2 px-3 mb-3" style="background-color: #f8faff;">
+                    <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+                    <div class="small text-muted">
+                        <strong>Multi-Product Invoice (e.g. Shirt, Pant &amp; Rolls):</strong> Enter your first product (e.g. <em>Shirt</em>) and its sizes/colors, then click <strong>"Save This Product to Invoice"</strong>. It will be added to the invoice list below. Then type your next product (e.g. <em>Pant</em>) and save it. All products and fabric rolls accumulate under this same invoice before moving to Purchases.
+                    </div>
+                </div>
                 <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftProductForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="THIRD_PARTY">
@@ -177,8 +183,11 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
                         </table>
                     </div>
-                    <div class="d-flex justify-content-end">
-                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save Product to Mapping</button>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="small text-muted">
+                            <i class="bi bi-arrow-down-circle me-1 text-primary"></i>Saves this product to the invoice list below, allowing you to add the next product (e.g. Pant).
+                        </div>
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save This Product to Invoice</button>
                     </div>
                 </form>
             </div>
@@ -904,7 +913,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Product to Mapping';
+                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save This Product to Invoice';
                     }
                     alert('Error: ' + (data.message || 'Failed to save product.'));
                 }
