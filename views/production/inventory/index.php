@@ -105,22 +105,22 @@ $inventoryVariantCount = array_sum(array_map(
 </ul>
 
 <!-- Filters & Search Bar (Image 2 style) -->
-<div class="card mb-4 border-0 shadow-sm">
+<div class="card mb-4 shadow-sm border">
     <div class="card-body p-3">
         <form method="GET" action="<?= url('production/inventory') ?>" class="row g-3 align-items-end" id="inventoryFilterForm">
             <input type="hidden" name="tab" id="filterInvTypeInput" value="<?= e($activeTab ?? 'all') ?>">
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6">
                 <label for="inventoryStockStateSelect" class="form-label small text-muted fw-semibold mb-1">Stock State</label>
-                <select name="stock_state" id="inventoryStockStateSelect" class="form-select form-select-sm" onchange="document.getElementById('inventoryFilterForm').submit()">
+                <select name="stock_state" id="inventoryStockStateSelect" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="document.getElementById('inventoryFilterForm').submit()">
                     <option value="">All Stock States</option>
                     <option value="AVAILABLE" <?= ($stockState === 'AVAILABLE') ? 'selected' : '' ?>>AVAILABLE (In-Stock)</option>
                     <option value="PARTIALLY_OUTWARDED" <?= ($stockState === 'PARTIALLY_OUTWARDED') ? 'selected' : '' ?>>Partially Outwarded</option>
                     <option value="FULLY_OUTWARDED" <?= ($stockState === 'FULLY_OUTWARDED') ? 'selected' : '' ?>>Fully Outwarded</option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6">
                 <label for="inventoryCategorySelect" class="form-label small text-muted fw-semibold mb-1">Product Category</label>
-                <select name="category_id" id="inventoryCategorySelect" class="form-select form-select-sm" onchange="document.getElementById('inventoryFilterForm').submit()">
+                <select name="category_id" id="inventoryCategorySelect" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="document.getElementById('inventoryFilterForm').submit()">
                     <option value="">All Categories</option>
                     <?php foreach ($categories as $cat): ?>
                         <option value="<?= $cat['id'] ?>" <?= ($categoryFilter == $cat['id']) ? 'selected' : '' ?>>
@@ -129,33 +129,32 @@ $inventoryVariantCount = array_sum(array_map(
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-lg-4 col-md-8">
                 <label for="inventorySearchInput" class="form-label small text-muted fw-semibold mb-1">Search Inventory</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-search"></i></span>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; border-radius: 8px 0 0 8px; height: 38px;"><i class="bi bi-search text-muted"></i></span>
                     <input type="text" 
                            name="search" 
                            id="inventorySearchInput" 
                            class="form-control border-start-0" 
+                           style="height: 38px; border-color: #cbd5e1; border-radius: <?= !empty($search) ? '0' : '0 8px 8px 0' ?>; font-size: 0.875rem;"
                            placeholder="Search SKU, QR code tag, product name, program #, batch #, color..." 
                            value="<?= e($search ?? '') ?>"
                            autocomplete="off">
                     <?php if (!empty($search)): ?>
-                        <button type="button" class="btn btn-outline-secondary border-start-0" onclick="clearSearchInput()" title="Clear search">
+                        <button type="button" class="btn btn-outline-secondary border-start-0" style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0;" onclick="clearSearchInput()" title="Clear search">
                             <i class="bi bi-x-circle"></i>
                         </button>
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="col-md-2 d-flex gap-2">
-                <button type="submit" class="btn btn-sm btn-primary flex-grow-1 fw-semibold">
-                    <i class="bi bi-funnel me-1"></i> Filter
+            <div class="col-lg-2 col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center fw-semibold shadow-sm px-3" style="height: 38px; border-radius: 8px; font-size: 0.875rem; gap: 6px;" title="Filter Inventory">
+                    <i class="bi bi-filter"></i> <span>Filter</span>
                 </button>
-                <?php if (!empty($search) || !empty($categoryFilter) || !empty($stockState) || (!empty($activeTab) && $activeTab !== 'all')): ?>
-                    <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-danger" title="Reset All Filters">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </a>
-                <?php endif; ?>
+                <a href="<?= url('production/inventory') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; min-width: 38px; padding: 0; border-radius: 8px; border-color: #cbd5e1;" title="Reset All Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
             </div>
         </form>
     </div>
@@ -185,14 +184,6 @@ $inventoryVariantCount = array_sum(array_map(
         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
             ₹<?= number_format($stats['total_remaining_valuation'] ?? 0, 2) ?> Est. Valuation
         </span>
-        <div class="btn-group btn-group-sm ms-2" role="group" aria-label="Inventory batch layout">
-            <button type="button" class="btn btn-outline-secondary" id="batchCardsViewButton" onclick="switchBatchView('cards')" aria-pressed="false">
-                <i class="bi bi-grid-3x3-gap me-1"></i>Cards
-            </button>
-            <button type="button" class="btn btn-primary active" id="batchListViewButton" onclick="switchBatchView('list')" aria-pressed="true">
-                <i class="bi bi-list-ul me-1"></i>List
-            </button>
-        </div>
     </div>
 </div>
 
@@ -572,11 +563,11 @@ $inventoryVariantCount = array_sum(array_map(
     <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="batchPageInfo">
-                Showing <?= min(9, count($batches)) ?> of <?= count($batches) ?> items
+                Showing 1 to <?= min(25, $inventoryVariantCount) ?> of <?= $inventoryVariantCount ?> products
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label for="batchPageSizeSelect" class="small text-muted mb-0 fw-medium">Show:</label>
-                <select id="batchPageSizeSelect" class="form-select form-select-sm" style="width: auto;" onchange="changeBatchPageSize(this.value)">
+                <select id="batchPageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2.25rem;" onchange="changeBatchPageSize(this.value)">
                     <option value="10">10 per page</option>
                     <option value="25" selected>25 per page</option>
                     <option value="50">50 per page</option>

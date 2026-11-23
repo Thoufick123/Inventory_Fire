@@ -8,7 +8,6 @@
             <h4 class="fw-bold text-dark mb-1">
                 <i class="bi bi-wallet2 text-primary me-2"></i>Production Expenses
             </h4>
-            <span class="text-muted small">Manage Unit 1 &amp; Unit 2 factory floor expenses, machine maintenance, sewing trims, and utilities</span>
         </div>
         <div class="d-flex gap-2">
             <?php if (hasPermission('production_expenses', 'create')): ?>
