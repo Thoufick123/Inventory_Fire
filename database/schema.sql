@@ -1,6 +1,7 @@
 -- ============================================================================
--- FULL COMPLETE DATABASE SCHEMA (ALL 96 TABLES)
--- Safe for new or existing databases (Uses CREATE TABLE IF NOT EXISTS)
+-- CONSOLIDATED FRESH-INSTALL DATABASE SCHEMA
+-- Includes current schema changes from database/migrations through 2026-12-08.
+-- Import only into a new, empty database; this is not an existing-database upgrade.
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -496,71 +497,25 @@ CREATE TABLE IF NOT EXISTS `hsn_codes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `label_batches`
---
 
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXISTS `label_batches` (
+
+-- Storage locations used by warehouse racks, shelves, and bins.
+CREATE TABLE IF NOT EXISTS `locations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `program_id` int(10) unsigned NOT NULL,
-  `stitching_batch_id` int(10) unsigned DEFAULT NULL,
-  `batch_number` varchar(50) NOT NULL,
-  `required_qty` int(11) NOT NULL DEFAULT 0,
-  `printed_qty` int(11) DEFAULT 0,
-  `used_qty` int(11) DEFAULT 0,
-  `damaged_qty` int(11) DEFAULT 0,
-  `status` enum('PENDING','IN_PROGRESS','COMPLETED') DEFAULT 'PENDING',
+  `warehouse_id` int(10) unsigned NOT NULL,
+  `rack` varchar(50) DEFAULT NULL,
+  `shelf` varchar(50) DEFAULT NULL,
+  `bin` varchar(50) DEFAULT NULL,
+  `label` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `total_qty` int(11) NOT NULL DEFAULT 0,
-  `applied_qty` int(11) DEFAULT 0,
-  `session_data` longtext DEFAULT NULL,
-  `notes` text DEFAULT NULL,
-  `created_by` int(10) unsigned DEFAULT NULL,
+  `zone` varchar(50) NOT NULL,
+  `barcode` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `batch_number` (`batch_number`),
-  KEY `program_id` (`program_id`),
-  KEY `fk_label_batches_stitching` (`stitching_batch_id`),
-  CONSTRAINT `fk_label_batches_stitching` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `label_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`)
+  KEY `idx_loc_warehouse` (`warehouse_id`),
+  CONSTRAINT `locations_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `label_items`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE IF NOT EXISTS `label_items` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `label_batch_id` int(10) unsigned NOT NULL,
-  `variant_id` int(10) unsigned DEFAULT NULL,
-  `category_id` int(10) unsigned DEFAULT NULL,
-  `subcategory_id` int(10) unsigned DEFAULT NULL,
-  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
-  `catalog_hierarchy` varchar(255) DEFAULT NULL,
-  `size_name` varchar(100) DEFAULT NULL,
-  `color_name` varchar(100) DEFAULT NULL,
-  `base_price` decimal(10,2) DEFAULT 0.00,
-  `discount_price` decimal(10,2) DEFAULT 0.00,
-  `required_qty` int(11) NOT NULL DEFAULT 0,
-  `printed_qty` int(11) DEFAULT 0,
-  `used_qty` int(11) DEFAULT 0,
-  `damaged_qty` int(11) DEFAULT 0,
-  `start_seq` int(11) DEFAULT 1,
-  `end_seq` int(11) DEFAULT 1,
-  `start_code` varchar(50) DEFAULT NULL,
-  `end_code` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `label_batch_id` (`label_batch_id`),
-  KEY `variant_id` (`variant_id`),
-  CONSTRAINT `label_items_ibfk_1` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `label_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `notifications`
@@ -1288,6 +1243,9 @@ CREATE TABLE IF NOT EXISTS `production_purchase_items` (
   KEY `idx_ppi_purchase_type` (`purchase_id`,`item_type`),
   KEY `idx_ppi_variant` (`variant_id`),
   KEY `idx_ppi_qr` (`qr_generation_id`),
+  KEY `idx_purch_items_type_mapped` (`item_type`,`is_mapped`,`created_at`),
+  KEY `idx_purch_items_prod_var` (`product_id`,`variant_id`),
+  KEY `idx_purch_items_mapped_cat` (`mapped_category_id`,`mapped_subcategory_id`),
   CONSTRAINT `fk_ppi_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `production_purchase_items_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `production_purchases` (`id`) ON DELETE CASCADE,
   CONSTRAINT `production_purchase_items_ibfk_2` FOREIGN KEY (`seller_roll_id`) REFERENCES `seller_rolls` (`id`) ON DELETE SET NULL
@@ -1330,6 +1288,7 @@ CREATE TABLE IF NOT EXISTS `production_purchases` (
   KEY `idx_production_purchases_concern` (`concern_id`),
   KEY `idx_pp_seller_inv` (`seller_id`,`invoice_number`),
   KEY `idx_pp_concern_type` (`concern_id`,`purchase_type`),
+  KEY `idx_purchases_covering_list` (`id`,`purchase_type`,`seller_id`,`purchase_date`,`total_amount`),
   CONSTRAINT `production_purchases_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1392,7 +1351,7 @@ CREATE TABLE IF NOT EXISTS `production_returns` (
   `gst_reversal_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `net_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `status` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
-  `refund_mode` enum('CASH','UPI','BANK_TRANSFER','STORE_CREDIT','NONE') NOT NULL DEFAULT 'STORE_CREDIT',
+  `refund_mode` enum('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -1659,7 +1618,7 @@ CREATE TABLE IF NOT EXISTS `purchase_inward_items` (
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `purchase_inwards` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `purchase_order_id` int(10) unsigned NOT NULL,
+  `purchase_order_id` int(10) unsigned DEFAULT NULL,
   `grn_number` varchar(50) NOT NULL,
   `warehouse_id` int(10) unsigned NOT NULL,
   `received_date` date NOT NULL,
@@ -1790,7 +1749,6 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   `qc_number` varchar(50) DEFAULT NULL,
   `program_id` int(10) unsigned NOT NULL,
   `stitching_batch_id` int(10) unsigned DEFAULT NULL,
-  `label_batch_id` int(10) unsigned DEFAULT NULL,
   `qr_generation_id` int(10) unsigned DEFAULT NULL,
   `inspector_id` int(10) unsigned DEFAULT NULL,
   `total_qty` int(11) NOT NULL DEFAULT 0,
@@ -1812,13 +1770,11 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   KEY `program_id` (`program_id`),
   KEY `stitching_batch_id` (`stitching_batch_id`),
   KEY `inspector_id` (`inspector_id`),
-  KEY `fk_qc_label_batch` (`label_batch_id`),
   KEY `idx_qc_batches_created_at` (`created_at`),
   KEY `idx_qc_batches_concern_id` (`concern_id`),
   KEY `idx_qcb_stitching_status` (`stitching_batch_id`,`status`),
   KEY `idx_qcb_qr_generation` (`qr_generation_id`),
   KEY `idx_qc_batches_concern` (`concern_id`),
-  CONSTRAINT `fk_qc_label_batch` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE SET NULL,
   CONSTRAINT `qc_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`),
   CONSTRAINT `qc_batches_ibfk_2` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
   CONSTRAINT `qc_batches_ibfk_3` FOREIGN KEY (`inspector_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -2693,7 +2649,8 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   PRIMARY KEY (`id`),
   KEY `idx_tppv_product` (`third_party_product_id`),
   KEY `idx_tppv_item` (`purchase_item_id`),
-  KEY `idx_tppv_sku` (`sku`)
+  KEY `idx_tppv_sku` (`sku`),
+  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2996,6 +2953,8 @@ CREATE TABLE IF NOT EXISTS `warehouse_damages` (
   KEY `reported_by` (`reported_by`),
   KEY `idx_warehouse_damages_tag_code` (`tag_code`),
   KEY `idx_warehouse_damages_status` (`status`),
+  KEY `idx_warehouse_damages_deleted_at` (`deleted_at`),
+  KEY `idx_warehouse_damages_replacement_variant` (`replacement_variant_id`),
   CONSTRAINT `warehouse_damages_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`),
   CONSTRAINT `warehouse_damages_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`),
   CONSTRAINT `warehouse_damages_ibfk_3` FOREIGN KEY (`reported_by`) REFERENCES `users` (`id`)
@@ -3186,5 +3145,170 @@ CREATE TABLE IF NOT EXISTS `wh_category_attributes` (
 
 -- Dump completed on 2026-11-23 18:08:55
 
+
+
+
+-- -------------------------------------------------------------
+-- Migration: Shop Cash & Cash Flow Register System
+-- Adds tables for till shifts, cash transactions, and bank drops
+-- -------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `shop_shifts` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_code` VARCHAR(50) NOT NULL UNIQUE,
+    `cashier_id` INT UNSIGNED NOT NULL,
+    `opening_float` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `opened_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `closed_at` DATETIME DEFAULT NULL,
+    `closed_by` INT UNSIGNED DEFAULT NULL,
+    `expected_cash` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `actual_cash` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `variance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `denominations` JSON DEFAULT NULL,
+    `closing_notes` TEXT DEFAULT NULL,
+    `status` ENUM('OPEN', 'CLOSED') NOT NULL DEFAULT 'OPEN',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_shift_concern_status` (`concern_id`, `status`),
+    INDEX `idx_shift_opened_at` (`opened_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `cash_flow_transactions` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_id` INT UNSIGNED NULL,
+    `tx_number` VARCHAR(50) NOT NULL UNIQUE,
+    `transaction_type` ENUM('FLOAT_OPEN', 'FLOAT_TOPUP', 'PETTY_EXPENSE', 'BANK_DROP', 'SALE_INFLOW', 'REFUND_OUTFLOW') NOT NULL,
+    `flow` ENUM('INFLOW', 'OUTFLOW') NOT NULL,
+    `payment_mode` VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `source_or_recipient` VARCHAR(255) DEFAULT NULL,
+    `reference_number` VARCHAR(100) DEFAULT NULL,
+    `reason` TEXT DEFAULT NULL,
+    `created_by` INT UNSIGNED NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_cftx_concern` (`concern_id`),
+    INDEX `idx_cftx_shift` (`shift_id`),
+    INDEX `idx_cftx_type` (`transaction_type`),
+    INDEX `idx_cftx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `bank_deposits` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_id` INT UNSIGNED NULL,
+    `deposit_number` VARCHAR(50) NOT NULL UNIQUE,
+    `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `bank_name` VARCHAR(150) NOT NULL,
+    `deposit_date` DATE NOT NULL,
+    `slip_number` VARCHAR(100) DEFAULT NULL,
+    `remarks` TEXT DEFAULT NULL,
+    `created_by` INT UNSIGNED NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_bd_concern` (`concern_id`),
+    INDEX `idx_bd_shift` (`shift_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+
+-- Curated HSN seed from 2026_11_18_seed_garment_textile_maintenance_hsn.php
+INSERT INTO `hsn_codes` (`hsn_code`,`description`,`gst_rate`,`created_at`,`updated_at`) VALUES
+('5201','Raw Cotton / Cotton, Not Carded or Combed',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5202','Cotton Waste (Including Yarn Waste and Garnetted Stock)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5203','Cotton, Carded or Combed (Cotton Slivers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5204','Cotton Sewing Thread',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5205','Cotton Yarn (Combed/Carded Cotton Yarn >= 85% Cotton)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5206','Cotton Yarn (< 85% Cotton, Blended Cotton Yarn)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5207','Cotton Yarn Put Up for Retail Sale',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5004','Silk Yarn',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5007','Woven Fabrics of Silk or Silk Waste',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5105','Wool and Fine Animal Hair, Carded or Combed',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5106','Yarn of Carded Wool',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5107','Yarn of Combed Wool',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5111','Woven Fabrics of Carded Wool or Fine Animal Hair',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5112','Woven Fabrics of Combed Wool or Coarse Animal Hair',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5309','Woven Fabrics of Flax / Pure Linen Fabrics',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5310','Woven Fabrics of Jute or Bast Fibres',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5401','Sewing Thread of Synthetic or Artificial Filaments',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5402','Synthetic Filament Yarn (Polyester, Nylon / Polyamide Filament Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5403','Artificial Filament Yarn (Viscose Rayon Filament Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5508','Sewing Thread of Man-Made Staple Fibres',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5509','Yarn of Synthetic Staple Fibres (Polyester Spun Yarn, Acrylic Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5510','Yarn of Artificial Staple Fibres (Viscose Spun Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5208','Woven Fabrics of Cotton (>= 85% Cotton, Weight <= 200 g/m² - Shirting, Poplin)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5209','Woven Fabrics of Cotton (>= 85% Cotton, Weight > 200 g/m² - Denim, Canvas, Twill)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5210','Woven Fabrics of Cotton Blended with Synthetic Fibres (Weight <= 200 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5211','Woven Fabrics of Cotton Blended with Synthetic Fibres (Weight > 200 g/m² - Twill, Suiting)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5212','Other Woven Fabrics of Cotton',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5407','Woven Fabrics of Synthetic Filament Yarn (Polyester, Nylon, Microfibre Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5408','Woven Fabrics of Artificial Filament Yarn (Rayon, Modal, Cupro Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5512','Woven Fabrics of Synthetic Staple Fibres (100% Polyester Woven Fabric)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5513','Woven Fabrics of Synthetic Fibres Mixed with Cotton (Weight <= 170 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5514','Woven Fabrics of Synthetic Fibres Mixed with Cotton (Weight > 170 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5515','Other Woven Fabrics of Synthetic Staple Fibres (Poly-Viscose PV Suiting)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5516','Woven Fabrics of Artificial Staple Fibres (100% Viscose Woven Fabric)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5801','Woven Pile and Chenille Fabrics (Velvet, Corduroy)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5802','Terry Towelling and Similar Woven Terry Fabrics',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5806','Narrow Woven Fabrics (Elastic Webbing, Ribbons, Tapes, Bias Binding)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5810','Embroidery in the Piece, in Strips or in Motifs',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6001','Pile Fabrics, Long Pile & Terry Fabrics, Knitted or Crocheted (Velour, Fleece)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6002','Knitted or Crocheted Fabrics (Width <= 30 cm, with Elastane / Rubber Thread)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6004','Knitted Fabrics (Width > 30 cm, Containing >= 5% Elastane / Spandex / Lycra)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6005','Warp Knit Fabrics (Tricot, Raschel Knit Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6006','Other Knitted Fabrics (Cotton Single Jersey, Interlock, Rib Knit, Pique, French Terry)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6101','Men''s or Boys'' Overcoats, Anoraks, Wind-cheaters, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6102','Women''s or Girls'' Overcoats, Anoraks, Wind-cheaters, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6103','Men''s or Boys'' Suits, Ensembles, Jackets, Blazers, Trousers, Shorts, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6104','Women''s or Girls'' Suits, Ensembles, Dresses, Skirts, Trousers, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6105','Men''s or Boys'' Shirts, Knitted or Crocheted (Polo Shirts, Collared T-Shirts)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6106','Women''s or Girls'' Blouses, Shirts and Tops, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6107','Men''s or Boys'' Underpants, Briefs, Nightshirts, Pyjamas, Bathrobes, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6108','Women''s or Girls'' Slips, Petticoats, Briefs, Panties, Nightdresses, Pyjamas, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6109','T-Shirts, Singlets, Tank Tops and Other Vests, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6110','Jerseys, Pullovers, Cardigans, Sweatshirts, Hoodies, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6111','Babies'' Garments and Clothing Accessories, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6112','Track Suits, Ski Suits and Swimwear, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6114','Other Garments, Knitted (Sports Tops, Gym Wear, Activewear, Uniforms)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6115','Pantyhose, Tights, Stockings, Socks and Other Hosiery, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6116','Gloves, Mittens and Mitts, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6117','Other Made Up Clothing Accessories, Parts of Garments, Knitted (Collars, Ties, Shawls)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6201','Men''s or Boys'' Overcoats, Capes, Cloaks, Anoraks, Wind-jackets, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6202','Women''s or Girls'' Overcoats, Capes, Cloaks, Anoraks, Wind-jackets, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6203','Men''s or Boys'' Suits, Blazers, Formal Trousers, Denim Jeans, Shorts, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6204','Women''s or Girls'' Suits, Jackets, Blazers, Dresses, Skirts, Kurtis, Salwars, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6205','Men''s or Boys'' Shirts, Woven (Formal Shirts, Casual Cotton Shirts)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6206','Women''s or Girls'' Blouses, Shirts and Shirt-Blouses, Tops, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6207','Men''s or Boys'' Singlets, Vests, Underpants, Briefs, Nightshirts, Pyjamas, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6208','Women''s or Girls'' Singlets, Slips, Petticoats, Briefs, Nightdresses, Pyjamas, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6209','Babies'' Garments and Clothing Accessories, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6211','Track Suits, Swimwear, Uniforms, Aprons, Workwear, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6212','Brassieres, Girdles, Corsets, Braces, Suspenders and Similar Articles',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6214','Shawls, Scarves, Mufflers, Mantillas, Veils, Dupattas, Stoles, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6215','Ties, Bow Ties and Cravats, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6217','Other Made Up Clothing Accessories, Parts of Garments (Pockets, Cuffs, Collars)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6302','Bed Linen, Table Linen, Toilet Linen and Kitchen Linen (Towels, Bedsheets, Pillow Covers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6304','Other Furnishing Articles (Curtains, Drapes, Cushion Covers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6305','Sacks and Bags Used for Packing of Goods (Cotton Packaging Bags, Jute Sacks)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6307','Other Made Up Articles (Fabric Face Masks, Shopping Cloth Bags, Cleaning Rags)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('9606','Buttons, Press-Fasteners, Snap-Fasteners, Studs, Button Blanks',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('9607','Slide Fasteners (Zippers / Zips, Sliders, Pullers, Chain)',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5807','Woven Labels, Printed Fabric Labels, Badges and Patches',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('4821','Paper & Paperboard Labels, Hang Tags, Price Tickets, Barcode Tags',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('3923','Plastic Packaging Bags, Self-Adhesive Poly Bags, Plastic Hangers',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('4819','Corrugated Cartons, Master Packing Boxes, Paperboard Packaging',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5607','Twine, Cordage, Ropes, Braided Drawstrings for Hoodies and Pants',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5602','Non-Woven Interlining, Fusible Interlining Felt for Collars and Cuffs',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8452','Sewing Machines (Industrial Single Needle, Overlock, Flatlock) & Sewing Machine Needles',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8451','Machinery for Washing, Ironing, Steam Pressing, Fusing, Drying & Fabric Finishing',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8448','Auxiliary Machinery & Spares for Textile Machines (Spindles, Healds, Reeds, Creels)',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8208','Cutting Machine Knives, Rotary Blades, Straight Blades, Band Knife Blades',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8213','Scissors, Tailor Shears, Thread Trimmers, Snips and Blades',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2710','Machine Lubricating Oil, Spindle Oil, White Mineral Oil for Sewing Machines',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8483','Transmission Shafts, Bearings, Gears, Pulleys, Belts and Machine Drives',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8421','Industrial Air Compressor Filters, Steam Iron Filters, Moisture Separators',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('7318','Screws, Bolts, Nuts, Rivets, Fasteners for Sewing & Textile Machinery',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8487','Machinery Spare Parts, Gaskets, Seals, Mechanical Spares',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+ON DUPLICATE KEY UPDATE `description` = VALUES(`description`), `gst_rate` = VALUES(`gst_rate`), `updated_at` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;

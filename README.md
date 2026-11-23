@@ -53,12 +53,12 @@ An enterprise-grade, end-to-end apparel manufacturing, central warehousing, mult
 
 3. Database Initialization:
    - Create database `grm_inventory` in phpMyAdmin / MySQL CLI.
-   - For a **new, empty database**, import [`database/schema.sql`](file:///c:/xampp/htdocs/grm-inventory/database/schema.sql) and [`database/seed.sql`](file:///c:/xampp/htdocs/grm-inventory/database/seed.sql). The schema contains `DROP TABLE` statements and must not be imported into a database with data to preserve.
+   - For a **new, empty database**, import [`database/schema.sql`](./database/schema.sql) and then [`database/seed.sql`](./database/seed.sql). The schema is the consolidated current structure from the SQL migrations and includes the curated HSN codes. It does not drop tables, but it is a fresh-install schema, not an upgrade script. `seed.sql` resets the initial admin and organization data, so use it only on a new database.
    - Seed any missing permission records (safe to rerun):
      ```bash
      php database/seed_permissions.php
      ```
-   - For an existing database, apply the additive updates before using the affected features. These migrations do not drop tables; the supplier archive migration is safe to rerun:
+   - For an existing database, do not import the fresh-install schema or seed file. Review and apply only the required migrations; some migrations change existing data or remove obsolete schema, and PHP migrations must be run with PHP. For example, these SQL updates support the features shown:
      ```bash
      mysql -h 127.0.0.1 -P 3307 -u root -p grm_inventory < database/migrations/2026_11_11_add_product_price_logs.sql
      mysql -h 127.0.0.1 -P 3307 -u root -p grm_inventory < database/migrations/2026_11_11_add_production_supplier_archive.sql
