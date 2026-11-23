@@ -6,8 +6,32 @@ require_once BASE_PATH . '/app/Services/CloudinaryService.php';
 
 class ProductionBillingController
 {
+    private static function ensureSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            Database::ensureColumn('production_bills', 'is_direct_bill', 'TINYINT(1) NOT NULL DEFAULT 0');
+            Database::ensureColumn('production_bills', 'upi_payment_screenshot_url', 'VARCHAR(500) DEFAULT NULL');
+            Database::ensureColumn('production_bills', 'cash_given', 'DECIMAL(12,2) DEFAULT 0.00');
+            Database::ensureColumn('production_bills', 'change_returned', 'DECIMAL(12,2) DEFAULT 0.00');
+            Database::ensureColumn('production_bills', 'staff_id', 'INT(10) UNSIGNED DEFAULT NULL');
+            Database::ensureColumn('production_bills', 'staff_name', 'VARCHAR(150) DEFAULT NULL');
+
+            $idx = Database::fetchOne("SHOW INDEX FROM production_bills WHERE Key_name = 'idx_production_bills_direct'");
+            if (!$idx) {
+                Database::execute("ALTER TABLE production_bills ADD INDEX idx_production_bills_direct (is_direct_bill)");
+            }
+        } catch (\Throwable $e) {}
+    }
+
     public function billList(): void
     {
+        self::ensureSchema();
         $cid = currentConcernId();
         $whereConditions = [];
         if ($cid) {
@@ -94,6 +118,7 @@ class ProductionBillingController
 
     public function createBill(): void
     {
+        self::ensureSchema();
         $qcBatchId = !empty($_REQUEST['qc_batch_id']) ? (int)$_REQUEST['qc_batch_id'] : 0;
         $batchId = !empty($_REQUEST['batch_id']) ? (int)$_REQUEST['batch_id'] : 0;
         $selectedTags = !empty($_POST['selected_tags']) && is_array($_POST['selected_tags']) ? $_POST['selected_tags'] : [];
@@ -1477,6 +1502,7 @@ class ProductionBillingController
 
     private function persistBill(?int $billId): void
     {
+        self::ensureSchema();
         $isNewBill = $billId === null;
         $companyName = trim((string)($_POST['company_name'] ?? ''));
         $companyAddress = trim((string)($_POST['company_address'] ?? ''));

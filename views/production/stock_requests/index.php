@@ -8,7 +8,6 @@
             <h4 class="fw-bold text-dark mb-1">
                 <i class="bi bi-arrow-left-right text-primary me-2"></i>Stock Requirements &amp; Inter-Module Requests
             </h4>
-            <span class="text-muted small">Manage stock requisitions across modules: ask required product counts from supplying areas, verify receipt by send area, and dispatch stocks</span>
         </div>
         <div class="d-flex gap-2">
             <a href="<?= url('production/stock-requests/create') ?>" class="btn btn-primary btn-sm fw-semibold shadow-sm px-3">

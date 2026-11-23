@@ -8,7 +8,6 @@
             <h4 class="fw-bold text-dark mb-1">
                 <i class="bi bi-thread text-warning me-2"></i>Stitching Scrap &amp; Wastage Selling
             </h4>
-            <span class="text-muted small">Maintain selling prices, track scrap buyers, and record revenue from sewing thread, cut bits, and trim scrap</span>
         </div>
         <div class="d-flex gap-2">
             <?php if (hasPermission('stitching_wastage', 'create')): ?>

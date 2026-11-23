@@ -81,13 +81,6 @@ $canVerify = hasPermission('inward', 'verify');
         <div>
             <h2 class="mb-1 fs-4 fw-bold"><i class="bi bi-box-arrow-in-down me-2 text-primary"></i>Production Inward</h2>
         </div>
-        <div class="d-flex gap-2">
-            <?php if ($canVerify): ?>  
-            <?php endif; ?>
-            <a href="<?= url('warehouse/dashboard') ?>" class="btn btn-sm btn-outline-secondary px-3">
-                <i class="bi bi-arrow-left me-1"></i> Dashboard
-            </a>
-        </div>
     </div>
 
     <!-- ========================================================================= -->

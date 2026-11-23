@@ -86,7 +86,6 @@
                                 <div class="form-check border rounded bg-info-subtle p-3 ps-5 h-100">
                                     <input class="form-check-input" type="checkbox" name="quick_purchase_entry" id="quickPurchaseEntry" value="1">
                                     <label class="form-check-label fw-semibold" for="quickPurchaseEntry">Quick bill entry (map products later)</label>
-                                    <div class="small text-muted">Enter product name, quantity, purchase price, GST % and HSN. Invoice number is required; complete product mapping afterward.</div>
                                 </div>
                             </div>
                             <div class="col-lg-6">
