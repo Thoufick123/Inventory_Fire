@@ -111,14 +111,6 @@ class Concern {
                 }
             }
 
-            // Keep a single usable concern so scoping/branding helpers never see an empty master.
-            if (!Database::fetchOne("SELECT id FROM concerns LIMIT 1")) {
-                Database::execute(
-                    "INSERT INTO concerns (id, name, code, invoice_prefix, po_prefix, dispatch_prefix, is_active, created_at)
-                     VALUES (1, 'GRM Apparels', 'CN-01', 'INV', 'PO', 'DSP', 1, NOW())"
-                );
-            }
-
             if (session_status() === PHP_SESSION_ACTIVE) {
                 $_SESSION['_concern_schema_checked'] = 1;
             }
