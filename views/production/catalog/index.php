@@ -1,7 +1,7 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Production Catalog</h2>
-         </div>
+        <h2 class="mb-1"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Product Catalog</h2>
+    </div>
     <div class="d-flex gap-2 flex-wrap">
         <?php if (hasPermission('catalog', 'create')): ?>
         <a href="<?= url('production/catalog/create') ?>" class="btn btn-primary shadow-sm">
@@ -12,22 +12,24 @@
 </div>
 
 <!-- Search & Filter Bar -->
-<div class="card mb-4 shadow-sm border-0">
+<div class="card mb-4 shadow-sm border">
     <div class="card-body p-3">
-        <form method="GET" action="<?= url('production/catalog') ?>" id="catalogFilterForm" class="row g-2 align-items-center">
+        <form method="GET" action="<?= url('production/catalog') ?>" id="catalogFilterForm" class="row g-2 align-items-end">
             <!-- Search input with live search and clear button -->
             <div class="col-lg-4 col-xl-5 col-md-6">
                 <label class="form-label small text-muted fw-semibold mb-1">Search Product Styles</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-light text-primary"><i class="bi bi-search"></i></span>
+                <div class="input-group" style="height: 38px;">
+                    <span class="input-group-text bg-white text-muted border-end-0 ps-3 pe-2" style="height: 38px; border-color: #cbd5e1; border-radius: 8px 0 0 8px;"><i class="bi bi-search"></i></span>
                     <input type="text" 
                            name="search" 
                            id="catalogSearchInput" 
-                           class="form-control fw-semibold" 
+                           class="form-control border-start-0 ps-1" 
+                           style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0; font-size: 0.875rem;"
                            placeholder="Search by style code, product name, or category..." 
                            value="<?= e($search ?? '') ?>"
+                           autocomplete="off"
                            oninput="handleCatalogSearchInput(this.value)">
-                    <button class="btn btn-outline-secondary" type="button" id="btnClearSearchInput" onclick="clearCatalogSearch()" title="Clear Search" style="<?= empty($search) ? 'display:none;' : '' ?>">
+                    <button class="btn btn-outline-secondary" type="button" id="btnClearSearchInput" onclick="clearCatalogSearch()" title="Clear Search" style="height: 38px; border-color: #cbd5e1; <?= empty($search) ? 'display:none;' : '' ?>">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -36,7 +38,7 @@
             <!-- Category Filter Dropdown -->
             <div class="col-lg-3 col-md-3 col-sm-6">
                 <label class="form-label small text-muted fw-semibold mb-1">Category</label>
-                <select name="category_id" id="filterCategoryId" class="form-select" onchange="handleCategoryFilterChange()">
+                <select name="category_id" id="filterCategoryId" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="handleCategoryFilterChange()">
                     <option value="">-- All Categories --</option>
                     <?php if (!empty($categories)): ?>
                         <?php foreach ($categories as $c): ?>
@@ -49,7 +51,7 @@
             <!-- Subcategory Filter Dropdown -->
             <div class="col-lg-2 col-md-3 col-sm-6">
                 <label class="form-label small text-muted fw-semibold mb-1">Subcategory</label>
-                <select name="subcategory_id" id="filterSubcategoryId" class="form-select" onchange="liveFilterCatalog()">
+                <select name="subcategory_id" id="filterSubcategoryId" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="liveFilterCatalog()">
                     <option value="">-- All Subcategories --</option>
                     <?php if (!empty($subcategories)): ?>
                         <?php foreach ($subcategories as $sc): ?>
@@ -60,13 +62,14 @@
             </div>
 
             <!-- Actions (Filter & Reset) -->
-            <div class="col-lg-3 col-xl-2 col-md-12 d-flex align-items-end gap-1 flex-nowrap">
-                <button type="submit" class="btn btn-primary flex-grow-1 text-nowrap" title="Filter Records">
-                    <i class="bi bi-filter me-1"></i> Filter
-                </button>
-                <button type="button" class="btn btn-outline-secondary" id="btnResetCatalogFilters" onclick="resetAllCatalogFilters()" title="Reset All Filters">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
+            <div class="col-lg-3 col-xl-2 col-md-12">
+                <label class="form-label small text-muted fw-semibold mb-1 d-none d-md-block" style="visibility: hidden;">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center fw-semibold px-3" style="height: 38px; border-radius: 8px; font-size: 0.875rem; gap: 6px;" title="Filter Records">
+                        <i class="bi bi-funnel"></i>
+                        <span>Filter</span>
+                    </button>
+                </div>
             </div>
         </form>
     </div>
@@ -95,7 +98,7 @@
                     <th>HSN &amp; GST</th>
                     <th class="text-center">Variants</th>
                     <th class="text-center">Status</th>
-                    <th class="text-center" style="width: 130px;">Actions</th>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody id="catalogTableBody">
@@ -173,8 +176,8 @@
                             <td class="text-center">
                                 <span class="badge bg-success-subtle text-success border">In-House</span>
                             </td>
-                            <td class="text-center">
-                                <div class="action-btns-group justify-content-center">
+                            <td class="text-end text-nowrap">
+                                <div class="action-btns-group justify-content-end">
                                     <a href="<?= url('production/catalog/view/' . $p['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Full Details">
                                         <i class="bi bi-eye"></i>
                                     </a>
@@ -184,11 +187,11 @@
                                     </a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('catalog', 'delete')): ?>
-                                    <form method="POST" action="<?= url('production/catalog/delete/' . $p['id']) ?>" class="d-inline mb-0" onsubmit="return confirm('Are you sure you want to delete product style &quot;<?= e(addslashes($p['name'])) ?>&quot;?');">
+                                    <a href="<?= url('production/catalog/delete/' . $p['id']) ?>" class="btn btn-action-icon btn-outline-danger" title="Delete Style" onclick="event.preventDefault(); if (confirm('Are you sure you want to delete product style &quot;<?= e(addslashes($p['name'])) ?>&quot;?')) { document.getElementById('deleteCatalogForm_<?= $p['id'] ?>').submit(); }">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    <form id="deleteCatalogForm_<?= $p['id'] ?>" method="POST" action="<?= url('production/catalog/delete/' . $p['id']) ?>" class="d-none">
                                         <?= CSRF::field() ?>
-                                        <button type="submit" class="btn btn-action-icon btn-outline-danger" title="Delete Style">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
                                     </form>
                                     <?php endif; ?>
                                 </div>
@@ -203,14 +206,14 @@
 
 <!-- Catalog Pagination Controls Card -->
 <div class="card bg-white mt-4 shadow-sm border" id="catalogPaginationFooter">
-    <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div class="card-body py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="catalogPageInfo">
-                Showing 1 to 15 of <?= count($products) ?> product styles
+                Showing 1 to <?= min(15, count($products)) ?> of <?= count($products) ?> product styles
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted mb-0 fw-medium">Show:</label>
-                <select id="catalogPageSizeSelect" class="form-select form-select-sm" style="width: auto;">
+                <select id="catalogPageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2rem;">
                     <option value="15" selected>15 per page</option>
                     <option value="30">30 per page</option>
                     <option value="50">50 per page</option>

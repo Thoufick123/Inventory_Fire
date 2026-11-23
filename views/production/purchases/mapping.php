@@ -1,40 +1,33 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Product Mapping</h2>
-        <span class="text-muted small">Create products and prepare invoice mapping before the Purchases entry is available. Existing purchase lines can still be mapped below.</span>
     </div>
     <a href="<?= url('purchases/mapping/create') ?>" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i>New Mapping Invoice
     </a>
 </div>
 
-<!-- Mapping entries saved before purchase entry -->
-<div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
-        <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
-            <tbody>
-                <?php if (empty($mappingDrafts)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
-                <?php else: foreach ($mappingDrafts as $draft): ?>
-                    <tr>
-                        <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
-                        <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
-                        <td><?= (int)$draft['product_count'] ?></td>
-                        <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
-                        <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
-                        <td><?= !empty($draft['purchase_number']) ? e($draft['purchase_number']) : '<span class="text-muted">Not linked</span>' ?></td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>"><i class="bi bi-pencil-square me-1"></i>Open</a></td>
-                    </tr>
-                <?php endforeach; endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
+<ul class="nav nav-tabs mb-3" id="mappingPageTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" id="mappingProductsTab" data-bs-toggle="tab" data-bs-target="#mappingProductsPane" type="button" role="tab" aria-controls="mappingProductsPane" aria-selected="true">
+            <i class="bi bi-diagram-3 me-1"></i>Product Mapping
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="mappingFabricRollsTab" data-bs-toggle="tab" data-bs-target="#mappingFabricRollsPane" type="button" role="tab" aria-controls="mappingFabricRollsPane" aria-selected="false">
+            <i class="bi bi-layers-half me-1"></i>Fabric Rolls
+            <span class="badge bg-secondary ms-1"><?= count($fabricRollItems ?? []) ?></span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="mappingLogsTab" data-bs-toggle="tab" data-bs-target="#mappingLogsPane" type="button" role="tab" aria-controls="mappingLogsPane" aria-selected="false">
+            <i class="bi bi-journal-text me-1"></i>Mapping Invoice Log
+            <span class="badge bg-secondary ms-1"><?= count($mappingDrafts ?? []) ?></span>
+        </button>
+    </li>
+</ul>
+<div class="tab-content" id="mappingPageTabContent">
+    <div class="tab-pane fade show active" id="mappingProductsPane" role="tabpanel" aria-labelledby="mappingProductsTab">
 
 <!-- KPI Metric Cards -->
 <div class="row g-3 mb-4">
@@ -270,6 +263,165 @@
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+    </div>
+    <div class="tab-pane fade" id="mappingFabricRollsPane" role="tabpanel" aria-labelledby="mappingFabricRollsTab">
+        <div class="card border shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-1 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll Purchases</h5>
+                    <small class="text-muted">Fabric rolls use their own roll and QR workflow; they are not sent through the third-party catalog mapper.</small>
+                </div>
+                <span class="badge bg-secondary-subtle text-secondary border"><?= count($fabricRollItems ?? []) ?> Roll Lines</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase small">
+                        <tr>
+                            <th>Purchase Bill / Date</th>
+                            <th>Supplier</th>
+                            <th>Fabric</th>
+                            <th>Roll / Color / Design</th>
+                            <th class="text-end">Quantity / Weight</th>
+                            <th>QR / GRN</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($fabricRollItems)): ?>
+                            <tr><td colspan="7" class="text-center text-muted py-5">No fabric-roll purchase lines found.</td></tr>
+                        <?php else: foreach ($fabricRollItems as $roll): ?>
+                            <tr>
+                                <td>
+                                    <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="fw-bold text-decoration-none font-monospace">
+                                        <?= e($roll['purchase_number']) ?>
+                                    </a>
+                                    <small class="text-muted d-block"><?= e(date('d M Y', strtotime($roll['purchase_date']))) ?></small>
+                                    <?php if (!empty($roll['invoice_number'])): ?><small class="text-muted d-block">Inv: <?= e($roll['invoice_number']) ?></small><?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong><?= e($roll['seller_company'] ?: $roll['seller_name']) ?></strong>
+                                    <?php if (!empty($roll['seller_company'])): ?><small class="text-muted d-block"><?= e($roll['seller_name']) ?></small><?php endif; ?>
+                                </td>
+                                <td><?= e($roll['item_name']) ?></td>
+                                <td>
+                                    <span class="font-monospace"><?= e($roll['roll_number'] ?: '-') ?></span>
+                                    <small class="text-muted d-block"><?= e($roll['color'] ?: '-') ?> / <?= e($roll['design_name'] ?: '-') ?></small>
+                                </td>
+                                <td class="text-end">
+                                    <?= number_format((float)$roll['quantity'], 0) ?> <?= e($roll['unit'] ?: 'PCS') ?>
+                                    <?php if ((float)$roll['weight_kg'] > 0): ?><small class="text-muted d-block"><?= number_format((float)$roll['weight_kg'], 2) ?> kg</small><?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($roll['qr_generation_id'])): ?>
+                                        <?php if (hasPermission('qr_generation', 'view')): ?>
+                                            <a href="<?= url('production/qr-generations/view/' . (int)$roll['qr_generation_id']) ?>" class="badge bg-dark-subtle text-dark border text-decoration-none">
+                                                <i class="bi bi-qr-code me-1"></i><?= e($roll['qr_batch_code'] ?: 'View QR') ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-dark-subtle text-dark border"><i class="bi bi-qr-code me-1"></i><?= e($roll['qr_batch_code'] ?: 'QR generated') ?></span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-secondary border">QR pending</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($roll['grn_id'])): ?>
+                                        <?php if (hasPermission('inward', 'view')): ?>
+                                            <a href="<?= url('production/inwards/view/' . (int)$roll['grn_id']) ?>" class="badge bg-success-subtle text-success border text-decoration-none ms-1">
+                                                <i class="bi bi-truck me-1"></i><?= e($roll['grn_number'] ?: 'GRN') ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-success-subtle text-success border ms-1"><i class="bi bi-truck me-1"></i><?= e($roll['grn_number'] ?: 'GRN received') ?></span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-secondary border ms-1">GRN pending</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <?php if (empty($roll['qr_generation_id']) && hasPermission('qr_generation', 'create')): ?>
+                                        <a href="<?= url('production/qr-generations/create?tab=fabric&purchase_id=' . (int)$roll['purchase_id'] . '&purchase_item_id=' . (int)$roll['id']) ?>" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-qr-code-scan me-1"></i>Generate QR
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye me-1"></i>View Bill
+                                        </a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="mappingLogsPane" role="tabpanel" aria-labelledby="mappingLogsTab">
+        <div class="card border shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
+                <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                        <?php if (empty($mappingDrafts)): ?>
+                            <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
+                        <?php else: foreach ($mappingDrafts as $draft): ?>
+                            <tr>
+                                <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
+                                <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
+                                <td><?= (int)$draft['product_count'] ?></td>
+                                <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
+                                <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
+                                <td>
+                                    <?php if (!empty($draft['purchase_number'])): ?>
+                                        <a href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" class="fw-bold font-monospace text-primary text-decoration-none" title="View Purchase Bill">
+                                            <i class="bi bi-receipt me-1"></i><?= e($draft['purchase_number']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-muted border">Not linked</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping Invoice">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </a>
+                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Mapping Invoice">
+                                                <i class="bi bi-pencil-square me-1"></i>Edit
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
+                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this draft invoice and all its saved products? This cannot be undone.');">
+                                                <?= CSRF::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Draft Invoice">
+                                                    <i class="bi bi-trash me-1"></i>Delete
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
+                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
+                                                <?= CSRF::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
+                                                    <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
+                                                </button>
+                                            </form>
+                                        <?php elseif (!empty($draft['purchase_id'])): ?>
+                                            <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
+                                                <i class="bi bi-receipt me-1"></i>Purchase
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 

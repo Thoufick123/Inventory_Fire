@@ -425,6 +425,16 @@ class ProductionController {
             'Supplier Name' => $name, 'Company / Mill' => $company, 'Phone' => $phone,
             'Email' => $email, 'City' => $city, 'State' => $state, 'Address' => $address,
         ]);
+        if (($_POST['return_to'] ?? '') === 'purchases/mapping/create') {
+            $returnInvoiceNumber = mb_substr(trim((string)($_POST['return_invoice_number'] ?? '')), 0, 100);
+            Session::flash('success', 'Supplier saved. Continue creating the mapping invoice.');
+            Response::redirect(url('purchases/mapping/create?' . http_build_query([
+                'seller_id' => $sellerId,
+                'invoice_number' => $returnInvoiceNumber,
+            ])));
+            return;
+        }
+
         Session::flash('success', 'Supplier details saved. Record fabric and other purchases in Purchases.');
         Response::redirect(url('production/sellers'));
     }
@@ -603,7 +613,7 @@ class ProductionController {
         $cities = Database::fetchAll("SELECT DISTINCT city FROM sellers $cityWhere ORDER BY city ASC", $cityParams);
 
         Response::view('production.sellers.index', [
-            'pageTitle'      => 'Production Suppliers',
+            'pageTitle'      => 'Suppliers',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-sellers',
             'sellers'        => $sellers,
@@ -613,7 +623,7 @@ class ProductionController {
             'cities'         => $cities,
             'damageFilter'   => $damageFilter,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers'],
             ],
         ]);
@@ -626,7 +636,7 @@ class ProductionController {
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => 'Add Supplier'],
             ],
@@ -1100,7 +1110,7 @@ class ProductionController {
             'totalActiveRollsCount'     => count($activeRolls),
             'totalDamagesCount'         => count($allDamages),
             'breadcrumb'                => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => $seller['name']],
             ],
@@ -1143,7 +1153,7 @@ class ProductionController {
             'activeMenu'   => 'prod-sellers',
             'seller'       => $seller,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Suppliers', 'url' => url('production/sellers')],
                 ['label' => 'Edit Supplier'],
             ],
@@ -1448,6 +1458,8 @@ class ProductionController {
         if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $where[] = "pp.purchase_type = ?";
             $params[] = $filterType;
+        } elseif ($filterType === 'MAPPING') {
+            $where[] = "(mb.id IS NOT NULL OR pp.notes LIKE '%Mapping Invoice%')";
         }
         if ($search !== '') {
             $where[] = "(pp.purchase_number LIKE ? OR pp.invoice_number LIKE ? OR s.company LIKE ? OR s.name LIKE ?)";
@@ -1463,9 +1475,11 @@ class ProductionController {
         $purchases = Database::fetchAll(
             "SELECT pp.id, pp.purchase_number, pp.purchase_type, pp.seller_id, pp.purchase_date,
                     pp.invoice_number, pp.document_url, pp.document_urls, pp.notes, pp.total_amount, pp.created_by, pp.created_at,
-                    s.name AS seller_name, s.company, s.seller_type
+                    s.name AS seller_name, s.company, s.seller_type,
+                    mb.id AS mapping_bill_id, mb.invoice_number AS mapping_invoice_number
              FROM production_purchases pp
              INNER JOIN sellers s ON s.id = pp.seller_id
+             LEFT JOIN third_party_mapping_bills mb ON mb.purchase_id = pp.id
              $whereSql
              ORDER BY pp.purchase_date DESC, pp.id DESC",
             $params
@@ -1531,8 +1545,8 @@ class ProductionController {
             'filterType' => $filterType,
             'search' => $search,
             'breadcrumb' => [
-                ['label' => 'Dashboard', 'url' => url('admin/dashboard')],
-                ['label' => 'Purchases'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase'],
             ],
         ]);
     }
@@ -1828,7 +1842,8 @@ class ProductionController {
             'items' => $items,
             'documents' => $documents,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
                 ['label' => $purchase['purchase_number']],
             ],
         ]);
@@ -1851,7 +1866,7 @@ class ProductionController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
         $documents = self::getPurchaseDocuments((int)$purchase['id'], $purchase['document_url'] ?? null, $purchase['document_urls'] ?? null);
         Response::view('production.purchases.edit', [
-            'pageTitle' => 'Edit Purchase ' . $purchase['purchase_number'],
+            'pageTitle' => 'Edit Record Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-purchases',
             'purchase' => $purchase,
@@ -1859,9 +1874,9 @@ class ProductionController {
             'documents' => $documents,
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Purchases', 'url' => url('production/purchases')],
-                ['label' => 'Edit ' . $purchase['purchase_number']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
+                ['label' => 'Edit Record Purchase'],
             ],
         ]);
     }
@@ -2569,7 +2584,7 @@ class ProductionController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
         Response::view('production.purchases.create', [
-            'pageTitle' => 'Record Purchase',
+            'pageTitle' => 'Add Record Purchase',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-create',
             'sellers' => $sellers,
@@ -2579,8 +2594,9 @@ class ProductionController {
             'colors' => $colors,
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Record Purchase'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Record Purchase', 'url' => url('purchases')],
+                ['label' => 'Add Record Purchase'],
             ],
         ]);
     }
@@ -2626,6 +2642,15 @@ class ProductionController {
         $purchaseType = strtoupper(trim((string)($_POST['purchase_type'] ?? 'FABRIC_ROLL')));
         if (!in_array($purchaseType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $purchaseType = 'FABRIC_ROLL';
+        }
+        $quickPurchaseEntry = !empty($_POST['quick_purchase_entry']);
+        if ($quickPurchaseEntry) {
+            if (!empty($_POST['use_mapping_invoice'])) {
+                Session::flash('error', 'Choose either Quick Bill Entry or Import Saved Mapping Products, not both.');
+                Response::back();
+                return;
+            }
+            $purchaseType = 'THIRD_PARTY';
         }
 
         $submittedItems = [];
@@ -2717,7 +2742,9 @@ class ProductionController {
             if (!is_array($submitted)) {
                 continue;
             }
-            $itemType = strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
+            $itemType = $quickPurchaseEntry
+                ? 'THIRD_PARTY'
+                : strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
             if (!in_array($itemType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT'], true)) {
                 $itemType = $purchaseType;
             }
@@ -2942,6 +2969,11 @@ class ProductionController {
                     Response::back();
                     return;
                 }
+                if (mb_strlen($itemName) > 255) {
+                    Session::flash('error', "Product line #" . ($index + 1) . " product name cannot exceed 255 characters.");
+                    Response::back();
+                    return;
+                }
 
                 if ($quantity <= 0) {
                     Session::flash('error', "Product line #" . ($index + 1) . " requires a quantity greater than zero.");
@@ -2955,8 +2987,8 @@ class ProductionController {
                     return;
                 }
 
-                if ($hsnCode === '') {
-                    Session::flash('error', "Product line #" . ($index + 1) . " (" . $itemName . "): HSN code is mandatory.");
+                if ($hsnCode === '' || mb_strlen($hsnCode) > 20) {
+                    Session::flash('error', "Product line #" . ($index + 1) . " (" . $itemName . "): enter a valid HSN code up to 20 characters.");
                     Response::back();
                     return;
                 }
@@ -3141,6 +3173,16 @@ class ProductionController {
 
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
         $useMappingInvoice = !empty($_POST['use_mapping_invoice']);
+        if ($quickPurchaseEntry && $invoiceNumber === '') {
+            Session::flash('error', 'Enter the invoice number before saving the quick bill.');
+            Response::back();
+            return;
+        }
+        if ($quickPurchaseEntry && !$items) {
+            Session::flash('error', 'Add at least one product line before saving the quick bill.');
+            Response::back();
+            return;
+        }
         if (!$items && $useMappingInvoice) {
             PurchaseMappingFulfillmentService::ensureSchema();
             $mappingConcernId = currentConcernId() ?: 1;
@@ -3571,11 +3613,20 @@ class ProductionController {
             $sellerParams[] = $cid;
         }
         $sellers = Database::fetchAll("SELECT id, name, company FROM sellers {$sellerWhere} ORDER BY company, name", $sellerParams);
+        $selectedSellerId = max(0, (int)($_GET['seller_id'] ?? 0));
+        $availableSellerIds = array_map(static fn(array $seller): int => (int)$seller['id'], $sellers);
+        if (!in_array($selectedSellerId, $availableSellerIds, true)) {
+            $selectedSellerId = 0;
+        }
+        $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
+
         Response::view('production.purchases.mapping_create', [
             'pageTitle' => 'Create Mapping Entry',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'sellers' => $sellers,
+            'selectedSellerId' => $selectedSellerId,
+            'invoiceNumber' => $invoiceNumber,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
                 ['label' => 'Create Mapping Entry'],
@@ -3627,17 +3678,40 @@ class ProductionController {
             return;
         }
 
+        // Check if an existing purchase bill with the same supplier & invoice number exists
+        $concernCondition = ($cid === 1) ? "(concern_id = ? OR concern_id IS NULL)" : "concern_id = ?";
+        $existingPurchase = Database::fetchOne(
+            "SELECT id, purchase_number FROM production_purchases
+             WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
+               AND {$concernCondition}
+             ORDER BY id DESC LIMIT 1",
+            [$sellerId, $invoiceNumber, $cid]
+        );
+        $linkedPurchaseId = $existingPurchase ? (int)$existingPurchase['id'] : null;
+
         Database::execute(
-            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, created_by)
-             VALUES (?, ?, ?, ?)",
-            [$cid, $sellerId, $invoiceNumber, (int)(Session::get('user_id') ?? 0) ?: null]
+            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, created_by)
+             VALUES (?, ?, ?, ?, ?)",
+            [$cid, $sellerId, $invoiceNumber, $linkedPurchaseId, (int)(Session::get('user_id') ?? 0) ?: null]
         );
         $mappingBillId = (int)Database::lastInsertId();
-        Session::flash('success', 'Mapping entry created. Add the products and variants below.');
+        if ($existingPurchase) {
+            Session::flash('success', "Mapping entry created and linked to existing Purchase {$existingPurchase['purchase_number']}. Products entered below will be assigned directly to that purchase bill.");
+        } else {
+            Session::flash('success', 'Mapping entry created. Add the products and variants below.');
+        }
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
     public function viewThirdPartyMappingDraft(string $id): void {
+        $this->renderThirdPartyMappingDraft($id, ($_GET['mode'] ?? '') === 'view');
+    }
+
+    public function viewThirdPartyMappingDraftReadOnly(string $id): void {
+        $this->renderThirdPartyMappingDraft($id, true);
+    }
+
+    private function renderThirdPartyMappingDraft(string $id, bool $viewOnly): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         $mappingBillId = (int)$id;
         $cid = currentConcernId();
@@ -3676,24 +3750,227 @@ class ProductionController {
              ORDER BY mi.id ASC",
             [$mappingBillId]
         );
-        $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY name");
-        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
-        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
+        $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories ORDER BY name");
+        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories ORDER BY name");
+        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories ORDER BY name");
+
+        $candidateScope = $cid !== null
+            ? ($cid === 1 ? ' AND (pp.concern_id = ? OR pp.concern_id IS NULL)' : ' AND pp.concern_id = ?')
+            : '';
+        $candidateParams = [(int)$bill['seller_id']];
+        if ($cid !== null) {
+            $candidateParams[] = $cid;
+        }
+        $candidatePurchases = Database::fetchAll(
+            "SELECT pp.id, pp.purchase_number, pp.invoice_number, pp.purchase_date, pp.total_amount
+             FROM production_purchases pp
+             WHERE pp.seller_id = ? AND pp.purchase_type IN ('THIRD_PARTY','MIXED') {$candidateScope}
+             ORDER BY pp.id DESC LIMIT 25",
+            $candidateParams
+        );
+
+        $qrItemMap = [];
+        $qrGenIds = array_values(array_filter(array_unique(array_column($items, 'qr_generation_id'))));
+        if (!empty($qrGenIds)) {
+            $inPlaceholders = implode(',', array_fill(0, count($qrGenIds), '?'));
+            $qrRows = Database::fetchAll(
+                "SELECT generation_id, qr_code, sequence_num FROM qr_generation_items
+                 WHERE generation_id IN ($inPlaceholders)
+                 ORDER BY sequence_num ASC",
+                $qrGenIds
+            );
+            foreach ($qrRows as $qrRow) {
+                $qrItemMap[(int)$qrRow['generation_id']][] = $qrRow;
+            }
+        }
+
+        // Auto-match existing purchase bill by supplier and invoice number if not already linked
+        if (empty($bill['purchase_id'])) {
+            $matchedPurchase = Database::fetchOne(
+                "SELECT pp.id, pp.purchase_number FROM production_purchases pp
+                 WHERE pp.seller_id = ? AND UPPER(TRIM(COALESCE(pp.invoice_number, ''))) = UPPER(TRIM(?)) {$candidateScope}
+                 ORDER BY pp.id DESC LIMIT 1",
+                array_merge([(int)$bill['seller_id'], $bill['invoice_number']], $cid !== null ? [$cid] : [])
+            );
+            if ($matchedPurchase) {
+                Database::execute("UPDATE third_party_mapping_bills SET purchase_id = ? WHERE id = ?", [(int)$matchedPurchase['id'], $mappingBillId]);
+                $bill['purchase_id'] = (int)$matchedPurchase['id'];
+                $bill['purchase_number'] = $matchedPurchase['purchase_number'];
+            }
+        }
+
+        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'bill' => $bill,
+            'viewOnly' => $viewOnly,
             'items' => $items,
             'categories' => $categories,
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
+            'candidatePurchases' => $candidatePurchases,
+            'warehouses' => $warehouses,
+            'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
                 ['label' => 'Mapping Invoice ' . $bill['invoice_number']],
             ],
         ]);
+    }
+
+    public function deleteThirdPartyMappingDraft(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        $mappingBillId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingBillId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+            $params[] = $cid;
+        }
+        Database::beginTransaction();
+        try {
+            $bill = Database::fetchOne(
+                "SELECT id, invoice_number, status FROM third_party_mapping_bills WHERE id = ?{$scope} FOR UPDATE",
+                $params
+            );
+            if (!$bill) {
+                throw new InvalidArgumentException('Mapping invoice not found.');
+            }
+            if ($bill['status'] !== 'DRAFT') {
+                throw new InvalidArgumentException('Only draft mapping invoices can be deleted.');
+            }
+            $items = Database::fetchAll(
+                "SELECT id, item_name, qr_generation_id
+                 FROM third_party_mapping_items
+                 WHERE mapping_bill_id = ?
+                 FOR UPDATE",
+                [$mappingBillId]
+            );
+            $this->deleteUnstockedMappingQrBatches($items);
+            AuditService::log('purchases', 'DELETE', 'third_party_mapping_bills', $mappingBillId, null, [
+                'invoice_number' => $bill['invoice_number'],
+                'product_count' => count($items),
+            ]);
+            if (Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ? AND status = 'DRAFT'", [$mappingBillId]) !== 1) {
+                throw new RuntimeException('The invoice status changed before it could be deleted. Refresh and try again.');
+            }
+            Database::commit();
+            Session::flash('success', "Mapping invoice {$bill['invoice_number']} and its saved products were deleted.");
+        } catch (Throwable $e) {
+            Database::rollback();
+            Session::flash('error', 'Could not delete mapping invoice: ' . $e->getMessage());
+        }
+        Response::redirect(url('purchases/mapping'));
+    }
+
+    public function deleteThirdPartyMappingDraftItem(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $mappingItemId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingItemId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
+            $params[] = $cid;
+        }
+        $item = Database::fetchOne(
+            "SELECT mi.id, mi.mapping_bill_id
+             FROM third_party_mapping_items mi
+             JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             WHERE mi.id = ?{$scope}",
+            $params
+        );
+        if (!$item) {
+            Session::flash('error', 'Mapped product not found.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+        $mappingBillId = (int)$item['mapping_bill_id'];
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $billScope = '';
+            $billParams = [$mappingBillId];
+            if ($cid !== null) {
+                $billScope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+                $billParams[] = $cid;
+            }
+            $bill = Database::fetchOne(
+                "SELECT id, status FROM third_party_mapping_bills WHERE id = ?{$billScope} FOR UPDATE",
+                $billParams
+            );
+            if (!$bill || $bill['status'] !== 'DRAFT') {
+                throw new InvalidArgumentException('Products can only be deleted from a draft mapping invoice.');
+            }
+            $item = Database::fetchOne(
+                "SELECT mi.id, mi.mapping_bill_id, mi.item_name, mi.qr_generation_id
+                 FROM third_party_mapping_items mi
+                 WHERE mi.id = ? AND mi.mapping_bill_id = ?
+                 FOR UPDATE",
+                [$mappingItemId, $mappingBillId]
+            );
+            if (!$item) {
+                throw new InvalidArgumentException('Mapped product not found.');
+            }
+            $this->deleteUnstockedMappingQrBatches([$item]);
+            if (Database::execute(
+                "DELETE FROM third_party_mapping_items WHERE id = ? AND mapping_bill_id = ?",
+                [$mappingItemId, $mappingBillId]
+            ) !== 1) {
+                throw new RuntimeException('The product could not be deleted. Refresh and try again.');
+            }
+            AuditService::log('purchases', 'DELETE', 'third_party_mapping_items', $mappingItemId, null, [
+                'item_name' => $item['item_name'],
+                'mapping_bill_id' => $mappingBillId,
+            ]);
+            Database::commit();
+            Session::flash('success', "Product '{$item['item_name']}' was deleted from the mapping invoice.");
+        } catch (Throwable $e) {
+            Database::rollback();
+            Session::flash('error', 'Could not delete mapped product: ' . $e->getMessage());
+        }
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
+    private function deleteUnstockedMappingQrBatches(array $items): void {
+        foreach ($items as $item) {
+            $generationId = (int)($item['qr_generation_id'] ?? 0);
+            if ($generationId <= 0) {
+                continue;
+            }
+            $qrBatch = Database::fetchOne(
+                "SELECT stock_added, source_mapping_item_id, source_purchase_item_id
+                 FROM qr_generations WHERE id = ? FOR UPDATE",
+                [$generationId]
+            );
+            if (!$qrBatch) {
+                continue;
+            }
+            if (!empty($qrBatch['stock_added']) || !empty($qrBatch['source_purchase_item_id'])) {
+                throw new RuntimeException('A product with posted stock or a linked purchase QR batch cannot be deleted.');
+            }
+            $sourceMappingItemId = (int)($qrBatch['source_mapping_item_id'] ?? 0);
+            if ($sourceMappingItemId > 0 && $sourceMappingItemId !== (int)$item['id']) {
+                throw new RuntimeException('The QR batch is linked to a different mapping product.');
+            }
+            Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [$generationId]);
+            Database::execute("DELETE FROM qr_generations WHERE id = ?", [$generationId]);
+        }
     }
 
     public function addThirdPartyMappingDraftProduct(string $id): void {
@@ -3723,7 +4000,124 @@ class ProductionController {
             Response::redirect(url('purchases/mapping'));
             return;
         }
+
+        $entryType = strtoupper(trim((string)($_POST['entry_type'] ?? 'THIRD_PARTY')));
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+        if ($entryType === 'FABRIC_ROLL') {
+            $rolls = $_POST['rolls'] ?? [];
+            $fabricName = mb_strtoupper(trim((string)($_POST['fabric_name'] ?? 'FABRIC ROLL')));
+            if ($fabricName === '' || !is_array($rolls) || empty($rolls)) {
+                if ($isAjax) {
+                    Response::json(['success' => false, 'message' => 'Enter a fabric name and at least one roll row.'], 422);
+                    return;
+                }
+                Session::flash('error', 'Enter a fabric name and at least one roll row.');
+                Response::back();
+                return;
+            }
+            Database::beginTransaction();
+            try {
+                $product = Database::fetchOne(
+                    "SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id = ? LIMIT 1",
+                    [$fabricName, (int)$bill['seller_id']]
+                );
+                if (!$product) {
+                    $baseCode = 'ROL-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $fabricName)), 0, 8);
+                    $fCode = $baseCode ?: 'ROL-FABRIC';
+                    $suf = 1;
+                    while (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$fCode])) {
+                        $fCode = $baseCode . '-' . $suf++;
+                    }
+                    Database::execute(
+                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$fabricName, $fCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                    );
+                    $productId = (int)Database::lastInsertId();
+                    $productCode = $fCode;
+                } else {
+                    $productId = (int)$product['id'];
+                    $productCode = (string)$product['code'];
+                }
+
+                $rollCount = 0;
+                foreach ($rolls as $idx => $r) {
+                    if (!is_array($r)) continue;
+                    $rollCode = trim((string)($r['roll_code'] ?? ''));
+                    $color = trim((string)($r['color'] ?? 'Standard'));
+                    $meters = (float)($r['meters'] ?? 0);
+                    $weightKg = (float)($r['weight_kg'] ?? 0);
+                    $rate = (float)($r['rate'] ?? 0);
+                    $gstRate = isset($r['gst_rate']) ? (float)$r['gst_rate'] : 5.0;
+                    $hsn = trim((string)($r['hsn_code'] ?? '5208')) ?: '5208';
+                    if ($meters <= 0 && $weightKg <= 0) continue;
+                    if ($rollCode === '') {
+                        $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
+                    }
+                    $sku = $productCode . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $rollCode), 0, 10));
+
+                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
+                        'color' => $color,
+                        'size' => ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg')),
+                        'vendor_sku' => $sku,
+                        'hsn_code' => $hsn,
+                        'gst_rate' => $gstRate,
+                        'mrp' => round($rate * 1.3, 2),
+                        'selling_price' => round($rate * 1.2, 2),
+                        'unit_price' => $rate,
+                    ]);
+
+                    Database::execute(
+                        "INSERT INTO third_party_mapping_items
+                            (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
+                             roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                             category_id, subcategory_id, sub_subcategory_id)
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MTR', ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                        [
+                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode, $sku,
+                            $rollCode, $weightKg, $meters, ($meters > 0 ? $meters : $weightKg),
+                            $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
+                            ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg'))
+                        ]
+                    );
+                    $rollCount++;
+                }
+
+                if ($rollCount === 0) {
+                    throw new InvalidArgumentException('Enter at least one valid fabric roll with length or weight.');
+                }
+                Database::commit();
+
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Successfully added {$rollCount} fabric roll(s) to mapping draft.",
+                        'redirect_url' => url('purchases/mapping/draft/' . $mappingBillId)
+                    ]);
+                    return;
+                }
+                Session::flash('success', "Added {$rollCount} fabric roll(s) to mapping draft.");
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) Database::rollback();
+                if ($isAjax) {
+                    Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+                    return;
+                }
+                Session::flash('error', $e->getMessage());
+                Response::back();
+                return;
+            }
+        }
+
         if ($productName === '' || !is_array($variants) || empty($variants)) {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Enter a product name and at least one product variant.'], 422);
+                return;
+            }
             Session::flash('error', 'Enter a product name and at least one product variant.');
             Response::back();
             return;
@@ -3791,18 +4185,21 @@ class ProductionController {
                 $rate = (float)($variant['unit_price'] ?? 0);
                 $mrp = (float)($variant['mrp'] ?? 0);
                 $sellingPrice = (float)($variant['selling_price'] ?? 0);
-                $gstRate = (float)($variant['gst_rate'] ?? 0);
+                $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
                 $hsn = trim((string)($variant['hsn_code'] ?? ''));
+                if ($hsn === '') {
+                    $hsn = 'PENDING';
+                }
                 $categoryId = (int)($variant['category_id'] ?? 0);
                 $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
                 $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
                 $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
 
                 if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
-                    || $gstRate < 0 || $gstRate > 100 || $hsn === '' || mb_strlen($hsn) > 20) {
+                    || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
                     throw new InvalidArgumentException('Each variant needs a whole-number quantity, valid prices, GST rate and HSN code.');
                 }
-                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
+                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
                     throw new InvalidArgumentException('Select a valid category hierarchy for every variant.');
                 }
                 if ($sku === '') {
@@ -3843,9 +4240,29 @@ class ProductionController {
                 'product_name' => $productName,
                 'variant_count' => $variantCount,
             ]);
+
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Product '{$productName}' and its variants were saved to Mapping.",
+                    'product_name' => $productName,
+                    'variant_count' => $variantCount
+                ]);
+                return;
+            }
+
             Session::flash('success', "Product '{$productName}' and its variants were saved to Mapping.");
         } catch (Throwable $e) {
             Database::rollback();
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                return;
+            }
             Session::flash('error', $e->getMessage());
         }
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
@@ -3863,9 +4280,26 @@ class ProductionController {
             if (!$result['created']) {
                 Session::flash('info', 'A QR batch already exists for this product variant.');
             } else {
-                Session::flash('success', "QR batch {$result['batch_code']} generated.");
+                Session::flash('success', "QR batch {$result['batch_code']} generated successfully.");
             }
-            Response::redirect(url('production/qr-generations/view/' . (int)$result['generation_id']));
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'created' => $result['created'],
+                    'generation_id' => (int)$result['generation_id'],
+                    'batch_code' => $result['batch_code'],
+                    'message' => "QR batch {$result['batch_code']} generated successfully."
+                ]);
+                return;
+            }
+            $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
+            if ($mappingBillId > 0) {
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . (int)$result['generation_id']));
+            } else {
+                Response::back();
+            }
         } catch (Throwable $e) {
             Session::flash('error', 'QR generation failed: ' . $e->getMessage());
             Response::redirect(url('purchases/mapping/draft/' . (int)($_POST['mapping_bill_id'] ?? 0)));
@@ -3919,6 +4353,12 @@ class ProductionController {
                 }
             }
         } catch (Throwable $e) {
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => "QR generation stopped: " . $e->getMessage()], 400);
+                return;
+            }
             Session::flash(
                 'error',
                 "QR generation stopped after {$generatedCount} variant(s): " . $e->getMessage()
@@ -3927,8 +4367,334 @@ class ProductionController {
             return;
         }
 
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+        if ($isAjax) {
+            Response::json([
+                'success' => true,
+                'message' => "QR batches generated for {$generatedCount} variant(s).",
+                'generated_count' => $generatedCount
+            ]);
+            return;
+        }
+
         Session::flash('success', "QR batches generated for {$generatedCount} variant(s).");
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
+    /**
+     * In-panel action: add a generated QR batch directly to warehouse inventory
+     * without navigating away to the separate QR generation module.
+     */
+    public function ajaxAddMappingStockToInventory(): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 403);
+            return;
+        }
+
+        $generationId = (int)($_POST['generation_id'] ?? 0);
+        $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
+        $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
+
+        if ($generationId <= 0) {
+            Response::json(['success' => false, 'message' => 'Invalid QR batch specified.'], 400);
+            return;
+        }
+
+        try {
+            $userId = (int)(Session::get('user_id') ?? 0) ?: (int)(Auth::id() ?? 0);
+            $result = QrGenerationService::addToStock($generationId, $userId, $warehouseId > 0 ? $warehouseId : null);
+
+            // Mark stock_added on qr_generations
+            Database::execute("UPDATE qr_generations SET stock_added = 1 WHERE id = ?", [$generationId]);
+
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.",
+                    'quantity' => $result['quantity'],
+                    'batch_code' => $result['batch_code'],
+                    'stock_added' => true,
+                ]);
+                return;
+            }
+
+            Session::flash('success', "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.");
+            if ($mappingBillId > 0) {
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . $generationId));
+            } else {
+                Response::back();
+            }
+        } catch (\Throwable $e) {
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                return;
+            }
+
+            Session::flash('error', 'Error adding to inventory: ' . $e->getMessage());
+            Response::back();
+        }
+    }
+
+    /**
+     * Generate QR batch for a saved variant on a purchase bill mapping page.
+     */
+    public function generateThirdPartyBillVariantQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $variantId = (int)$id;
+        $variant = Database::fetchOne(
+            "SELECT tpv.*, ppi.purchase_id, ppi.product_id, ppi.item_name,
+                    pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM third_party_product_variants tpv
+             INNER JOIN production_purchase_items ppi ON ppi.id = tpv.purchase_item_id
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE tpv.id = ?",
+            [$variantId]
+        );
+
+        if (!$variant) {
+            Session::flash('error', 'Variant not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$variant['purchase_id'];
+        $itemId = (int)$variant['purchase_item_id'];
+
+        if (!empty($variant['qr_generation_id'])) {
+            Session::flash('info', 'QR batch already generated for this variant.');
+            Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+            return;
+        }
+
+        try {
+            $prodId = (int)$variant['product_id'];
+            $pvId = (int)($variant['product_variant_id'] ?? 0);
+            if ($pvId <= 0 && $prodId > 0) {
+                $pv = VariantService::findOrCreateVariantForInward($prodId, [
+                    'color'         => $variant['color'],
+                    'size'          => $variant['size'],
+                    'hsn_code'      => $variant['hsn_code'],
+                    'mrp'           => (float)$variant['mrp'],
+                    'selling_price' => (float)$variant['selling_price'],
+                    'unit_price'    => (float)$variant['purchase_rate'],
+                ]);
+                $pvId = (int)($pv['id'] ?? 0);
+                Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [$pvId, $variantId]);
+            }
+
+            $qty = max(1, (int)ceil((float)$variant['allocated_qty']));
+            $brandName = trim((string)($variant['seller_company'] ?: ($variant['seller_name'] ?: 'GRM')));
+
+            $result = QrGenerationService::generateCatalogQrs([
+                'product_id' => $prodId,
+                'variant_id' => $pvId,
+                'quantity'   => $qty,
+                'brand_name' => $brandName,
+                'notes'      => "Purchase #{$variant['purchase_number']} - {$variant['item_name']} ({$variant['size']} {$variant['color']})"
+            ]);
+
+            Database::execute(
+                "UPDATE qr_generations
+                 SET source_purchase_id = ?, source_purchase_item_id = ?, source_variant_id = ?
+                 WHERE id = ?",
+                [$purchaseId, $itemId, $variantId, (int)$result['generation_id']]
+            );
+            Database::execute(
+                "UPDATE third_party_product_variants
+                 SET qr_generation_id = ?, qr_batch_code = ?
+                 WHERE id = ?",
+                [(int)$result['generation_id'], $result['batch_code'], $variantId]
+            );
+            Database::execute(
+                "UPDATE production_purchase_items
+                 SET qr_generation_id = COALESCE(qr_generation_id, ?),
+                     qr_batch_code = COALESCE(qr_batch_code, ?)
+                 WHERE id = ?",
+                [(int)$result['generation_id'], $result['batch_code'], $itemId]
+            );
+
+            Session::flash('success', "QR batch {$result['batch_code']} generated successfully for {$variant['size']} {$variant['color']}.");
+        } catch (\Throwable $e) {
+            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+    }
+
+    /**
+     * Generate QR batch for an entire purchase item on a bill.
+     */
+    public function generateThirdPartyBillItemQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $itemId = (int)$id;
+        $item = Database::fetchOne(
+            "SELECT ppi.*, pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE ppi.id = ?",
+            [$itemId]
+        );
+        if (!$item) {
+            Session::flash('error', 'Purchase item not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$item['purchase_id'];
+
+        $variants = Database::fetchAll(
+            "SELECT id FROM third_party_product_variants WHERE purchase_item_id = ? AND qr_generation_id IS NULL ORDER BY id ASC",
+            [$itemId]
+        );
+
+        if (!empty($variants)) {
+            $this->generateAllThirdPartyBillVariantsQr($id);
+            return;
+        }
+
+        if (!empty($item['qr_generation_id'])) {
+            Session::flash('info', 'A QR batch has already been generated for this item.');
+            Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+            return;
+        }
+
+        try {
+            $brandName = trim((string)($item['seller_company'] ?: ($item['seller_name'] ?: 'GRM')));
+            $result = QrGenerationService::generatePurchaseBatch([
+                'qr_source'        => 'THIRD_PARTY',
+                'purchase_item_id' => $itemId,
+                'brand_name'       => $brandName,
+            ]);
+            Session::flash('success', "QR batch {$result['batch_code']} generated successfully with {$result['quantity']} labels.");
+        } catch (\Throwable $e) {
+            Session::flash('error', 'QR generation failed: ' . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
+    }
+
+    /**
+     * Generate QR batches for all pending variants of a purchase item.
+     */
+    public function generateAllThirdPartyBillVariantsQr(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+
+        $itemId = (int)$id;
+        $item = Database::fetchOne(
+            "SELECT ppi.*, pp.purchase_number, s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE ppi.id = ?",
+            [$itemId]
+        );
+        if (!$item) {
+            Session::flash('error', 'Purchase item not found.');
+            Response::back();
+            return;
+        }
+
+        $purchaseId = (int)$item['purchase_id'];
+        $variants = Database::fetchAll(
+            "SELECT * FROM third_party_product_variants
+             WHERE purchase_item_id = ? AND qr_generation_id IS NULL
+             ORDER BY id ASC",
+            [$itemId]
+        );
+
+        $brandName = trim((string)($item['seller_company'] ?: ($item['seller_name'] ?: 'GRM')));
+        $generatedCount = 0;
+
+        try {
+            if (!empty($variants)) {
+                foreach ($variants as $var) {
+                    $pvId = (int)($var['product_variant_id'] ?? 0);
+                    if ($pvId <= 0 && (int)$item['product_id'] > 0) {
+                        $pv = VariantService::findOrCreateVariantForInward((int)$item['product_id'], [
+                            'color'         => $var['color'],
+                            'size'          => $var['size'],
+                            'hsn_code'      => $var['hsn_code'],
+                            'mrp'           => (float)$var['mrp'],
+                            'selling_price' => (float)$var['selling_price'],
+                            'unit_price'    => (float)$var['purchase_rate'],
+                        ]);
+                        $pvId = (int)($pv['id'] ?? 0);
+                        Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [$pvId, (int)$var['id']]);
+                    }
+
+                    $qty = max(1, (int)ceil((float)$var['allocated_qty']));
+                    $result = QrGenerationService::generateCatalogQrs([
+                        'product_id' => (int)$item['product_id'],
+                        'variant_id' => $pvId,
+                        'quantity'   => $qty,
+                        'brand_name' => $brandName,
+                        'notes'      => "Purchase #{$item['purchase_number']} - {$item['item_name']} ({$var['size']} {$var['color']})"
+                    ]);
+
+                    Database::execute(
+                        "UPDATE qr_generations
+                         SET source_purchase_id = ?, source_purchase_item_id = ?, source_variant_id = ?
+                         WHERE id = ?",
+                        [$purchaseId, $itemId, (int)$var['id'], (int)$result['generation_id']]
+                    );
+                    Database::execute(
+                        "UPDATE third_party_product_variants
+                         SET qr_generation_id = ?, qr_batch_code = ?
+                         WHERE id = ?",
+                        [(int)$result['generation_id'], $result['batch_code'], (int)$var['id']]
+                    );
+                    Database::execute(
+                        "UPDATE production_purchase_items
+                         SET qr_generation_id = COALESCE(qr_generation_id, ?),
+                             qr_batch_code = COALESCE(qr_batch_code, ?)
+                         WHERE id = ?",
+                        [(int)$result['generation_id'], $result['batch_code'], $itemId]
+                    );
+                    $generatedCount++;
+                }
+            } else {
+                if (empty($item['qr_generation_id'])) {
+                    $result = QrGenerationService::generatePurchaseBatch([
+                        'qr_source'        => 'THIRD_PARTY',
+                        'purchase_item_id' => $itemId,
+                        'brand_name'       => $brandName,
+                    ]);
+                    $generatedCount++;
+                }
+            }
+            Session::flash('success', "Generated QR batches for {$generatedCount} variant(s).");
+        } catch (\Throwable $e) {
+            Session::flash('error', "QR generation error: " . $e->getMessage());
+        }
+
+        Response::redirect(url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}"));
     }
 
     private function generateThirdPartyMappingItemQr(int $itemId, ?int $concernId): array {
@@ -4022,10 +4788,10 @@ class ProductionController {
         $params = [$billId];
         $scope = '';
         if ($cid !== null) {
-            $scope = ' AND concern_id = ?';
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
             $params[] = $cid;
         }
-        $bill = Database::fetchOne("SELECT * FROM third_party_mapping_bills WHERE id = ? {$scope}", $params);
+        $bill = Database::fetchOne("SELECT mb.* FROM third_party_mapping_bills mb WHERE mb.id = ? {$scope}", $params);
         if (!$bill) {
             Session::flash('error', 'Mapping entry not found.');
             Response::redirect(url('purchases/mapping'));
@@ -4036,38 +4802,142 @@ class ProductionController {
             Response::redirect(url('purchases/mapping/draft/' . $billId));
             return;
         }
-        if ($bill['status'] === 'MOVED') {
-            Session::flash('info', 'This mapping entry was already moved to purchase ' . $bill['purchase_id'] . '.');
-            Response::redirect(url('purchases/mapping/draft/' . $billId));
+        if ($bill['status'] === 'MOVED' && !empty($bill['purchase_id'])) {
+            Session::flash('info', 'This mapping entry was already moved to purchase #' . $bill['purchase_id'] . '.');
+            Response::redirect(url('purchases'));
             return;
         }
 
         Database::execute("UPDATE third_party_mapping_bills SET status = 'READY' WHERE id = ?", [$billId]);
+
+        $targetPurchaseId = !empty($_POST['target_purchase_id']) ? (int)$_POST['target_purchase_id'] : 0;
+
+        if ($targetPurchaseId > 0) {
+            // User explicitly chose an existing purchase order to link with
+            try {
+                Database::beginTransaction();
+                $this->linkThirdPartyMappingDraftToPurchase($billId, $targetPurchaseId);
+                Database::commit();
+
+                $targetPurchase = Database::fetchOne("SELECT purchase_number FROM production_purchases WHERE id = ?", [$targetPurchaseId]);
+                $poNumber = $targetPurchase['purchase_number'] ?? ('#' . $targetPurchaseId);
+                Session::flash('success', "Products from mapping invoice {$bill['invoice_number']} were linked to purchase {$poNumber}.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) {
+                    Database::rollback();
+                }
+                Session::flash('error', 'Could not link this mapping entry to purchase: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
+            }
+        }
+
+        $concernCondition = ((int)$bill['concern_id'] === 1)
+            ? "(concern_id = ? OR concern_id IS NULL)"
+            : "concern_id = ?";
         $matches = Database::fetchAll(
-            "SELECT id FROM production_purchases
+            "SELECT id, purchase_number FROM production_purchases
              WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
-               AND concern_id = ? AND purchase_type IN ('THIRD_PARTY','MIXED')
+               AND {$concernCondition} AND purchase_type IN ('THIRD_PARTY','MIXED')
              ORDER BY id ASC",
             [(int)$bill['seller_id'], $bill['invoice_number'], (int)$bill['concern_id']]
         );
+
         if (count($matches) > 1) {
-            Session::flash('error', 'More than one purchase matches this supplier and invoice. Resolve the duplicate purchase records before moving this entry.');
+            Session::flash('error', 'More than one purchase matches this supplier and invoice. Select the specific purchase order or resolve duplicates.');
+            Response::redirect(url('purchases/mapping/draft/' . $billId));
+            return;
         } elseif (count($matches) === 1) {
             try {
                 Database::beginTransaction();
                 $this->linkThirdPartyMappingDraftToPurchase($billId, (int)$matches[0]['id']);
                 Database::commit();
-                Session::flash('success', 'Mapping products were added to the matching purchase bill.');
-            } catch (Throwable $e) {
+                $poNumber = $matches[0]['purchase_number'] ?? ('#' . $matches[0]['id']);
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Mapping products were added to matching purchase bill {$poNumber}.",
+                        'redirect_url' => url('purchases/view/' . (int)$matches[0]['id'])
+                    ]);
+                    return;
+                }
+                Session::flash('success', "Mapping products were added to matching purchase bill {$poNumber}.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
                 if (Database::inTransaction()) {
                     Database::rollback();
                 }
                 Session::flash('error', 'Could not move this mapping entry: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
             }
         } else {
-            Session::flash('info', 'Mapping saved as ready. It will be added automatically when Purchases records this supplier and invoice number.');
+            // No purchase matches this supplier and invoice yet.
+            // Automatically create a new purchase bill in production_purchases so it reaches Purchases immediately!
+            try {
+                Database::beginTransaction();
+                $concernId = (int)$bill['concern_id'] ?: (currentConcernId() ?: 1);
+                $sellerId = (int)$bill['seller_id'];
+                $invoiceNumber = trim((string)$bill['invoice_number']);
+                $purchaseDate = !empty($bill['created_at']) ? date('Y-m-d', strtotime($bill['created_at'])) : date('Y-m-d');
+                $userId = (int)(Session::get('user_id') ?? 0);
+
+                $concern = Database::fetchOne("SELECT po_prefix FROM concerns WHERE id = ?", [$concernId]);
+                $poPrefix = !empty($concern['po_prefix']) ? rtrim($concern['po_prefix'], '-') . '-' : 'PP-';
+
+                $tempNumber = 'TMP-PP-' . bin2hex(random_bytes(12));
+                Database::execute(
+                    "INSERT INTO production_purchases
+                        (concern_id, purchase_number, purchase_type, seller_id, purchase_date, invoice_number, notes, total_amount, created_by, created_at)
+                     VALUES (?, ?, 'THIRD_PARTY', ?, ?, ?, ?, 0, ?, NOW())",
+                    [
+                        $concernId,
+                        $tempNumber,
+                        $sellerId,
+                        $purchaseDate,
+                        $invoiceNumber !== '' ? $invoiceNumber : null,
+                        'Created from Purchase Item Mapping Invoice #' . $invoiceNumber,
+                        $userId ?: null,
+                    ]
+                );
+                $purchaseId = (int)Database::lastInsertId();
+                if ($purchaseId < 1) {
+                    throw new RuntimeException('Failed to create purchase record.');
+                }
+                $purchaseNumber = $poPrefix . date('Y', strtotime($purchaseDate)) . '-' . sprintf('%06d', $purchaseId);
+                Database::execute("UPDATE production_purchases SET purchase_number = ? WHERE id = ?", [$purchaseNumber, $purchaseId]);
+
+                // Link mapping items to the new purchase order
+                $this->linkThirdPartyMappingDraftToPurchase($billId, $purchaseId);
+                Database::commit();
+
+                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.",
+                        'redirect_url' => url('purchases/view/' . $purchaseId)
+                    ]);
+                    return;
+                }
+                Session::flash('success', "Purchase bill {$purchaseNumber} created and moved to Purchases successfully.");
+                Response::redirect(url('purchases'));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) {
+                    Database::rollback();
+                }
+                Session::flash('error', 'Could not create purchase from mapping: ' . $e->getMessage());
+                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                return;
+            }
         }
-        Response::redirect(url('purchases/mapping/draft/' . $billId));
     }
 
     private function linkThirdPartyMappingDraftToPurchase(int $mappingBillId, int $purchaseId): int {
@@ -4087,14 +4957,21 @@ class ProductionController {
         if ($bill['status'] !== 'READY') {
             throw new RuntimeException('Mark this mapping entry ready before linking it to a purchase.');
         }
+        $concernCondition = ((int)$bill['concern_id'] === 1)
+            ? "(concern_id = ? OR concern_id IS NULL)"
+            : "concern_id = ?";
         $purchase = Database::fetchOne(
-            "SELECT * FROM production_purchases WHERE id = ? AND seller_id = ? AND concern_id = ?",
+            "SELECT * FROM production_purchases WHERE id = ? AND seller_id = ? AND {$concernCondition}",
             [$purchaseId, (int)$bill['seller_id'], (int)$bill['concern_id']]
         );
         if (!$purchase
-            || strtoupper(trim((string)$bill['invoice_number'])) !== strtoupper(trim((string)($purchase['invoice_number'] ?? '')))
-            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED'], true)) {
-            throw new InvalidArgumentException('The purchase does not match the mapping supplier and invoice.');
+            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED', 'FABRIC_ROLL'], true)) {
+            throw new InvalidArgumentException('The selected purchase does not match the mapping supplier or type.');
+        }
+
+        // Auto-assign invoice number to the purchase if it was empty
+        if (empty($purchase['invoice_number']) && !empty($bill['invoice_number'])) {
+            Database::execute("UPDATE production_purchases SET invoice_number = ? WHERE id = ?", [$bill['invoice_number'], $purchaseId]);
         }
 
         $items = Database::fetchAll(
@@ -4110,20 +4987,39 @@ class ProductionController {
             $lineTotal = round((float)$item['quantity'] * (float)$item['unit_price'] + $taxAmount, 2);
             $taxHalf = round($taxAmount / 2, 2);
             $taxRateHalf = round((float)$item['gst_rate'] / 2, 3);
-            Database::execute(
-                "INSERT INTO production_purchase_items
-                    (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
-                     quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
-                     tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
-                     is_mapped, created_at)
-                 VALUES (?, 'THIRD_PARTY', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
-                         ?, ?, ?, ?, ?, ?, ?, 0, NOW())",
-                [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
-                    $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'],
-                    $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
-                    $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
-                    $item['color'], $item['size'], $item['hsn_code']]
-            );
+            $isRoll = (($item['item_type'] ?? 'THIRD_PARTY') === 'FABRIC_ROLL');
+
+            if ($isRoll) {
+                Database::execute(
+                    "INSERT INTO production_purchase_items
+                        (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
+                         roll_number, weight_kg, quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
+                         tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
+                         is_mapped, created_at)
+                     VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
+                             ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'MTR',
+                        $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
+                        $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
+                        $item['color'], $item['size'], $item['hsn_code']]
+                );
+            } else {
+                Database::execute(
+                    "INSERT INTO production_purchase_items
+                        (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
+                         quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
+                         tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
+                         is_mapped, created_at)
+                     VALUES (?, 'THIRD_PARTY', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
+                             ?, ?, ?, ?, ?, ?, ?, 0, NOW())",
+                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                        $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'],
+                        $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
+                        $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
+                        $item['color'], $item['size'], $item['hsn_code']]
+                );
+            }
             $purchaseItemId = (int)Database::lastInsertId();
             Database::execute(
                 "UPDATE third_party_mapping_items SET purchase_item_id = ? WHERE id = ?",
@@ -4134,15 +5030,18 @@ class ProductionController {
                 'color' => $item['color'],
                 'vendor_sku' => $item['vendor_sku'],
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            PurchaseMappingFulfillmentService::fulfill($purchaseItemId, [
-                'category_id' => (int)$item['category_id'],
-                'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
-                'sub_subcategory_id' => (int)($item['sub_subcategory_id'] ?? 0) ?: null,
-                'attributes' => $attributes,
-                'is_complementary' => 0,
-                'mrp' => (float)$item['mrp'],
-                'selling_price' => (float)$item['selling_price'],
-            ], $userId);
+            if (!$isRoll) {
+                PurchaseMappingFulfillmentService::fulfill($purchaseItemId, [
+                    'category_id' => (int)$item['category_id'],
+                    'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
+                    'sub_subcategory_id' => (int)($item['sub_subcategory_id'] ?? 0) ?: null,
+                    'include_inactive_categories' => true,
+                    'attributes' => $attributes,
+                    'is_complementary' => 0,
+                    'mrp' => (float)$item['mrp'],
+                    'selling_price' => (float)$item['selling_price'],
+                ], $userId);
+            }
 
             if (!empty($item['qr_generation_id'])) {
                 $qr = Database::fetchOne("SELECT batch_code, stock_added FROM qr_generations WHERE id = ?", [(int)$item['qr_generation_id']]);
@@ -4178,12 +5077,26 @@ class ProductionController {
              FROM production_purchase_items WHERE purchase_id = ?",
             [(int)$purchase['id']]
         );
+        $distinctTypes = Database::fetchAll(
+            "SELECT DISTINCT item_type FROM production_purchase_items WHERE purchase_id = ?",
+            [(int)$purchase['id']]
+        );
+        $typesList = array_column($distinctTypes, 'item_type');
+        $resolvedType = 'THIRD_PARTY';
+        if (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) > 1) {
+            $resolvedType = 'MIXED';
+        } elseif (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) === 1) {
+            $resolvedType = 'FABRIC_ROLL';
+        } elseif (count($typesList) > 1) {
+            $resolvedType = 'MIXED';
+        }
         Database::execute(
             "UPDATE production_purchases
              SET total_amount = ?, is_inwarded = GREATEST(COALESCE(is_inwarded, 0), ?),
+                 purchase_type = ?,
                  updated_at = NOW()
              WHERE id = ?",
-            [(float)($purchaseTotals['total_amount'] ?? 0), (int)($purchaseTotals['has_inwarded_items'] ?? 0), (int)$purchase['id']]
+            [(float)($purchaseTotals['total_amount'] ?? 0), (int)($purchaseTotals['has_inwarded_items'] ?? 0), $resolvedType, (int)$purchase['id']]
         );
         Database::execute(
             "UPDATE third_party_mapping_bills SET status = 'MOVED', purchase_id = ? WHERE id = ?",
@@ -4299,6 +5212,34 @@ class ProductionController {
             $params
         );
 
+        $fabricRollWhere = ["ppi.item_type = 'FABRIC_ROLL'"];
+        $fabricRollParams = [];
+        if ($cid) {
+            $fabricRollWhere[] = ($cid === 1)
+                ? "(pp.concern_id = ? OR pp.concern_id IS NULL)"
+                : "pp.concern_id = ?";
+            $fabricRollParams[] = $cid;
+        }
+        $fabricRollItems = Database::fetchAll(
+            "SELECT ppi.id, ppi.purchase_id, ppi.item_name,
+                    COALESCE(NULLIF(ppi.roll_number, ''), sr.roll_number) AS roll_number,
+                    COALESCE(NULLIF(ppi.color, ''), sr.color) AS color,
+                    COALESCE(NULLIF(ppi.design_name, ''), sr.design_name) AS design_name,
+                    ppi.design_count, COALESCE(NULLIF(ppi.weight_kg, 0), sr.weight) AS weight_kg,
+                    ppi.quantity, ppi.unit,
+                    ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
+                    pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                    s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN seller_rolls sr ON sr.id = ppi.seller_roll_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE " . implode(' AND ', $fabricRollWhere) . "
+             ORDER BY pp.purchase_date DESC, pp.id DESC, ppi.id ASC
+             LIMIT 1000",
+            $fabricRollParams
+        );
+
         $metricWhere = "WHERE ppi.item_type = 'THIRD_PARTY'";
         $metricParams = [];
         if ($cid) {
@@ -4354,6 +5295,7 @@ class ProductionController {
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'items' => $items,
+            'fabricRollItems' => $fabricRollItems,
             'mappingDrafts' => $mappingDrafts,
             'metrics' => $metrics,
             'categories' => $categories,
@@ -4546,8 +5488,91 @@ class ProductionController {
             ]];
         }
 
+        // Saved variants for active item (including QR batch info and taxonomy names)
+        $savedVariants = Database::fetchAll(
+            "SELECT tpv.*, qg.batch_code, qg.stock_added,
+                    c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
+             FROM third_party_product_variants tpv
+             LEFT JOIN qr_generations qg ON qg.id = tpv.qr_generation_id
+             LEFT JOIN third_party_categories c ON c.id = tpv.third_party_category_id
+             LEFT JOIN third_party_subcategories sc ON sc.id = tpv.third_party_subcategory_id
+             LEFT JOIN third_party_sub_subcategories ssc ON ssc.id = tpv.third_party_sub_subcategory_id
+             WHERE tpv.purchase_item_id = ?
+             ORDER BY tpv.id ASC",
+            [(int)$activeItem['id']]
+        );
+
+        if (empty($savedVariants) && !empty($activeItem['is_mapped'])) {
+            $itemSize = !empty($activeItem['size']) ? trim($activeItem['size']) : 'Free Size';
+            $itemColor = !empty($activeItem['color']) ? trim($activeItem['color']) : 'Default';
+            $itemSku = !empty($activeItem['product_code']) ? $activeItem['product_code'] : ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
+            $savedVariants = [[
+                'id' => 0,
+                'sku' => $itemSku,
+                'size' => $itemSize,
+                'color' => $itemColor,
+                'allocated_qty' => (float)$activeItem['quantity'],
+                'purchase_rate' => (float)$activeItem['unit_price'],
+                'gst_rate' => (float)($activeItem['gst_rate'] ?? 0),
+                'mrp' => (float)($activeItem['mrp'] ?: ($activeItem['unit_price'] * 1.8)),
+                'selling_price' => (float)($activeItem['selling_price'] ?: ($activeItem['unit_price'] * 1.5)),
+                'barcode' => $itemSku,
+                'is_complementary' => !empty($activeItem['is_complementary']) ? 1 : 0,
+                'is_active' => 1,
+                'third_party_category_id' => $activeCatId,
+                'third_party_subcategory_id' => $activeSubcatId,
+                'third_party_sub_subcategory_id' => $activeSubSubcatId,
+                'category_name' => $activeItem['category_name'] ?? null,
+                'subcategory_name' => $activeItem['subcategory_name'] ?? null,
+                'sub_subcategory_name' => $activeItem['sub_subcategory_name'] ?? null,
+                'hsn_code' => $activeItem['hsn_code'] ?? null,
+                'qr_generation_id' => $activeItem['qr_generation_id'] ?? null,
+                'batch_code' => $activeItem['qr_batch_code'] ?? null,
+            ]];
+        }
+
+        if (!empty($activeItem['qr_generation_id']) && !empty($savedVariants)) {
+            foreach ($savedVariants as &$sv) {
+                if (empty($sv['qr_generation_id'])) {
+                    $sv['qr_generation_id'] = $activeItem['qr_generation_id'];
+                    $sv['batch_code'] = $activeItem['qr_batch_code'];
+                }
+            }
+            unset($sv);
+        }
+
+        $qrItemMap = [];
+        $qrGenIds = [];
+        if (!empty($activeItem['qr_generation_id'])) {
+            $qrGenIds[] = (int)$activeItem['qr_generation_id'];
+        }
+        foreach ($savedVariants as $sv) {
+            if (!empty($sv['qr_generation_id'])) {
+                $qrGenIds[] = (int)$sv['qr_generation_id'];
+            }
+        }
+        foreach ($items as $it) {
+            if (!empty($it['qr_generation_id'])) {
+                $qrGenIds[] = (int)$it['qr_generation_id'];
+            }
+        }
+        $qrGenIds = array_values(array_filter(array_unique($qrGenIds)));
+        if (!empty($qrGenIds)) {
+            $inPlaceholders = implode(',', array_fill(0, count($qrGenIds), '?'));
+            $qrRows = Database::fetchAll(
+                "SELECT generation_id, qr_code, sequence_num FROM qr_generation_items
+                 WHERE generation_id IN ($inPlaceholders)
+                 ORDER BY sequence_num ASC",
+                $qrGenIds
+            );
+            foreach ($qrRows as $qrRow) {
+                $qrItemMap[(int)$qrRow['generation_id']][] = $qrRow;
+            }
+        }
+
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
+        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
         Response::view('production.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
@@ -4563,6 +5588,9 @@ class ProductionController {
             'allSubSubcategories' => $allSubSubcategories,
             'existingStyles' => $existingStyles,
             'existingVariants' => $existingVariants,
+            'savedVariants' => $savedVariants,
+            'warehouses' => $warehouses,
+            'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,
             'breadcrumb' => [
@@ -4733,14 +5761,13 @@ class ProductionController {
         }
 
         if ($categoryId <= 0) {
-            $msg = 'Tier 1 Main Category is required.';
-            if (Request::isAjax()) {
-                Response::json(['success' => false, 'message' => $msg], 422);
-                return;
+            $existingCatId = (int)($item['mapped_third_party_category_id'] ?? 0);
+            if ($existingCatId > 0) {
+                $categoryId = $existingCatId;
+            } else {
+                $firstCat = Database::fetchOne("SELECT id FROM third_party_categories WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+                $categoryId = $firstCat ? (int)$firstCat['id'] : 1;
             }
-            Session::flash('error', $msg);
-            Response::back();
-            return;
         }
 
         if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
@@ -4973,8 +6000,8 @@ class ProductionController {
                 $vSize = trim($var['size'] ?? 'Free Size');
                 $vColor = trim($var['color'] ?? '') ?: $color;
                 $vSku = trim($var['sku'] ?? '') ?: ($styleCode . '-' . $vSize);
-                $vAllocQty = max(0, (float)($var['allocated_qty'] ?? 1));
-                $vRate = (float)($var['purchase_rate'] ?? $item['unit_price']);
+                $vAllocQty = max(0, (float)($var['allocated_qty'] ?? ($var['quantity'] ?? 1)));
+                $vRate = (float)($var['purchase_rate'] ?? ($var['unit_price'] ?? $item['unit_price']));
                 $vMrp = (float)($var['mrp'] ?? $firstMrp);
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
                 $vBarcode = trim($var['barcode'] ?? '') ?: $vSku;
@@ -4986,18 +6013,19 @@ class ProductionController {
                 if ($vHsnCode === '') {
                     $vHsnCode = $hsnCode;
                 }
+                $vGstRate = isset($var['gst_rate']) ? (float)$var['gst_rate'] : (float)($item['gst_rate'] ?? 0);
 
                 Database::execute(
                     "INSERT INTO third_party_product_variants
                         (third_party_product_id, purchase_item_id, sku, size, color,
-                         allocated_qty, purchase_rate, mrp, selling_price, barcode,
+                         allocated_qty, purchase_rate, gst_rate, mrp, selling_price, barcode,
                          third_party_category_id, third_party_subcategory_id, third_party_sub_subcategory_id,
                          hsn_code, is_complementary, is_active, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                      ON DUPLICATE KEY UPDATE
                         allocated_qty = VALUES(allocated_qty), purchase_rate = VALUES(purchase_rate),
-                        mrp = VALUES(mrp), selling_price = VALUES(selling_price), barcode = VALUES(barcode),
-                        third_party_category_id = VALUES(third_party_category_id),
+                        gst_rate = VALUES(gst_rate), mrp = VALUES(mrp), selling_price = VALUES(selling_price),
+                        barcode = VALUES(barcode), third_party_category_id = VALUES(third_party_category_id),
                         third_party_subcategory_id = VALUES(third_party_subcategory_id),
                         third_party_sub_subcategory_id = VALUES(third_party_sub_subcategory_id),
                         hsn_code = VALUES(hsn_code),
@@ -5005,7 +6033,7 @@ class ProductionController {
                         updated_at = NOW()",
                     [
                         $tpProductId, $itemId, $vSku, $vSize, $vColor,
-                        $vAllocQty, $vRate, $vMrp, $vSp, $vBarcode,
+                        $vAllocQty, $vRate, $vGstRate, $vMrp, $vSp, $vBarcode,
                         $vCategoryId, $vSubcategoryId, $vSubSubcategoryId, $vHsnCode ?: null, $vIsComplementary
                     ]
                 );
@@ -5066,7 +6094,7 @@ class ProductionController {
                 if ($fulfillSp > $fulfillMrp) {
                     $fulfillMrp = $fulfillSp;
                 }
-                PurchaseMappingFulfillmentService::fulfill($itemId, [
+                $fulfillResult = PurchaseMappingFulfillmentService::fulfill($itemId, [
                     'category_id'        => $categoryId,
                     'subcategory_id'     => $subcategoryId,
                     'sub_subcategory_id' => $subSubcategoryId,
@@ -5076,6 +6104,25 @@ class ProductionController {
                     'mrp'                => $fulfillMrp,
                     'selling_price'      => $fulfillSp,
                 ], $userId);
+
+                // Sync each variant into product_variants
+                $catProductId = (int)($fulfillResult['catalog']['product_id'] ?? ($fulfillResult['item']['product_id'] ?? 0));
+                if ($catProductId > 0) {
+                    $savedVars = Database::fetchAll("SELECT id, size, color, hsn_code, mrp, selling_price, purchase_rate FROM third_party_product_variants WHERE purchase_item_id = ?", [$itemId]);
+                    foreach ($savedVars as $svRow) {
+                        $pv = VariantService::findOrCreateVariantForInward($catProductId, [
+                            'color'         => $svRow['color'],
+                            'size'          => $svRow['size'],
+                            'hsn_code'      => $svRow['hsn_code'] ?: $hsnCode,
+                            'mrp'           => (float)$svRow['mrp'],
+                            'selling_price' => (float)$svRow['selling_price'],
+                            'unit_price'    => (float)$svRow['purchase_rate'],
+                        ]);
+                        if (!empty($pv['id'])) {
+                            Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [(int)$pv['id'], (int)$svRow['id']]);
+                        }
+                    }
+                }
             } catch (\Throwable $e) {
                 error_log('GRN fulfillment failed for purchase item ' . $itemId . ': ' . $e->getMessage());
                 $message = 'Mapping was saved, but stock and GRN setup could not finish. Please retry the mapping.';
@@ -5104,25 +6151,11 @@ class ProductionController {
                 $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id=" . $nextUnmapped['id']);
                 $successMsg = "Product line '{$styleName}' mapped successfully! Proceeding to the next unmapped product line.";
             } else {
-                $qrReadyItem = Database::fetchOne(
-                    "SELECT id FROM production_purchase_items
-                     WHERE purchase_id = ? AND item_type = 'THIRD_PARTY' AND is_mapped = 1
-                       AND qr_generation_id IS NULL AND (qr_batch_code IS NULL OR TRIM(qr_batch_code) = '')
-                     ORDER BY id ASC LIMIT 1",
-                    [$purchaseId]
-                );
-                if ($qrReadyItem) {
-                    $nextUrl = url(
-                        "production/qr-generations/create?tab=third_party&purchase_id={$purchaseId}&purchase_item_id=" . (int)$qrReadyItem['id']
-                    );
-                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} are mapped. You can now generate QR labels.";
-                } else {
-                    $nextUrl = url("purchases/mapping");
-                    $successMsg = "All product lines for Purchase Bill {$purchaseNumber} have been completely mapped to the catalog!";
-                }
+                $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}");
+                $successMsg = "Product line '{$styleName}' mapped successfully! You can now generate and view QR codes below.";
             }
         } else {
-            $nextUrl = url("purchases/mapping/bill/{$purchaseId}");
+            $nextUrl = url("purchases/mapping/bill/{$purchaseId}?item_id={$itemId}");
             $successMsg = "Product line '{$styleName}' saved as draft.";
         }
 
@@ -5992,14 +7025,18 @@ class ProductionController {
         }
 
         // 4. Check seller_rolls (Fabric Roll QR)
+        $cleanRollScan = preg_replace('/[^A-Z0-9]/', '', $scanCode);
         $roll = Database::fetchOne("
             SELECT sr.*, s.name as seller_name, s.company as seller_company,
                    s.concern_id as record_concern_id
             FROM seller_rolls sr
             JOIN sellers s ON s.id = sr.seller_id
-            WHERE UPPER(TRIM(sr.qr_code)) = ? OR UPPER(TRIM(sr.start_code)) = ? OR UPPER(TRIM(sr.roll_number)) = ?
+            WHERE UPPER(TRIM(sr.qr_code)) = ?
+               OR UPPER(TRIM(sr.start_code)) = ?
+               OR UPPER(TRIM(sr.roll_number)) = ?
+               OR (LENGTH(?) >= 3 AND REPLACE(REPLACE(REPLACE(UPPER(sr.roll_number), ' ', ''), '#', ''), '-', '') = ?)
             LIMIT 1
-        ", [$scanCode, $scanCode, $scanCode]);
+        ", [$scanCode, $scanCode, $scanCode, $cleanRollScan, $cleanRollScan]);
 
         if ($roll && !$this->damageItemMatchesActiveConcern(
             isset($roll['record_concern_id']) ? (int)$roll['record_concern_id'] : null
@@ -6028,6 +7065,29 @@ class ProductionController {
                     && $sequence >= (int)$cand['start_seq']
                     && $sequence <= (int)$cand['end_seq']) {
                     $roll = $cand;
+                    break;
+                }
+            }
+        }
+
+        // If user typed MM/YYYY date (e.g. 11/2026) and only 1 active roll matches that month prefix
+        if (!$roll && preg_match('#^(\d{1,2})/(\d{4})$#', $scanCode, $dm)) {
+            $month = str_pad($dm[1], 2, '0', STR_PAD_LEFT);
+            $year2 = substr($dm[2], -2);
+            $datePrefixes = ['FB' . $month . $year2, 'RM' . $month . $year2];
+            foreach ($datePrefixes as $dpfx) {
+                $candidates = Database::fetchAll("
+                    SELECT sr.*, s.name as seller_name, s.company as seller_company,
+                           s.concern_id as record_concern_id
+                    FROM seller_rolls sr
+                    JOIN sellers s ON s.id = sr.seller_id
+                    WHERE sr.start_code LIKE ?
+                ", [$dpfx . '%']);
+                $matching = array_values(array_filter($candidates, fn($c) => $this->damageItemMatchesActiveConcern(
+                    isset($c['record_concern_id']) ? (int)$c['record_concern_id'] : null
+                )));
+                if (count($matching) === 1) {
+                    $roll = $matching[0];
                     break;
                 }
             }
@@ -6152,16 +7212,20 @@ class ProductionController {
             ];
         }
 
-        // 7. Check production_purchase_items (Third-party / raw supplies)
+        // 7. Check production_purchase_items (Third-party / raw supplies / fabric rolls)
         $ppi = Database::fetchOne("
             SELECT ppi.*, pp.purchase_number, pp.concern_id as record_concern_id,
                    s.name as supplier_name, s.company as supplier_company
             FROM production_purchase_items ppi
             JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN sellers s ON s.id = pp.seller_id
-            WHERE UPPER(TRIM(ppi.qr_code)) = ? OR UPPER(TRIM(ppi.qr_batch_code)) = ?
+            WHERE UPPER(TRIM(ppi.qr_code)) = ?
+               OR UPPER(TRIM(ppi.qr_batch_code)) = ?
+               OR UPPER(TRIM(ppi.start_code)) = ?
+               OR UPPER(TRIM(ppi.vendor_sku)) = ?
+               OR UPPER(TRIM(ppi.product_code)) = ?
             LIMIT 1
-        ", [$scanCode, $scanCode]);
+        ", [$scanCode, $scanCode, $scanCode, $scanCode, $scanCode]);
 
         if ($ppi && $this->damageItemMatchesActiveConcern(
             isset($ppi['record_concern_id']) ? (int)$ppi['record_concern_id'] : null
@@ -6239,9 +7303,39 @@ class ProductionController {
         // 3. Universal QR Lookup
         $item = $this->universalDamageQrLookup($scanCode);
         if (!$item) {
+            $msg = "QR code '{$scanCode}' was not found. Please scan a valid product QR, fabric roll QR, or variant tag.";
+            if (preg_match('#^(\d{1,2})/(\d{4})$#', $scanCode, $dm)) {
+                $month = str_pad($dm[1], 2, '0', STR_PAD_LEFT);
+                $year2 = substr($dm[2], -2);
+                $datePfx = 'FB' . $month . $year2;
+                $activeCid = currentConcernId();
+                $cWhere = "";
+                $cParams = [$datePfx . '%'];
+                if ($activeCid !== null) {
+                    $cWhere = $activeCid === 1 ? " AND (s.concern_id = ? OR s.concern_id IS NULL)" : " AND s.concern_id = ?";
+                    $cParams[] = $activeCid;
+                }
+                $cands = Database::fetchAll("
+                    SELECT sr.roll_number, sr.start_code, sr.end_code
+                    FROM seller_rolls sr
+                    JOIN sellers s ON s.id = sr.seller_id
+                    WHERE sr.start_code LIKE ? {$cWhere}
+                    LIMIT 4
+                ", $cParams);
+                if (!empty($cands)) {
+                    $rollExamples = [];
+                    foreach ($cands as $c) {
+                        $codeRange = $c['start_code'] . ($c['end_code'] && $c['end_code'] !== $c['start_code'] ? '–' . $c['end_code'] : '');
+                        $rollExamples[] = "{$c['roll_number']} ({$codeRange})";
+                    }
+                    $msg = "'{$scanCode}' is the purchase Month/Year date, not a roll QR code. To report damage, enter the specific roll code, e.g.: " . implode(', ', $rollExamples);
+                } else {
+                    $msg = "'{$scanCode}' is a Month/Year date, not a QR code. Please scan or enter the actual roll QR code (e.g. FB112601 or ROLL #1).";
+                }
+            }
             Response::json([
                 'success' => false,
-                'message' => "QR code '{$scanCode}' was not found. Please scan a valid product QR, fabric roll QR, or variant tag."
+                'message' => $msg
             ], 404);
             return;
         }
@@ -7846,8 +8940,8 @@ class ProductionController {
             'resolutionType' => $resolutionType,
             'damageReasons'  => $damageReasons,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Damages'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Damage Management'],
             ],
         ]);
     }
@@ -9023,7 +10117,7 @@ class ProductionController {
         $subcategories = Database::fetchAll("SELECT * FROM subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
 
         Response::view('production.catalog.index', [
-            'pageTitle'      => 'Production Catalog',
+            'pageTitle'      => 'Product Catalog',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-catalog',
             'products'       => $products,
@@ -9033,8 +10127,8 @@ class ProductionController {
             'categoryId'     => $categoryId,
             'subcategoryId'  => $subcategoryId,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog'],
             ],
         ]);
     }
@@ -9052,7 +10146,7 @@ class ProductionController {
         $suggestedCode = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
         Response::view('production.catalog.create', [
-            'pageTitle'     => 'Add Product Style | Production Catalog',
+            'pageTitle'     => 'Add Product Style | Product Catalog',
             'activeModule'  => 'production',
             'activeMenu'    => 'prod-catalog',
             'categories'    => $categories,
@@ -9062,9 +10156,9 @@ class ProductionController {
             'hsnCodes'      => $hsnCodes,
             'suggestedCode' => $suggestedCode,
             'breadcrumb'    => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
-                ['label' => 'Add Style Form'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Add Product Catalog'],
             ],
         ]);
     }
@@ -9291,15 +10385,15 @@ class ProductionController {
         );
 
         Response::view('production.catalog.view', [
-            'pageTitle'    => $product['name'] . ' | Production Catalog',
+            'pageTitle'    => $product['name'] . ' | Product Catalog',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-catalog',
             'product'      => $product,
             'variants'     => $variants,
             'programs'     => $programs,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
                 ['label' => $product['code']],
             ],
         ]);
@@ -9385,9 +10479,9 @@ class ProductionController {
             'colors'           => $colors,
             'hsnCodes'         => Database::fetchAll("SELECT * FROM hsn_codes ORDER BY hsn_code ASC"),
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Catalog', 'url' => url('production/catalog')],
-                ['label' => 'Edit ' . $product['code']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Edit Product Catlog ' . $product['code']],
             ],
         ]);
     }
@@ -10893,7 +11987,7 @@ class ProductionController {
             'filters'          => $filters,
             'scopedUnitId'     => $scopedUnitId,
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs'],
             ],
         ]);
@@ -11183,7 +12277,7 @@ class ProductionController {
             'scopedUnitId'           => $scopedUnitId,
             'suggestedProgramNumber' => $suggestedProgramNumber,
             'breadcrumb'             => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
                 ['label' => 'Create Program'],
             ],
@@ -11262,6 +12356,19 @@ class ProductionController {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
                 if ($rWeight <= 0) $rWeight = (float)$sellerData['weight'];
                 if ($rPrice <= 0) $rPrice = (float)$sellerData['price'];
+                $allocatedCodes = !empty($r['allocated_qr_codes']) ? trim((string)$r['allocated_qr_codes']) : null;
+                if (empty($allocatedCodes)) {
+                    $availRolls = $this->getAvailableSellerRollsWithPieces();
+                    foreach ($availRolls as $ar) {
+                        if ((int)$ar['id'] === (int)$rId && !empty($ar['available_codes'])) {
+                            $slice = array_slice($ar['available_codes'], 0, $rQty);
+                            if (!empty($slice)) {
+                                $allocatedCodes = implode(',', $slice);
+                            }
+                            break;
+                        }
+                    }
+                }
                 $validRolls[] = [
                     'seller_roll_id'     => $rId,
                     'seller_id'          => (int)$sellerData['seller_id'],
@@ -11273,7 +12380,7 @@ class ProductionController {
                     'roll_price'         => $rPrice,
                     'roll_color'         => $sellerData['color'] ?? '',
                     'roll_design'        => $sellerData['design_name'] ?? '',
-                    'allocated_qr_codes' => !empty($r['allocated_qr_codes']) ? $r['allocated_qr_codes'] : null,
+                    'allocated_qr_codes' => $allocatedCodes,
                     'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $totalRollQty += $rQty;
@@ -11509,10 +12616,9 @@ class ProductionController {
             'users'               => $users,
             'scopedUnitId'        => $scopedUnitId,
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
-                ['label' => $program['program_number'], 'url' => url('production/programs/view/' . $id)],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Program ' . $program['program_number']],
             ],
         ]);
     }
@@ -11589,6 +12695,19 @@ class ProductionController {
                 if ($rQty <= 0 && !empty($sellerData['quantity'])) $rQty = (int)$sellerData['quantity'];
                 if ($rWeight <= 0) $rWeight = (float)$sellerData['weight'];
                 if ($rPrice <= 0) $rPrice = (float)$sellerData['price'];
+                $allocatedCodes = !empty($r['allocated_qr_codes']) ? trim((string)$r['allocated_qr_codes']) : null;
+                if (empty($allocatedCodes)) {
+                    $availRolls = $this->getAvailableSellerRollsWithPieces();
+                    foreach ($availRolls as $ar) {
+                        if ((int)$ar['id'] === (int)$rId && !empty($ar['available_codes'])) {
+                            $slice = array_slice($ar['available_codes'], 0, $rQty);
+                            if (!empty($slice)) {
+                                $allocatedCodes = implode(',', $slice);
+                            }
+                            break;
+                        }
+                    }
+                }
                 $validRolls[] = [
                     'seller_roll_id'     => $rId,
                     'seller_id'          => (int)$sellerData['seller_id'],
@@ -11600,7 +12719,7 @@ class ProductionController {
                     'roll_price'         => $rPrice,
                     'roll_color'         => $sellerData['color'] ?? '',
                     'roll_design'        => $sellerData['design_name'] ?? '',
-                    'allocated_qr_codes' => !empty($r['allocated_qr_codes']) ? $r['allocated_qr_codes'] : null,
+                    'allocated_qr_codes' => $allocatedCodes,
                     'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $totalRollQty += $rQty;
@@ -11747,7 +12866,7 @@ class ProductionController {
             'activeMenu'   => 'programs',
             'programRolls' => $programRolls,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Programs', 'url' => url('production/programs')],
                 ['label' => $timeline['program']['program_number']],
             ],
@@ -11836,7 +12955,7 @@ class ProductionController {
             'filters'         => $filters,
             'scopedUnitId'    => $scopedUnitId,
             'breadcrumb'      => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting'],
             ],
         ]);
@@ -11939,7 +13058,32 @@ class ProductionController {
         $parsedSizes = [];
         $parsedColors = [];
 
-        if ($product) {
+        $programRollSizes = [];
+        if (!empty($assignedRolls)) {
+            foreach ($assignedRolls as $ar) {
+                if (!empty($ar['attributes'])) {
+                    $dec = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : $ar['attributes'];
+                    if (is_array($dec)) {
+                        foreach ($dec as $k => $v) {
+                            $upperK = strtoupper(trim((string)$k));
+                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                                $vArr = is_array($v) ? $v : explode(',', (string)$v);
+                                foreach ($vArr as $sz) {
+                                    $sz = trim((string)$sz);
+                                    if ($sz !== '' && !in_array($sz, $programRollSizes, true)) {
+                                        $programRollSizes[] = $sz;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!empty($programRollSizes)) {
+            $parsedSizes = $programRollSizes;
+        } elseif ($product) {
             $pvRows = Database::fetchAll(
                 "SELECT pv.*, s.name as size_name, s.code as size_code, c.name as color_name, c.hex_code as color_hex, d.name as design_name, d.code as design_code
                  FROM product_variants pv
@@ -11988,27 +13132,6 @@ class ProductionController {
                     $colorName = trim((string)$colorName);
                     if ($colorName !== '' && !in_array($colorName, $parsedColors, true)) {
                         $parsedColors[] = $colorName;
-                    }
-                }
-            }
-        }
-
-        // Also parse attributes from assigned rolls for sizes
-        if (!empty($assignedRolls)) {
-            foreach ($assignedRolls as $ar) {
-                if (!empty($ar['attributes'])) {
-                    $dec = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : $ar['attributes'];
-                    if (is_array($dec)) {
-                        foreach ($dec as $k => $v) {
-                            if (in_array(strtoupper($k), ['SIZE', 'SIZES'], true) && is_array($v)) {
-                                foreach ($v as $sz) {
-                                    $sz = trim((string)$sz);
-                                    if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
-                                        $parsedSizes[] = $sz;
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -12395,16 +13518,20 @@ class ProductionController {
                     [$programId, $programId]
                 );
             }
+            $hasProgramSizes = false;
             if ($ppr) {
                 if (!empty($ppr['attributes'])) {
                     $dec = is_string($ppr['attributes']) ? json_decode($ppr['attributes'], true) : $ppr['attributes'];
                     if (is_array($dec)) {
                         foreach ($dec as $k => $v) {
-                            if (in_array(strtoupper($k), ['SIZE', 'SIZES'], true) && is_array($v) && !empty($v)) {
-                                foreach ($v as $sz) {
+                            $upperK = strtoupper(trim((string)$k));
+                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                                $vArr = is_array($v) ? $v : explode(',', (string)$v);
+                                foreach ($vArr as $sz) {
                                     $sz = trim((string)$sz);
                                     if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
                                         $parsedSizes[] = $sz;
+                                        $hasProgramSizes = true;
                                     }
                                 }
                             }
@@ -12428,6 +13555,7 @@ class ProductionController {
             }
         }
 
+        $pvRows = [];
         if ($product) {
             $pvRows = Database::fetchAll(
                 "SELECT pv.*, s.name as size_name, s.code as size_code, c.name as color_name, c.hex_code as color_hex, d.name as design_name, d.code as design_code
@@ -12440,34 +13568,50 @@ class ProductionController {
                 [$product['id']]
             );
 
-            foreach ($pvRows as $pv) {
-                $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
-                if (!empty($sName)) {
-                    if (str_contains($sName, ',')) {
-                        foreach (explode(',', $sName) as $sp) {
-                            $sp = trim($sp);
-                            if ($sp !== '' && !in_array($sp, $parsedSizes, true)) $parsedSizes[] = $sp;
+            if ($hasProgramSizes) {
+                // Program roll explicitly selected specific sizes! Filter pvRows to ONLY those sizes!
+                $filteredPvRows = [];
+                foreach ($pvRows as $pv) {
+                    $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
+                    foreach ($parsedSizes as $psz) {
+                        if (strcasecmp(trim($sName), trim($psz)) === 0) {
+                            $filteredPvRows[] = $pv;
+                            break;
                         }
-                    } else {
-                        if (!in_array($sName, $parsedSizes, true)) $parsedSizes[] = $sName;
                     }
                 }
-
-                $cName = $pv['color_name'] ?: '';
-                if (!empty($cName)) {
-                    if (str_contains($cName, ',')) {
-                        foreach (explode(',', $cName) as $cp) {
-                            $cp = trim($cp);
-                            if ($cp !== '' && !in_array($cp, $parsedColors, true)) $parsedColors[] = $cp;
+                $pvRows = $filteredPvRows;
+            } else {
+                // No specific sizes configured on program roll: populate parsedSizes from product variants
+                foreach ($pvRows as $pv) {
+                    $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
+                    if (!empty($sName)) {
+                        if (str_contains($sName, ',')) {
+                            foreach (explode(',', $sName) as $sp) {
+                                $sp = trim($sp);
+                                if ($sp !== '' && !in_array($sp, $parsedSizes, true)) $parsedSizes[] = $sp;
+                            }
+                        } else {
+                            if (!in_array($sName, $parsedSizes, true)) $parsedSizes[] = $sName;
                         }
-                    } else {
-                        if (!in_array($cName, $parsedColors, true)) $parsedColors[] = $cName;
+                    }
+
+                    $cName = $pv['color_name'] ?: '';
+                    if (!empty($cName)) {
+                        if (str_contains($cName, ',')) {
+                            foreach (explode(',', $cName) as $cp) {
+                                $cp = trim($cp);
+                                if ($cp !== '' && !in_array($cp, $parsedColors, true)) $parsedColors[] = $cp;
+                            }
+                        } else {
+                            if (!in_array($cName, $parsedColors, true)) $parsedColors[] = $cName;
+                        }
                     }
                 }
             }
         }
 
-        // Fallback to active sizes in DB if empty
+        // Fallback to active sizes in DB only if parsedSizes is still empty
         if (empty($parsedSizes)) {
             $rawSizes = Database::fetchAll("SELECT * FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
             foreach ($rawSizes as $s) {
@@ -12509,20 +13653,30 @@ class ProductionController {
 
         $prodCode = $product ? ($product['code'] ?: 'CUT') : 'CUT';
         $variants = [];
-        foreach ($parsedSizes as $sz) {
-            foreach ($parsedColors as $col) {
+        if (!empty($pvRows)) {
+            foreach ($pvRows as $pv) {
+                $sName = $pv['size_name'] ?: ($pv['size_code'] ?: 'FREE SIZE');
+                $cName = !empty($rollColor) && $rollColor !== '-' && $rollColor !== 'Standard' ? $rollColor : ($pv['color_name'] ?: 'STANDARD');
                 $variants[] = [
-                    'id'              => null,
-                    'sku'             => $prodCode . '-' . strtoupper(substr($sz, 0, 3)) . '-' . strtoupper(substr($col, 0, 3)),
-                    'size_name'       => $sz,
-                    'color_name'      => $col,
-                    'planned_quantity'=> 0,
+                    'id'               => $pv['id'],
+                    'sku'              => $pv['sku'] ?: ($prodCode . '-' . strtoupper(substr($sName, 0, 3)) . '-' . strtoupper(substr($cName, 0, 3))),
+                    'size_name'        => $sName,
+                    'color_name'       => $cName,
+                    'planned_quantity' => 0,
                 ];
             }
-        }
-
-        if ($productId && !empty($pvRows)) {
-            $variants = $pvRows;
+        } else {
+            foreach ($parsedSizes as $sz) {
+                foreach ($parsedColors as $col) {
+                    $variants[] = [
+                        'id'              => null,
+                        'sku'             => $prodCode . '-' . strtoupper(substr($sz, 0, 3)) . '-' . strtoupper(substr($col, 0, 3)),
+                        'size_name'       => $sz,
+                        'color_name'      => $col,
+                        'planned_quantity'=> 0,
+                    ];
+                }
+            }
         }
 
         Response::json([
@@ -12612,9 +13766,9 @@ class ProductionController {
             'scopedUnitId'         => $scopedUnitId,
             'suggestedBatchNumber' => $suggestedBatchNumber,
             'breadcrumb'           => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting', 'url' => url('production/cutting')],
-                ['label' => 'New Cutting Batch'],
+                ['label' => 'Add Cutting'],
             ],
         ]);
     }
@@ -12885,10 +14039,9 @@ class ProductionController {
             'users'        => $users,
             'units'        => $units,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Cutting', 'url' => url('production/cutting')],
-                ['label' => $batch['batch_number']],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Cutting ' . $batch['batch_number']],
             ],
         ]);
     }
@@ -13130,7 +14283,7 @@ class ProductionController {
             'filters'      => $filters,
             'scopedUnitId' => $scopedUnitId,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching'],
             ],
         ]);
@@ -13236,9 +14389,9 @@ class ProductionController {
             'items'                => $items,
             'users'                => $users,
             'breadcrumb'           => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching', 'url' => url('production/stitching')],
-                ['label' => 'New Stitching Batch'],
+                ['label' => 'Add Stitching'],
             ],
         ]);
     }
@@ -13525,10 +14678,9 @@ class ProductionController {
             'items'               => $items,
             'users'               => $users,
             'breadcrumb'          => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching', 'url' => url('production/stitching')],
-                ['label' => $batch['batch_number'] ?: ('Batch #' . $batch['id'])],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Stitching ' . ($batch['batch_number'] ?: ('#' . $batch['id']))],
             ],
         ]);
     }
@@ -18403,8 +19555,8 @@ class ProductionController {
             'dateFrom'       => $dateFrom,
             'dateTo'         => $dateTo,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Wastage Selling'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Cutting Wastage'],
             ],
         ]);
     }
@@ -20589,16 +21741,22 @@ class ProductionController {
             ];
         }
 
+        $damageNumber = $damage['damage_number'] ?? ('#' . $damage['id']);
         $this->renderProductionRecord(
-            'Damage Record ' . ($damage['damage_number'] ?? ('#' . $damage['id'])),
-            'damages',
-            'Damages',
+            'Damage Record ' . $damageNumber,
+            'prod-damages',
+            'Damage Management',
             url('production/damages'),
             $fields,
             [],
             [],
             'Damage Details',
-            $qrLabelData
+            $qrLabelData,
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Damage Management', 'url' => url('production/damages')],
+                ['label' => $damageNumber],
+            ]
         );
     }
 
@@ -20669,7 +21827,13 @@ class ProductionController {
                 'Cut'             => 'cut_qty',
                 'Cutting Wastage' => 'display_wastage',
             ],
-            'Cut Items'
+            'Cut Items',
+            [],
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Cutting', 'url' => url('production/cutting')],
+                ['label' => $batch['batch_number'] ?? ('#' . $batch['id'])],
+            ]
         );
     }
 
@@ -20739,7 +21903,13 @@ class ProductionController {
                 'Rework'  => 'rework_qty',
                 'Weight'  => 'weight',
             ],
-            'Stitching Items'
+            'Stitching Items',
+            [],
+            [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Stitching', 'url' => url('production/stitching')],
+                ['label' => $batch['batch_number'] ?? ('#' . $batch['id'])],
+            ]
         );
     }
 
@@ -20792,20 +21962,18 @@ class ProductionController {
         array $items,
         array $itemColumns,
         string $itemsTitle,
-        array $qrLabel = [],
-        string $recordIcon = 'bi-eye'
+        array $qrLabel = []
     ): void {
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
             'activeModule' => 'production',
             'activeMenu'   => $activeMenu,
-            'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+            'breadcrumb'   => $customBreadcrumb ?? [
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => $sectionTitle, 'url' => $backUrl],
                 ['label' => 'Details'],
             ],
             'recordTitle'  => $recordTitle,
-            'recordIcon'   => $recordIcon,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
             'items'        => $items,
@@ -22321,7 +23489,7 @@ class ProductionController {
             'search'       => $search,
             'metrics'      => $metrics,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock'],
             ],
         ]);
@@ -22498,7 +23666,7 @@ class ProductionController {
             'listUrl'      => url('production/purchased-stock'),
             'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
                 ['label' => $stock['batch_code']],
             ],
@@ -22573,10 +23741,9 @@ class ProductionController {
             'listUrl'      => url('production/purchased-stock'),
             'purchaseUrl'  => url('purchases/view/' . $stock['purchase_id']),
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchased Stock', 'url' => url('production/purchased-stock')],
-                ['label' => $stock['batch_code'], 'url' => url('production/purchased-stock/view/' . $genId)],
-                ['label' => 'Edit'],
+                ['label' => 'Edit Purchased Stock ' . $stock['batch_code']],
             ],
         ]);
     }

@@ -1,7 +1,7 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <div class="d-flex align-items-center gap-2">
-            <h2 class="mb-1"><i class="bi bi-tag-fill me-2 text-primary"></i>Variant Details</h2>
+            <h2 class="mb-1"><i class="bi bi-tag-fill me-2 text-primary"></i>Product Variants Details</h2>
             <span class="badge bg-dark font-monospace fs-6 px-3 py-1"><?= e($variant['variant_code']) ?></span>
             <?php if ((int)$variant['is_active'] === 1): ?>
             <span class="badge bg-success">Active</span>
@@ -12,17 +12,8 @@
         <p class="text-muted small mb-0"><?= e($variant['product_name']) ?> (Parent SKU: <?= e($variant['parent_sku']) ?>)</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="<?= url('production/variants/qr-label/' . $variant['id']) ?>" target="_blank" class="btn btn-outline-dark">
-            <i class="bi bi-printer me-1"></i> Print Single Label
-        </a>
-        <button type="button" class="btn btn-primary" onclick="openBatchPrintModal(<?= (int)$variant['id'] ?>, '<?= e($variant['sku']) ?>', '<?= e($variant['variant_code']) ?>')">
-            <i class="bi bi-grid-3x2-gap me-1"></i> Batch Print QR Labels
-        </button>
-        <a href="<?= url('production/variants/edit/' . $variant['id']) ?>" class="btn btn-outline-warning">
-            <i class="bi bi-pencil me-1"></i> Edit
-        </a>
         <a href="<?= url('production/variants') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back
+            <i class="bi bi-arrow-left me-1"></i> Back to Product Variants
         </a>
     </div>
 </div>

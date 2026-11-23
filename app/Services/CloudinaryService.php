@@ -384,8 +384,8 @@ class CloudinaryService {
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_TCP_NODELAY    => 1,
             CURLOPT_IPRESOLVE      => defined('CURL_IPRESOLVE_V4') ? CURL_IPRESOLVE_V4 : 1,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => 6,
         ]);
 
         $response = curl_exec($ch);

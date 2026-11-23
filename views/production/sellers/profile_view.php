@@ -16,7 +16,7 @@
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Suppliers
+            <i class="bi bi-arrow-left me-1"></i>Back To Suppliers
         </a>
     </div>
 </div>

@@ -1,6 +1,6 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i>Purchases</h2>
+        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i> Record Purchases</h2>
     </div>
     <div class="d-flex align-items-center gap-2">
         <?php if (hasPermission('production_purchases', 'create') || hasPermission('sellers', 'create')): ?>
@@ -87,19 +87,23 @@
 
 <style>
 .purchase-action-buttons {
-    display: flex;
-    flex-wrap: wrap;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     justify-content: center;
     gap: 0.35rem;
+    white-space: nowrap;
 }
 .purchase-action-buttons .btn-action-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 36px;
-    width: 36px;
-    height: 36px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     padding: 0;
+    border-radius: 8px;
 }
 </style>
 
@@ -118,6 +122,7 @@
                     <a href="<?= url('purchases?type=RAW_MATERIAL') ?>" class="btn <?= ($filterType === 'RAW_MATERIAL') ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary' ?>">Raw Materials</a>
                     <a href="<?= url('purchases?type=THIRD_PARTY') ?>" class="btn <?= ($filterType === 'THIRD_PARTY') ? 'btn-info text-white' : 'btn-outline-secondary' ?>">3rd-Party</a>
                     <a href="<?= url('purchases?type=MIXED') ?>" class="btn <?= ($filterType === 'MIXED') ? 'btn-dark text-white' : 'btn-outline-secondary' ?>" title="Invoices containing multiple product types">Combined</a>
+                    <a href="<?= url('purchases?type=MAPPING') ?>" class="btn <?= ($filterType === 'MAPPING') ? 'text-white' : 'btn-outline-secondary' ?>" style="<?= ($filterType === 'MAPPING') ? 'background-color:#6f42c1;' : '' ?>" title="Purchases created or linked from Purchase Item Mapping"><i class="bi bi-diagram-3 me-1"></i>From Mapping</a>
                 </div>
                 <input type="text" id="purchasesSearchInput" class="form-control form-control-sm" placeholder="🔍 Search PO #, supplier, invoice..." style="width: 240px;" oninput="filterPurchasesTable(this.value)">
             </div>
@@ -135,7 +140,7 @@
                         <th>Inward Items &amp; Summary</th>
                         <th>Invoice #</th>
                         <th class="text-end">Total Amount (₹)</th>
-                        <th class="text-center" style="width: 170px;">Actions</th>
+                        <th class="text-center text-nowrap" style="width: 170px; min-width: 160px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="purchasesTableBody">
@@ -149,12 +154,22 @@
                     $ownProductItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'OWN_PRODUCT');
                     $rollItemCount = count($rollItems);
                     $rollQtySum = (int)array_sum(array_map(fn($it) => max(1, (int)($it['quantity'] ?? 1)), $rollItems));
-                    $totalWeight = array_sum(array_column($rollItems, 'weight_kg'));
+                    $totalWeight = (float)array_sum(array_column($rollItems, 'weight_kg'));
+                    $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
+                    $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
+                    $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
                 ?>
                     <tr class="purchase-row" data-search="<?= strtolower(e($purchase['purchase_number'] . ' ' . $pType . ' ' . ($purchase['company'] ?? '') . ' ' . ($purchase['seller_name'] ?? '') . ' ' . ($purchase['invoice_number'] ?? ''))) ?>">
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                         <td>
                             <strong class="font-monospace text-primary"><?= e($purchase['purchase_number']) ?></strong>
+                            <?php if (!empty($purchase['mapping_bill_id']) || str_contains($purchase['notes'] ?? '', 'Mapping')): ?>
+                                <div>
+                                    <a href="<?= !empty($purchase['mapping_bill_id']) ? url('purchases/mapping/draft/' . (int)$purchase['mapping_bill_id']) : url('purchases/mapping') ?>" class="badge text-white text-decoration-none mt-1 shadow-sm" style="background-color: #6f42c1;" title="Originates from Purchase Item Mapping Draft">
+                                        <i class="bi bi-diagram-3 me-1"></i>From Mapping<?= !empty($purchase['mapping_invoice_number']) ? ': ' . e($purchase['mapping_invoice_number']) : '' ?>
+                                    </a>
+                                </div>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <?php if ($pType === 'MIXED' || ((int)($rollItemCount > 0) + (int)(count($rawMaterialItems) > 0) + (int)(count($thirdPartyItems) > 0) > 1)): ?>
@@ -211,9 +226,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($purchase['items']) - 4 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'RAW_MATERIAL'): 
-                                $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-warning-subtle text-warning-emphasis border fw-semibold">
                                         <i class="bi bi-boxes me-1"></i><?= count($rawMaterialItems) ?> Raw Material(s) (<?= number_format($rmQtySum) ?> Units)
@@ -225,9 +238,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($rawMaterialItems) - 3 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'THIRD_PARTY'): 
-                                $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'THIRD_PARTY'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-info-subtle text-info border fw-semibold">
                                         <i class="bi bi-box-seam me-1"></i><?= count($thirdPartyItems) ?> Product(s) (<?= number_format($tpQtySum) ?> Units)
@@ -239,9 +250,7 @@
                                         <span class="text-secondary fw-normal">+<?= count($thirdPartyItems) - 3 ?> more</span>
                                     <?php endif; ?>
                                 </div>
-                            <?php elseif ($pType === 'OWN_PRODUCT'): 
-                                $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
-                            ?>
+                            <?php elseif ($pType === 'OWN_PRODUCT'): ?>
                                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                                     <span class="badge bg-secondary-subtle text-secondary border fw-semibold">
                                         <i class="bi bi-building-check me-1"></i><?= count($ownProductItems) ?> Inward Line(s) (<?= number_format($opQtySum) ?> Units)
@@ -328,7 +337,7 @@
                         <td class="text-end fw-bold text-success fs-6">
                             ₹<?= number_format((float)$purchase['total_amount'], 2) ?>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center text-nowrap">
                             <div class="purchase-action-buttons">
                                 <?php if (hasPermission('production_purchases', 'view') || hasPermission('sellers', 'view')): ?>
                                     <a class="btn btn-action-icon btn-outline-info" href="<?= url('purchases/view/' . $purchase['id']) ?>" title="View Purchase Details">

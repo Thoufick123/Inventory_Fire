@@ -478,19 +478,30 @@ if (tableExists($db, 'third_party_product_variants')) {
         'third_party_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_category_id`',
         'third_party_sub_subcategory_id' => 'int(10) unsigned DEFAULT NULL AFTER `third_party_subcategory_id`',
         'hsn_code' => 'varchar(20) DEFAULT NULL AFTER `third_party_sub_subcategory_id`',
+        'qr_generation_id' => 'int(10) unsigned DEFAULT NULL AFTER `hsn_code`',
+        'qr_batch_code' => 'varchar(100) DEFAULT NULL AFTER `qr_generation_id`',
     ];
     foreach ($variantTaxonomyColumns as $column => $definition) {
         if (!columnExists($db, 'third_party_product_variants', $column)) {
             $db->exec("ALTER TABLE `third_party_product_variants` ADD COLUMN `{$column}` {$definition}");
         }
     }
+    $qrGenerationIndex = $db->query("SHOW INDEX FROM `third_party_product_variants` WHERE Key_name = 'idx_tppv_qr_generation_id'");
+    if (!$qrGenerationIndex->fetch()) {
+        $db->exec("ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_qr_generation_id` (`qr_generation_id`)");
+    }
 }
 
 // Migration 1: 2026_05_28_add_return_settlement_modes.sql
-if (tableExists($db, 'returns')) {
+if (tableExists($db, 'returns') || tableExists($db, 'production_returns')) {
+    $returnTable = tableExists($db, 'returns') ? 'returns' : 'production_returns';
     echo "  Applying 2026_05_28_add_return_settlement_modes.sql...\n";
     try {
-        $db->exec("ALTER TABLE `returns` MODIFY COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE') DEFAULT NULL");
+        if (columnExists($db, $returnTable, 'refund_mode')) {
+            $db->exec("ALTER TABLE `{$returnTable}` MODIFY COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL");
+        } else {
+            $db->exec("ALTER TABLE `{$returnTable}` ADD COLUMN `refund_mode` ENUM('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL");
+        }
     } catch (Exception $e) {
         echo "    Notice: " . $e->getMessage() . "\n";
     }

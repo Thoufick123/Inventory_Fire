@@ -9,12 +9,6 @@ $canDeleteUnit = hasPermission('dashboard', 'delete') || hasPermission('producti
         <h2 class="mb-1"><i class="bi bi-speedometer2 me-2 text-primary"></i>Admin Dashboard</h2>
         <p class="text-muted small mb-0">Production facilities, workforce directory, and system health overview.</p>
     </div>
-    <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn btn-outline-dark shadow-sm fw-semibold d-flex align-items-center gap-1.5" data-bs-toggle="modal" data-bs-target="#qrStatusFinderModal">
-            <i class="bi bi-qr-code-scan text-primary"></i>
-            <span>QR Status Finder</span>
-        </button>
-    </div>
 </div>
 
 <!-- ========================================================================= -->

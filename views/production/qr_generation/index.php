@@ -2,7 +2,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>QR Code Generations</h2>
-        <p class="text-muted small mb-0">Generate standalone or catalog-linked QR identities with custom brand prefixes and batch thermal labels.</p>
     </div>
     <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-dark shadow-sm" data-bs-toggle="modal" data-bs-target="#printerSettingsModal">
@@ -124,9 +123,9 @@
                     <option value="CATALOG_VARIANT" <?= ($filters['type'] ?? '') === 'CATALOG_VARIANT' ? 'selected' : '' ?>>Catalog / Variant Linked</option>
                 </select>
             </div>
-            <div class="col-lg-2 col-md-12 d-flex gap-1">
-                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter me-1"></i> Filter</button>
-                <a href="<?= url('production/qr-generations') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i></a>
+            <div class="col-lg-2 col-md-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center" style="height: 38px;"><i class="bi bi-filter me-1"></i> Filter</button>
+                <a href="<?= url('production/qr-generations') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; padding: 0;" title="Reset Filters"><i class="bi bi-arrow-counterclockwise"></i></a>
             </div>
         </form>
     </div>
@@ -213,19 +212,22 @@
                         <td class="text-muted small">
                             <?= date('d M Y, h:i A', strtotime($batch['created_at'])) ?>
                         </td>
-                        <td class="text-end pe-3">
-                            <div class="btn-group btn-group-sm">
-                                <a href="<?= url('production/qr-generations/view/' . $batch['id']) ?>" class="btn btn-outline-primary" title="View Generated Codes">
-                                    <i class="bi bi-eye"></i> View
+                        <td class="text-end text-nowrap pe-3">
+                            <div class="action-btns-group justify-content-end">
+                                <a href="<?= url('production/qr-generations/view/' . $batch['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Generated Codes">
+                                    <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-outline-dark" title="Print Sticker Labels">
-                                    <i class="bi bi-printer"></i> Print
+                                <a href="<?= url('production/qr-generations/edit/' . $batch['id']) ?>" class="btn btn-action-icon btn-outline-primary" title="Edit QR Batch">
+                                    <i class="bi bi-pencil"></i>
                                 </a>
-                                <form method="POST" action="<?= url('production/qr-generations/delete/' . $batch['id']) ?>" class="d-inline" onsubmit="return confirm('Delete this QR batch and all its codes?');">
+                                <a href="<?= url('production/qr-generations/print/' . $batch['id']) ?>" target="_blank" class="btn btn-action-icon btn-outline-secondary" title="Print Sticker Labels">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                <a href="<?= url('production/qr-generations/delete/' . $batch['id']) ?>" class="btn btn-action-icon btn-outline-danger" title="Delete Batch" onclick="event.preventDefault(); if (confirm('Delete this QR batch and all its codes?')) { document.getElementById('deleteQrBatchForm_<?= $batch['id'] ?>').submit(); }">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                                <form id="deleteQrBatchForm_<?= $batch['id'] ?>" method="POST" action="<?= url('production/qr-generations/delete/' . $batch['id']) ?>" class="d-none">
                                     <?= csrf_field() ?>
-                                    <button type="submit" class="btn btn-outline-danger" title="Delete Batch">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
                                 </form>
                             </div>
                         </td>

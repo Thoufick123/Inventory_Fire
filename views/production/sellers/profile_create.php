@@ -1,5 +1,6 @@
 <div class="page-header mb-4">
     <h2><i class="bi bi-person-plus me-2 text-primary"></i>Add Supplier</h2>
+    <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back To Suppliers</a>
 </div>
 <form method="POST" action="<?= url('production/sellers/store') ?>" class="card shadow-sm border" id="supplierForm" novalidate>
     <?= CSRF::field() ?>

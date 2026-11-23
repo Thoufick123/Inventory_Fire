@@ -59,8 +59,8 @@ class VariantController {
             'sizes'         => $sizes,
             'stats'         => $stats,
             'breadcrumb'    => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Variants & QR Identities'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Variants'],
             ],
         ]);
     }
@@ -79,7 +79,7 @@ class VariantController {
         $suggestedVariantCode = VariantService::generateNextVariantCode();
 
         Response::view('production.variants.create', [
-            'pageTitle'            => 'Create Product Variant | GRM Inventory',
+            'pageTitle'            => 'Add Product Variants | GRM Inventory',
             'activeModule'         => 'production',
             'activeMenu'           => 'prod-variants',
             'categories'           => $categories,
@@ -90,9 +90,9 @@ class VariantController {
             'sizes'                => $sizes,
             'suggestedVariantCode' => $suggestedVariantCode,
             'breadcrumb'           => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Variants', 'url' => url('production/variants')],
-                ['label' => 'Create Variant'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Variants', 'url' => url('production/variants')],
+                ['label' => 'Add Product Variants'],
             ],
         ]);
     }
@@ -146,9 +146,9 @@ class VariantController {
             'stock'        => $stock,
             'hasHistory'   => $hasHistory,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Variants', 'url' => url('production/variants')],
-                ['label' => $variant['variant_code'] ?? $variant['sku']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Variants', 'url' => url('production/variants')],
+                ['label' => 'Product Variants ' . ($variant['variant_code'] ?: ($variant['sku'] ?: $variant['id']))],
             ],
         ]);
     }
@@ -178,9 +178,9 @@ class VariantController {
             'sizes'        => $sizes,
             'hasHistory'   => $hasHistory,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Variants', 'url' => url('production/variants')],
-                ['label' => 'Edit ' . ($variant['variant_code'] ?? $variant['sku'])],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Variants', 'url' => url('production/variants')],
+                ['label' => 'Edit Product Variants ' . ($variant['variant_code'] ?: ($variant['sku'] ?: $variant['id']))],
             ],
         ]);
     }
@@ -603,8 +603,8 @@ class VariantController {
             'subcategorySales'  => $subcategorySales,
             'batchStockSales'   => $batchStockSales,
             'breadcrumb'        => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Variants', 'url' => url('production/variants')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Product Variants', 'url' => url('production/variants')],
                 ['label' => 'Reports'],
             ],
         ]);

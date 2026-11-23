@@ -1260,7 +1260,7 @@ class QrGenerationService {
      * Stock is NEVER credited automatically on QR generation or mapping.
      * Fabric rolls are excluded: they must pass QC before entering inventory.
      */
-    public static function addToStock(int $generationId, int $userId = 0): array {
+    public static function addToStock(int $generationId, int $userId = 0, ?int $targetWarehouseId = null): array {
         self::ensureSourceSchema();
 
         $batch = self::getBatch($generationId);
@@ -1305,7 +1305,7 @@ class QrGenerationService {
             $quantity = max(1.0, (float)($batch['quantity'] ?: count($batch['items'])));
             $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
                 ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
-            $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+            $warehouseId = $targetWarehouseId ?: ($warehouse ? (int)$warehouse['id'] : 1);
             if (!class_exists('StockService')) {
                 throw new RuntimeException('Stock service is unavailable; the QR batch was not posted to stock.');
             }
@@ -1386,7 +1386,7 @@ class QrGenerationService {
 
         $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
             ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
-        $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+        $warehouseId = $targetWarehouseId ?: ($warehouse ? (int)$warehouse['id'] : 1);
 
         Database::beginTransaction();
         try {

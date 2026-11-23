@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261204'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261121_variant_qr'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -158,11 +158,16 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('third_party_product_variants', 'third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_category_id');
         Database::ensureColumn('third_party_product_variants', 'third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_subcategory_id');
         Database::ensureColumn('third_party_product_variants', 'hsn_code', 'VARCHAR(20) DEFAULT NULL AFTER third_party_sub_subcategory_id');
+        Database::ensureColumn('third_party_product_variants', 'product_variant_id', 'INT UNSIGNED DEFAULT NULL AFTER third_party_product_id');
+        Database::ensureColumn('third_party_product_variants', 'gst_rate', 'DECIMAL(8,3) NOT NULL DEFAULT 0.000 AFTER purchase_rate');
+        Database::ensureColumn('third_party_product_variants', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER hsn_code');
+        Database::ensureColumn('third_party_product_variants', 'qr_batch_code', 'VARCHAR(100) DEFAULT NULL AFTER qr_generation_id');
         Database::ensureColumn('production_purchase_items', 'third_party_product_id', 'INT UNSIGNED DEFAULT NULL AFTER variant_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_category_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_sub_subcategory_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_category_id');
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_subcategory_id');
         Database::ensureColumn('qr_generations', 'source_mapping_item_id', 'INT UNSIGNED DEFAULT NULL AFTER source_purchase_item_id');
+        Database::ensureColumn('qr_generations', 'source_variant_id', 'INT UNSIGNED DEFAULT NULL AFTER source_mapping_item_id');
         Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_bills (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             concern_id INT UNSIGNED NOT NULL,
@@ -206,6 +211,27 @@ class PurchaseMappingFulfillmentService {
             CONSTRAINT fk_tpmi_bill FOREIGN KEY (mapping_bill_id) REFERENCES third_party_mapping_bills (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         Database::ensureColumn('third_party_mapping_items', 'purchase_item_id', 'INT UNSIGNED DEFAULT NULL AFTER mapping_bill_id');
+        Database::ensureColumn('third_party_mapping_items', 'item_type', "ENUM('THIRD_PARTY','FABRIC_ROLL') NOT NULL DEFAULT 'THIRD_PARTY' AFTER purchase_item_id");
+        Database::ensureColumn('third_party_mapping_items', 'roll_code', "VARCHAR(100) DEFAULT NULL AFTER product_code");
+        Database::ensureColumn('third_party_mapping_items', 'weight_kg', "DECIMAL(10,3) DEFAULT NULL AFTER quantity");
+        Database::ensureColumn('third_party_mapping_items', 'meters', "DECIMAL(10,3) DEFAULT NULL AFTER weight_kg");
+
+        // High-Performance Composite Indexes for ERP mapping, purchases, QR and stock ledger
+        Database::ensureIndex('production_purchases', 'idx_pp_seller_inv', '`seller_id`, `invoice_number`');
+        Database::ensureIndex('production_purchases', 'idx_pp_concern_type', '`concern_id`, `purchase_type`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_purchase_type', '`purchase_id`, `item_type`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_variant', '`variant_id`');
+        Database::ensureIndex('production_purchase_items', 'idx_ppi_qr', '`qr_generation_id`');
+        Database::ensureIndex('third_party_mapping_bills', 'idx_tpmb_match_inv', '`concern_id`, `seller_id`, `invoice_number`');
+        Database::ensureIndex('third_party_mapping_bills', 'idx_tpmb_purchase_link', '`purchase_id`');
+        Database::ensureIndex('third_party_mapping_items', 'idx_tpmi_purchase_item', '`purchase_item_id`');
+        Database::ensureIndex('third_party_mapping_items', 'idx_tpmi_variant_link', '`variant_id`');
+        Database::ensureIndex('stock_transactions', 'idx_st_variant_loc_state', '`variant_id`, `location_type`, `location_id`');
+        Database::ensureIndex('stock_balances', 'idx_sb_variant_loc_state', '`variant_id`, `location_type`, `location_id`, `stock_state`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_source_mapping', '`source_mapping_item_id`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_source_purchase', '`source_purchase_item_id`');
+        Database::ensureIndex('qr_generations', 'idx_qrg_stock_status', '`stock_added`');
+        Database::ensureIndex('product_variants', 'idx_pv_product_active', '`product_id`, `is_active`');
 
         // Repair legacy rows that were flagged as mapped without any taxonomy.
         Database::execute(
@@ -247,7 +273,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261204'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261121_variant_qr'] = 1;
         }
         self::$schemaEnsured = true;
     }
@@ -301,6 +327,7 @@ class PurchaseMappingFulfillmentService {
         $categoryId = (int)($mapping['category_id'] ?? 0);
         $subcategoryId = !empty($mapping['subcategory_id']) ? (int)$mapping['subcategory_id'] : null;
         $subSubcategoryId = !empty($mapping['sub_subcategory_id']) ? (int)$mapping['sub_subcategory_id'] : null;
+        $includeInactiveCategories = !empty($mapping['include_inactive_categories']);
         $isComplementary = !empty($mapping['is_complementary']) ? 1 : 0;
         $variantIsComplementary = array_key_exists('variant_is_complementary', $mapping)
             ? (!empty($mapping['variant_is_complementary']) ? 1 : 0)
@@ -320,19 +347,20 @@ class PurchaseMappingFulfillmentService {
             throw new InvalidArgumentException('Selling price cannot be greater than MRP.');
         }
 
+        $categoryActiveCondition = $includeInactiveCategories ? '' : ' AND is_active = 1';
         $category = Database::fetchOne(
-            "SELECT id, name, code FROM third_party_categories WHERE id = ? AND is_active = 1",
+            "SELECT id, name, code FROM third_party_categories WHERE id = ?{$categoryActiveCondition}",
             [$categoryId]
         );
         if (!$category) {
             throw new InvalidArgumentException('Selected category does not exist.');
         }
-        if (!self::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
+        if (!self::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, $includeInactiveCategories)) {
             throw new InvalidArgumentException('Select a valid category hierarchy from the Third-Party Catalog.');
         }
         if ($subcategoryId) {
             $validSub = Database::fetchOne(
-                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ?{$categoryActiveCondition}",
                 [$subcategoryId, $categoryId]
             );
             if (!$validSub) {
@@ -342,7 +370,7 @@ class PurchaseMappingFulfillmentService {
         }
         if ($subSubcategoryId) {
             $validSubSub = Database::fetchOne(
-                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ?{$categoryActiveCondition}",
                 [$subSubcategoryId, $subcategoryId ?: 0]
             );
             if (!$validSubSub) {
@@ -417,9 +445,15 @@ class PurchaseMappingFulfillmentService {
         }
     }
 
-    public static function isExternalCatalogHierarchy(int $categoryId, ?int $subcategoryId = null, ?int $subSubcategoryId = null): bool {
+    public static function isExternalCatalogHierarchy(
+        int $categoryId,
+        ?int $subcategoryId = null,
+        ?int $subSubcategoryId = null,
+        bool $includeInactive = false
+    ): bool {
+        $activeCondition = $includeInactive ? '' : ' AND is_active = 1';
         if ($categoryId <= 0 || !Database::fetchOne(
-            "SELECT id FROM third_party_categories WHERE id = ? AND is_active = 1",
+            "SELECT id FROM third_party_categories WHERE id = ?{$activeCondition}",
             [$categoryId]
         )) {
             return false;
@@ -427,7 +461,7 @@ class PurchaseMappingFulfillmentService {
 
         if ($subcategoryId) {
             if (!Database::fetchOne(
-                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ?{$activeCondition}",
                 [$subcategoryId, $categoryId]
             )) {
                 return false;
@@ -435,7 +469,7 @@ class PurchaseMappingFulfillmentService {
         }
         if ($subSubcategoryId) {
             if (!$subcategoryId || !Database::fetchOne(
-                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ?{$activeCondition}",
                 [$subSubcategoryId, $subcategoryId]
             )) {
                 return false;
@@ -688,9 +722,12 @@ class PurchaseMappingFulfillmentService {
         $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
             ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
         if (!$warehouse) {
-            throw new RuntimeException('No warehouse is configured for the auto-generated GRN.');
+            $cid = (int)($catalog['concern_id'] ?? 1) ?: 1;
+            Database::execute("INSERT INTO warehouses (name, code, is_active, concern_id) VALUES ('Main Warehouse', 'WH-MAIN', 1, ?)", [$cid]);
+            $warehouseId = (int)Database::lastInsertId();
+        } else {
+            $warehouseId = (int)$warehouse['id'];
         }
-        $warehouseId = (int)$warehouse['id'];
 
         $grnId = (int)($item['purchase_grn_id'] ?? 0);
         $grnNumber = (string)($item['purchase_grn_number'] ?? '');

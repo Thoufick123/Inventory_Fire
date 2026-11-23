@@ -459,7 +459,11 @@ class AdminController {
         }
 
         $roleId     = (int)($_POST['role_id'] ?? 0);
-        $department = strtoupper($_POST['department'] ?? 'PRODUCTION');
+        $department = strtoupper($_POST['department'] ?? 'ALL');
+        if (empty($department) || $department === 'PRODUCTION') {
+            $department = 'ALL';
+        }
+        $_POST['department'] = $department;
 
         if (!Role::isRoleCompatibleWithDepartment($roleId, $department)) {
             $role = Role::findById($roleId);
@@ -695,7 +699,11 @@ class AdminController {
         }
 
         $roleId     = (int)($_POST['role_id'] ?? 0);
-        $department = strtoupper($_POST['department'] ?? ($oldStaff['department'] ?? 'PRODUCTION'));
+        $department = strtoupper($_POST['department'] ?? ($oldStaff['department'] ?? 'ALL'));
+        if (empty($department) || $department === 'PRODUCTION') {
+            $department = 'ALL';
+        }
+        $_POST['department'] = $department;
 
         if (!Role::isRoleCompatibleWithDepartment($roleId, $department)) {
             $role = Role::findById($roleId);

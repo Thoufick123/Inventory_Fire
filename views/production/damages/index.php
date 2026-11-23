@@ -78,13 +78,15 @@
     <div class="card-body p-3">
         <form method="GET" action="<?= url('production/damages') ?>" class="row g-2 align-items-center">
             <div class="col-md-3">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
-                    <input type="text" name="search" id="damageSearchInput" class="form-control" placeholder="Search damage #, roll, supplier..." value="<?= e($search) ?>" autocomplete="off">
+                <div class="input-group" style="height: 38px;">
+                    <span class="input-group-text bg-white text-muted border-end-0 ps-3 pe-2" style="height: 38px; border-color: #cbd5e1; border-radius: 8px 0 0 8px;">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" name="search" id="damageSearchInput" class="form-control border-start-0 ps-1" style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0; font-size: 0.875rem;" placeholder="Search damage #, roll, supplier..." value="<?= e($search) ?>" autocomplete="off">
                 </div>
             </div>
             <div class="col-md-3">
-                <select name="seller_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="seller_id" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="this.form.submit()">
                     <option value="">-- All Material Suppliers --</option>
                     <?php foreach ($sellers as $s): ?>
                         <option value="<?= $s['id'] ?>" <?= $sellerId == $s['id'] ? 'selected' : '' ?>>
@@ -94,7 +96,7 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <select name="reason" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="reason" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="this.form.submit()">
                     <option value="">-- All Defect Reasons --</option>
                     <?php foreach ($damageReasons as $damageReasonOption): ?>
                         <?php $reasonValue = $damageReasonOption['damage_reason']; ?>
@@ -103,7 +105,7 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="status" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="this.form.submit()">
                     <option value="">-- All Statuses --</option>
                     <option value="LOGGED" <?= $status === 'LOGGED' ? 'selected' : '' ?>>Logged (Pending Action)</option>
                     <option value="RETURN_INITIATED" <?= $status === 'RETURN_INITIATED' ? 'selected' : '' ?>>Return Initiated</option>
@@ -113,13 +115,11 @@
                     <option value="CLOSED" <?= $status === 'CLOSED' ? 'selected' : '' ?>>Closed / Resolved</option>
                 </select>
             </div>
-            <div class="col-md-2 d-flex gap-1">
-                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
-                    <i class="bi bi-funnel me-1"></i>Filter
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center fw-semibold px-3" style="height: 38px; border-radius: 8px; font-size: 0.875rem; gap: 6px;">
+                    <i class="bi bi-funnel"></i>
+                    <span>Filter</span>
                 </button>
-                <a href="<?= url('production/damages') ?>" class="btn btn-sm btn-outline-secondary" title="Reset Filters">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </a>
             </div>
         </form>
     </div>
@@ -328,14 +328,14 @@
                 </table>
             </div>
             <!-- Pagination Controls Footer -->
-            <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="damagesPaginationFooter">
+            <div class="card-footer bg-white py-3 px-3 px-md-4 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="damagesPaginationFooter">
                 <div class="d-flex align-items-center gap-3 flex-wrap">
                     <span class="small text-muted fw-medium" id="damagesPageInfo">
-                        Showing 1 to 10 of <?= count($damages) ?> records
+                        Showing 1 to <?= min(10, count($damages)) ?> of <?= count($damages) ?> records
                     </span>
                     <div class="d-flex align-items-center gap-2">
                         <label class="small text-muted mb-0 fw-medium">Show:</label>
-                        <select id="damagesPageSizeSelect" class="form-select form-select-sm" style="width: auto;">
+                        <select id="damagesPageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2rem;">
                             <option value="10" selected>10 per page</option>
                             <option value="25">25 per page</option>
                             <option value="50">50 per page</option>
@@ -473,7 +473,6 @@
                         <h5 class="modal-title fw-bold fs-6 mb-0">
                             <i class="bi bi-pencil-square me-2"></i>Edit Damage / Defect (Rolls &amp; Finished Products)
                         </h5>
-                        <small class="text-dark opacity-75" style="font-size: 11px;">Update reason, evidence, and notes</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -625,7 +624,7 @@
 
 <!-- 3. Resolve / Supplier Return & Refund Modal -->
 <div class="modal fade" id="resolveModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content shadow-lg border-primary">
             <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold fs-6">

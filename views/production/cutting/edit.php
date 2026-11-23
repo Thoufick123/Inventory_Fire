@@ -4,11 +4,10 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-scissors me-2 text-info"></i>Edit Cutting Batch — <?= e($batch['name'] ?: $batch['batch_number']) ?></h2>
-        <span class="text-muted">Update cut pieces, fabric rolls with per-roll 3-tier catalog, wastage & fabric cost analytics</span>
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('production/cutting') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to Cutting Batches
+            <i class="bi bi-arrow-left me-1"></i> Back to Cutting
         </a>
     </div>
 </div>
@@ -391,24 +390,24 @@ function addCuttingRollRow(rollData = null) {
             ` : ''}
         </div>
         <div class="row g-2 align-items-center mb-2">
-            <div class="col-12 col-md-6">
+            <div class="col-12">
                 <label class="form-label small text-muted mb-1">Fabric Roll</label>
                 <select name="rolls[${idx}][seller_roll_id]" class="form-select form-select-sm border-info cutting-roll-select" onchange="handleCuttingRollRowChange(this)">
                     ${optionsHtml}
                 </select>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6">
                 <label class="form-label small text-muted mb-1">Weight (kg)</label>
                 <div class="input-group input-group-sm">
-                    <input type="number" step="0.01" min="0" name="rolls[${idx}][roll_weight]" class="form-control text-end cutting-roll-weight bg-light fw-bold" value="${weight}" readonly style="cursor: not-allowed;" oninput="calculateRollTotals()">
-                    <span class="input-group-text bg-light">kg</span>
+                    <input type="number" step="0.01" min="0" name="rolls[${idx}][roll_weight]" class="form-control text-end cutting-roll-weight bg-white border-info fw-bold" value="${weight}" readonly style="cursor: not-allowed;" oninput="calculateRollTotals()">
+                    <span class="input-group-text bg-white border-info text-muted">kg</span>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6">
                 <label class="form-label small text-muted mb-1">Price (₹)</label>
                 <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-light">₹</span>
-                    <input type="number" step="0.01" min="0" name="rolls[${idx}][roll_price]" class="form-control text-end cutting-roll-price bg-light fw-bold text-primary" value="${price}" readonly style="cursor: not-allowed;" oninput="calculateRollTotals()">
+                    <span class="input-group-text bg-white border-info text-muted">₹</span>
+                    <input type="number" step="0.01" min="0" name="rolls[${idx}][roll_price]" class="form-control text-end cutting-roll-price bg-white border-info fw-bold text-primary" value="${price}" readonly style="cursor: not-allowed;" oninput="calculateRollTotals()">
                 </div>
             </div>
         </div>
@@ -419,9 +418,13 @@ function addCuttingRollRow(rollData = null) {
 
         <!-- 3-Tier Catalog Selection for THIS specific Roll (Locked & Disabled with full visibility) -->
         <div class="p-2 bg-light rounded border mt-2">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="small fw-semibold text-primary"><i class="bi bi-diagram-3 me-1"></i>Catalog Hierarchy for this Roll</span>
-                <span class="badge bg-secondary-subtle text-secondary border small roll-catalog-badge">Catalog</span>
+            <div class="mb-2 pb-1 border-bottom">
+                <div class="small fw-semibold text-primary mb-1">
+                    <i class="bi bi-diagram-3 me-1"></i>Catalog Hierarchy for this Roll
+                </div>
+                <div>
+                    <span class="badge bg-secondary-subtle text-secondary border small roll-catalog-badge">Catalog</span>
+                </div>
             </div>
             <div class="row g-2">
                 <div class="col-12 mb-1">

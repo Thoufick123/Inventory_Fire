@@ -87,7 +87,12 @@ function onQrPurchaseChanged(key) {
         const opt = document.createElement('option');
         opt.value = item.item_id;
         const variantLabel = Number(item.variant_id || 0) > 0 ? 'Variant ID ' + Number(item.variant_id) : 'Variant not assigned';
-        const label = [item.item_name, variantLabel, item.roll_number ? ('Roll ' + item.roll_number) : '', item.start_code ? ('Code ' + item.start_code) : ''].filter(Boolean).join(' · ');
+        let rollLabel = '';
+        if (item.roll_number) {
+            const trimmed = String(item.roll_number).trim();
+            rollLabel = /^roll\b/i.test(trimmed) ? trimmed : ('Roll ' + trimmed);
+        }
+        const label = [item.item_name, variantLabel, rollLabel].filter(Boolean).join(' · ');
         opt.textContent = label + ' — ' + Number(item.quantity).toLocaleString() + ' ' + (item.unit || 'pcs');
         opt.dataset.item = JSON.stringify(item);
         itemSelect.appendChild(opt);
@@ -113,7 +118,7 @@ function onQrItemChanged(key) {
         '<div class="row g-2 small">' +
             '<div class="col-md-3"><span class="text-muted">Item</span><div class="fw-bold">' + (item.item_name || '') + '</div></div>' +
             '<div class="col-md-2"><span class="text-muted">Variant ID</span><div class="fw-bold font-monospace">' + (variantId > 0 ? variantId : 'Not assigned') + '</div></div>' +
-            '<div class="col-md-2"><span class="text-muted">Roll / Start code</span><div class="fw-bold font-monospace">' + (item.roll_number || item.start_code || '—') + '</div></div>' +
+            '<div class="col-md-2"><span class="text-muted">Roll #</span><div class="fw-bold font-monospace">' + (item.roll_number || '—') + '</div></div>' +
             '<div class="col-md-2"><span class="text-muted">Qty</span><div class="fw-bold text-primary">' + Number(item.quantity).toLocaleString() + ' ' + (item.unit || 'pcs') + '</div></div>' +
             '<div class="col-md-3"><span class="text-muted">Existing batch</span><div>' + existing + '</div></div>' +
         '</div>';

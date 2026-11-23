@@ -96,9 +96,16 @@ class User {
             if (empty($concernCount['c'])) {
                 Database::execute("INSERT IGNORE INTO concerns (id, name, code, legal_name, invoice_prefix, po_prefix, dispatch_prefix, is_active)
                     VALUES (1, 'GRM Apparels Unit 1', 'CN-01', 'GRM Apparels Private Limited', 'INV-', 'PO-', 'DSP-', 1)");
-                $stdModules = ['production', 'purchases', 'warehouse', 'retail_pos', 'digital_sales', 'returns', 'expenses', 'assets'];
-                foreach ($stdModules as $m) {
-                    Database::execute("INSERT IGNORE INTO concern_modules (concern_id, module_key, is_enabled) VALUES (1, ?, 1)", [$m]);
+            }
+            $concernsList = Database::fetchAll("SELECT id FROM concerns");
+            $stdModules = ['production', 'purchases', 'warehouse', 'retail_pos', 'digital_sales', 'returns', 'expenses', 'assets'];
+            foreach ($concernsList as $cRow) {
+                $cId = (int)$cRow['id'];
+                $cModulesCount = Database::fetchOne("SELECT COUNT(*) as c FROM concern_modules WHERE concern_id = ?", [$cId]);
+                if (empty($cModulesCount['c'])) {
+                    foreach ($stdModules as $m) {
+                        Database::execute("INSERT IGNORE INTO concern_modules (concern_id, module_key, is_enabled) VALUES (?, ?, 1)", [$cId, $m]);
+                    }
                 }
             }
             Database::execute("CREATE TABLE IF NOT EXISTS user_permissions (
@@ -293,10 +300,10 @@ class User {
             self::saveConcerns($userId, [$defaultConcernId], $defaultConcernId);
         }
 
-        // Save customized permissions if provided (strictly scoped to department)
+        // Save customized permissions if provided
         if (isset($data['permissions']) && is_array($data['permissions'])) {
-            $filteredPerms = Role::filterPermissionsForDepartment($data['permissions'], $dept);
-            self::savePermissions($userId, $filteredPerms);
+            $cleanPerms = array_values(array_filter(array_map('intval', $data['permissions'])));
+            self::savePermissions($userId, $cleanPerms);
         }
 
         return $userId;
@@ -370,15 +377,10 @@ class User {
             self::saveConcerns($id, $data['concerns'], $defCid);
         }
 
-        // Update customized permissions if provided (strictly scoped to department)
+        // Update customized permissions if provided
         if (isset($data['permissions']) && is_array($data['permissions'])) {
-            $dept = !empty($data['department']) ? strtoupper($data['department']) : null;
-            if (empty($dept)) {
-                $existing = self::findById($id);
-                $dept = $existing['department'] ?? 'GENERAL';
-            }
-            $filteredPerms = Role::filterPermissionsForDepartment($data['permissions'], $dept);
-            self::savePermissions($id, $filteredPerms);
+            $cleanPerms = array_values(array_filter(array_map('intval', $data['permissions'])));
+            self::savePermissions($id, $cleanPerms);
         }
     }
 

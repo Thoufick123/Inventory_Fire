@@ -25,8 +25,8 @@ if (empty($existingColorIds)) {
 <form method="POST" action="<?= url('production/catalog/update/' . $product['id']) ?>" id="editCatalogForm">
     <?= CSRF::field() ?>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-10 col-xl-9">
+    <div class="row">
+        <div class="col-12">
             <!-- 1. CATEGORY HIERARCHY -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
@@ -249,7 +249,6 @@ if (empty($existingColorIds)) {
                                         </div>
                                     </div>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Type to live filter HSN codes or click to open dropdown</small>
                             </div>
 
                             <!-- HSN Code -->
@@ -263,7 +262,6 @@ if (empty($existingColorIds)) {
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Harmonized System of Nomenclature code for tax invoices</small>
                             </div>
 
                             <!-- Default GST Rate -->
@@ -273,7 +271,6 @@ if (empty($existingColorIds)) {
                                     <input type="number" step="0.01" min="0" max="28" name="gst_percentage" id="gst_percentage" class="form-control fw-bold" value="<?= e((float)($product['gst_percentage'] ?? 5.00)) ?>" placeholder="5.00">
                                     <span class="input-group-text">%</span>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Standard 5% / 12% GST</small>
                             </div>
                         </div>
                     </div>

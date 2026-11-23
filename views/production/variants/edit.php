@@ -1,11 +1,10 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-pencil-square me-2 text-warning"></i>Edit Variant <?= e($variant['variant_code']) ?></h2>
-        <p class="text-muted small mb-0">Update permitted variant details, prices, and tax information.</p>
+        <h2 class="mb-1"><i class="bi bi-pencil-square me-2 text-warning"></i>Edit Product Variants <?= e($variant['variant_code']) ?></h2>
     </div>
     <div>
         <a href="<?= url('production/variants') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to Variants Roster
+            <i class="bi bi-arrow-left me-1"></i> Back to Product Variants
         </a>
     </div>
 </div>

@@ -39,10 +39,9 @@ input[type=number] {
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-threads me-2 text-warning"></i>Edit Stitching Batch — <?= e($batch['name'] ?: $batch['batch_number']) ?></h2>
-        <span class="text-muted">Update sewing quantities, multi-catalog pricing, garment weights, and worker assignments</span>
     </div>
     <a href="<?= url('production/stitching') ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i> Back to Stitching Batches
+        <i class="bi bi-arrow-left me-1"></i> Back to Stitching
     </a>
 </div>
 

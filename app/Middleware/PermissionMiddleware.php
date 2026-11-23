@@ -29,6 +29,11 @@ class PermissionMiddleware {
                 return;
             }
 
+            // Allow access to edit QR generation if user has create permission
+            if ($module === 'qr_generation' && $action === 'edit' && hasPermission('qr_generation', 'create')) {
+                return;
+            }
+
             $readableModule = ucwords(str_replace('_', ' ', $module));
             $readableAction = strtolower($action);
 

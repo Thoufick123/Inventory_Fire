@@ -14,13 +14,7 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Back to List
-        </a>
-        <a href="<?= e($editUrl) ?>" class="btn btn-warning text-dark fw-bold">
-            <i class="bi bi-pencil-square me-1"></i> Edit Details
-        </a>
-        <a href="<?= e($printUrl) ?>" target="_blank" class="btn btn-primary fw-bold">
-            <i class="bi bi-printer-fill me-1"></i> Print All Labels
+            <i class="bi bi-arrow-left me-1"></i> Back to Purchased Stock
         </a>
     </div>
 </div>
@@ -133,16 +127,13 @@
                                 <div class="d-flex justify-content-center my-2">
                                     <div class="qr-canvas-holder p-1 bg-white border rounded" id="qr-canvas-<?= (int)$item['id'] ?>" data-code="<?= e($item['qr_code']) ?>"></div>
                                 </div>
-                                <!-- MM/YYYY Date at Bottom in Monospace Blue -->
-                                <?php if ($dateLabel !== ''): ?>
-                                    <div class="font-monospace fw-bold text-primary" style="font-size: 12px;">
-                                        <?= e($dateLabel) ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="font-monospace fw-bold text-primary" style="font-size: 11px;">
-                                        <?= e($item['qr_code']) ?>
-                                    </div>
-                                <?php endif; ?>
+                                <!-- QR Code at Bottom in Monospace Blue -->
+                                <div class="font-monospace fw-bold text-primary" style="font-size: 11px;">
+                                    <?= e($item['qr_code']) ?>
+                                    <?php if ($dateLabel !== ''): ?>
+                                        <span class="text-muted fw-normal" style="font-size: 10px;">(<?= e($dateLabel) ?>)</span>
+                                    <?php endif; ?>
+                                </div>
 
                                 <!-- Color & Design Pattern -->
                                 <?php
@@ -184,20 +175,6 @@
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
-    </div>
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="<?= e($listUrl) ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i> Back to Stock List
-    </a>
-    <div class="d-flex gap-2">
-        <a href="<?= e($editUrl) ?>" class="btn btn-warning text-dark fw-bold">
-            <i class="bi bi-pencil-square me-1"></i> Edit Details
-        </a>
-        <a href="<?= e($printUrl) ?>" target="_blank" class="btn btn-primary fw-bold">
-            <i class="bi bi-printer-fill me-1"></i> Print All Labels
-        </a>
     </div>
 </div>
 

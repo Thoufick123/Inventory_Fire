@@ -238,11 +238,29 @@ class Router {
         $this->get('production/purchases/mapping/create', 'ProductionController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('production/purchases/mapping/create', 'ProductionController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->get('production/purchases/mapping/draft/{id}', 'ProductionController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('production/purchases/mapping/draft/{id}/view', 'ProductionController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('production/purchases/mapping/draft/{id}/add-product', 'ProductionController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('production/purchases/mapping/draft/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('production/purchases/mapping/draft/item/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('production/purchases/mapping/draft/{id}/move', 'ProductionController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/draft/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/draft/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('api/purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+        $this->post('purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+
+        // Shop & Production Cash & Cash Flow Management
+        $this->get('production/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
+        $this->get('shop/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
+        $this->post('production/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware']);
+        $this->post('production/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware']);
+        $this->post('production/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware']);
+        $this->post('production/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware']);
+        $this->post('production/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware']);
+        $this->get('production/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware']);
         $this->get('production/purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('production/purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('production/purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('production/purchases/mapping/bill/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('production/purchases/mapping/edit/{id}', 'ProductionController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/save', 'ProductionController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/add-product', 'ProductionController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
@@ -275,11 +293,17 @@ class Router {
         $this->get('purchases/mapping/create', 'ProductionController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('purchases/mapping/create', 'ProductionController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->get('purchases/mapping/draft/{id}', 'ProductionController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('purchases/mapping/draft/{id}/view', 'ProductionController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('purchases/mapping/draft/{id}/add-product', 'ProductionController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/draft/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/draft/item/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/draft/{id}/move', 'ProductionController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('purchases/mapping/edit/{id}', 'ProductionController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/save', 'ProductionController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/add-product', 'ProductionController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
@@ -411,6 +435,8 @@ class Router {
         $this->post('production/qr-generations/store-stitching', 'QrGenerationController', 'storeStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->post('production/qr-generations/add-to-stock/{id}', 'QrGenerationController', 'addToStock', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->get('production/qr-generations/view/{id}', 'QrGenerationController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
+        $this->get('production/qr-generations/edit/{id}', 'QrGenerationController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('production/qr-generations/edit/{id}', 'QrGenerationController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
         $this->get('production/qr-generations/print/{id}', 'QrGenerationController', 'printLabels', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
         $this->post('production/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
 

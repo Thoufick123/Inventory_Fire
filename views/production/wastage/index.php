@@ -12,7 +12,7 @@
         </div>
         <div class="d-flex gap-2">
             <?php if (hasPermission('wastage', 'create')): ?>
-            <button type="button" class="btn btn-success btn-sm fw-semibold shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#recordWastageModal">
+            <button type="button" class="btn btn-primary px-3 py-2 fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#recordWastageModal">
                 <i class="bi bi-plus-circle me-1"></i> Record Wastage Sale
             </button>
             <?php endif; ?>
@@ -99,21 +99,20 @@
     </div>
 
     <!-- Filters & Search Toolbar -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card shadow-sm border mb-4">
         <div class="card-body p-3">
-            <form method="GET" action="<?= url('production/wastage') ?>" class="row g-2 align-items-center">
+            <form method="GET" action="<?= url('production/wastage') ?>" class="row g-3 align-items-end">
                 <!-- Search -->
-                <div class="col-lg-3 col-md-6">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" name="search" id="wastageSearchInput" class="form-control form-control-sm border-start-0" placeholder="Search buyer, sale #, invoice..." value="<?= e($search) ?>" autocomplete="off">
-                    </div>
+                <div class="col-lg-3 col-md-6 col-sm-12">
+                    <label class="form-label small text-muted fw-semibold mb-1">Search</label>
+                    <input type="text" name="search" id="wastageSearchInput" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem;" placeholder="Search buyer, sale #, invoice..." value="<?= e($search) ?>" autocomplete="off">
                 </div>
 
                 <!-- Cutting Batch Filter -->
-                <div class="col-lg-2 col-md-6">
-                    <select name="cutting_batch_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">-- All Cutting Batches --</option>
+                <div class="col-lg-2 col-md-6 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Cutting Batch</label>
+                    <select name="cutting_batch_id" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="this.form.submit()">
+                        <option value="">All Cutting Batches</option>
                         <?php foreach ($cuttingBatches as $cb): ?>
                             <option value="<?= $cb['id'] ?>" <?= ($cuttingBatchId == $cb['id']) ? 'selected' : '' ?>>
                                 <?= e($cb['batch_number']) ?> (<?= number_format($cb['wastage_weight'], 2) ?> kg waste)
@@ -123,9 +122,10 @@
                 </div>
 
                 <!-- Wastage Type -->
-                <div class="col-lg-2 col-md-4">
-                    <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="">-- All Wastage Types --</option>
+                <div class="col-lg-2 col-md-6 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Wastage Type</label>
+                    <select name="type" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="this.form.submit()">
+                        <option value="">All Wastage Types</option>
                         <option value="FABRIC_SCRAP" <?= $type === 'FABRIC_SCRAP' ? 'selected' : '' ?>>Fabric Scrap</option>
                         <option value="CUTTING_END_BITS" <?= $type === 'CUTTING_END_BITS' ? 'selected' : '' ?>>Cutting End-Bits</option>
                         <option value="DEFECTIVE_FABRIC_SCRAP" <?= $type === 'DEFECTIVE_FABRIC_SCRAP' ? 'selected' : '' ?>>Defective Fabric Scrap</option>
@@ -135,16 +135,21 @@
                 </div>
 
                 <!-- Date Range -->
-                <div class="col-lg-3 col-md-6">
-                    <div class="input-group input-group-sm">
-                        <input type="date" name="date_from" class="form-control form-control-sm" title="From Date" value="<?= e($dateFrom) ?>" onchange="this.form.submit()">
-                        <input type="date" name="date_to" class="form-control form-control-sm" title="To Date" value="<?= e($dateTo) ?>" onchange="this.form.submit()">
+                <div class="col-lg-3 col-md-6 col-sm-12">
+                    <label class="form-label small text-muted fw-semibold mb-1">Date Range</label>
+                    <div class="input-group">
+                        <input type="date" name="date_from" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 8px 0 0 8px; font-size: 0.875rem;" title="From Date" value="<?= e($dateFrom) ?>" onchange="this.form.submit()">
+                        <input type="date" name="date_to" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0; font-size: 0.875rem;" title="To Date" value="<?= e($dateTo) ?>" onchange="this.form.submit()">
                     </div>
                 </div>
 
                 <!-- Actions -->
-                <div class="col-lg-1 col-md-6 text-end">
-                    <a href="<?= url('production/wastage') ?>" class="btn btn-sm btn-outline-secondary w-100" title="Reset Filters">
+                <div class="col-lg-2 col-md-12 col-sm-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center fw-semibold px-3" style="height: 38px; border-radius: 8px; font-size: 0.875rem; gap: 6px;" title="Filter Records">
+                        <i class="bi bi-filter"></i>
+                        <span>Filter</span>
+                    </button>
+                    <a href="<?= url('production/wastage') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; min-width: 38px; padding: 0; border-radius: 8px; border-color: #cbd5e1;" title="Reset Filters">
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 </div>
@@ -153,7 +158,7 @@
     </div>
 
     <!-- Wastage Sales Table -->
-    <div class="card border-0 shadow-sm rounded-3">
+    <div class="card shadow-sm border">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold text-dark mb-0">
                 <i class="bi bi-receipt text-success me-2"></i>Wastage Sales Log (<?= count($sales) ?>)
@@ -180,7 +185,7 @@
                                 <th class="text-end">Weight &amp; Rate</th>
                                 <th class="text-end">Total Price</th>
                                 <th class="text-center">Bill / Proof</th>
-                                <th class="text-center" style="width: 130px;">Actions</th>
+                                <th class="text-end pe-3" style="min-width: 130px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -266,8 +271,8 @@
                                     </td>
 
                                     <!-- Actions -->
-                                    <td class="text-center">
-                                        <div class="action-btns-group justify-content-center">
+                                    <td class="text-end text-nowrap pe-3">
+                                        <div class="action-btns-group justify-content-end">
                                             <button type="button" class="btn btn-outline-info btn-action-icon" title="View Wastage Sale Details" aria-label="View Wastage Sale Details" onclick="openWastageDetails(<?= (int)$s['id'] ?>)">
                                                 <i class="bi bi-eye"></i>
                                             </button>
@@ -297,31 +302,36 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- Pagination Controls Footer -->
-                <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="wastagePaginationFooter">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <span class="small text-muted fw-medium" id="wastagePageInfo">
-                            Showing 1 to 10 of <?= count($sales) ?> sales
-                        </span>
-                        <div class="d-flex align-items-center gap-2">
-                            <label class="small text-muted mb-0 fw-medium">Show:</label>
-                            <select id="wastagePageSizeSelect" class="form-select form-select-sm" style="width: auto;">
-                                <option value="10" selected>10 per page</option>
-                                <option value="25">25 per page</option>
-                                <option value="50">50 per page</option>
-                                <option value="100">100 per page</option>
-                                <option value="all">All</option>
-                            </select>
-                        </div>
-                    </div>
-                    <nav aria-label="Wastage Sales Pagination">
-                        <ul class="pagination pagination-modern mb-0" id="wastagePaginationList">
-                        </ul>
-                    </nav>
-                </div>
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if (!empty($sales)): ?>
+    <!-- Wastage Pagination Controls Card -->
+    <div class="card bg-white mt-4 shadow-sm border" id="wastagePaginationFooter">
+        <div class="card-body py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="small text-muted fw-medium" id="wastagePageInfo">
+                    Showing 1 to <?= min(10, count($sales)) ?> of <?= count($sales) ?> sales
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0 fw-medium">Show:</label>
+                    <select id="wastagePageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2.25rem;">
+                        <option value="10" selected>10 per page</option>
+                        <option value="25">25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+            </div>
+            <nav aria-label="Wastage Sales Pagination">
+                <ul class="pagination pagination-modern mb-0" id="wastagePaginationList">
+                </ul>
+            </nav>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- ========================================================================= -->
