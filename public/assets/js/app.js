@@ -361,7 +361,10 @@ window.initClientPagination = function(options) {
         const totalAll = allItems.length;
 
         if (totalAll === 0) {
-            if (footer) footer.style.display = 'none';
+            if (footer) {
+                footer.style.setProperty('display', 'none', 'important');
+                footer.classList.add('d-none');
+            }
             if (emptyStateEl) emptyStateEl.style.display = '';
             return;
         }
@@ -369,12 +372,18 @@ window.initClientPagination = function(options) {
         if (totalMatching === 0) {
             allItems.forEach(el => el.style.display = 'none');
             if (emptyStateEl) emptyStateEl.style.display = '';
-            if (footer) footer.style.display = 'none';
+            if (footer) {
+                footer.style.setProperty('display', 'none', 'important');
+                footer.classList.add('d-none');
+            }
             return;
         }
 
         if (emptyStateEl) emptyStateEl.style.display = 'none';
-        if (footer) footer.style.display = '';
+        if (footer) {
+            footer.style.removeProperty('display');
+            footer.classList.remove('d-none');
+        }
 
         const isAll = (pageSize === 'all');
         const effectiveSize = isAll ? Math.max(1, totalMatching) : pageSize;

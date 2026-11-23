@@ -1,6 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-patch-check me-2 text-danger"></i>Quality Control (QC) Inspections</h2>
+        <h2 class="mb-1"><i class="bi bi-shield-check me-2 text-primary"></i>Quality Control (QC) Inspections</h2>
         <span class="text-muted">Multi-checkpoint inspection (stitching, fabric, color, size, trims) & finished goods approval</span>
     </div>
     <?php if (hasPermission('qc', 'create')): ?>
@@ -30,7 +30,7 @@
                 <input type="text" name="search" id="qcSearchInput" class="form-control form-control-sm" placeholder="QC #, Program #, Product name, Inspector..." value="<?= e($filters['search'] ?? '') ?>" autocomplete="off">
             </div>
             <div class="col-md-2 d-flex align-items-end gap-1">
-                <button type="submit" class="btn btn-secondary btn-sm flex-fill" title="Filter"><i class="bi bi-filter me-1"></i> Filter</button>
+                <button type="submit" class="btn btn-primary btn-sm flex-fill fw-semibold shadow-sm" title="Filter"><i class="bi bi-filter me-1"></i> Filter</button>
                 <?php if (!empty($filters['status']) || !empty($filters['search']) || !empty($filters['program_id'])): ?>
                     <a href="<?= url('production/qc') ?>" class="btn btn-outline-danger btn-sm" title="Clear Filters"><i class="bi bi-x-lg"></i></a>
                 <?php endif; ?>
@@ -163,10 +163,11 @@
         </div>
     </div>
     <!-- Pagination Controls Footer -->
+    <?php if (!empty($batches)): ?>
     <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="qcPaginationFooter">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="qcPageInfo">
-                Showing 1 to 10 of <?= count($batches) ?> inspections
+                Showing 1 to <?= min(10, count($batches)) ?> of <?= count($batches) ?> inspections
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted mb-0 fw-medium">Show:</label>
@@ -184,6 +185,7 @@
             </ul>
         </nav>
     </div>
+    <?php endif; ?>
 </div>
 
 <script>

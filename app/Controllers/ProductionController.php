@@ -20777,7 +20777,9 @@ class ProductionController {
                 'Rejected'  => 'rejected_qty',
                 'Rework'    => 'rework_qty',
             ],
-            'Inspection Items'
+            'Inspection Items',
+            [],
+            'bi-shield-check'
         );
     }
 
@@ -20790,7 +20792,8 @@ class ProductionController {
         array $items,
         array $itemColumns,
         string $itemsTitle,
-        array $qrLabel = []
+        array $qrLabel = [],
+        string $recordIcon = 'bi-eye'
     ): void {
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
@@ -20802,6 +20805,7 @@ class ProductionController {
                 ['label' => 'Details'],
             ],
             'recordTitle'  => $recordTitle,
+            'recordIcon'   => $recordIcon,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
             'items'        => $items,
