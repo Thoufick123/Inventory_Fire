@@ -12,7 +12,7 @@
         </div>
         <div class="d-flex gap-2">
             <?php if (hasPermission('stitching_wastage', 'create')): ?>
-            <button type="button" class="btn btn-warning text-dark btn-sm fw-semibold shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#recordStitchingWastageModal">
+            <button type="button" class="btn btn-primary px-3 py-2 fw-semibold shadow-sm" style="border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#recordStitchingWastageModal">
                 <i class="bi bi-plus-circle me-1"></i> Record Stitching Wastage Sale
             </button>
             <?php endif; ?>
@@ -99,20 +99,22 @@
     </div>
 
     <!-- Filters & Search Toolbar -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card shadow-sm border mb-4">
         <div class="card-body p-3">
-            <form method="GET" action="<?= url('production/stitching-wastage') ?>" class="row g-2 align-items-center">
+            <form method="GET" action="<?= url('production/stitching-wastage') ?>" class="row g-2 align-items-end">
                 <!-- Search -->
-                <div class="col-lg-3 col-md-6">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" name="search" id="stitchingWastageSearchInput" class="form-control form-control-sm border-start-0" placeholder="Search buyer, sale #, batch, inv..." value="<?= e($search) ?>" autocomplete="off">
+                <div class="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+                    <label class="form-label small text-muted fw-semibold mb-1">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0" style="border-color: #cbd5e1; border-radius: 8px 0 0 8px; height: 38px;"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="search" id="stitchingWastageSearchInput" class="form-control border-start-0" style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0; font-size: 0.875rem;" placeholder="Search buyer, sale #, batch, inv..." value="<?= e($search) ?>" autocomplete="off">
                     </div>
                 </div>
 
                 <!-- Stitching Batch Filter -->
-                <div class="col-lg-2 col-md-4">
-                    <select name="stitching_batch_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <div class="col-xl-2 col-lg-2 col-md-6 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Stitching Batch</label>
+                    <select name="stitching_batch_id" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="this.form.submit()">
                         <option value="">-- All Stitching Batches --</option>
                         <?php foreach ($stitchingBatches as $sb): ?>
                             <option value="<?= $sb['id'] ?>" <?= (string)($stitchingBatchId ?? '') === (string)$sb['id'] ? 'selected' : '' ?>>
@@ -123,8 +125,9 @@
                 </div>
 
                 <!-- Waste Type -->
-                <div class="col-lg-2 col-md-4">
-                    <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+                <div class="col-xl-2 col-lg-2 col-md-4 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Waste Type</label>
+                    <select name="type" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="this.form.submit()">
                         <option value="">-- All Waste Types --</option>
                         <option value="THREAD_WASTE" <?= $type === 'THREAD_WASTE' ? 'selected' : '' ?>>Thread Waste</option>
                         <option value="SEAM_TRIMMINGS" <?= $type === 'SEAM_TRIMMINGS' ? 'selected' : '' ?>>Seam &amp; Trimmings</option>
@@ -135,8 +138,9 @@
                 </div>
 
                 <!-- Payment Status -->
-                <div class="col-lg-2 col-md-4">
-                    <select name="payment_status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <div class="col-xl-2 col-lg-2 col-md-4 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Payment Status</label>
+                    <select name="payment_status" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; padding-right: 2.25rem;" onchange="this.form.submit()">
                         <option value="">-- All Payment Statuses --</option>
                         <option value="PAID" <?= $paymentStatus === 'PAID' ? 'selected' : '' ?>>Paid</option>
                         <option value="PARTIAL" <?= $paymentStatus === 'PARTIAL' ? 'selected' : '' ?>>Partial</option>
@@ -145,16 +149,20 @@
                 </div>
 
                 <!-- Date Range -->
-                <div class="col-lg-1 col-md-3">
-                    <input type="date" name="date_from" class="form-control form-control-sm" title="From Date" value="<?= e($dateFrom) ?>" onchange="this.form.submit()">
-                </div>
-                <div class="col-lg-1 col-md-3">
-                    <input type="date" name="date_to" class="form-control form-control-sm" title="To Date" value="<?= e($dateTo) ?>" onchange="this.form.submit()">
+                <div class="col-xl-2 col-lg-2 col-md-4 col-sm-6">
+                    <label class="form-label small text-muted fw-semibold mb-1">Date Range</label>
+                    <div class="input-group">
+                        <input type="date" name="date_from" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 8px 0 0 8px; font-size: 0.82rem;" title="From Date" value="<?= e($dateFrom) ?>" onchange="this.form.submit()">
+                        <input type="date" name="date_to" class="form-control" style="height: 38px; border-color: #cbd5e1; border-radius: 0 8px 8px 0; font-size: 0.82rem;" title="To Date" value="<?= e($dateTo) ?>" onchange="this.form.submit()">
+                    </div>
                 </div>
 
                 <!-- Actions -->
-                <div class="col-lg-1 col-md-2 text-end">
-                    <a href="<?= url('production/stitching-wastage') ?>" class="btn btn-sm btn-outline-secondary w-100" title="Reset Filters">
+                <div class="col-xl-1 col-lg-1 col-md-12 d-flex gap-1">
+                    <button type="submit" class="btn btn-primary flex-fill d-inline-flex align-items-center justify-content-center fw-semibold shadow-sm px-2" style="height: 38px; border-radius: 8px; font-size: 0.85rem;" title="Filter Records">
+                        <i class="bi bi-filter me-1"></i> Filter
+                    </button>
+                    <a href="<?= url('production/stitching-wastage') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; min-width: 38px; padding: 0; border-radius: 8px; border-color: #cbd5e1;" title="Reset Filters">
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 </div>
@@ -338,30 +346,32 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- Pagination Controls Footer -->
-                <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="stitchingWastagePaginationFooter">
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <span class="small text-muted fw-medium" id="stitchingWastagePageInfo">
-                            Showing 1 to 10 of <?= count($sales) ?> sales
-                        </span>
-                        <div class="d-flex align-items-center gap-2">
-                            <label class="small text-muted mb-0 fw-medium">Show:</label>
-                            <select id="stitchingWastagePageSizeSelect" class="form-select form-select-sm" style="width: auto;">
-                                <option value="10" selected>10 per page</option>
-                                <option value="25">25 per page</option>
-                                <option value="50">50 per page</option>
-                                <option value="100">100 per page</option>
-                                <option value="all">All</option>
-                            </select>
-                        </div>
-                    </div>
-                    <nav aria-label="Stitching Wastage Pagination">
-                        <ul class="pagination pagination-modern mb-0" id="stitchingWastagePaginationList">
-                        </ul>
-                    </nav>
-                </div>
             <?php endif; ?>
         </div>
+        <?php if (!empty($sales)): ?>
+        <!-- Pagination Controls Footer -->
+        <div class="card-footer bg-white py-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3" id="stitchingWastagePaginationFooter">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="small text-muted fw-medium" id="stitchingWastagePageInfo">
+                    Showing 1 to <?= min(10, count($sales)) ?> of <?= count($sales) ?> sales
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0 fw-medium">Show:</label>
+                    <select id="stitchingWastagePageSizeSelect" class="form-select form-select-sm" style="width: auto; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2.25rem;">
+                        <option value="10" selected>10 per page</option>
+                        <option value="25">25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+            </div>
+            <nav aria-label="Stitching Wastage Pagination">
+                <ul class="pagination pagination-modern mb-0" id="stitchingWastagePaginationList">
+                </ul>
+            </nav>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
