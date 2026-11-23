@@ -20549,7 +20549,7 @@ class ProductionController {
             'dateFrom'         => $dateFrom,
             'dateTo'           => $dateTo,
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Stitching Wastage'],
             ],
         ]);
