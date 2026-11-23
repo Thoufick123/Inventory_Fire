@@ -52,22 +52,39 @@ class InwardController {
                 JOIN production_programs pp ON pb.program_id = pp.id
                 JOIN products p ON pp.product_id = p.id
                 JOIN warehouses w ON pb.destination_warehouse_id = w.id
-                LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                 LEFT JOIN production_units pu_prog ON pp.production_unit_id = pu_prog.id
                 LEFT JOIN production_units pu_out ON po.production_unit_id = pu_out.id
                 LEFT JOIN users u_prep ON pb.prepared_by = u_prep.id
                 WHERE pb.status IN ('DISPATCHED', 'RECEIVED')";
         $params = [];
 
-        // Multi-concern isolation
+        // Multi-concern isolation: Allow batches created by this concern OR dispatched to this concern's warehouse
         if ($cid !== null) {
             if ($cid === 1) {
-                $sql .= " AND (pb.concern_id = ? OR pb.concern_id IS NULL OR pp.concern_id = ? OR pp.concern_id IS NULL)";
+                $sql .= " AND (pb.concern_id = ? OR pb.concern_id IS NULL OR pp.concern_id = ? OR pp.concern_id IS NULL OR w.concern_id = ? OR w.concern_id IS NULL)";
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
             } else {
-                $sql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
+                if ($scopedWarehouseId) {
+                    $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                    $params[] = $cid;
+                    $params[] = (int)$scopedWarehouseId;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                } else {
+                    $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                    $params[] = $cid;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                    $params[] = $cid;
+                }
             }
-            $params[] = $cid;
-            $params[] = $cid;
         }
 
         if (!empty($warehouseId)) {
@@ -216,6 +233,64 @@ class InwardController {
     // 2. INWARD SHIPMENT CROSS-CHECK WORKSTATION (Screens 2 & 3)
     // =========================================================================
 
+    /**
+     * Check if a production batch can be accessed / inwarded under the active concern context.
+     */
+    private function canAccessBatch(array $batch, ?int $cid): bool {
+        if ($cid === null || $cid === 1) {
+            return true;
+        }
+
+        $batchCid = !empty($batch['concern_id']) ? (int)$batch['concern_id'] : null;
+        if ($batchCid === $cid) {
+            return true;
+        }
+
+        $destWhId = !empty($batch['destination_warehouse_id']) ? (int)$batch['destination_warehouse_id'] : 0;
+        $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+        if ($scopedWhId && $destWhId === $scopedWhId) {
+            return true;
+        }
+
+        if ($destWhId > 0) {
+            $wh = Warehouse::find($destWhId);
+            if ($wh) {
+                if (empty($wh['concern_id']) || (int)$wh['concern_id'] === $cid) {
+                    return true;
+                }
+                // Check if warehouse is assigned to users in this concern
+                $assignedInConcern = Database::fetchOne(
+                    "SELECT 1 FROM users u 
+                     WHERE u.warehouse_id = ? 
+                       AND (u.default_concern_id = ? OR EXISTS (SELECT 1 FROM user_concerns uc WHERE uc.user_id = u.id AND uc.concern_id = ?)) 
+                     LIMIT 1",
+                    [$destWhId, $cid, $cid]
+                );
+                if ($assignedInConcern) {
+                    return true;
+                }
+            }
+        }
+
+        // Check if outward dispatch belongs to this concern
+        if (!empty($batch['id'])) {
+            $outward = ProductionOutward::findByBatchId((int)$batch['id']);
+            if ($outward && !empty($outward['concern_id']) && (int)$outward['concern_id'] === $cid) {
+                return true;
+            }
+        }
+
+        // Check if program belongs to this concern
+        if (!empty($batch['program_id'])) {
+            $prog = Database::fetchOne("SELECT concern_id FROM production_programs WHERE id = ?", [(int)$batch['program_id']]);
+            if ($prog && !empty($prog['concern_id']) && (int)$prog['concern_id'] === $cid) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function view(string $id): void {
         if (!hasPermission('inward', 'view')) {
             Session::flash('error', 'Access denied: You do not have permission to view inward shipments.');
@@ -232,7 +307,7 @@ class InwardController {
 
         // Multi-concern isolation check
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
-        if ($cid !== null && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid && $cid !== 1) {
+        if (!$this->canAccessBatch($batch, $cid)) {
             Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
             return;
         }
@@ -319,7 +394,7 @@ class InwardController {
 
         // Multi-concern isolation check
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
-        if ($cid !== null && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid && $cid !== 1) {
+        if (!$this->canAccessBatch($batch, $cid)) {
             Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
             return;
         }
@@ -380,6 +455,11 @@ class InwardController {
             Response::error(404, 'Production batch not found.');
             return;
         }
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if (!$this->canAccessBatch($batch, $cid)) {
+            Response::error(403, 'Access denied: Production batch belongs to another concern.');
+            return;
+        }
         $items = ProductionBatch::getItems($batchId);
         Response::viewOnly('production.inwards.label', [
             'batch' => $batch,
@@ -397,6 +477,11 @@ class InwardController {
         $batch = ProductionBatch::find($batchId);
         if (!$batch) {
             Response::error(404, 'Production batch not found.');
+            return;
+        }
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if (!$this->canAccessBatch($batch, $cid)) {
+            Response::error(403, 'Access denied: Production batch belongs to another concern.');
             return;
         }
         $outward = ProductionOutward::findByBatchId($batchId);
@@ -439,12 +524,10 @@ class InwardController {
 
         // Multi-concern validation
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
-        if ($cid !== null && $cid !== 1) {
-            $batch = ProductionBatch::find($batchId);
-            if ($batch && !empty($batch['concern_id']) && (int)$batch['concern_id'] !== $cid) {
-                Response::jsonError("Batch belongs to another concern and cannot be accessed.", [], 403);
-                return;
-            }
+        $batch = ProductionBatch::find($batchId);
+        if (!$batch || !$this->canAccessBatch($batch, $cid)) {
+            Response::jsonError("Batch belongs to another concern and cannot be accessed.", [], 403);
+            return;
         }
 
         if (str_starts_with($scannedCode, '{') && str_ends_with($scannedCode, '}')) {
@@ -485,14 +568,28 @@ class InwardController {
                 JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 JOIN warehouses w ON pb.destination_warehouse_id = w.id
-                LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                 WHERE (pb.batch_number = ? OR po.outward_number = ?)";
         $params = [$code, $code];
 
         if ($cid !== null && $cid !== 1) {
-            $sql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
-            $params[] = $cid;
-            $params[] = $cid;
+            $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+            if ($scopedWarehouseId) {
+                $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                $params[] = $cid;
+                $params[] = (int)$scopedWarehouseId;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+            } else {
+                $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+            }
         }
 
         $batch = Database::fetchOne($sql, $params);
@@ -555,7 +652,7 @@ class InwardController {
                      JOIN production_programs pp ON pb.program_id = pp.id
                      JOIN products p ON pp.product_id = p.id
                      JOIN warehouses w ON pb.destination_warehouse_id = w.id
-                     LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                     LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                      LEFT JOIN production_batch_items pbi ON pbi.production_batch_id = pb.id
                      LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
                      WHERE (
@@ -569,9 +666,23 @@ class InwardController {
         $params = [$code, $code, $parsedCode, $parsedCode, $parsedCode, $parsedCode];
 
         if ($cid !== null && $cid !== 1) {
-            $batchSql .= " AND (pb.concern_id = ? OR pp.concern_id = ?)";
-            $params[] = $cid;
-            $params[] = $cid;
+            $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+            if ($scopedWarehouseId) {
+                $batchSql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                $params[] = $cid;
+                $params[] = (int)$scopedWarehouseId;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+            } else {
+                $batchSql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+                $params[] = $cid;
+            }
         }
 
         $batchSql .= " ORDER BY pb.id DESC LIMIT 1";
@@ -612,7 +723,14 @@ class InwardController {
             Response::jsonError('Access denied: You do not have permission to view batch history.', [], 403);
             return;
         }
-        $history = ProductionBatch::getLifecycleHistory($id);
+        $batchId = (int)$id;
+        $batch = ProductionBatch::find($batchId);
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        if ($batch && !$this->canAccessBatch($batch, $cid)) {
+            Response::jsonError('Access denied: Batch belongs to another concern.', [], 403);
+            return;
+        }
+        $history = ProductionBatch::getLifecycleHistory($batchId);
         if (!$history) {
             Response::jsonError('Batch not found or no traceability history recorded.', [], 404);
             return;
