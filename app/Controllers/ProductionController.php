@@ -5360,7 +5360,7 @@ class ProductionController {
                     COALESCE(mi.hsn_code, '') AS hsn_code,
                     NULL AS seller_roll_id,
                     mi.qr_generation_id, qrg.batch_code AS qr_batch_code, NULL AS grn_id, NULL AS grn_number,
-                    mb.invoice_number AS purchase_number, mb.invoice_date AS purchase_date, mb.invoice_number,
+                    mb.invoice_number AS purchase_number, DATE(mb.created_at) AS purchase_date, mb.invoice_number,
                     s.name AS seller_name, s.company AS seller_company,
                     1 AS is_mapping_draft, mi.mapping_bill_id
              FROM third_party_mapping_items mi
