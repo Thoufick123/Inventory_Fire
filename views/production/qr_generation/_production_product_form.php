@@ -47,7 +47,7 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                         <select name="stitching_batch_id" id="prodStitchingBatch" class="form-select form-select-lg" required onchange="onStitchingBatchChanged()">
                             <option value="">-- Choose Stitching Batch --</option>
                             <?php foreach (($stitchingBatches ?? []) as $sb): ?>
-                                <option value="<?= (int)$sb['id'] ?>">
+                                <option value="<?= (int)$sb['id'] ?>" <?= ((int)($_GET['stitching_batch_id'] ?? 0) === (int)$sb['id']) ? 'selected' : '' ?>>
                                     <?= e($sb['batch_number']) ?> · <?= e($sb['program_number'] ?? 'PROG') ?> (<?= e($sb['program_name'] ?? 'Production') ?>) · <?= (int)$sb['total_pieces'] ?> Pcs
                                 </option>
                             <?php endforeach; ?>

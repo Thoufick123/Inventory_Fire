@@ -121,10 +121,20 @@
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <?php endif; ?>
-                                        <?php if ($b['status'] === 'COMPLETED' && hasPermission('qc', 'create')): ?>
-                                            <a href="<?= url('production/qc/create?stitching_batch_id=' . $b['id']) ?>" class="btn btn-outline-success btn-action-icon" title="Send to QC Check">
-                                                <i class="bi bi-patch-check"></i>
-                                            </a>
+                                        <?php if ($b['status'] === 'COMPLETED'): ?>
+                                            <?php if (empty($b['qr_generation_id'])): ?>
+                                                <?php if (hasPermission('qr_generation', 'create')): ?>
+                                                    <a href="<?= url('production/qr-generations/create?tab=production_product&stitching_batch_id=' . $b['id']) ?>" class="btn btn-outline-primary btn-action-icon" title="Generate QR Codes for Completed Stitching Batch">
+                                                        <i class="bi bi-qr-code-scan"></i>
+                                                    </a>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <?php if (hasPermission('qc', 'view') || hasPermission('qc', 'create') || hasPermission('qc', 'edit')): ?>
+                                                    <a href="<?= !empty($b['qc_batch_id']) ? url('production/qc/inspect/' . $b['qc_batch_id']) : url('production/qc') ?>" class="btn btn-outline-success btn-action-icon" title="Go to Quality Control (QC)">
+                                                        <i class="bi bi-patch-check"></i>
+                                                    </a>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                         <?php if (hasPermission('stitching', 'delete')): ?>
                                         <form method="POST" action="<?= url('production/stitching/delete/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this stitching batch?');">

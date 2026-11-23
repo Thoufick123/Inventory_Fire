@@ -54,6 +54,7 @@ class StitchingBatch {
                        u.full_name as worker_name,
                        GREATEST(COALESCE(sb.rejected_qty, 0), COALESCE(qc.qc_rejected_qty, 0)) as rejected_qty,
                        GREATEST(COALESCE(sb.rework_qty, 0), COALESCE(qc.qc_rework_qty, 0)) as rework_qty,
+                       qc.qc_batch_id as qc_batch_id,
                        qc.qc_status as qc_status
                 FROM stitching_batches sb
                 LEFT JOIN cutting_batches cb ON sb.cutting_batch_id = cb.id
@@ -65,6 +66,7 @@ class StitchingBatch {
                 LEFT JOIN users u ON sb.worker_id = u.id
                 LEFT JOIN (
                     SELECT qb.stitching_batch_id as actual_stitching_id,
+                           MAX(qb.id) as qc_batch_id,
                            SUM(qb.rejected_qty) as qc_rejected_qty,
                            SUM(qb.rework_qty) as qc_rework_qty,
                            MAX(qb.status) as qc_status
