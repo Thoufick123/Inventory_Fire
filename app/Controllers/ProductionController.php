@@ -3685,6 +3685,14 @@ class ProductionController {
     }
 
     public function viewThirdPartyMappingDraft(string $id): void {
+        $this->renderThirdPartyMappingDraft($id, ($_GET['mode'] ?? '') === 'view');
+    }
+
+    public function viewThirdPartyMappingDraftReadOnly(string $id): void {
+        $this->renderThirdPartyMappingDraft($id, true);
+    }
+
+    private function renderThirdPartyMappingDraft(string $id, bool $viewOnly): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         $mappingBillId = (int)$id;
         $cid = currentConcernId();
@@ -3779,6 +3787,7 @@ class ProductionController {
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'bill' => $bill,
+            'viewOnly' => $viewOnly,
             'items' => $items,
             'categories' => $categories,
             'subcategories' => $subcategories,
@@ -3791,6 +3800,158 @@ class ProductionController {
                 ['label' => 'Mapping Invoice ' . $bill['invoice_number']],
             ],
         ]);
+    }
+
+    public function deleteThirdPartyMappingDraft(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        $mappingBillId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingBillId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+            $params[] = $cid;
+        }
+        Database::beginTransaction();
+        try {
+            $bill = Database::fetchOne(
+                "SELECT id, invoice_number, status FROM third_party_mapping_bills WHERE id = ?{$scope} FOR UPDATE",
+                $params
+            );
+            if (!$bill) {
+                throw new InvalidArgumentException('Mapping invoice not found.');
+            }
+            if ($bill['status'] !== 'DRAFT') {
+                throw new InvalidArgumentException('Only draft mapping invoices can be deleted.');
+            }
+            $items = Database::fetchAll(
+                "SELECT id, item_name, qr_generation_id
+                 FROM third_party_mapping_items
+                 WHERE mapping_bill_id = ?
+                 FOR UPDATE",
+                [$mappingBillId]
+            );
+            $this->deleteUnstockedMappingQrBatches($items);
+            AuditService::log('purchases', 'DELETE', 'third_party_mapping_bills', $mappingBillId, null, [
+                'invoice_number' => $bill['invoice_number'],
+                'product_count' => count($items),
+            ]);
+            if (Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ? AND status = 'DRAFT'", [$mappingBillId]) !== 1) {
+                throw new RuntimeException('The invoice status changed before it could be deleted. Refresh and try again.');
+            }
+            Database::commit();
+            Session::flash('success', "Mapping invoice {$bill['invoice_number']} and its saved products were deleted.");
+        } catch (Throwable $e) {
+            Database::rollback();
+            Session::flash('error', 'Could not delete mapping invoice: ' . $e->getMessage());
+        }
+        Response::redirect(url('purchases/mapping'));
+    }
+
+    public function deleteThirdPartyMappingDraftItem(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $mappingItemId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingItemId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
+            $params[] = $cid;
+        }
+        $item = Database::fetchOne(
+            "SELECT mi.id, mi.mapping_bill_id
+             FROM third_party_mapping_items mi
+             JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             WHERE mi.id = ?{$scope}",
+            $params
+        );
+        if (!$item) {
+            Session::flash('error', 'Mapped product not found.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+        $mappingBillId = (int)$item['mapping_bill_id'];
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $billScope = '';
+            $billParams = [$mappingBillId];
+            if ($cid !== null) {
+                $billScope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+                $billParams[] = $cid;
+            }
+            $bill = Database::fetchOne(
+                "SELECT id, status FROM third_party_mapping_bills WHERE id = ?{$billScope} FOR UPDATE",
+                $billParams
+            );
+            if (!$bill || $bill['status'] !== 'DRAFT') {
+                throw new InvalidArgumentException('Products can only be deleted from a draft mapping invoice.');
+            }
+            $item = Database::fetchOne(
+                "SELECT mi.id, mi.mapping_bill_id, mi.item_name, mi.qr_generation_id
+                 FROM third_party_mapping_items mi
+                 WHERE mi.id = ? AND mi.mapping_bill_id = ?
+                 FOR UPDATE",
+                [$mappingItemId, $mappingBillId]
+            );
+            if (!$item) {
+                throw new InvalidArgumentException('Mapped product not found.');
+            }
+            $this->deleteUnstockedMappingQrBatches([$item]);
+            if (Database::execute(
+                "DELETE FROM third_party_mapping_items WHERE id = ? AND mapping_bill_id = ?",
+                [$mappingItemId, $mappingBillId]
+            ) !== 1) {
+                throw new RuntimeException('The product could not be deleted. Refresh and try again.');
+            }
+            AuditService::log('purchases', 'DELETE', 'third_party_mapping_items', $mappingItemId, null, [
+                'item_name' => $item['item_name'],
+                'mapping_bill_id' => $mappingBillId,
+            ]);
+            Database::commit();
+            Session::flash('success', "Product '{$item['item_name']}' was deleted from the mapping invoice.");
+        } catch (Throwable $e) {
+            Database::rollback();
+            Session::flash('error', 'Could not delete mapped product: ' . $e->getMessage());
+        }
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
+    private function deleteUnstockedMappingQrBatches(array $items): void {
+        foreach ($items as $item) {
+            $generationId = (int)($item['qr_generation_id'] ?? 0);
+            if ($generationId <= 0) {
+                continue;
+            }
+            $qrBatch = Database::fetchOne(
+                "SELECT stock_added, source_mapping_item_id, source_purchase_item_id
+                 FROM qr_generations WHERE id = ? FOR UPDATE",
+                [$generationId]
+            );
+            if (!$qrBatch) {
+                continue;
+            }
+            if (!empty($qrBatch['stock_added']) || !empty($qrBatch['source_purchase_item_id'])) {
+                throw new RuntimeException('A product with posted stock or a linked purchase QR batch cannot be deleted.');
+            }
+            $sourceMappingItemId = (int)($qrBatch['source_mapping_item_id'] ?? 0);
+            if ($sourceMappingItemId > 0 && $sourceMappingItemId !== (int)$item['id']) {
+                throw new RuntimeException('The QR batch is linked to a different mapping product.');
+            }
+            Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [$generationId]);
+            Database::execute("DELETE FROM qr_generations WHERE id = ?", [$generationId]);
+        }
     }
 
     public function addThirdPartyMappingDraftProduct(string $id): void {

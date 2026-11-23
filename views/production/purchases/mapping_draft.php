@@ -61,7 +61,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
     <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Mapping Log</a>
 </div>
 
-<?php if ($bill['status'] === 'READY'): ?>
+<?php if (!$viewOnly && $bill['status'] === 'READY'): ?>
     <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div>
             <i class="bi bi-info-circle-fill me-2"></i>This mapping entry is ready. Click <strong>Move to Purchase Now</strong> to create the purchase bill in the Purchases module immediately.
@@ -73,7 +73,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </button>
         </form>
     </div>
-<?php elseif ($bill['status'] === 'MOVED'): ?>
+<?php elseif (!$viewOnly && $bill['status'] === 'MOVED'): ?>
     <div class="alert alert-success d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div>
             <i class="bi bi-check-circle-fill me-2"></i>Products were moved and linked to Purchase <strong><?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?></strong>.
@@ -86,7 +86,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
     </div>
 <?php endif; ?>
 
-<?php if ($bill['status'] === 'DRAFT'): ?>
+<?php if ($bill['status'] === 'DRAFT' && !$viewOnly): ?>
 <div class="card border shadow-sm mb-4">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
@@ -258,7 +258,10 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             <?php else: ?><span class="badge bg-secondary">No QR</span><?php endif; ?>
                         </td>
                         <td class="text-end">
-                            <?php if (empty($item['qr_generation_id'])): ?>
+                            <?php if ($viewOnly): ?>
+                                <span class="text-muted small">View only</span>
+                            <?php else: ?>
+                                <?php if (empty($item['qr_generation_id'])): ?>
                                 <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/generate-qr') ?>" class="d-inline">
                                     <?= CSRF::field() ?>
                                     <input type="hidden" name="mapping_bill_id" value="<?= $mappingBillId ?>">
@@ -273,6 +276,15 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                         <i class="bi bi-printer"></i>
                                     </a>
                                 </div>
+                                <?php endif; ?>
+                                <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this product and its unposted QR batch? This cannot be undone.');">
+                                        <?= CSRF::field() ?>
+                                        <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete product from mapping invoice">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -285,6 +297,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 <!-- ========================================================================= -->
 <!-- 3 ACTION OPTIONS CONTAINER (Scenario 2)                                  -->
 <!-- ========================================================================= -->
+<?php if (!$viewOnly): ?>
 <div class="card border shadow-sm mb-4">
     <div class="card-header bg-white py-3 border-bottom">
         <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-gear-wide-connected me-2 text-primary"></i>Mapping Actions &amp; Workflows</h5>
@@ -390,8 +403,9 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
-<?php if ($bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
+    <?php if (!$viewOnly && $bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
 <div class="modal fade" id="linkExistingPurchaseModal" tabindex="-1" aria-labelledby="linkExistingPurchaseModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>">
@@ -631,7 +645,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </div>
             <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <?php if (empty($item['stock_added'])): ?>
+                    <?php if (!$viewOnly && empty($item['stock_added'])): ?>
                         <div class="input-group input-group-sm" style="max-width: 320px;">
                             <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Stock to:</span>
                             <select class="form-select" id="whSelect_<?= (int)$item['qr_generation_id'] ?>">
@@ -645,7 +659,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                 data-mapping-bill-id="<?= $mappingBillId ?>">
                             <i class="bi bi-box-seam me-1"></i>Add to Inventory
                         </button>
-                    <?php else: ?>
+                    <?php elseif (!empty($item['stock_added'])): ?>
                         <span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Stock already added to warehouse</span>
                     <?php endif; ?>
                 </div>

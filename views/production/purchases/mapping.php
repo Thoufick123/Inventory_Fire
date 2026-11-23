@@ -291,9 +291,22 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
-                                        <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Open Mapping Invoice">
-                                            <i class="bi bi-pencil-square me-1"></i>Open
+                                        <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping Invoice">
+                                            <i class="bi bi-eye me-1"></i>View
                                         </a>
+                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Mapping Invoice">
+                                                <i class="bi bi-pencil-square me-1"></i>Edit
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
+                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this draft invoice and all its saved products? This cannot be undone.');">
+                                                <?= CSRF::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Draft Invoice">
+                                                    <i class="bi bi-trash me-1"></i>Delete
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                         <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
                                             <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
                                                 <?= CSRF::field() ?>
@@ -303,7 +316,7 @@
                                             </form>
                                         <?php elseif (!empty($draft['purchase_id'])): ?>
                                             <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
-                                                <i class="bi bi-eye me-1"></i>View
+                                                <i class="bi bi-receipt me-1"></i>Purchase
                                             </a>
                                         <?php endif; ?>
                                     </div>

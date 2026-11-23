@@ -7,7 +7,7 @@
     </a>
 </div>
 
-<div class="card border shadow-sm" style="max-width: 760px;">
+<div class="card border shadow-sm w-100">
     <div class="card-header bg-white py-3">
         <h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-success"></i>Supplier Invoice Details</h5>
     </div>
