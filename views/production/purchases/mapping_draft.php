@@ -452,6 +452,9 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
                             </button>
                         </form>
+                        <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=map_' . $mappingBillId) ?>" class="btn btn-outline-secondary btn-sm w-100 py-1">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open in QR Batch Generator
+                        </a>
                         <?php if (!empty($firstQrId)): ?>
                             <button type="button" class="btn btn-dark btn-sm w-100 py-1" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$firstQrId ?>">
                                 <i class="bi bi-eye me-1"></i>View QRs &amp; Stock in Popup

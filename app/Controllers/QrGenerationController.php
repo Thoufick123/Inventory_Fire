@@ -128,8 +128,8 @@ class QrGenerationController {
             'activeTab'        => $activeTab,
             'purchaseGroups'   => self::getPurchaseGroups(),
             'stitchingBatches' => self::getStitchingBatches(),
-            'preselectedPurchaseId' => (int)($_GET['purchase_id'] ?? 0),
-            'preselectedPurchaseItemId' => (int)($_GET['purchase_item_id'] ?? 0),
+            'preselectedPurchaseId' => trim((string)($_GET['purchase_id'] ?? '')),
+            'preselectedPurchaseItemId' => trim((string)($_GET['purchase_item_id'] ?? '')),
             'breadcrumb'       => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('production/qr-generations')],
@@ -213,6 +213,92 @@ class QrGenerationController {
             $groups[$source][$purchaseId]['items'][] = $row;
         }
 
+        // Also include Mapping Bills & Mapped Items created in Purchase Item Mapping
+        $mappingConcernWhere = "";
+        $mappingParams = [];
+        if ($cid) {
+            if ($cid === 1) {
+                $mappingConcernWhere = " AND (mb.concern_id = ? OR mb.concern_id IS NULL)";
+            } else {
+                $mappingConcernWhere = " AND mb.concern_id = ?";
+            }
+            $mappingParams[] = $cid;
+        }
+
+        $mappingRows = Database::fetchAll(
+            "SELECT mi.id AS raw_item_id,
+                    mi.mapping_bill_id,
+                    mi.item_type,
+                    mi.item_name,
+                    mi.quantity,
+                    mi.weight_kg,
+                    mi.meters,
+                    mi.unit,
+                    mi.vendor_sku,
+                    mi.product_code,
+                    mi.roll_code,
+                    mi.color,
+                    mi.size,
+                    mi.mrp,
+                    mi.selling_price,
+                    mi.unit_price,
+                    1 AS is_mapped,
+                    mi.variant_id,
+                    pv.variant_code,
+                    pv.sku AS variant_sku,
+                    mi.qr_generation_id,
+                    mb.invoice_number,
+                    mb.status AS bill_status,
+                    COALESCE(mb.created_at, NOW()) AS purchase_date,
+                    s.name AS seller_name,
+                    s.company AS seller_company,
+                    mi.roll_code AS roll_number
+             FROM third_party_mapping_items mi
+             INNER JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             LEFT JOIN sellers s ON s.id = mb.seller_id
+             LEFT JOIN product_variants pv ON pv.id = mi.variant_id
+             WHERE mi.qr_generation_id IS NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM qr_generations q2 WHERE q2.source_mapping_item_id = mi.id
+               )
+               AND (
+                   mi.purchase_item_id IS NULL
+                   OR mi.purchase_item_id NOT IN (
+                       SELECT id FROM production_purchase_items WHERE qr_generation_id IS NOT NULL
+                   )
+               )
+               {$mappingConcernWhere}
+             ORDER BY mb.id DESC, mi.id ASC
+             LIMIT 1000",
+            $mappingParams
+        );
+
+        foreach ($mappingRows as $mRow) {
+            $source = strtoupper((string)($mRow['item_type'] ?: 'THIRD_PARTY'));
+            if (!isset($groups[$source])) {
+                continue;
+            }
+            $mapBillKey = 'map_' . $mRow['mapping_bill_id'];
+            if (!isset($groups[$source][$mapBillKey])) {
+                $seller = trim((string)($mRow['seller_company'] ?: ($mRow['seller_name'] ?? 'Supplier')));
+                $inv = trim((string)$mRow['invoice_number']);
+                $groups[$source][$mapBillKey] = [
+                    'id'              => $mapBillKey,
+                    'purchase_number' => '[Mapping Bill] ' . ($inv ?: ('Invoice #' . $mRow['mapping_bill_id'])),
+                    'purchase_date'   => $mRow['purchase_date'],
+                    'invoice_number'  => $inv,
+                    'seller_label'    => $seller . ($mRow['bill_status'] ? ' (' . $mRow['bill_status'] . ')' : ''),
+                    'is_mapping'      => true,
+                    'items'           => [],
+                ];
+            }
+            $itemEntry = $mRow;
+            $itemEntry['item_id'] = 'map_' . $mRow['raw_item_id'];
+            $itemEntry['is_mapping'] = true;
+            $itemEntry['purchase_id'] = $mapBillKey;
+            $groups[$source][$mapBillKey]['items'][] = $itemEntry;
+        }
+
         foreach ($groups as &$purchases) {
             $purchases = array_values($purchases);
         }
@@ -252,27 +338,44 @@ class QrGenerationController {
     }
 
     /**
-     * Handle QR generation from a mapped purchase line.
+     * Handle QR generation from a mapped purchase line or mapping bill item.
      */
     public function storePurchaseBatch(): void {
         $tab = QrGenerationService::normalizeTab($_POST['tab'] ?? null);
         $tabs = QrGenerationService::sourceTabs();
         $source = strtoupper(trim((string)($_POST['qr_source'] ?? '')));
-        $itemId = (int)($_POST['purchase_item_id'] ?? 0);
+        $rawItemId = trim((string)($_POST['purchase_item_id'] ?? ''));
 
-        if ($itemId <= 0 || $source === '' || ($tabs[$tab]['source'] ?? null) !== $source) {
-            Session::flash('error', 'Select a purchase item from the selected tab.');
+        $isMapping = str_starts_with($rawItemId, 'map_') || !empty($_POST['is_mapping']);
+        $mappingItemId = $isMapping ? (int)preg_replace('/^map_/', '', $rawItemId) : 0;
+        $itemId = !$isMapping ? (int)$rawItemId : 0;
+
+        if (($isMapping && $mappingItemId <= 0) || (!$isMapping && $itemId <= 0) || $source === '' || ($tabs[$tab]['source'] ?? null) !== $source) {
+            Session::flash('error', 'Select a purchase or mapping item from the selected tab.');
             Response::redirect(url('production/qr-generations/create?tab=' . $tab));
             return;
         }
-        $selectedItem = Database::fetchOne(
-            "SELECT item_type FROM production_purchase_items WHERE id = ?",
-            [$itemId]
-        );
-        if (!$selectedItem || strtoupper((string)$selectedItem['item_type']) !== $source) {
-            Session::flash('error', 'The selected product does not belong to this QR tab. Choose a product from the tab-specific list.');
-            Response::redirect(url('production/qr-generations/create?tab=' . $tab));
-            return;
+
+        if ($isMapping) {
+            $selectedItem = Database::fetchOne(
+                "SELECT item_type FROM third_party_mapping_items WHERE id = ?",
+                [$mappingItemId]
+            );
+            if (!$selectedItem || strtoupper((string)$selectedItem['item_type']) !== $source) {
+                Session::flash('error', 'The selected product does not belong to this QR tab. Choose a product from the tab-specific list.');
+                Response::redirect(url('production/qr-generations/create?tab=' . $tab));
+                return;
+            }
+        } else {
+            $selectedItem = Database::fetchOne(
+                "SELECT item_type FROM production_purchase_items WHERE id = ?",
+                [$itemId]
+            );
+            if (!$selectedItem || strtoupper((string)$selectedItem['item_type']) !== $source) {
+                Session::flash('error', 'The selected product does not belong to this QR tab. Choose a product from the tab-specific list.');
+                Response::redirect(url('production/qr-generations/create?tab=' . $tab));
+                return;
+            }
         }
 
         try {
