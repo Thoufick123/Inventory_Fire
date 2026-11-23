@@ -3817,6 +3817,34 @@ class ProductionController {
         }
 
         $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        $existingRollProducts = Database::fetchAll("
+            SELECT DISTINCT p.name, p.code, p.hsn_code, p.gst_percentage
+            FROM products p
+            WHERE p.code LIKE 'ROL-%' 
+               OR p.source_type = 'EXTERNAL_PURCHASE'
+               OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'FABRIC_ROLL')
+            ORDER BY p.name ASC
+        ");
+
+        $existingProducts = Database::fetchAll("
+            SELECT DISTINCT p.name, p.code, p.category_id, p.hsn_code, p.gst_percentage
+            FROM products p
+            WHERE (p.source_type = 'EXTERNAL_PURCHASE' OR p.code LIKE 'TP-%')
+               OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'THIRD_PARTY')
+            ORDER BY p.name ASC
+        ");
+
+        try {
+            $hsnList = Database::fetchAll("
+                SELECT id, hsn_code, description, gst_rate FROM hsn_codes
+                UNION
+                SELECT id, hsn_code, COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description, gst_percentage AS gst_rate 
+                FROM production_hsn_config WHERE is_active = 1
+                ORDER BY hsn_code ASC
+            ");
+        } catch (\Throwable $e) {
+            $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
+        }
 
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
@@ -3830,6 +3858,9 @@ class ProductionController {
             'subSubcategories' => $subSubcategories,
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
+            'existingRollProducts' => $existingRollProducts,
+            'existingProducts' => $existingProducts,
+            'hsnList' => $hsnList,
             'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
@@ -4069,15 +4100,19 @@ class ProductionController {
                     $rate = (float)($r['rate'] ?? 0);
                     $gstRate = isset($r['gst_rate']) ? (float)$r['gst_rate'] : 5.0;
                     $hsn = trim((string)($r['hsn_code'] ?? '5208')) ?: '5208';
-                    if ($meters <= 0 && $weightKg <= 0) continue;
+                    if ($weightKg <= 0 && $meters <= 0) continue;
                     if ($rollCode === '') {
                         $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
                     }
                     $sku = $productCode . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $rollCode), 0, 10));
 
+                    $sizeLabel = ($weightKg > 0) ? ($weightKg . 'kg') : ($meters > 0 ? $meters . 'm' : 'Standard');
+                    $qty = ($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0);
+                    $unit = ($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS');
+
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color,
-                        'size' => ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg')),
+                        'size' => $sizeLabel,
                         'vendor_sku' => $sku,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,
@@ -4091,19 +4126,19 @@ class ProductionController {
                             (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
                              roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MTR', ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
                         [
                             $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode, $sku,
-                            $rollCode, $weightKg, $meters, ($meters > 0 ? $meters : $weightKg),
+                            $rollCode, ($weightKg > 0 ? $weightKg : null), ($meters > 0 ? $meters : null), $qty, $unit,
                             $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
-                            ($meters > 0 ? $meters . 'm' : ($weightKg . 'kg'))
+                            $sizeLabel
                         ]
                     );
                     $rollCount++;
                 }
 
                 if ($rollCount === 0) {
-                    throw new InvalidArgumentException('Enter at least one valid fabric roll with length or weight.');
+                    throw new InvalidArgumentException('Enter at least one valid fabric roll with weight.');
                 }
                 Database::commit();
 
@@ -5007,19 +5042,48 @@ class ProductionController {
             $isRoll = (($item['item_type'] ?? 'THIRD_PARTY') === 'FABRIC_ROLL');
 
             if ($isRoll) {
+                $sellerId = (int)$purchase['seller_id'];
+                $rollCode = !empty($item['roll_code']) ? $item['roll_code'] : ('R-' . date('ymd') . '-' . sprintf('%03d', (int)$item['id']));
+                $existingRoll = Database::fetchOne(
+                    "SELECT id FROM seller_rolls WHERE seller_id = ? AND roll_number = ? LIMIT 1",
+                    [$sellerId, $rollCode]
+                );
+                $sellerRollId = null;
+                if ($existingRoll) {
+                    $sellerRollId = (int)$existingRoll['id'];
+                } else {
+                    $rollQrCode = 'SR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
+                    try {
+                        Database::execute(
+                            "INSERT INTO seller_rolls
+                                (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                 material_type, qr_code, hsn_code, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                            [
+                                $sellerId, $rollCode, $item['color'] ?: 'Standard', $item['item_name'],
+                                $item['quantity'], $item['weight_kg'] ?: $item['quantity'], $item['unit_price'],
+                                $item['item_name'], $rollQrCode, $item['hsn_code']
+                            ]
+                        );
+                        $sellerRollId = (int)Database::lastInsertId();
+                    } catch (\Throwable $e) {
+                        error_log('Mapping roll to seller_rolls insert error: ' . $e->getMessage());
+                    }
+                }
+
                 Database::execute(
                     "INSERT INTO production_purchase_items
                         (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
                          roll_number, weight_kg, quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
                          tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
-                         is_mapped, created_at)
+                         seller_roll_id, is_mapped, created_at)
                      VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
-                             ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                             ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
                     [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
-                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'MTR',
+                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'KGS',
                         $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
-                        $item['color'], $item['size'], $item['hsn_code']]
+                        $item['color'], $item['size'], $item['hsn_code'], $sellerRollId]
                 );
             } else {
                 Database::execute(

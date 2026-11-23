@@ -220,7 +220,7 @@ $canVerify = hasPermission('inward', 'verify');
             <!-- Filters Card (Fully Responsive Grid Layout) -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body p-3">
-                    <form method="GET" action="<?= url('warehouse/inward') ?>" class="row g-2 align-items-end">
+                    <form method="GET" action="<?= url('production/inwards') ?>" class="row g-2 align-items-end">
                         <!-- Search Filter -->
                         <div class="col-12 col-sm-6 col-lg-3">
                             <label class="form-label small fw-semibold text-muted mb-1">Search Filter</label>
@@ -257,7 +257,7 @@ $canVerify = hasPermission('inward', 'verify');
                                 <?php endforeach; ?>
                             </select>
                             <?php if (!empty($scopedWarehouseId) || count($warehouses) <= 1): ?>
-                                <input type="hidden" name="warehouse_id" value="<?= e($warehouseId ?? ($warehouses[0]['id'] ?? '')) ?>">
+                                <input type="hidden" name="warehouse_id" value="<?= e(!empty($warehouseId) ? $warehouseId : ($warehouses[0]['id'] ?? '')) ?>">
                             <?php endif; ?>
                         </div>
 
@@ -275,7 +275,7 @@ $canVerify = hasPermission('inward', 'verify');
                         <div class="col-4 col-sm-2 col-lg-1">
                             <div class="btn-group btn-group-sm w-100" role="group">
                                 <button type="submit" class="btn btn-primary" title="Apply Filter"><i class="bi bi-funnel-fill"></i></button>
-                                <a href="<?= url('warehouse/inward') ?>" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-arrow-clockwise"></i></a>
+                                <a href="<?= url('production/inwards') ?>" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-arrow-clockwise"></i></a>
                             </div>
                         </div>
                     </form>
