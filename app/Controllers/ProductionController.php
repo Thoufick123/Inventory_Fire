@@ -21974,8 +21974,21 @@ class ProductionController {
         array $itemColumns,
         string $itemsTitle,
         array $qrLabel = [],
-        ?array $customBreadcrumb = null
+        $arg10 = null,
+        ?array $arg11 = null
     ): void {
+        $recordIcon = 'bi-eye';
+        $customBreadcrumb = null;
+
+        if (is_string($arg10)) {
+            $recordIcon = $arg10;
+            if (is_array($arg11)) {
+                $customBreadcrumb = $arg11;
+            }
+        } elseif (is_array($arg10)) {
+            $customBreadcrumb = $arg10;
+        }
+
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
             'activeModule' => 'production',
@@ -21986,6 +21999,7 @@ class ProductionController {
                 ['label' => $recordTitle],
             ],
             'recordTitle'  => $recordTitle,
+            'recordIcon'   => $recordIcon,
             'sectionTitle' => $sectionTitle,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
