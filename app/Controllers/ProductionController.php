@@ -3809,6 +3809,26 @@ class ProductionController {
             ORDER BY p.name ASC
         ");
 
+        $existingProducts = Database::fetchAll("
+            SELECT DISTINCT p.name, p.code, p.category_id, p.hsn_code, p.gst_percentage
+            FROM products p
+            WHERE (p.source_type = 'EXTERNAL_PURCHASE' OR p.code LIKE 'TP-%')
+               OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'THIRD_PARTY')
+            ORDER BY p.name ASC
+        ");
+
+        try {
+            $hsnList = Database::fetchAll("
+                SELECT id, hsn_code, description, gst_rate FROM hsn_codes
+                UNION
+                SELECT id, hsn_code, COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description, gst_percentage AS gst_rate 
+                FROM production_hsn_config WHERE is_active = 1
+                ORDER BY hsn_code ASC
+            ");
+        } catch (\Throwable $e) {
+            $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
+        }
+
         Response::view('production.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
@@ -3822,6 +3842,8 @@ class ProductionController {
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
             'existingRollProducts' => $existingRollProducts,
+            'existingProducts' => $existingProducts,
+            'hsnList' => $hsnList,
             'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
@@ -5003,19 +5025,48 @@ class ProductionController {
             $isRoll = (($item['item_type'] ?? 'THIRD_PARTY') === 'FABRIC_ROLL');
 
             if ($isRoll) {
+                $sellerId = (int)$purchase['seller_id'];
+                $rollCode = !empty($item['roll_code']) ? $item['roll_code'] : ('R-' . date('ymd') . '-' . sprintf('%03d', (int)$item['id']));
+                $existingRoll = Database::fetchOne(
+                    "SELECT id FROM seller_rolls WHERE seller_id = ? AND roll_number = ? LIMIT 1",
+                    [$sellerId, $rollCode]
+                );
+                $sellerRollId = null;
+                if ($existingRoll) {
+                    $sellerRollId = (int)$existingRoll['id'];
+                } else {
+                    $rollQrCode = 'SR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
+                    try {
+                        Database::execute(
+                            "INSERT INTO seller_rolls
+                                (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                 material_type, qr_code, hsn_code, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                            [
+                                $sellerId, $rollCode, $item['color'] ?: 'Standard', $item['item_name'],
+                                $item['quantity'], $item['weight_kg'] ?: $item['quantity'], $item['unit_price'],
+                                $item['item_name'], $rollQrCode, $item['hsn_code']
+                            ]
+                        );
+                        $sellerRollId = (int)Database::lastInsertId();
+                    } catch (\Throwable $e) {
+                        error_log('Mapping roll to seller_rolls insert error: ' . $e->getMessage());
+                    }
+                }
+
                 Database::execute(
                     "INSERT INTO production_purchase_items
                         (purchase_id, item_type, item_name, product_id, variant_id, product_code, vendor_sku,
                          roll_number, weight_kg, quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
                          tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
-                         is_mapped, created_at)
+                         seller_roll_id, is_mapped, created_at)
                      VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
-                             ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                             ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
                     [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
-                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'MTR',
+                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'KGS',
                         $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
-                        $item['color'], $item['size'], $item['hsn_code']]
+                        $item['color'], $item['size'], $item['hsn_code'], $sellerRollId]
                 );
             } else {
                 Database::execute(

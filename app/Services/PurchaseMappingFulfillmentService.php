@@ -351,12 +351,15 @@ class PurchaseMappingFulfillmentService {
         $category = Database::fetchOne(
             "SELECT id, name, code FROM third_party_categories WHERE id = ?{$categoryActiveCondition}",
             [$categoryId]
+        ) ?: Database::fetchOne(
+            "SELECT id, name, code FROM categories WHERE id = ?{$categoryActiveCondition}",
+            [$categoryId]
         );
         if (!$category) {
             throw new InvalidArgumentException('Selected category does not exist.');
         }
         if (!self::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, $includeInactiveCategories)) {
-            throw new InvalidArgumentException('Select a valid category hierarchy from the Third-Party Catalog.');
+            throw new InvalidArgumentException('Select a valid category hierarchy.');
         }
         if ($subcategoryId) {
             $validSub = Database::fetchOne(
@@ -452,30 +455,16 @@ class PurchaseMappingFulfillmentService {
         bool $includeInactive = false
     ): bool {
         $activeCondition = $includeInactive ? '' : ' AND is_active = 1';
-        if ($categoryId <= 0 || !Database::fetchOne(
-            "SELECT id FROM third_party_categories WHERE id = ?{$activeCondition}",
-            [$categoryId]
-        )) {
+        if ($categoryId <= 0) {
+            return false;
+        }
+        $catExists = Database::fetchOne("SELECT id FROM third_party_categories WHERE id = ?{$activeCondition}", [$categoryId])
+                  ?: Database::fetchOne("SELECT id FROM categories WHERE id = ?{$activeCondition}", [$categoryId]);
+        if (!$catExists) {
             return false;
         }
 
-        if ($subcategoryId) {
-            if (!Database::fetchOne(
-                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ?{$activeCondition}",
-                [$subcategoryId, $categoryId]
-            )) {
-                return false;
-            }
-        }
-        if ($subSubcategoryId) {
-            if (!$subcategoryId || !Database::fetchOne(
-                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ?{$activeCondition}",
-                [$subSubcategoryId, $subcategoryId]
-            )) {
-                return false;
-            }
-        }
-
+        // Subcategory and sub-subcategory are optional
         return true;
     }
 

@@ -9,32 +9,40 @@ foreach ($items as $savedItem) {
         $firstQrId = (int)$savedItem['qr_generation_id'];
     }
 }
-$variantRow = static function (int $index = 0) use ($categories, $subcategories, $subSubcategories): void { ?>
+$variantRow = static function (int $index = 0) use ($categories, $subcategories, $subSubcategories, $hsnList): void { ?>
     <tr class="mapping-variant-row">
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][size]" placeholder="Size"></td>
         <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][color]" placeholder="Color"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][sku]" placeholder="SKU"></td>
         <td><input class="form-control form-control-sm map-qty" name="variants[<?= $index ?>][quantity]" type="text" inputmode="numeric" required placeholder="Qty" autocomplete="off"></td>
         <td><input class="form-control form-control-sm map-rate" name="variants[<?= $index ?>][unit_price]" type="text" inputmode="decimal" required placeholder="Rate" autocomplete="off"></td>
         <td><input class="form-control form-control-sm map-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" required placeholder="MRP" autocomplete="off"></td>
         <td><input class="form-control form-control-sm map-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" required placeholder="Sale" autocomplete="off"></td>
         <td><input class="form-control form-control-sm map-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="0" required placeholder="GST %" autocomplete="off"></td>
-        <td><input class="form-control form-control-sm font-monospace" name="variants[<?= $index ?>][hsn_code]" maxlength="20" required placeholder="HSN"></td>
+        <td>
+            <select class="form-select form-select-sm mapping-hsn-select font-monospace" name="variants[<?= $index ?>][hsn_code]">
+                <option value="">Select HSN</option>
+                <?php foreach (($hsnList ?? []) as $hsnItem): ?>
+                    <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>">
+                        <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 24, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </td>
         <td>
             <select class="form-select form-select-sm mapping-category" name="variants[<?= $index ?>][category_id]" required>
-                <option value="">Category</option>
+                <option value="">Category *</option>
                 <?php foreach ($categories as $category): ?>
                     <option value="<?= (int)$category['id'] ?>"><?= e($category['name']) ?></option>
                 <?php endforeach; ?>
             </select>
             <select class="form-select form-select-sm mt-1 mapping-subcategory" name="variants[<?= $index ?>][subcategory_id]">
-                <option value="">Subcategory</option>
+                <option value="">Subcategory (Optional)</option>
                 <?php foreach ($subcategories as $subcategory): ?>
                     <option value="<?= (int)$subcategory['id'] ?>" data-parent="<?= (int)$subcategory['category_id'] ?>"><?= e($subcategory['name']) ?></option>
                 <?php endforeach; ?>
             </select>
             <select class="form-select form-select-sm mt-1 mapping-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
-                <option value="">Sub-subcategory</option>
+                <option value="">Sub-subcategory (Optional)</option>
                 <?php foreach ($subSubcategories as $subSubcategory): ?>
                     <option value="<?= (int)$subSubcategory['id'] ?>" data-parent="<?= (int)$subSubcategory['subcategory_id'] ?>"><?= e($subSubcategory['name']) ?></option>
                 <?php endforeach; ?>
@@ -124,13 +132,24 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="THIRD_PARTY">
                     <div class="row g-3 mb-3">
-                        <div class="col-md-8">
-                            <label class="form-label fw-semibold">Product / Style Name <span class="text-danger">*</span></label>
-                            <input class="form-control" name="product_name" required maxlength="255" placeholder="e.g. TESTING Men Casual Shirt">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold">Style Code</label>
-                            <input class="form-control" name="product_code" maxlength="50" placeholder="e.g. SHT-001">
+                        <div class="col-md-10">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-semibold mb-0" for="productNameInput">
+                                    Product / Style Name <span class="text-danger">*</span>
+                                </label>
+                                <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
+                                    <i class="bi bi-plus-circle me-1"></i>New Product Auto-Created
+                                </span>
+                            </div>
+                            <input class="form-control" name="product_name" id="productNameInput" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. TESTING Men Casual Shirt..." autocomplete="off">
+                            <datalist id="tpProductSuggestions">
+                                <?php foreach (($existingProducts ?? []) as $ep): ?>
+                                    <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
+                                <?php endforeach; ?>
+                            </datalist>
+                            <div class="form-text small text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Type any new product name or select an existing one. Multiple products can be added sequentially to this mapping invoice.
+                            </div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label fw-semibold">Unit</label>
@@ -140,19 +159,18 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" style="min-width: 1360px;">
+                        <table class="table table-bordered align-middle table-sm" style="min-width: 1200px;">
                             <thead class="table-light small text-uppercase text-muted">
                                 <tr>
                                     <th style="width: 110px; min-width: 110px;">Size</th>
                                     <th style="width: 120px; min-width: 120px;">Color</th>
-                                    <th style="width: 160px; min-width: 150px;">SKU</th>
-                                    <th style="width: 95px; min-width: 90px;">Qty</th>
-                                    <th style="width: 115px; min-width: 110px;">Purchase Rate</th>
-                                    <th style="width: 115px; min-width: 110px;">MRP</th>
-                                    <th style="width: 115px; min-width: 110px;">Selling</th>
+                                    <th style="width: 95px; min-width: 90px;">Qty *</th>
+                                    <th style="width: 115px; min-width: 110px;">Purchase Rate *</th>
+                                    <th style="width: 115px; min-width: 110px;">MRP *</th>
+                                    <th style="width: 115px; min-width: 110px;">Selling *</th>
                                     <th style="width: 90px; min-width: 85px;">GST %</th>
-                                    <th style="width: 115px; min-width: 110px;">HSN</th>
-                                    <th style="width: 260px; min-width: 250px;">Category hierarchy</th>
+                                    <th style="width: 220px; min-width: 200px;">HSN Code</th>
+                                    <th style="width: 260px; min-width: 250px;">Category hierarchy *</th>
                                     <th style="width: 50px; min-width: 50px;"></th>
                                 </tr>
                             </thead>
@@ -198,7 +216,14 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Default HSN Code</label>
-                            <input class="form-control font-monospace" name="default_hsn" id="defaultRollHsn" value="5208" maxlength="20">
+                            <select class="form-select font-monospace" name="default_hsn" id="defaultRollHsn">
+                                <option value="">Select Default HSN</option>
+                                <?php foreach (($hsnList ?? []) as $hsnItem): ?>
+                                    <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
+                                        <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 20, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Default GST Rate %</label>
@@ -206,7 +231,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 800px;">
+                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 860px;">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 160px;">Roll Code / #</th>
@@ -214,7 +239,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                     <th style="width: 140px;">Weight (kg) *</th>
                                     <th style="width: 140px;">Rate (₹/kg) *</th>
                                     <th style="width: 90px;">GST %</th>
-                                    <th style="width: 110px;">HSN</th>
+                                    <th style="width: 200px;">HSN Code</th>
                                     <th style="width: 45px;"></th>
                                 </tr>
                             </thead>
@@ -225,7 +250,15 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
                                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
-                                    <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[0][hsn_code]" value="5208"></td>
+                                    <td>
+                                        <select class="form-select form-select-sm font-monospace roll-hsn-select" name="rolls[0][hsn_code]">
+                                            <?php foreach (($hsnList ?? []) as $hsnItem): ?>
+                                                <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
+                                                    <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 18, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
                                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row" title="Remove roll"><i class="bi bi-x-lg"></i></button></td>
                                 </tr>
                             </tbody>
@@ -250,9 +283,16 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 <?php endif; ?>
 
 <div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-primary"></i>Saved Product Variants</h5>
-        <span class="badge bg-secondary"><?= count($items) ?> variants</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary"><?= count($items) ?> variants</span>
+            <?php if ($bill['status'] === 'DRAFT' && !$viewOnly): ?>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('productNameInput')?.focus(); window.scrollTo({top: 0, behavior: 'smooth'});">
+                    <i class="bi bi-plus-lg me-1"></i>+ Add Another Product
+                </button>
+            <?php endif; ?>
+        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -546,6 +586,13 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             const subSubcat = row.querySelector('.mapping-subsubcategory');
             if (subSubcat) subSubcat.value = '';
             updateRowCascade(row);
+        } else if (event.target.classList.contains('mapping-hsn-select')) {
+            const opt = event.target.options[event.target.selectedIndex];
+            const gst = opt ? opt.getAttribute('data-gst') : null;
+            if (gst !== null && gst !== undefined && gst !== '') {
+                const gstInput = row.querySelector('.map-gst');
+                if (gstInput) gstInput.value = gst;
+            }
         }
     });
 
@@ -885,6 +932,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const addRolls = function(count) {
             const hsnVal = defaultRollHsn ? defaultRollHsn.value : '5208';
             const gstVal = defaultRollGst ? defaultRollGst.value : '5';
+            const baseHsnSelect = rollBody.querySelector('.roll-hsn-select');
+            const hsnOptionsHtml = baseHsnSelect ? baseHsnSelect.innerHTML : '<option value="5208">5208 (5%)</option>';
+
             for (let i = 0; i < count; i++) {
                 const tr = document.createElement('tr');
                 tr.className = 'mapping-roll-row';
@@ -894,9 +944,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50" required></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
-                    <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[${nextRollIndex}][hsn_code]" value="${hsnVal}"></td>
+                    <td>
+                        <select class="form-select form-select-sm font-monospace roll-hsn-select" name="rolls[${nextRollIndex}][hsn_code]">
+                            ${hsnOptionsHtml}
+                        </select>
+                    </td>
                     <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row"><i class="bi bi-x-lg"></i></button></td>
                 `;
+                const newHsnSelect = tr.querySelector('.roll-hsn-select');
+                if (newHsnSelect && hsnVal) {
+                    newHsnSelect.value = hsnVal;
+                }
                 rollBody.appendChild(tr);
                 nextRollIndex++;
             }
@@ -914,6 +972,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.closest('tr').remove();
             }
         });
+
+        // HSN select change inside roll rows auto-updates that roll's GST %
+        rollBody.addEventListener('change', function(event) {
+            if (event.target.classList.contains('roll-hsn-select')) {
+                const opt = event.target.options[event.target.selectedIndex];
+                const gst = opt ? opt.getAttribute('data-gst') : null;
+                const rRow = event.target.closest('tr');
+                if (rRow && gst !== null && gst !== undefined && gst !== '') {
+                    const gstInput = rRow.querySelector('.roll-gst-input');
+                    if (gstInput) gstInput.value = gst;
+                }
+            }
+        });
+
+        // Default Roll HSN change auto-updates default GST and existing roll rows
+        if (defaultRollHsn) {
+            defaultRollHsn.addEventListener('change', function() {
+                const opt = this.options[this.selectedIndex];
+                const gst = opt ? opt.getAttribute('data-gst') : null;
+                if (gst !== null && gst !== undefined && gst !== '' && defaultRollGst) {
+                    defaultRollGst.value = gst;
+                }
+                const hVal = this.value;
+                rollBody.querySelectorAll('.roll-hsn-select').forEach(function(sel) {
+                    sel.value = hVal;
+                    const rRow = sel.closest('tr');
+                    if (rRow && gst !== null && gst !== undefined && gst !== '') {
+                        const rGst = rRow.querySelector('.roll-gst-input');
+                        if (rGst) rGst.value = gst;
+                    }
+                });
+            });
+        }
 
         // Live input validation on roll rows: numbers only
         rollBody.addEventListener('input', function(event) {
