@@ -14,6 +14,12 @@
         </button>
     </li>
     <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="mappingFabricRollsTab" data-bs-toggle="tab" data-bs-target="#mappingFabricRollsPane" type="button" role="tab" aria-controls="mappingFabricRollsPane" aria-selected="false">
+            <i class="bi bi-layers-half me-1"></i>Fabric Rolls
+            <span class="badge bg-secondary ms-1"><?= count($fabricRollItems ?? []) ?></span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="mappingLogsTab" data-bs-toggle="tab" data-bs-target="#mappingLogsPane" type="button" role="tab" aria-controls="mappingLogsPane" aria-selected="false">
             <i class="bi bi-journal-text me-1"></i>Mapping Invoice Log
             <span class="badge bg-secondary ms-1"><?= count($mappingDrafts ?? []) ?></span>
@@ -260,6 +266,95 @@
     </div>
 </div>
 
+    </div>
+    <div class="tab-pane fade" id="mappingFabricRollsPane" role="tabpanel" aria-labelledby="mappingFabricRollsTab">
+        <div class="card border shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-1 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll Purchases</h5>
+                    <small class="text-muted">Fabric rolls use their own roll and QR workflow; they are not sent through the third-party catalog mapper.</small>
+                </div>
+                <span class="badge bg-secondary-subtle text-secondary border"><?= count($fabricRollItems ?? []) ?> Roll Lines</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase small">
+                        <tr>
+                            <th>Purchase Bill / Date</th>
+                            <th>Supplier</th>
+                            <th>Fabric</th>
+                            <th>Roll / Color / Design</th>
+                            <th class="text-end">Quantity / Weight</th>
+                            <th>QR / GRN</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($fabricRollItems)): ?>
+                            <tr><td colspan="7" class="text-center text-muted py-5">No fabric-roll purchase lines found.</td></tr>
+                        <?php else: foreach ($fabricRollItems as $roll): ?>
+                            <tr>
+                                <td>
+                                    <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="fw-bold text-decoration-none font-monospace">
+                                        <?= e($roll['purchase_number']) ?>
+                                    </a>
+                                    <small class="text-muted d-block"><?= e(date('d M Y', strtotime($roll['purchase_date']))) ?></small>
+                                    <?php if (!empty($roll['invoice_number'])): ?><small class="text-muted d-block">Inv: <?= e($roll['invoice_number']) ?></small><?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong><?= e($roll['seller_company'] ?: $roll['seller_name']) ?></strong>
+                                    <?php if (!empty($roll['seller_company'])): ?><small class="text-muted d-block"><?= e($roll['seller_name']) ?></small><?php endif; ?>
+                                </td>
+                                <td><?= e($roll['item_name']) ?></td>
+                                <td>
+                                    <span class="font-monospace"><?= e($roll['roll_number'] ?: '-') ?></span>
+                                    <small class="text-muted d-block"><?= e($roll['color'] ?: '-') ?> / <?= e($roll['design_name'] ?: '-') ?></small>
+                                </td>
+                                <td class="text-end">
+                                    <?= number_format((float)$roll['quantity'], 0) ?> <?= e($roll['unit'] ?: 'PCS') ?>
+                                    <?php if ((float)$roll['weight_kg'] > 0): ?><small class="text-muted d-block"><?= number_format((float)$roll['weight_kg'], 2) ?> kg</small><?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($roll['qr_generation_id'])): ?>
+                                        <?php if (hasPermission('qr_generation', 'view')): ?>
+                                            <a href="<?= url('production/qr-generations/view/' . (int)$roll['qr_generation_id']) ?>" class="badge bg-dark-subtle text-dark border text-decoration-none">
+                                                <i class="bi bi-qr-code me-1"></i><?= e($roll['qr_batch_code'] ?: 'View QR') ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-dark-subtle text-dark border"><i class="bi bi-qr-code me-1"></i><?= e($roll['qr_batch_code'] ?: 'QR generated') ?></span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-secondary border">QR pending</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($roll['grn_id'])): ?>
+                                        <?php if (hasPermission('inward', 'view')): ?>
+                                            <a href="<?= url('production/inwards/view/' . (int)$roll['grn_id']) ?>" class="badge bg-success-subtle text-success border text-decoration-none ms-1">
+                                                <i class="bi bi-truck me-1"></i><?= e($roll['grn_number'] ?: 'GRN') ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="badge bg-success-subtle text-success border ms-1"><i class="bi bi-truck me-1"></i><?= e($roll['grn_number'] ?: 'GRN received') ?></span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-secondary border ms-1">GRN pending</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <?php if (empty($roll['qr_generation_id']) && hasPermission('qr_generation', 'create')): ?>
+                                        <a href="<?= url('production/qr-generations/create?tab=fabric&purchase_id=' . (int)$roll['purchase_id'] . '&purchase_item_id=' . (int)$roll['id']) ?>" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-qr-code-scan me-1"></i>Generate QR
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye me-1"></i>View Bill
+                                        </a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div class="tab-pane fade" id="mappingLogsPane" role="tabpanel" aria-labelledby="mappingLogsTab">
         <div class="card border shadow-sm mb-4">

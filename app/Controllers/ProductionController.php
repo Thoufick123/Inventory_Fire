@@ -5212,6 +5212,34 @@ class ProductionController {
             $params
         );
 
+        $fabricRollWhere = ["ppi.item_type = 'FABRIC_ROLL'"];
+        $fabricRollParams = [];
+        if ($cid) {
+            $fabricRollWhere[] = ($cid === 1)
+                ? "(pp.concern_id = ? OR pp.concern_id IS NULL)"
+                : "pp.concern_id = ?";
+            $fabricRollParams[] = $cid;
+        }
+        $fabricRollItems = Database::fetchAll(
+            "SELECT ppi.id, ppi.purchase_id, ppi.item_name,
+                    COALESCE(NULLIF(ppi.roll_number, ''), sr.roll_number) AS roll_number,
+                    COALESCE(NULLIF(ppi.color, ''), sr.color) AS color,
+                    COALESCE(NULLIF(ppi.design_name, ''), sr.design_name) AS design_name,
+                    ppi.design_count, COALESCE(NULLIF(ppi.weight_kg, 0), sr.weight) AS weight_kg,
+                    ppi.quantity, ppi.unit,
+                    ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
+                    pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                    s.name AS seller_name, s.company AS seller_company
+             FROM production_purchase_items ppi
+             INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN seller_rolls sr ON sr.id = ppi.seller_roll_id
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE " . implode(' AND ', $fabricRollWhere) . "
+             ORDER BY pp.purchase_date DESC, pp.id DESC, ppi.id ASC
+             LIMIT 1000",
+            $fabricRollParams
+        );
+
         $metricWhere = "WHERE ppi.item_type = 'THIRD_PARTY'";
         $metricParams = [];
         if ($cid) {
@@ -5267,6 +5295,7 @@ class ProductionController {
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'items' => $items,
+            'fabricRollItems' => $fabricRollItems,
             'mappingDrafts' => $mappingDrafts,
             'metrics' => $metrics,
             'categories' => $categories,
