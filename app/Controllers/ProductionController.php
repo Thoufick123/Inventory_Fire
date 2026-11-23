@@ -4165,159 +4165,175 @@ class ProductionController {
             }
         }
 
-        if ($productName === '' || !is_array($variants) || empty($variants)) {
+        $productsInput = $_POST['products'] ?? null;
+        if (!is_array($productsInput) || empty($productsInput)) {
+            $singleProdName = mb_strtoupper(trim((string)($_POST['product_name'] ?? '')));
+            if ($singleProdName !== '') {
+                $productsInput = [[
+                    'product_name' => $singleProdName,
+                    'unit' => $_POST['unit'] ?? 'PCS',
+                    'variants' => $_POST['variants'] ?? [],
+                ]];
+            }
+        }
+
+        if (empty($productsInput)) {
             if ($isAjax) {
-                Response::json(['success' => false, 'message' => 'Enter a product name and at least one product variant.'], 422);
+                Response::json(['success' => false, 'message' => 'Enter at least one product with variants.'], 422);
                 return;
             }
-            Session::flash('error', 'Enter a product name and at least one product variant.');
-            Response::back();
-            return;
-        }
-        if (count($variants) > 100) {
-            Session::flash('error', 'Add no more than 100 variants to one product at a time.');
+            Session::flash('error', 'Enter at least one product with variants.');
             Response::back();
             return;
         }
 
-        $styleCode = mb_strtoupper(trim((string)($_POST['product_code'] ?? '')));
-        if (mb_strlen($productName) > 300 || mb_strlen($styleCode) > 50) {
-            Session::flash('error', 'Product name is limited to 300 characters and style code to 50 characters.');
-            Response::back();
-            return;
-        }
-        $unit = strtoupper(trim((string)($_POST['unit'] ?? 'PCS'))) ?: 'PCS';
         $userId = (int)(Session::get('user_id') ?? 0);
         Database::beginTransaction();
         try {
-            $product = Database::fetchOne(
-                "SELECT id, code FROM products
-                 WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
-                   AND seller_id = ?
-                 ORDER BY id ASC LIMIT 1",
-                [$productName, (int)$bill['seller_id']]
-            );
-            if (!$product) {
-                if ($styleCode === '') {
-                    $base = 'TP-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $productName)), 0, 10);
+            $totalProducts = 0;
+            $totalVariants = 0;
+            $savedNames = [];
+
+            foreach ($productsInput as $pIdx => $pData) {
+                if (!is_array($pData)) continue;
+                $pName = mb_strtoupper(trim((string)($pData['product_name'] ?? '')));
+                $pUnit = strtoupper(trim((string)($pData['unit'] ?? 'PCS'))) ?: 'PCS';
+                $pVariants = $pData['variants'] ?? [];
+
+                if ($pName === '' || !is_array($pVariants) || empty($pVariants)) {
+                    continue;
+                }
+
+                $product = Database::fetchOne(
+                    "SELECT id, code FROM products
+                     WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
+                       AND seller_id = ?
+                     ORDER BY id ASC LIMIT 1",
+                    [$pName, (int)$bill['seller_id']]
+                );
+                if (!$product) {
+                    $base = 'TP-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $pName)), 0, 10);
                     $styleCode = $base ?: 'TP-PRODUCT';
                     $suffix = 1;
                     while (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$styleCode])) {
                         $styleCode = $base . '-' . $suffix++;
                     }
-                } elseif (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$styleCode])) {
-                    throw new InvalidArgumentException("Product code '{$styleCode}' is already in use.");
-                }
-                Database::execute(
-                    "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
-                     VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
-                    [$productName, $styleCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
-                );
-                $productId = (int)Database::lastInsertId();
-                $productCode = $styleCode;
-            } else {
-                $productId = (int)$product['id'];
-                $productCode = (string)$product['code'];
-            }
-
-            $seenCombinations = [];
-            $variantCount = 0;
-            foreach ($variants as $index => $variant) {
-                if (!is_array($variant)) {
-                    continue;
-                }
-                $size = trim((string)($variant['size'] ?? ''));
-                $color = trim((string)($variant['color'] ?? ''));
-                $combination = mb_strtoupper($size) . "\0" . mb_strtoupper($color);
-                if (isset($seenCombinations[$combination])) {
-                    throw new InvalidArgumentException('A size and color variant combination was entered more than once.');
-                }
-                $seenCombinations[$combination] = true;
-                $qty = (float)($variant['quantity'] ?? 0);
-                $rate = (float)($variant['unit_price'] ?? 0);
-                $mrp = (float)($variant['mrp'] ?? 0);
-                $sellingPrice = (float)($variant['selling_price'] ?? 0);
-                $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
-                $hsn = trim((string)($variant['hsn_code'] ?? ''));
-                if ($hsn === '') {
-                    $hsn = 'PENDING';
-                }
-                $categoryId = (int)($variant['category_id'] ?? 0);
-                $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
-                $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
-                $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
-
-                if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
-                    || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
-                    throw new InvalidArgumentException('Each variant needs a whole-number quantity, valid prices, GST rate and HSN code.');
-                }
-                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
-                    throw new InvalidArgumentException('Select a valid category hierarchy for every variant.');
-                }
-                if ($sku === '') {
-                    $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
-                        . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
-                }
-                if (mb_strlen($sku) > 100) {
-                    throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
+                    Database::execute(
+                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$pName, $styleCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                    );
+                    $productId = (int)Database::lastInsertId();
+                    $productCode = $styleCode;
+                } else {
+                    $productId = (int)$product['id'];
+                    $productCode = (string)$product['code'];
                 }
 
-                $productVariant = VariantService::findOrCreateVariantForInward($productId, [
-                    'color' => $color ?: null,
-                    'size' => $size ?: 'Standard',
-                    'vendor_sku' => $sku,
-                    'hsn_code' => $hsn,
-                    'gst_rate' => $gstRate,
-                    'mrp' => $mrp,
-                    'selling_price' => $sellingPrice,
-                    'unit_price' => $rate,
-                ]);
-                Database::execute(
-                    "INSERT INTO third_party_mapping_items
-                        (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
-                         quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
-                         category_id, subcategory_id, sub_subcategory_id)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$mappingBillId, $productId, (int)$productVariant['id'], $productName, $productCode, $sku,
-                        $qty, $unit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
-                        $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
-                );
-                $variantCount++;
+                $seenCombinations = [];
+                $vCount = 0;
+                foreach ($pVariants as $index => $variant) {
+                    if (!is_array($variant)) continue;
+                    $size = trim((string)($variant['size'] ?? ''));
+                    $color = trim((string)($variant['color'] ?? ''));
+                    $combination = mb_strtoupper($size) . "\0" . mb_strtoupper($color);
+                    if (isset($seenCombinations[$combination])) {
+                        throw new InvalidArgumentException("Duplicate size and color variant combination for product '{$pName}'.");
+                    }
+                    $seenCombinations[$combination] = true;
+                    $qty = (float)($variant['quantity'] ?? 0);
+                    $rate = (float)($variant['unit_price'] ?? 0);
+                    $mrp = (float)($variant['mrp'] ?? 0);
+                    $sellingPrice = (float)($variant['selling_price'] ?? 0);
+                    $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
+                    $hsn = trim((string)($variant['hsn_code'] ?? ''));
+                    if ($hsn === '') {
+                        $hsn = 'PENDING';
+                    }
+                    $categoryId = (int)($variant['category_id'] ?? 0);
+                    $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
+                    $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
+                    $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
+
+                    if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
+                        || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
+                        throw new InvalidArgumentException("Check quantities, prices, GST and HSN for product '{$pName}'.");
+                    }
+                    if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
+                        throw new InvalidArgumentException("Select a valid category for every variant of '{$pName}'.");
+                    }
+                    if ($sku === '') {
+                        $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
+                            . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
+                    }
+                    if (mb_strlen($sku) > 100) {
+                        throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
+                    }
+
+                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
+                        'color' => $color ?: null,
+                        'size' => $size ?: 'Standard',
+                        'vendor_sku' => $sku,
+                        'hsn_code' => $hsn,
+                        'gst_rate' => $gstRate,
+                        'mrp' => $mrp,
+                        'selling_price' => $sellingPrice,
+                        'unit_price' => $rate,
+                    ]);
+                    Database::execute(
+                        "INSERT INTO third_party_mapping_items
+                            (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
+                             quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                             category_id, subcategory_id, sub_subcategory_id)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode, $sku,
+                            $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
+                            $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
+                    );
+                    $vCount++;
+                    $totalVariants++;
+                }
+                if ($vCount > 0) {
+                    $totalProducts++;
+                    $savedNames[] = $pName;
+                }
             }
-            if ($variantCount === 0) {
-                throw new InvalidArgumentException('Enter at least one valid product variant.');
+
+            if ($totalProducts === 0 || $totalVariants === 0) {
+                throw new InvalidArgumentException('Enter at least one product with valid variants.');
             }
+
             Database::commit();
             AuditService::log('purchases', 'CREATE', 'third_party_mapping_bills', $mappingBillId, null, [
-                'product_name' => $productName,
-                'variant_count' => $variantCount,
+                'products' => $savedNames,
+                'total_products' => $totalProducts,
+                'total_variants' => $totalVariants,
             ]);
 
-            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
-
+            $successMsg = "Successfully saved {$totalProducts} product(s) (" . implode(', ', array_slice($savedNames, 0, 3)) . (count($savedNames) > 3 ? '...' : '') . ") with {$totalVariants} variant(s) to Mapping.";
             if ($isAjax) {
                 Response::json([
                     'success' => true,
-                    'message' => "Product '{$productName}' and its variants were saved to Mapping.",
-                    'product_name' => $productName,
-                    'variant_count' => $variantCount
+                    'message' => $successMsg,
+                    'total_products' => $totalProducts,
+                    'total_variants' => $totalVariants
                 ]);
                 return;
             }
 
-            Session::flash('success', "Product '{$productName}' and its variants were saved to Mapping.");
+            Session::flash('success', $successMsg);
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
         } catch (Throwable $e) {
             Database::rollback();
-            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-                || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
             if ($isAjax) {
-                Response::json(['success' => false, 'message' => $e->getMessage()], 400);
+                Response::json(['success' => false, 'message' => $e->getMessage()], 422);
                 return;
             }
             Session::flash('error', $e->getMessage());
+            Response::back();
+            return;
         }
-        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
     public function generateThirdPartyMappingDraftQr(string $id): void {

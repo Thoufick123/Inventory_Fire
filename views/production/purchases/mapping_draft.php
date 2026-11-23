@@ -9,17 +9,17 @@ foreach ($items as $savedItem) {
         $firstQrId = (int)$savedItem['qr_generation_id'];
     }
 }
-$variantRow = static function (int $index = 0) use ($categories, $subcategories, $subSubcategories, $hsnList): void { ?>
+$variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categories, $subcategories, $subSubcategories, $hsnList): void { ?>
     <tr class="mapping-variant-row">
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][size]" placeholder="Size"></td>
-        <td><input class="form-control form-control-sm" name="variants[<?= $index ?>][color]" placeholder="Color"></td>
-        <td><input class="form-control form-control-sm map-qty" name="variants[<?= $index ?>][quantity]" type="text" inputmode="numeric" required placeholder="Qty" autocomplete="off"></td>
-        <td><input class="form-control form-control-sm map-rate" name="variants[<?= $index ?>][unit_price]" type="text" inputmode="decimal" required placeholder="Rate" autocomplete="off"></td>
-        <td><input class="form-control form-control-sm map-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" required placeholder="MRP" autocomplete="off"></td>
-        <td><input class="form-control form-control-sm map-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" required placeholder="Sale" autocomplete="off"></td>
-        <td><input class="form-control form-control-sm map-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="0" required placeholder="GST %" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][size]" placeholder="Size"></td>
+        <td><input class="form-control form-control-sm" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][color]" placeholder="Color"></td>
+        <td><input class="form-control form-control-sm map-qty" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][quantity]" type="text" inputmode="numeric" required placeholder="Qty" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-rate" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][unit_price]" type="text" inputmode="decimal" required placeholder="Rate" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-mrp" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][mrp]" type="text" inputmode="decimal" required placeholder="MRP" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-sp" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][selling_price]" type="text" inputmode="decimal" required placeholder="Sale" autocomplete="off"></td>
+        <td><input class="form-control form-control-sm map-gst" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][gst_rate]" type="text" inputmode="decimal" value="0" required placeholder="GST %" autocomplete="off"></td>
         <td>
-            <select class="form-select form-select-sm mapping-hsn-select font-monospace" name="variants[<?= $index ?>][hsn_code]">
+            <select class="form-select form-select-sm mapping-hsn-select font-monospace" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][hsn_code]">
                 <option value="">Select HSN</option>
                 <?php foreach (($hsnList ?? []) as $hsnItem): ?>
                     <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>">
@@ -29,19 +29,19 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             </select>
         </td>
         <td>
-            <select class="form-select form-select-sm mapping-category" name="variants[<?= $index ?>][category_id]" required>
+            <select class="form-select form-select-sm mapping-category" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][category_id]" required>
                 <option value="">Category *</option>
                 <?php foreach ($categories as $category): ?>
                     <option value="<?= (int)$category['id'] ?>"><?= e($category['name']) ?></option>
                 <?php endforeach; ?>
             </select>
-            <select class="form-select form-select-sm mt-1 mapping-subcategory" name="variants[<?= $index ?>][subcategory_id]">
+            <select class="form-select form-select-sm mt-1 mapping-subcategory" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][subcategory_id]">
                 <option value="">Subcategory (Optional)</option>
                 <?php foreach ($subcategories as $subcategory): ?>
                     <option value="<?= (int)$subcategory['id'] ?>" data-parent="<?= (int)$subcategory['category_id'] ?>"><?= e($subcategory['name']) ?></option>
                 <?php endforeach; ?>
             </select>
-            <select class="form-select form-select-sm mt-1 mapping-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
+            <select class="form-select form-select-sm mt-1 mapping-subsubcategory" name="products[<?= $pIndex ?>][variants][<?= $vIndex ?>][sub_subcategory_id]">
                 <option value="">Sub-subcategory (Optional)</option>
                 <?php foreach ($subSubcategories as $subSubcategory): ?>
                     <option value="<?= (int)$subSubcategory['id'] ?>" data-parent="<?= (int)$subSubcategory['subcategory_id'] ?>"><?= e($subSubcategory['name']) ?></option>
@@ -114,13 +114,10 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     </button>
                 </li>
             </ul>
-            <div class="d-flex align-items-end gap-2" id="mappingVariantControls">
-                <div>
-                    <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
-                    <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 80px;" autocomplete="off">
-                </div>
-                <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnHeaderAddProduct">
+                    <i class="bi bi-plus-circle me-1"></i>+ Add Another Product
+                </button>
             </div>
         </div>
     </div>
@@ -128,66 +125,102 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         <div class="tab-content" id="mappingEntryTabContent">
             <!-- PANE 1: Third-Party Products -->
             <div class="tab-pane fade show active" id="tabThirdParty" role="tabpanel">
-                <div class="alert alert-light border d-flex align-items-center gap-3 py-2 px-3 mb-3" style="background-color: #f8faff;">
-                    <i class="bi bi-info-circle-fill text-primary fs-5"></i>
-                    <div class="small text-muted">
-                        <strong>Multi-Product Invoice (e.g. Shirt, Pant &amp; Rolls):</strong> Enter your first product (e.g. <em>Shirt</em>) and its sizes/colors, then click <strong>"Save This Product to Invoice"</strong>. It will be added to the invoice list below. Then type your next product (e.g. <em>Pant</em>) and save it. All products and fabric rolls accumulate under this same invoice before moving to Purchases.
+                <div class="alert alert-light border d-flex align-items-center justify-content-between flex-wrap gap-2 py-2 px-3 mb-3" style="background-color: #f8faff;">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+                        <div class="small text-muted">
+                            <strong>Multi-Product Inward:</strong> You can add multiple products (e.g. <em>Shirt</em>, <em>Pant</em>, etc.) below before saving. Click <strong>"+ Add Another Product"</strong> to add more products to this invoice.
+                        </div>
                     </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnBannerAddProduct">
+                        <i class="bi bi-plus-circle me-1"></i>+ Add Another Product (e.g. Pant)
+                    </button>
                 </div>
                 <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftProductForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="THIRD_PARTY">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-10">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label fw-semibold mb-0" for="productNameInput">
-                                    Product / Style Name <span class="text-danger">*</span>
-                                </label>
-                                <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
-                                    <i class="bi bi-plus-circle me-1"></i>New Product Auto-Created
-                                </span>
+
+                    <div id="tpProductsContainer">
+                        <!-- Product Card 0 -->
+                        <div class="tp-product-card card border mb-4 shadow-sm" data-product-index="0" style="background-color: #fafbfc;">
+                            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary text-white rounded-pill px-2 py-1 tp-product-badge">Product #1</span>
+                                    <strong class="text-dark tp-product-title-display">New Product</strong>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-product" style="display: none;" title="Remove this product">
+                                        <i class="bi bi-trash me-1"></i>Remove Product
+                                    </button>
+                                </div>
                             </div>
-                            <input class="form-control" name="product_name" id="productNameInput" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. TESTING Men Casual Shirt..." autocomplete="off">
-                            <datalist id="tpProductSuggestions">
-                                <?php foreach (($existingProducts ?? []) as $ep): ?>
-                                    <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
-                                <?php endforeach; ?>
-                            </datalist>
-                            <div class="form-text small text-muted">
-                                <i class="bi bi-info-circle me-1"></i>Type any new product name or select an existing one. Multiple products can be added sequentially to this mapping invoice.
+                            <div class="card-body p-3 bg-white">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-10">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label fw-semibold mb-0">
+                                                Product / Style Name <span class="text-danger">*</span>
+                                            </label>
+                                            <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
+                                                <i class="bi bi-plus-circle me-1"></i>Auto-Created if New
+                                            </span>
+                                        </div>
+                                        <input class="form-control tp-product-name-input" name="products[0][product_name]" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. Shirt, Pant..." autocomplete="off">
+                                        <datalist id="tpProductSuggestions">
+                                            <?php foreach (($existingProducts ?? []) as $ep): ?>
+                                                <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
+                                            <?php endforeach; ?>
+                                        </datalist>
+                                        <div class="form-text small text-muted">
+                                            <i class="bi bi-info-circle me-1"></i>Type any new product name or pick an existing one from the catalog.
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label fw-semibold">Unit</label>
+                                        <select class="form-select" name="products[0][unit]">
+                                            <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive mb-2">
+                                    <table class="table table-bordered align-middle table-sm mb-1" style="min-width: 1200px;">
+                                        <thead class="table-light small text-uppercase text-muted">
+                                            <tr>
+                                                <th style="width: 110px; min-width: 110px;">Size</th>
+                                                <th style="width: 120px; min-width: 120px;">Color</th>
+                                                <th style="width: 95px; min-width: 90px;">Qty *</th>
+                                                <th style="width: 115px; min-width: 110px;">Purchase Rate *</th>
+                                                <th style="width: 115px; min-width: 110px;">MRP *</th>
+                                                <th style="width: 115px; min-width: 110px;">Selling *</th>
+                                                <th style="width: 90px; min-width: 85px;">GST %</th>
+                                                <th style="width: 220px; min-width: 200px;">HSN Code</th>
+                                                <th style="width: 260px; min-width: 250px;">Category hierarchy *</th>
+                                                <th style="width: 50px; min-width: 50px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="tp-variant-rows">
+                                            <?php $variantRow(0, 0); ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center pt-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm btn-add-variant-row">
+                                        <i class="bi bi-plus-lg me-1"></i>Add Variant Row
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label fw-semibold">Unit</label>
-                            <select class="form-select" name="unit">
-                                <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
-                            </select>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" style="min-width: 1200px;">
-                            <thead class="table-light small text-uppercase text-muted">
-                                <tr>
-                                    <th style="width: 110px; min-width: 110px;">Size</th>
-                                    <th style="width: 120px; min-width: 120px;">Color</th>
-                                    <th style="width: 95px; min-width: 90px;">Qty *</th>
-                                    <th style="width: 115px; min-width: 110px;">Purchase Rate *</th>
-                                    <th style="width: 115px; min-width: 110px;">MRP *</th>
-                                    <th style="width: 115px; min-width: 110px;">Selling *</th>
-                                    <th style="width: 90px; min-width: 85px;">GST %</th>
-                                    <th style="width: 220px; min-width: 200px;">HSN Code</th>
-                                    <th style="width: 260px; min-width: 250px;">Category hierarchy *</th>
-                                    <th style="width: 50px; min-width: 50px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div class="small text-muted">
-                            <i class="bi bi-arrow-down-circle me-1 text-primary"></i>Saves this product to the invoice list below, allowing you to add the next product (e.g. Pant).
-                        </div>
-                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save This Product to Invoice</button>
+
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 border-top">
+                        <button type="button" class="btn btn-outline-primary fw-semibold" id="btnAddAnotherProduct">
+                            <i class="bi bi-plus-circle me-1"></i>+ Add Another Product (e.g. Pant)
+                        </button>
+                        <button class="btn btn-success btn-lg px-4 fw-semibold" type="submit" id="btnSaveAllProducts">
+                            <i class="bi bi-save me-1"></i>Save All Products to Mapping
+                        </button>
                     </div>
                 </form>
             </div>
@@ -509,12 +542,15 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
 
 <script>
 (function () {
-    const body = document.getElementById('mappingVariantRows');
-    const addButton = document.getElementById('addMappingVariant');
-    const addRowsButton = document.getElementById('addMappingVariantRows');
-    const rowsToAddInput = document.getElementById('mappingVariantRowsToAdd');
-    if (!body || !addButton) return;
+    const container = document.getElementById('tpProductsContainer');
+    const form = document.getElementById('mappingDraftProductForm');
+    const addProductBtn = document.getElementById('btnAddAnotherProduct');
+    const headerAddBtn = document.getElementById('btnHeaderAddProduct');
+    const bannerAddBtn = document.getElementById('btnBannerAddProduct');
 
+    if (!container || !form) return;
+
+    // Helper: update category cascade on any row
     function updateRowCascade(row) {
         const catSelect = row.querySelector('.mapping-category');
         const subcatSelect = row.querySelector('.mapping-subcategory');
@@ -532,7 +568,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             if (!matches && option.selected) option.selected = false;
         });
 
-        // Sub-subcategory options: only show if belongs to chosen subcategory (and subcategory is chosen)
+        // Sub-subcategory options: only show if belongs to chosen subcategory
         Array.from(subSubcatSelect.options).forEach(function (option) {
             if (!option.value) return;
             const matches = Boolean(subcategoryId && option.dataset.parent === subcategoryId);
@@ -541,62 +577,41 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         });
     }
 
-    let nextIndex = 1;
-    const template = body.querySelector('tr').outerHTML;
-    const addRows = function (count) {
-        for (let rowIndex = 0; rowIndex < count; rowIndex++) {
-            const rowWrapper = document.createElement('tbody');
-            rowWrapper.innerHTML = template.replace(/variants\[0\]/g, 'variants[' + nextIndex + ']');
-            const newRow = rowWrapper.firstElementChild;
-            body.appendChild(newRow);
-            updateRowCascade(newRow);
-            nextIndex++;
-        }
-    };
+    // Initialize cascade on initial rows
+    container.querySelectorAll('.mapping-variant-row').forEach(updateRowCascade);
 
-    // Initial cascade on existing rows
-    body.querySelectorAll('tr').forEach(updateRowCascade);
-
-    addButton.addEventListener('click', function () { addRows(1); });
-    addRowsButton?.addEventListener('click', function () {
-        if (!rowsToAddInput.reportValidity()) return;
-        addRows(Number(rowsToAddInput.value));
-    });
-    body.addEventListener('click', function (event) {
-        const button = event.target.closest('.remove-mapping-variant');
-        if (!button) return;
-        if (body.querySelectorAll('tr').length > 1) button.closest('tr').remove();
-    });
-    body.addEventListener('input', function (event) {
-        if (event.target.classList.contains('map-qty')) {
-            event.target.value = event.target.value.replace(/[^0-9]/g, '');
-        } else if (event.target.classList.contains('map-rate') || event.target.classList.contains('map-mrp') || event.target.classList.contains('map-sp') || event.target.classList.contains('map-gst')) {
-            event.target.value = event.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+    // Live update of product title preview in header & numeric masks
+    container.addEventListener('input', function (e) {
+        if (e.target.classList.contains('tp-product-name-input')) {
+            const card = e.target.closest('.tp-product-card');
+            const titleDisplay = card?.querySelector('.tp-product-title-display');
+            if (titleDisplay) {
+                titleDisplay.textContent = e.target.value.trim() || 'New Product';
+            }
+        } else if (e.target.classList.contains('map-qty')) {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        } else if (e.target.classList.contains('map-rate') || e.target.classList.contains('map-mrp') || e.target.classList.contains('map-sp') || e.target.classList.contains('map-gst')) {
+            e.target.value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
         }
     });
 
-    if (rowsToAddInput) {
-        rowsToAddInput.addEventListener('input', function () {
-            this.value = this.value.replace(/[^0-9]/g, '');
-        });
-    }
-
-    body.addEventListener('change', function (event) {
-        const row = event.target.closest('tr');
+    // Cascades & HSN auto-GST
+    container.addEventListener('change', function (e) {
+        const row = e.target.closest('tr');
         if (!row) return;
 
-        if (event.target.classList.contains('mapping-category')) {
+        if (e.target.classList.contains('mapping-category')) {
             const subcat = row.querySelector('.mapping-subcategory');
             const subSubcat = row.querySelector('.mapping-subsubcategory');
             if (subcat) subcat.value = '';
             if (subSubcat) subSubcat.value = '';
             updateRowCascade(row);
-        } else if (event.target.classList.contains('mapping-subcategory')) {
+        } else if (e.target.classList.contains('mapping-subcategory')) {
             const subSubcat = row.querySelector('.mapping-subsubcategory');
             if (subSubcat) subSubcat.value = '';
             updateRowCascade(row);
-        } else if (event.target.classList.contains('mapping-hsn-select')) {
-            const opt = event.target.options[event.target.selectedIndex];
+        } else if (e.target.classList.contains('mapping-hsn-select')) {
+            const opt = e.target.options[e.target.selectedIndex];
             const gst = opt ? opt.getAttribute('data-gst') : null;
             if (gst !== null && gst !== undefined && gst !== '') {
                 const gstInput = row.querySelector('.map-gst');
@@ -605,14 +620,228 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
         }
     });
 
-    const variantControls = document.getElementById('mappingVariantControls');
+    // Handle adding variant rows inside any product card
+    container.addEventListener('click', function (e) {
+        const addVarBtn = e.target.closest('.btn-add-variant-row');
+        if (addVarBtn) {
+            const card = addVarBtn.closest('.tp-product-card');
+            const tbody = card?.querySelector('.tp-variant-rows');
+            if (!card || !tbody) return;
+
+            const pIdx = card.getAttribute('data-product-index') || '0';
+            const vRows = tbody.querySelectorAll('tr');
+            const nextVIdx = vRows.length;
+            const firstRow = vRows[0];
+            if (!firstRow) return;
+
+            const tempTbody = document.createElement('tbody');
+            tempTbody.innerHTML = firstRow.outerHTML.replace(
+                new RegExp('products\\[' + pIdx + '\\]\\[variants\\]\\[\\d+\\]', 'g'),
+                'products[' + pIdx + '][variants][' + nextVIdx + ']'
+            );
+            const newRow = tempTbody.firstElementChild;
+            newRow.querySelectorAll('input').forEach(function (inp) {
+                if (inp.classList.contains('map-gst')) inp.value = '0';
+                else inp.value = '';
+            });
+            tbody.appendChild(newRow);
+            updateRowCascade(newRow);
+            return;
+        }
+
+        // Handle removing a variant row
+        const removeVarBtn = e.target.closest('.remove-mapping-variant');
+        if (removeVarBtn) {
+            const tbody = removeVarBtn.closest('.tp-variant-rows');
+            if (tbody && tbody.querySelectorAll('tr').length > 1) {
+                removeVarBtn.closest('tr').remove();
+            }
+            return;
+        }
+
+        // Handle removing an entire product card
+        const removeProdBtn = e.target.closest('.btn-remove-product');
+        if (removeProdBtn) {
+            const card = removeProdBtn.closest('.tp-product-card');
+            const allCards = container.querySelectorAll('.tp-product-card');
+            if (card && allCards.length > 1) {
+                card.remove();
+                renumberProductCards();
+            }
+            return;
+        }
+    });
+
+    // Renumber product badges and adjust remove buttons
+    function renumberProductCards() {
+        const cards = container.querySelectorAll('.tp-product-card');
+        cards.forEach(function (c, idx) {
+            const badge = c.querySelector('.tp-product-badge');
+            if (badge) badge.textContent = 'Product #' + (idx + 1);
+            const removeBtn = c.querySelector('.btn-remove-product');
+            if (removeBtn) {
+                removeBtn.style.display = (cards.length > 1) ? 'inline-block' : 'none';
+            }
+        });
+    }
+
+    // Add another product card
+    let productCounter = 1;
+    function addAnotherProductCard() {
+        const firstCard = container.querySelector('.tp-product-card');
+        if (!firstCard) return;
+
+        const newPIdx = productCounter++;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = firstCard.outerHTML.replace(/products\[\d+\]/g, 'products[' + newPIdx + ']');
+        const newCard = tempDiv.firstElementChild;
+        newCard.setAttribute('data-product-index', String(newPIdx));
+
+        const nameInput = newCard.querySelector('.tp-product-name-input');
+        if (nameInput) nameInput.value = '';
+        const titleDisplay = newCard.querySelector('.tp-product-title-display');
+        if (titleDisplay) titleDisplay.textContent = 'New Product';
+
+        const tbody = newCard.querySelector('.tp-variant-rows');
+        if (tbody) {
+            const rows = tbody.querySelectorAll('tr');
+            for (let i = 1; i < rows.length; i++) rows[i].remove();
+            const r0 = tbody.querySelector('tr');
+            if (r0) {
+                r0.innerHTML = r0.innerHTML.replace(
+                    /products\[\d+\]\[variants\]\[\d+\]/g,
+                    'products[' + newPIdx + '][variants][0]'
+                );
+                r0.querySelectorAll('input').forEach(function (inp) {
+                    if (inp.classList.contains('map-gst')) inp.value = '0';
+                    else inp.value = '';
+                });
+                updateRowCascade(r0);
+            }
+        }
+
+        container.appendChild(newCard);
+        renumberProductCards();
+        newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        nameInput?.focus();
+    }
+
+    addProductBtn?.addEventListener('click', addAnotherProductCard);
+    headerAddBtn?.addEventListener('click', addAnotherProductCard);
+    bannerAddBtn?.addEventListener('click', addAnotherProductCard);
+
+    // Form submit validation & AJAX
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const cards = container.querySelectorAll('.tp-product-card');
+        if (cards.length === 0) {
+            alert('Please add at least one product.');
+            return;
+        }
+
+        for (let p = 0; p < cards.length; p++) {
+            const card = cards[p];
+            const pName = card.querySelector('.tp-product-name-input')?.value?.trim();
+            if (!pName) {
+                alert('Validation Error: Please enter a Product Name for Product #' + (p + 1) + '.');
+                card.querySelector('.tp-product-name-input')?.focus();
+                return;
+            }
+
+            const variantRows = card.querySelectorAll('.tp-variant-rows tr');
+            if (variantRows.length === 0) {
+                alert('Validation Error: Please add at least one variant for Product #' + (p + 1) + ' (' + pName + ').');
+                return;
+            }
+
+            for (let i = 0; i < variantRows.length; i++) {
+                const vRow = variantRows[i];
+                const catVal = vRow.querySelector('.mapping-category')?.value;
+                if (!catVal) {
+                    alert('Validation Error: Please select a Category for Product #' + (p + 1) + ' (' + pName + ') on variant row #' + (i + 1) + '.');
+                    vRow.querySelector('.mapping-category')?.focus();
+                    return;
+                }
+
+                const qVal = parseFloat(vRow.querySelector('.map-qty')?.value || '0') || 0;
+                const mrpVal = parseFloat(vRow.querySelector('.map-mrp')?.value || '0') || 0;
+                const spVal = parseFloat(vRow.querySelector('.map-sp')?.value || '0') || 0;
+                const gstVal = parseFloat(vRow.querySelector('.map-gst')?.value || '0') || 0;
+
+                if (qVal <= 0) {
+                    alert('Validation Error: Please enter a valid quantity for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-qty')?.focus();
+                    return;
+                }
+                if (mrpVal <= 0) {
+                    alert('Validation Error: Please enter a valid MRP for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-mrp')?.focus();
+                    return;
+                }
+                if (spVal <= 0) {
+                    alert('Validation Error: Please enter a valid Selling Price for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-sp')?.focus();
+                    return;
+                }
+                if (mrpVal < spVal) {
+                    alert('Validation Error: MRP (₹' + mrpVal.toFixed(2) + ') cannot be lower than Selling Price (₹' + spVal.toFixed(2) + ') for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-mrp')?.focus();
+                    return;
+                }
+                if (gstVal < 0 || gstVal > 100) {
+                    alert('Validation Error: GST rate must be between 0 and 100% for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
+                    vRow.querySelector('.map-gst')?.focus();
+                    return;
+                }
+            }
+        }
+
+        const submitBtn = document.getElementById('btnSaveAllProducts');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Products...';
+        }
+
+        const formData = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data.success) {
+                alert('Success: ' + data.message);
+                window.location.reload();
+            } else {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
+                }
+                alert('Error: ' + (data.message || 'Failed to save products.'));
+            }
+        })
+        .catch(function (err) {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
+            }
+            alert('Server error: ' + err.message);
+        });
+    });
+
+    const headerAddProductBtn = document.getElementById('btnHeaderAddProduct');
     const fabricTab = document.getElementById('tabFabricRollsBtn');
     const productTab = document.getElementById('tabThirdPartyBtn');
     fabricTab?.addEventListener('shown.bs.tab', function () {
-        variantControls?.classList.add('d-none');
+        headerAddProductBtn?.classList.add('d-none');
     });
     productTab?.addEventListener('shown.bs.tab', function () {
-        variantControls?.classList.remove('d-none');
+        headerAddProductBtn?.classList.remove('d-none');
     });
 })();
 </script>
@@ -835,100 +1064,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 4. AJAX Save Product and Variants Form
-    const draftProductForm = document.getElementById('mappingDraftProductForm');
-    if (draftProductForm) {
-        draftProductForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            // Validate category hierarchy and numeric fields on all variant rows
-            const variantRows = draftProductForm.querySelectorAll('#mappingVariantRows tr');
-            for (let i = 0; i < variantRows.length; i++) {
-                const vRow = variantRows[i];
-                const catVal = vRow.querySelector('.mapping-category')?.value;
-                const subcatVal = vRow.querySelector('.mapping-subcategory')?.value;
-                const subSubcatVal = vRow.querySelector('.mapping-subsubcategory')?.value;
-                if (!catVal) {
-                    alert('Validation Error: Please select a Category for variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.mapping-category')?.focus();
-                    return;
-                }
-                if (subSubcatVal && !subcatVal) {
-                    alert('Validation Error: Please select a Subcategory for variant row #' + (i + 1) + ' before selecting a Sub-subcategory.');
-                    vRow.querySelector('.mapping-subcategory')?.focus();
-                    return;
-                }
-
-                const qVal = parseFloat(vRow.querySelector('.map-qty')?.value || '0') || 0;
-                const mrpVal = parseFloat(vRow.querySelector('.map-mrp')?.value || '0') || 0;
-                const spVal = parseFloat(vRow.querySelector('.map-sp')?.value || '0') || 0;
-                const gstVal = parseFloat(vRow.querySelector('.map-gst')?.value || '0') || 0;
-
-                if (qVal <= 0) {
-                    alert('Validation Error: Please enter a valid quantity for variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.map-qty')?.focus();
-                    return;
-                }
-                if (mrpVal <= 0) {
-                    alert('Validation Error: Please enter a valid MRP for variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.map-mrp')?.focus();
-                    return;
-                }
-                if (spVal <= 0) {
-                    alert('Validation Error: Please enter a valid Selling Price for variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.map-sp')?.focus();
-                    return;
-                }
-                if (mrpVal < spVal) {
-                    alert('Validation Error: MRP (₹' + mrpVal.toFixed(2) + ') cannot be lower than Selling Price (₹' + spVal.toFixed(2) + ') on variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.map-mrp')?.focus();
-                    return;
-                }
-                if (gstVal < 0 || gstVal > 100) {
-                    alert('Validation Error: GST rate must be between 0 and 100% on variant row #' + (i + 1) + '.');
-                    vRow.querySelector('.map-gst')?.focus();
-                    return;
-                }
-            }
-
-            const submitBtn = draftProductForm.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Product...';
-            }
-            const formData = new FormData(draftProductForm);
-            fetch(draftProductForm.action, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    alert('Success: ' + data.message);
-                    window.location.reload();
-                } else {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save This Product to Invoice';
-                    }
-                    alert('Error: ' + (data.message || 'Failed to save product.'));
-                }
-            })
-            .catch(function(err) {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Product to Mapping';
-                }
-                alert('Server error: ' + err.message);
-            });
-        });
-    }
-
-    // 4b. Fabric Roll Rows Dynamic Addition & AJAX Save
+    // 4. Fabric Roll Rows Dynamic Addition & AJAX Save
     const rollBody = document.getElementById('mappingRollRows');
     const addRollOneBtn = document.getElementById('addMappingRollOne');
     const addRollRowsBtn = document.getElementById('addMappingRollRows');
