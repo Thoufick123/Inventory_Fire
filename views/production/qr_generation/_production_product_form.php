@@ -70,15 +70,15 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                         </div>
                         <div class="col-md-5">
                             <label class="form-label fw-bold text-dark">
-                                QR Code Prefix <span class="text-danger">*</span>
+                                QR Code Prefix <small class="text-muted fw-normal">(Optional)</small>
                             </label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light font-monospace">#</span>
                                 <input type="text" name="qr_prefix" id="prodQrPrefix" class="form-control font-monospace text-uppercase"
-                                       placeholder="e.g. PRD<?= date('ym') ?>"
-                                       value="PRD<?= date('ym') ?>" required maxlength="30" oninput="updateProdPreview()">
+                                       placeholder="Auto (Variant ID e.g. V0001)"
+                                       value="" maxlength="30" oninput="updateProdPreview()">
                             </div>
-                            <div class="form-text small">Sequenced piece format: PREFIX-0001, PREFIX-0002...</div>
+                            <div class="form-text small">Leave empty to auto-use Variant ID (e.g. V0001-0001, V0002-0001).</div>
                         </div>
                     </div>
 

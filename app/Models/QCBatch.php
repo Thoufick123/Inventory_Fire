@@ -234,9 +234,11 @@ class QCBatch {
      * Get variant items for this QC batch.
      */
     public static function getItems(int $batchId): array {
-        return Database::fetchAll(
+        $items = Database::fetchAll(
             "SELECT qi.*, 
                     pv.sku as pv_sku, pv.qr_code as pv_qr,
+                    pv.variant_code, pv.id as pv_id,
+                    COALESCE(pv.variant_code, IF(qi.variant_id > 0, CONCAT('V', LPAD(qi.variant_id, 4, '0')), NULL)) as display_variant_code,
                     COALESCE(qi.size_name, s.name, s.code, 'Standard') as display_size,
                     COALESCE(qi.color_name, c.name, 'Assorted') as display_color,
                     COALESCE(pv.sku, CONCAT(COALESCE(qi.size_name, s.name, 'Size'), '-', COALESCE(qi.color_name, c.name, 'Color'))) as sku,
@@ -255,6 +257,29 @@ class QCBatch {
              ORDER BY qi.id ASC",
             [$batchId]
         );
+
+        // Self-heal: ensure variant_id and display_variant_code are populated for all items
+        foreach ($items as &$item) {
+            if (empty($item['display_variant_code'])) {
+                $matchedVar = null;
+                if (!empty($item['sku'])) {
+                    $matchedVar = Database::fetchOne("SELECT id, variant_code FROM product_variants WHERE sku = ? LIMIT 1", [$item['sku']]);
+                }
+                if ($matchedVar) {
+                    $item['variant_id'] = (int)$matchedVar['id'];
+                    $item['variant_code'] = $matchedVar['variant_code'];
+                    $item['display_variant_code'] = $matchedVar['variant_code'] ?: ('V' . str_pad((string)$matchedVar['id'], 4, '0', STR_PAD_LEFT));
+                    try {
+                        Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [(int)$matchedVar['id'], (int)$item['id']]);
+                    } catch (\Throwable $e) {}
+                } elseif (!empty($item['variant_id'])) {
+                    $item['display_variant_code'] = 'V' . str_pad((string)$item['variant_id'], 4, '0', STR_PAD_LEFT);
+                }
+            }
+        }
+        unset($item);
+
+        return $items;
     }
 
     /**

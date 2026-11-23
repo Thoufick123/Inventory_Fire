@@ -183,6 +183,12 @@
                                                     </span>
                                                 </div>
                                                 <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                                    <?php 
+                                                        $varCode = !empty($it['variant_code']) ? $it['variant_code'] : (!empty($it['variant_id']) ? ('V' . str_pad((string)$it['variant_id'], 4, '0', STR_PAD_LEFT)) : '');
+                                                    ?>
+                                                    <?php if (!empty($varCode)): ?>
+                                                        <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1" title="Variant ID for QR"><i class="bi bi-qr-code me-1 text-warning"></i><?= e($varCode) ?></span>
+                                                    <?php endif; ?>
                                                     <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"><?= e($it['size_name']) ?></span>
                                                     <span class="badge bg-dark-subtle text-dark border px-2 py-1"><?= e($it['color_name']) ?></span>
                                                     <code class="text-muted fs-8 ms-1"><?= e($it['sku']) ?></code>
