@@ -24,6 +24,7 @@ class VariantController {
             'design_id'      => !empty($_GET['design_id']) ? (int)$_GET['design_id'] : null,
             'size_id'        => !empty($_GET['size_id']) ? (int)$_GET['size_id'] : null,
             'is_active'      => isset($_GET['is_active']) && $_GET['is_active'] !== '' ? (int)$_GET['is_active'] : null,
+            'qr_status'      => trim($_GET['qr_status'] ?? ''),
             'hide_unstocked_deferred' => true,
         ];
 

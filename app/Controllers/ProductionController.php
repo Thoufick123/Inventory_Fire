@@ -12404,16 +12404,9 @@ class ProductionController {
             return ['', []];
         }
 
-        if ($concernId === 1) {
-            return [
-                " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL)"
-                    . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL)",
-                [$concernId, $concernId],
-            ];
-        }
-
         return [
-            " AND {$rollAlias}.concern_id = ? AND {$sellerAlias}.concern_id = ?",
+            " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL OR {$rollAlias}.concern_id = 1)"
+                . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL OR {$sellerAlias}.concern_id = 1)",
             [$concernId, $concernId],
         ];
     }
@@ -12423,13 +12416,62 @@ class ProductionController {
         return Database::fetchOne(
             "SELECT sr.seller_id, sr.weight, sr.price, sr.color, sr.design_name, sr.quantity
              FROM seller_rolls sr
-             JOIN sellers s ON s.id = sr.seller_id
-             WHERE sr.id = ? AND s.is_active = 1{$concernSql}",
+             LEFT JOIN sellers s ON s.id = sr.seller_id
+             WHERE sr.id = ? AND (s.is_active = 1 OR s.id IS NULL){$concernSql}",
             array_merge([$rollId], $concernParams)
         );
     }
 
     private function getAvailableSellerRollsWithPieces(int $excludeProgramId = 0): array {
+        try {
+            // Self-heal: ensure all fabric rolls in Purchased Stock have corresponding seller_rolls records
+            $unlinkedStocked = Database::fetchAll("
+                SELECT qrg.id as qrg_id, qrg.concern_id, qrg.quantity, qrg.selling_price, qrg.color_name, qrg.design_name,
+                       ppi.id as ppi_id, ppi.item_name, ppi.roll_number, ppi.weight_kg, ppi.hsn_code, ppi.seller_roll_id,
+                       COALESCE(pp.seller_id, mb.seller_id, 1) AS seller_id
+                FROM qr_generations qrg
+                LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+                LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+                LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+                LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                WHERE qrg.qr_source = 'FABRIC_ROLL' AND qrg.stock_added = 1
+                  AND (ppi.id IS NOT NULL AND (ppi.seller_roll_id IS NULL OR ppi.seller_roll_id = 0))
+            ");
+            foreach ($unlinkedStocked as $un) {
+                $firstCode = Database::fetchOne("SELECT qr_code, sequence_num FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num ASC LIMIT 1", [$un['qrg_id']]);
+                $lastCode = Database::fetchOne("SELECT qr_code, sequence_num FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num DESC LIMIT 1", [$un['qrg_id']]);
+                $sSeq = (int)($firstCode['sequence_num'] ?? 1);
+                $eSeq = (int)($lastCode['sequence_num'] ?? $un['quantity']);
+                $sCode = (string)($firstCode['qr_code'] ?? '');
+                $eCode = (string)($lastCode['qr_code'] ?? '');
+                $qrCodeRange = $sCode ? ($sCode . ($eCode !== $sCode ? '-' . $eCode : '')) : '';
+
+                Database::execute("
+                    INSERT INTO seller_rolls (concern_id, seller_id, roll_number, color, design_name, weight, price, material_type,
+                                             start_seq, end_seq, start_code, end_code, qr_code, hsn_code, quantity, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ", [
+                    $un['concern_id'] ?: 1,
+                    $un['seller_id'] ?: 1,
+                    $un['roll_number'] ?: 'ROLL #1',
+                    $un['color_name'] ?? null,
+                    $un['design_name'] ?? null,
+                    (float)($un['weight_kg'] ?? 0),
+                    (float)($un['selling_price'] ?? 0),
+                    $un['item_name'] ?? 'Fabric Roll',
+                    $sSeq,
+                    $eSeq,
+                    $sCode,
+                    $eCode,
+                    $qrCodeRange,
+                    $un['hsn_code'] ?? null,
+                    (int)$un['quantity']
+                ]);
+                $newSrId = (int)Database::lastInsertId();
+                Database::execute("UPDATE production_purchase_items SET seller_roll_id = ? WHERE id = ?", [$newSrId, $un['ppi_id']]);
+            }
+        } catch (\Throwable $e) {}
+
         [$concernSql, $concernParams] = $this->getActiveConcernSellerRollScope('sr', 's');
         $rolls = Database::fetchAll(
             "SELECT sr.*, s.name as seller_name, s.company as seller_company, s.material_type,
@@ -12445,7 +12487,7 @@ class ProductionController {
                     dmg.damage_reason,
                     dmg.damage_status
              FROM seller_rolls sr
-             JOIN sellers s ON sr.seller_id = s.id
+             LEFT JOIN sellers s ON sr.seller_id = s.id
              LEFT JOIN (
                  SELECT ppr.seller_roll_id, 
                         SUM(ppr.roll_qty) as used_quantity,
@@ -12467,7 +12509,7 @@ class ProductionController {
                  WHERE rd.status NOT IN ('CLOSED', 'CANCELLED')
                  GROUP BY rd.seller_roll_id
              ) dmg ON sr.id = dmg.seller_roll_id
-             WHERE s.is_active = 1{$concernSql}
+             WHERE (s.is_active = 1 OR s.id IS NULL){$concernSql}
              ORDER BY sr.id DESC",
             $concernParams
         );
@@ -12532,36 +12574,87 @@ class ProductionController {
             $availCodes = [];
             $legacyToSkip = $legacyUsedQty[$rollId] ?? 0;
 
-            for ($seq = $startSeq; $seq <= $endSeq; $seq++) {
-                $code = $prefix . sprintf('%0' . $seqDigits . 'd', $seq);
-                $status = 'AVAILABLE';
-                $meta = '';
+            // Check if actual QR items exist for this roll in qr_generation_items
+            $qrBatchItems = Database::fetchAll(
+                "SELECT qri.qr_code, qri.sequence_num, qri.status
+                 FROM qr_generation_items qri
+                 JOIN qr_generations qrg ON qrg.id = qri.generation_id
+                 LEFT JOIN production_purchase_items ppi ON ppi.qr_generation_id = qrg.id
+                 WHERE ppi.seller_roll_id = ? OR qrg.source_purchase_item_id IN (
+                     SELECT id FROM production_purchase_items WHERE seller_roll_id = ?
+                 )
+                 ORDER BY qri.sequence_num ASC",
+                [$rollId, $rollId]
+            );
 
-                if (isset($deletedMap[$rollId . '_' . $seq])) {
-                    $status = 'DELETED';
-                    $meta = 'Deleted Label';
-                } elseif (isset($damageMap[strtoupper($code)])) {
-                    $status = 'DAMAGED';
-                    $meta = 'Damage ' . $damageMap[strtoupper($code)];
-                } elseif (isset($allocatedMap[strtoupper($code)])) {
-                    $status = 'USED';
-                    $meta = 'Allocated to ' . $allocatedMap[strtoupper($code)];
-                } elseif ($legacyToSkip > 0) {
-                    $status = 'USED';
-                    $meta = 'Used in Program';
-                    $legacyToSkip--;
+            if (!empty($qrBatchItems)) {
+                foreach ($qrBatchItems as $qItem) {
+                    $code = strtoupper(trim((string)$qItem['qr_code']));
+                    $seq = (int)$qItem['sequence_num'];
+                    $status = 'AVAILABLE';
+                    $meta = '';
+
+                    if (isset($deletedMap[$rollId . '_' . $seq])) {
+                        $status = 'DELETED';
+                        $meta = 'Deleted Label';
+                    } elseif (isset($damageMap[$code])) {
+                        $status = 'DAMAGED';
+                        $meta = 'Damage ' . $damageMap[$code];
+                    } elseif (isset($allocatedMap[$code])) {
+                        $status = 'USED';
+                        $meta = 'Allocated to ' . $allocatedMap[$code];
+                    } elseif ($legacyToSkip > 0) {
+                        $status = 'USED';
+                        $meta = 'Used in Program';
+                        $legacyToSkip--;
+                    } elseif (strtoupper((string)$qItem['status']) === 'DAMAGED' || strtoupper((string)$qItem['status']) === 'USED') {
+                        $status = strtoupper((string)$qItem['status']);
+                        $meta = 'Batch ' . $status;
+                    }
+
+                    if ($status === 'AVAILABLE') {
+                        $availCodes[] = $code;
+                    }
+
+                    $pieces[] = [
+                        'seq'    => $seq,
+                        'code'   => $code,
+                        'status' => $status,
+                        'meta'   => $meta,
+                    ];
                 }
+            } else {
+                for ($seq = $startSeq; $seq <= $endSeq; $seq++) {
+                    $code = $prefix . sprintf('%0' . $seqDigits . 'd', $seq);
+                    $status = 'AVAILABLE';
+                    $meta = '';
 
-                if ($status === 'AVAILABLE') {
-                    $availCodes[] = $code;
+                    if (isset($deletedMap[$rollId . '_' . $seq])) {
+                        $status = 'DELETED';
+                        $meta = 'Deleted Label';
+                    } elseif (isset($damageMap[strtoupper($code)])) {
+                        $status = 'DAMAGED';
+                        $meta = 'Damage ' . $damageMap[strtoupper($code)];
+                    } elseif (isset($allocatedMap[strtoupper($code)])) {
+                        $status = 'USED';
+                        $meta = 'Allocated to ' . $allocatedMap[strtoupper($code)];
+                    } elseif ($legacyToSkip > 0) {
+                        $status = 'USED';
+                        $meta = 'Used in Program';
+                        $legacyToSkip--;
+                    }
+
+                    if ($status === 'AVAILABLE') {
+                        $availCodes[] = $code;
+                    }
+
+                    $pieces[] = [
+                        'seq' => $seq,
+                        'code' => $code,
+                        'status' => $status,
+                        'meta' => $meta,
+                    ];
                 }
-
-                $pieces[] = [
-                    'seq' => $seq,
-                    'code' => $code,
-                    'status' => $status,
-                    'meta' => $meta,
-                ];
             }
 
             $rangeSummary = '';
