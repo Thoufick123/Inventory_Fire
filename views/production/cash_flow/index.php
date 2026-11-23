@@ -3,6 +3,7 @@ declare(strict_types=1);
 use App\Helpers\CSRF;
 ?>
 
+<div class="container-fluid py-3 cash-flow-page">
 <div class="mb-4">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb small text-muted mb-1">
@@ -416,6 +417,8 @@ use App\Helpers\CSRF;
 
         </div>
     </div>
+</div>
+
 </div>
 
 <!-- ================= MODALS MATCHING SCREENSHOTS ================= -->
