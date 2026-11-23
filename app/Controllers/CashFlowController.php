@@ -14,6 +14,11 @@ require_once BASE_PATH . '/app/Services/CashFlowService.php';
 class CashFlowController {
 
     public function index(): void {
+        if (!hasPermission('cash_flow', 'view') && !hasPermission('shop_cash', 'view')) {
+            Response::error(403, 'Access denied: You do not have permission to view Cash & Cash Flow.');
+            return;
+        }
+
         CashFlowService::ensureSchema();
         $cid = currentConcernId();
 

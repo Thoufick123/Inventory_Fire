@@ -76,7 +76,7 @@ if (!empty($authUser['production_unit_name'])) {
 
                     $canViewProduction = (
                         ($modPurchases && (hasPermission('sellers', 'view') || hasPermission('production_purchases', 'view') || hasPermission('production_purchase_mapping', 'view') || hasPermission('purchases', 'view')))
-                        || ($modProduction && (hasPermission('production', 'view') || hasPermission('damages', 'view') || hasPermission('catalog', 'view') || hasPermission('variants', 'view') || hasPermission('qr_generation', 'view') || hasPermission('programs', 'view') || hasPermission('cutting', 'view') || hasPermission('wastage', 'view') || hasPermission('stitching', 'view') || hasPermission('stitching_wastage', 'view') || hasPermission('qc', 'view')))
+                        || ($modProduction && (hasPermission('production', 'view') || hasPermission('damages', 'view') || hasPermission('catalog', 'view') || hasPermission('variants', 'view') || hasPermission('qr_generation', 'view') || hasPermission('programs', 'view') || hasPermission('cutting', 'view') || hasPermission('wastage', 'view') || hasPermission('stitching', 'view') || hasPermission('stitching_wastage', 'view') || hasPermission('qc', 'view') || hasPermission('cash_flow', 'view') || hasPermission('shop_cash', 'view') || hasPermission('production_hsn', 'view') || hasPermission('hsn_config', 'view')))
                         || ($modWarehouse && (hasPermission('inventory', 'view') || hasPermission('inward', 'view') || hasPermission('batches', 'view') || hasPermission('outward', 'view') || hasPermission('production_stock_requests', 'view') || hasPermission('warehouse_rework', 'view')))
                         || ($modExpenses && hasPermission('production_expenses', 'view'))
                         || ($modRetailPos && hasPermission('production_billing', 'view'))
@@ -100,7 +100,9 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if ($modPurchases && hasPermission('production_purchase_mapping', 'view')): ?>
                             <li><a href="<?= url('production/purchases/mapping') ?>" class="<?= in_array($activeMenu ?? '', ['purchases-mapping', 'prod-purchases-mapping']) ? 'active' : '' ?>">Product Mapping</a></li>
                             <?php endif; ?>
+                            <?php if ($modProduction && (hasPermission('cash_flow', 'view') || hasPermission('shop_cash', 'view'))): ?>
                             <li><a href="<?= url('production/cash-flow') ?>" class="<?= in_array($activeMenu ?? '', ['cash-flow', 'shop-cash-flow']) ? 'active' : '' ?>">Cash &amp; Cash Flow</a></li>
+                            <?php endif; ?>
                             <?php if ($modProduction && hasPermission('damages', 'view')): ?>
                             <li><a href="<?= url('production/damages') ?>" class="<?= ($activeMenu ?? '') === 'prod-damages' ? 'active' : '' ?>">Damage Management</a></li>
                             <?php endif; ?>
@@ -159,7 +161,9 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if ($modWarehouse && hasPermission('warehouse_rework', 'view')): ?>
                             <li><a href="<?= url('production/warehouse-rework') ?>" class="<?= ($activeMenu ?? '') === 'warehouse-rework' ? 'active' : '' ?>">Rework</a></li>
                             <?php endif; ?>
+                            <?php if ($modProduction && (hasPermission('production_hsn', 'view') || hasPermission('hsn_config', 'view'))): ?>
                             <li><a href="<?= url('production/hsn-config') ?>" class="<?= ($activeMenu ?? '') === 'production-hsn-config' ? 'active' : '' ?>">HSN Config</a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
                     <?php endif; ?>

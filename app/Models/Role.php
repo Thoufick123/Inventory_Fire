@@ -35,10 +35,10 @@ class Role {
      */
     public const DEPT_MODULE_MAP = [
         'PRODUCTION' => [
-            'production', 'sellers', 'production_purchases', 'production_purchase_mapping', 'damages', 'catalog', 'programs', 'cutting', 'wastage',
+            'production', 'sellers', 'production_purchases', 'production_purchase_mapping', 'cash_flow', 'damages', 'catalog', 'programs', 'cutting', 'wastage',
             'stitching', 'stitching_wastage', 'qc', 'inventory', 'production_expenses',
             'production_billing', 'production_returns', 'batches', 'outward', 'production_stock_requests',
-            'warehouse_rework', 'reports'
+            'warehouse_rework', 'production_hsn', 'reports'
         ],
         'ASSETS' => ['asset_register', 'asset_dashboard', 'asset_maintenance'],
         'GENERAL'    => [
@@ -249,6 +249,16 @@ class Role {
             ['production_purchase_mapping', 'create', 'Add Purchase Lines to Product Mapping', 'production_purchase_mapping.create', 'production_purchases'],
             ['production_purchase_mapping', 'edit', 'Map Products to Catalog Variants', 'production_purchase_mapping.edit', 'production_purchases'],
             ['production_purchase_mapping', 'delete', 'Remove Product Mapping Lines', 'production_purchase_mapping.delete', 'production_purchases'],
+
+            ['cash_flow', 'view', 'View Cash & Cash Flow Management', 'cash_flow.view', 'production'],
+            ['cash_flow', 'create', 'Open Shift, Record Inflow/Expense, Top Up & Bank Drop', 'cash_flow.create', 'production'],
+            ['cash_flow', 'edit', 'Edit Cash Flow Entries & Reconcile Till', 'cash_flow.edit', 'production'],
+            ['cash_flow', 'delete', 'Close Shift & Void Cash Flow Transactions', 'cash_flow.delete', 'production'],
+
+            ['production_hsn', 'view', 'View HSN Codes & GST Rates', 'production_hsn.view', 'production'],
+            ['production_hsn', 'create', 'Add New HSN Code Configurations', 'production_hsn.create', 'production'],
+            ['production_hsn', 'edit', 'Edit HSN Details & Tax Percentages', 'production_hsn.edit', 'production'],
+            ['production_hsn', 'delete', 'Delete HSN Code Configurations', 'production_hsn.delete', 'production'],
 
             ['reports', 'view', 'View Reports & Data Export', 'reports.view', null],
 
@@ -654,10 +664,10 @@ class Role {
                     );
                     $newId = (int)Database::lastInsertId();
                     if ($newId > 0) {
-                        // Grant newly created system permissions ONLY to root Super Admin role
+                        // Grant newly created system permissions to root Super Admin and Admin roles
                         Database::execute(
                             "INSERT IGNORE INTO role_permissions (role_id, permission_id) 
-                             SELECT id, ? FROM roles WHERE slug IN ('super-admin', 'super_admin')",
+                             SELECT id, ? FROM roles WHERE slug IN ('super-admin', 'super_admin', 'admin') OR id IN (1, 2)",
                             [$newId]
                         );
                         if ($mod === 'production_purchase_mapping') {
@@ -686,6 +696,14 @@ class Role {
                     }
                 }
             }
+            Database::execute("
+                INSERT IGNORE INTO role_permissions (role_id, permission_id)
+                SELECT r.id, p.id
+                FROM roles r
+                CROSS JOIN permissions p
+                WHERE (r.slug IN ('super-admin', 'super_admin', 'admin') OR r.id IN (1, 2))
+                  AND p.module IN ('cash_flow', 'production_hsn')
+            ");
         } catch (\Throwable $e) {
             // Silently ignore if database is temporarily unavailable during boot
         }
@@ -755,6 +773,7 @@ class Role {
                     'sellers'                   => ['name' => 'Sellers', 'icon' => 'bi-person-badge', 'desc' => 'Job worker directory, vendor ledgers, and contract rates', 'department' => 'PRODUCTION'],
                     'production_purchases'      => ['name' => 'Purchases', 'icon' => 'bi-cart-check', 'desc' => 'Production fabric, yarn, raw material purchases and supplier invoices', 'department' => 'PRODUCTION'],
                     'production_purchase_mapping' => ['name' => 'Product Mapping', 'icon' => 'bi-diagram-3', 'desc' => 'Map purchase items to catalog categories, variants, and prices', 'department' => 'PRODUCTION'],
+                    'cash_flow'                 => ['name' => 'Cash & Cash Flow', 'icon' => 'bi-cash-coin', 'desc' => 'Cash flow register, shifts, top-ups, bank deposits, and daily till balances', 'department' => 'PRODUCTION'],
                     'damages'                   => ['name' => 'Damages', 'icon' => 'bi-exclamation-octagon', 'desc' => 'Defective fabric, floor damages, and scrap recovery logs', 'department' => 'PRODUCTION'],
                     'catalog'                   => ['name' => 'Catalog', 'icon' => 'bi-journal-bookmark', 'desc' => 'Design catalogs, style codes, and Bill of Materials (BOM)', 'department' => 'PRODUCTION'],
                     'variants'                  => ['name' => 'Product Variants', 'icon' => 'bi-tags', 'desc' => 'Manage sellable variants, collision-safe Variant IDs, and SKUs', 'department' => 'PRODUCTION'],
@@ -774,6 +793,7 @@ class Role {
                     'outward'                   => ['name' => 'Outward', 'icon' => 'bi-truck', 'desc' => 'Delivery challans and outward dispatch to Central Warehouses', 'department' => 'PRODUCTION'],
                     'production_stock_requests' => ['name' => 'Stock Requests', 'icon' => 'bi-inbox', 'desc' => 'Warehouse stock requisitions and production fulfillment requests', 'department' => 'PRODUCTION'],
                     'warehouse_rework'          => ['name' => 'Warehouse Rework', 'icon' => 'bi-tools', 'desc' => 'Repair and dispatch damaged warehouse goods', 'department' => 'PRODUCTION'],
+                    'production_hsn'            => ['name' => 'HSN Config', 'icon' => 'bi-hash', 'desc' => 'Production HSN codes, tax slabs, GST percentage, and category tax rates', 'department' => 'PRODUCTION'],
                 ]
             ],
             'assets' => [

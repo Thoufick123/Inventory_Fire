@@ -249,14 +249,14 @@ class Router {
         $this->post('purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
 
         // Shop & Production Cash & Cash Flow Management
-        $this->get('production/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
-        $this->get('shop/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware']);
-        $this->post('production/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware']);
-        $this->post('production/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware']);
-        $this->post('production/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware']);
-        $this->post('production/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware']);
-        $this->post('production/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware']);
-        $this->get('production/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware']);
+        $this->get('production/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
+        $this->get('shop/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
+        $this->post('production/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('production/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('production/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('production/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('production/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'delete']]);
+        $this->get('production/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
         $this->get('production/purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('production/purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
@@ -567,13 +567,13 @@ class Router {
         // ==========================================
         // PRODUCTION HSN CONFIG MODULE
         // ==========================================
-        $this->get('production/hsn-config', 'ProductionHsnController', 'index', ['AuthMiddleware']);
-        $this->get('production/hsn-config/create', 'ProductionHsnController', 'create', ['AuthMiddleware']);
-        $this->post('production/hsn-config/store', 'ProductionHsnController', 'store', ['AuthMiddleware']);
-        $this->get('production/hsn-config/view/{id}', 'ProductionHsnController', 'view', ['AuthMiddleware']);
-        $this->get('production/hsn-config/edit/{id}', 'ProductionHsnController', 'edit', ['AuthMiddleware']);
-        $this->post('production/hsn-config/update/{id}', 'ProductionHsnController', 'update', ['AuthMiddleware']);
-        $this->post('production/hsn-config/delete/{id}', 'ProductionHsnController', 'delete', ['AuthMiddleware']);
+        $this->get('production/hsn-config', 'ProductionHsnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
+        $this->get('production/hsn-config/create', 'ProductionHsnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
+        $this->post('production/hsn-config/store', 'ProductionHsnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
+        $this->get('production/hsn-config/view/{id}', 'ProductionHsnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
+        $this->get('production/hsn-config/edit/{id}', 'ProductionHsnController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
+        $this->post('production/hsn-config/update/{id}', 'ProductionHsnController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
+        $this->post('production/hsn-config/delete/{id}', 'ProductionHsnController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'delete']]);
 
 
         // ==========================================
