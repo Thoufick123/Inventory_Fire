@@ -21,6 +21,7 @@ class ProductionController {
 
     private static bool $schemaEnsured = false;
     private static bool $programRollAttributesSchemaEnsured = false;
+    private static bool $cuttingBatchRollAttributesSchemaEnsured = false;
 
     /**
      * Ensure database table schema has required columns like hsn_code.
@@ -161,6 +162,22 @@ class ProductionController {
         }
 
         self::$programRollAttributesSchemaEnsured = true;
+    }
+
+    private static function ensureCuttingBatchRollAttributesSchema(): void {
+        if (self::$cuttingBatchRollAttributesSchemaEnsured) return;
+
+        try {
+            $column = Database::fetchOne("SHOW COLUMNS FROM cutting_batch_rolls LIKE 'attributes'");
+            if (!$column) {
+                Database::execute(
+                    "ALTER TABLE cutting_batch_rolls
+                     ADD COLUMN attributes TEXT DEFAULT NULL AFTER roll_design"
+                );
+            }
+        } catch (\Throwable $e) {}
+
+        self::$cuttingBatchRollAttributesSchemaEnsured = true;
     }
 
     /**
@@ -13122,6 +13139,18 @@ class ProductionController {
         $parsedSizes = [];
         $parsedColors = [];
 
+        // Ensure assigned rolls have decoded attributes_parsed
+        if (!empty($assignedRolls)) {
+            foreach ($assignedRolls as &$ar) {
+                if (!empty($ar['attributes'])) {
+                    $ar['attributes_parsed'] = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : (is_array($ar['attributes']) ? $ar['attributes'] : null);
+                } else {
+                    $ar['attributes_parsed'] = null;
+                }
+            }
+            unset($ar);
+        }
+
         $programRollSizes = [];
         if (!empty($assignedRolls)) {
             foreach ($assignedRolls as $ar) {
@@ -13130,12 +13159,40 @@ class ProductionController {
                     if (is_array($dec)) {
                         foreach ($dec as $k => $v) {
                             $upperK = strtoupper(trim((string)$k));
-                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                            $isSizeLike = (
+                                stripos($upperK, 'SIZE') !== false ||
+                                stripos($upperK, 'AGE') !== false ||
+                                stripos($upperK, 'DIMENSION') !== false ||
+                                stripos($upperK, 'FIT') !== false ||
+                                stripos($upperK, 'SPEC') !== false ||
+                                in_array($upperK, ['SIZE', 'SIZES', 'AGE', 'AGE GROUP', 'KIDS SIZE', 'STANDARD SIZE', 'LENGTH', 'CHEST', 'WAIST'], true)
+                            );
+                            if ($isSizeLike) {
                                 $vArr = is_array($v) ? $v : explode(',', (string)$v);
                                 foreach ($vArr as $sz) {
                                     $sz = trim((string)$sz);
                                     if ($sz !== '' && !in_array($sz, $programRollSizes, true)) {
                                         $programRollSizes[] = $sz;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Secondary fallback: if no size-named attribute was found, check any array-valued attribute
+            if (empty($programRollSizes)) {
+                foreach ($assignedRolls as $ar) {
+                    if (!empty($ar['attributes'])) {
+                        $dec = is_string($ar['attributes']) ? json_decode($ar['attributes'], true) : $ar['attributes'];
+                        if (is_array($dec)) {
+                            foreach ($dec as $k => $v) {
+                                if (is_array($v) && count($v) > 0) {
+                                    foreach ($v as $sz) {
+                                        $sz = trim((string)$sz);
+                                        if ($sz !== '' && !in_array($sz, $programRollSizes, true)) {
+                                            $programRollSizes[] = $sz;
+                                        }
                                     }
                                 }
                             }
@@ -13583,19 +13640,44 @@ class ProductionController {
                 );
             }
             $hasProgramSizes = false;
+            $rollAttributes = [];
             if ($ppr) {
                 if (!empty($ppr['attributes'])) {
                     $dec = is_string($ppr['attributes']) ? json_decode($ppr['attributes'], true) : $ppr['attributes'];
                     if (is_array($dec)) {
+                        $rollAttributes = $dec;
+                        // 1. First look for size-like attributes
                         foreach ($dec as $k => $v) {
                             $upperK = strtoupper(trim((string)$k));
-                            if (in_array($upperK, ['SIZE', 'SIZES', 'SIZE ATTRIBUTE', 'SIZE ATTRIBUTES', 'SIZES ATTRIBUTE', 'SIZES ATTRIBUTES'], true)) {
+                            $isSizeLike = (
+                                stripos($upperK, 'SIZE') !== false ||
+                                stripos($upperK, 'AGE') !== false ||
+                                stripos($upperK, 'DIMENSION') !== false ||
+                                stripos($upperK, 'FIT') !== false ||
+                                stripos($upperK, 'SPEC') !== false ||
+                                in_array($upperK, ['SIZE', 'SIZES', 'AGE', 'AGE GROUP', 'KIDS SIZE', 'STANDARD SIZE', 'LENGTH', 'CHEST', 'WAIST'], true)
+                            );
+                            if ($isSizeLike) {
                                 $vArr = is_array($v) ? $v : explode(',', (string)$v);
                                 foreach ($vArr as $sz) {
                                     $sz = trim((string)$sz);
                                     if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
                                         $parsedSizes[] = $sz;
                                         $hasProgramSizes = true;
+                                    }
+                                }
+                            }
+                        }
+                        // 2. Secondary check: any array-valued or multi-select attribute if no size-named attribute was found
+                        if (!$hasProgramSizes) {
+                            foreach ($dec as $k => $v) {
+                                if (is_array($v) && count($v) > 0) {
+                                    foreach ($v as $sz) {
+                                        $sz = trim((string)$sz);
+                                        if ($sz !== '' && !in_array($sz, $parsedSizes, true)) {
+                                            $parsedSizes[] = $sz;
+                                            $hasProgramSizes = true;
+                                        }
                                     }
                                 }
                             }
@@ -13632,20 +13714,7 @@ class ProductionController {
                 [$product['id']]
             );
 
-            if ($hasProgramSizes) {
-                // Program roll explicitly selected specific sizes! Filter pvRows to ONLY those sizes!
-                $filteredPvRows = [];
-                foreach ($pvRows as $pv) {
-                    $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
-                    foreach ($parsedSizes as $psz) {
-                        if (strcasecmp(trim($sName), trim($psz)) === 0) {
-                            $filteredPvRows[] = $pv;
-                            break;
-                        }
-                    }
-                }
-                $pvRows = $filteredPvRows;
-            } else {
+            if (!$hasProgramSizes) {
                 // No specific sizes configured on program roll: populate parsedSizes from product variants
                 foreach ($pvRows as $pv) {
                     $sName = $pv['size_name'] ?: ($pv['size_code'] ?: '');
@@ -13715,48 +13784,68 @@ class ProductionController {
             $parsedColors = ['STANDARD'];
         }
 
-        $prodCode = $product ? ($product['code'] ?: 'CUT') : 'CUT';
-        $variants = [];
+        // Index existing product variants by size and color for matching
+        $existingVariantsMap = [];
         if (!empty($pvRows)) {
             foreach ($pvRows as $pv) {
-                $sName = $pv['size_name'] ?: ($pv['size_code'] ?: 'FREE SIZE');
-                $cName = !empty($rollColor) && $rollColor !== '-' && $rollColor !== 'Standard' ? $rollColor : ($pv['color_name'] ?: 'STANDARD');
-                $variants[] = [
-                    'id'               => $pv['id'],
-                    'sku'              => $pv['sku'] ?: ($prodCode . '-' . strtoupper(substr($sName, 0, 3)) . '-' . strtoupper(substr($cName, 0, 3))),
-                    'size_name'        => $sName,
-                    'color_name'       => $cName,
-                    'planned_quantity' => 0,
-                ];
-            }
-        } else {
-            foreach ($parsedSizes as $sz) {
-                foreach ($parsedColors as $col) {
-                    $variants[] = [
-                        'id'              => null,
-                        'sku'             => $prodCode . '-' . strtoupper(substr($sz, 0, 3)) . '-' . strtoupper(substr($col, 0, 3)),
-                        'size_name'       => $sz,
-                        'color_name'      => $col,
-                        'planned_quantity'=> 0,
-                    ];
+                $sKey = strtoupper(trim((string)($pv['size_name'] ?: ($pv['size_code'] ?: ''))));
+                $cKey = strtoupper(trim((string)($pv['color_name'] ?: '')));
+                if ($sKey !== '') {
+                    $existingVariantsMap[$sKey . '___' . $cKey] = $pv;
+                    if (!isset($existingVariantsMap[$sKey])) {
+                        $existingVariantsMap[$sKey] = $pv;
+                    }
                 }
             }
         }
 
+        $prodCode = $product ? ($product['code'] ?: 'CUT') : 'CUT';
+        $variants = [];
+
+        // Build variants for EVERY parsed size and color from program roll attributes!
+        foreach ($parsedSizes as $sz) {
+            foreach ($parsedColors as $col) {
+                $szUpper = strtoupper(trim($sz));
+                $colUpper = strtoupper(trim($col));
+
+                $matchingPv = $existingVariantsMap[$szUpper . '___' . $colUpper] ?? ($existingVariantsMap[$szUpper] ?? null);
+                $finalColor = (!empty($rollColor) && $rollColor !== '-' && $rollColor !== 'Standard')
+                    ? $rollColor
+                    : ($matchingPv && !empty($matchingPv['color_name']) ? $matchingPv['color_name'] : $col);
+
+                $vId = $matchingPv ? $matchingPv['id'] : null;
+                $sku = ($matchingPv && !empty($matchingPv['sku']))
+                    ? $matchingPv['sku']
+                    : ($prodCode . '-' . strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $sz), 0, 4)) . '-' . strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $finalColor), 0, 4)));
+
+                $variants[] = [
+                    'id'               => $vId,
+                    'sku'              => $sku,
+                    'size_name'        => $sz,
+                    'color_name'       => $finalColor,
+                    'planned_quantity' => 0,
+                ];
+            }
+        }
+
         Response::json([
-            'success'     => true,
-            'status'      => 'success',
-            'product'     => $product,
-            'sizes'       => $parsedSizes,
-            'colors'      => $parsedColors,
-            'variants'    => $variants,
-            'data'        => [
-                'product'  => $product,
-                'variants' => $variants,
-                'sizes'    => $parsedSizes,
-                'colors'   => $parsedColors,
+            'success'          => true,
+            'status'           => 'success',
+            'product'          => $product,
+            'sizes'            => $parsedSizes,
+            'colors'           => $parsedColors,
+            'variants'         => $variants,
+            'attributes'       => $rollAttributes ?? [],
+            'roll_attributes'  => $rollAttributes ?? [],
+            'data'             => [
+                'product'         => $product,
+                'variants'        => $variants,
+                'sizes'           => $parsedSizes,
+                'colors'          => $parsedColors,
+                'attributes'      => $rollAttributes ?? [],
+                'roll_attributes' => $rollAttributes ?? [],
             ],
-            'seller_name' => $sellerName,
+            'seller_name'      => $sellerName,
         ]);
     }
 
@@ -13842,6 +13931,7 @@ class ProductionController {
             Session::flash('error', 'Invalid security token. Please try again.');
             Response::back();
         }
+        self::ensureCuttingBatchRollAttributesSchema();
 
         $name = mb_strtoupper(trim($_POST['name'] ?? ''));
         $programId = (int)($_POST['program_id'] ?? 0);
@@ -13918,6 +14008,7 @@ class ProductionController {
                     'category_id'        => $rCategoryId,
                     'subcategory_id'     => $rSubcatId,
                     'sub_subcategory_id' => $rSubSubcatId,
+                    'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $calcTotalRollWeight += $rWeight;
                 $calcTotalRollPrice += $rPrice;
@@ -13947,6 +14038,7 @@ class ProductionController {
                     'category_id'        => $categoryId,
                     'subcategory_id'     => $subcategoryId,
                     'sub_subcategory_id' => $subSubcategoryId,
+                    'attributes'         => !empty($_POST['attributes']) ? $_POST['attributes'] : null,
                 ];
                 $calcTotalRollWeight = $rWeight;
                 $calcTotalRollPrice = $rPrice;
@@ -14115,6 +14207,7 @@ class ProductionController {
             Session::flash('error', 'Invalid security token. Please try again.');
             Response::back();
         }
+        self::ensureCuttingBatchRollAttributesSchema();
 
         $name = mb_strtoupper(trim($_POST['name'] ?? ''));
         $rollWeight = max(0.0, (float)($_POST['roll_weight'] ?? 0));
@@ -14169,6 +14262,7 @@ class ProductionController {
                     'category_id'        => $rCategoryId,
                     'subcategory_id'     => $rSubcatId,
                     'sub_subcategory_id' => $rSubSubcatId,
+                    'attributes'         => !empty($r['attributes']) ? $r['attributes'] : null,
                 ];
                 $calcTotalRollWeight += $rWeight;
                 $calcTotalRollPrice += $rPrice;
@@ -14197,6 +14291,7 @@ class ProductionController {
                     'category_id'        => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
                     'subcategory_id'     => !empty($_POST['subcategory_id']) ? (int)$_POST['subcategory_id'] : null,
                     'sub_subcategory_id' => !empty($_POST['sub_subcategory_id']) ? (int)$_POST['sub_subcategory_id'] : null,
+                    'attributes'         => !empty($_POST['attributes']) ? $_POST['attributes'] : null,
                 ];
                 $calcTotalRollWeight = $rWeight;
                 $calcTotalRollPrice = $rPrice;
@@ -17362,86 +17457,177 @@ class ProductionController {
 
     public function createQC(): void {
         $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
-        $stitchingBatchId = isset($_GET['stitching_batch_id']) ? (int)$_GET['stitching_batch_id'] : null;
-
-        $cid = currentConcernId();
-        $concernClause = "";
-        $stitchingParams = [];
-        if ($cid) {
-            if ($cid === 1) {
-                $concernClause = " AND (sb.concern_id = ? OR sb.concern_id IS NULL)";
-            } else {
-                $concernClause = " AND sb.concern_id = ?";
+        $qrGenerationId = isset($_GET['qr_generation_id']) ? (int)$_GET['qr_generation_id'] : (isset($_GET['qr_batch_id']) ? (int)$_GET['qr_batch_id'] : null);
+        if (!$qrGenerationId && !empty($_GET['stitching_batch_id'])) {
+            $stRow = Database::fetchOne("SELECT id FROM qr_generations WHERE stitching_batch_id = ? ORDER BY id DESC LIMIT 1", [(int)$_GET['stitching_batch_id']]);
+            if ($stRow) {
+                $qrGenerationId = (int)$stRow['id'];
             }
-            $stitchingParams[] = $cid;
+        }
+
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $concernClause = "";
+        $qrParams = [];
+        if ($cid) {
+            $concernClause = " AND (qg.concern_id = ? OR qg.concern_id IS NULL OR qg.concern_id = 0)";
+            $qrParams[] = $cid;
         }
 
         $unitClause = $scopedUnitId ? " AND pp.production_unit_id = $scopedUnitId" : "";
-        $stitchingBatches = Database::fetchAll(
-            "SELECT sb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name 
-             FROM stitching_batches sb
-             JOIN production_programs pp ON sb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
+        $qrBatches = Database::fetchAll(
+            "SELECT qg.*, 
+                    pp.program_number, pp.name as program_name,
+                    COALESCE(p.name, pp.name, 'Finished Garment') as product_name,
+                    sb.batch_number as stitching_batch_number
+             FROM qr_generations qg
+             LEFT JOIN production_programs pp ON qg.program_id = pp.id
+             LEFT JOIN products p ON COALESCE(qg.product_id, pp.product_id) = p.id
+             LEFT JOIN stitching_batches sb ON qg.stitching_batch_id = sb.id
              WHERE 1=1$unitClause$concernClause
-               AND sb.id NOT IN (SELECT stitching_batch_id FROM qc_batches WHERE stitching_batch_id IS NOT NULL)
-               AND (sb.program_id IS NULL OR sb.program_id NOT IN (SELECT program_id FROM qc_batches WHERE program_id IS NOT NULL))
-             ORDER BY sb.created_at DESC",
-            $stitchingParams
+               AND (qg.qr_source = 'PRODUCTION_PRODUCT' OR qg.stitching_batch_id IS NOT NULL OR qg.generation_type = 'CATALOG_VARIANT')
+               AND (qg.qc_batch_id IS NULL OR qg.id NOT IN (SELECT qr_generation_id FROM qc_batches WHERE qr_generation_id IS NOT NULL))
+             ORDER BY qg.id DESC",
+            $qrParams
         );
 
         $users = Database::fetchAll("SELECT id, full_name FROM users WHERE is_active = 1 AND staff_role = 'QC_INSPECTOR' ORDER BY full_name ASC");
 
-        $selectedStitching = null;
+        $selectedQrBatch = null;
         $items = [];
         $distinctCatalogs = [];
         $catalogHierarchy = 'General Apparel';
         $rolls = [];
 
-        if ($stitchingBatchId) {
+        if ($qrGenerationId) {
             $alreadyQC = Database::fetchOne(
-                "SELECT id FROM qc_batches WHERE stitching_batch_id = ?",
-                [$stitchingBatchId]
+                "SELECT id FROM qc_batches WHERE qr_generation_id = ?",
+                [$qrGenerationId]
             );
             if ($alreadyQC) {
-                Session::flash('error', "Stitching Batch has already undergone QC Inspection (QC #{$alreadyQC['id']}). Duplicate QC inspection is not allowed.");
+                Session::flash('error', "QR Batch has already undergone QC Inspection (QC #{$alreadyQC['id']}). Duplicate QC inspection is not allowed.");
                 Response::redirect(url('production/qc'));
                 return;
             }
-            $selectedStitching = StitchingBatch::find($stitchingBatchId);
-            if ($selectedStitching) {
-                $stitchingItems = StitchingBatch::getItems($stitchingBatchId);
-                $rolls = StitchingBatch::getRolls($stitchingBatchId);
 
-                foreach ($stitchingItems as $si) {
-                    $items[] = [
-                        'variant_id'          => !empty($si['variant_id']) ? $si['variant_id'] : null,
-                        'category_id'         => !empty($si['category_id']) ? (int)$si['category_id'] : null,
-                        'subcategory_id'      => !empty($si['subcategory_id']) ? (int)$si['subcategory_id'] : null,
-                        'sub_subcategory_id'  => !empty($si['sub_subcategory_id']) ? (int)$si['sub_subcategory_id'] : null,
-                        'catalog_hierarchy'   => $si['catalog_hierarchy'] ?? null,
-                        'category_name'       => $si['category_name'] ?? null,
-                        'subcategory_name'    => $si['subcategory_name'] ?? null,
-                        'sub_subcategory_name'=> $si['sub_subcategory_name'] ?? null,
-                        'size_name'           => $si['display_size'] ?? ($si['size_name'] ?? 'Standard'),
-                        'color_name'          => $si['display_color'] ?? ($si['color_name'] ?? 'Assorted'),
-                        'base_price'          => (float)($si['base_price'] ?? 1000.00),
-                        'discount_price'      => (float)($si['discount_price'] ?? 500.00),
-                        'stitched_qty'        => (int)($si['stitched_qty'] ?? 0),
-                        'sku'                 => $si['sku'] ?? (($si['size_name'] ?? '') . '-' . ($si['color_name'] ?? '')),
-                    ];
+            $selectedQrBatch = Database::fetchOne(
+                "SELECT qg.*, 
+                        pp.program_number, pp.name as program_name,
+                        pp.category_id as program_category_id, pp.subcategory_id as program_subcategory_id, pp.sub_subcategory_id as program_sub_subcategory_id,
+                        COALESCE(p.name, pp.name, 'Finished Garment') as product_name,
+                        sb.batch_number as stitching_batch_number,
+                        c.name as category_name, sc.name as subcategory_name, ssc.name as sub_subcategory_name
+                 FROM qr_generations qg
+                 LEFT JOIN production_programs pp ON qg.program_id = pp.id
+                 LEFT JOIN products p ON COALESCE(qg.product_id, pp.product_id) = p.id
+                 LEFT JOIN stitching_batches sb ON qg.stitching_batch_id = sb.id
+                 LEFT JOIN categories c ON c.id = COALESCE(p.category_id, pp.category_id)
+                 LEFT JOIN subcategories sc ON sc.id = COALESCE(p.subcategory_id, pp.subcategory_id)
+                 LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(p.sub_subcategory_id, pp.sub_subcategory_id)
+                 WHERE qg.id = ?",
+                [$qrGenerationId]
+            );
+
+            if ($selectedQrBatch) {
+                // Ensure selected batch appears in dropdown list
+                $inList = false;
+                foreach ($qrBatches as $qb) {
+                    if ((int)$qb['id'] === (int)$selectedQrBatch['id']) {
+                        $inList = true;
+                        break;
+                    }
                 }
+                if (!$inList) {
+                    array_unshift($qrBatches, $selectedQrBatch);
+                }
+
+                if (!empty($selectedQrBatch['stitching_batch_id'])) {
+                    $rolls = StitchingBatch::getRolls((int)$selectedQrBatch['stitching_batch_id']);
+                } elseif (!empty($selectedQrBatch['program_id'])) {
+                    $rolls = ProductionProgram::getRolls((int)$selectedQrBatch['program_id']);
+                }
+
+                // Load items grouped from qr_generation_items
+                $rawItems = Database::fetchAll("
+                    SELECT 
+                        qgi.variant_id,
+                        qgi.size_name,
+                        qgi.color_name,
+                        qgi.design_name,
+                        COALESCE(qgi.mrp, 1000.00) as base_price,
+                        COALESCE(qgi.selling_price, 500.00) as discount_price,
+                        COUNT(qgi.id) as quantity,
+                        pv.sku,
+                        pv.variant_code
+                    FROM qr_generation_items qgi
+                    LEFT JOIN product_variants pv ON pv.id = qgi.variant_id
+                    WHERE qgi.generation_id = ?
+                    GROUP BY qgi.variant_id, qgi.size_name, qgi.color_name, qgi.design_name, qgi.mrp, qgi.selling_price, pv.sku, pv.variant_code
+                    ORDER BY qgi.id ASC
+                ", [$qrGenerationId]);
+
+                $stitchingItems = !empty($selectedQrBatch['stitching_batch_id']) ? StitchingBatch::getItems((int)$selectedQrBatch['stitching_batch_id']) : [];
+                $stitchingMap = [];
+                foreach ($stitchingItems as $si) {
+                    $key = strtolower(trim(($si['size_name'] ?? '') . '|' . ($si['color_name'] ?? '')));
+                    $stitchingMap[$key] = $si;
+                }
+
                 $hierarchyParts = array_filter([
-                    $selectedStitching['category_name'] ?? '',
-                    $selectedStitching['subcategory_name'] ?? '',
-                    $selectedStitching['sub_subcategory_name'] ?? ''
+                    $selectedQrBatch['category_name'] ?? '',
+                    $selectedQrBatch['subcategory_name'] ?? '',
+                    $selectedQrBatch['sub_subcategory_name'] ?? ''
                 ]);
-                $catalogHierarchy = !empty($hierarchyParts) ? implode(' › ', $hierarchyParts) : ($selectedStitching['product_name'] ?? 'General Apparel');
+                $catalogHierarchy = !empty($hierarchyParts) ? implode(' › ', $hierarchyParts) : ($selectedQrBatch['product_name'] ?? 'General Apparel');
+
+                if (!empty($rawItems)) {
+                    foreach ($rawItems as $ri) {
+                        $key = strtolower(trim(($ri['size_name'] ?? '') . '|' . ($ri['color_name'] ?? '')));
+                        $si = $stitchingMap[$key] ?? null;
+
+                        $itemCatHierarchy = $si['catalog_hierarchy'] ?? $catalogHierarchy;
+                        $items[] = [
+                            'variant_id'           => !empty($ri['variant_id']) ? (int)$ri['variant_id'] : ($si['variant_id'] ?? null),
+                            'category_id'          => !empty($si['category_id']) ? (int)$si['category_id'] : ($selectedQrBatch['category_id'] ?? null),
+                            'subcategory_id'       => !empty($si['subcategory_id']) ? (int)$si['subcategory_id'] : ($selectedQrBatch['subcategory_id'] ?? null),
+                            'sub_subcategory_id'   => !empty($si['sub_subcategory_id']) ? (int)$si['sub_subcategory_id'] : ($selectedQrBatch['sub_subcategory_id'] ?? null),
+                            'catalog_hierarchy'    => $itemCatHierarchy,
+                            'category_name'        => $si['category_name'] ?? ($selectedQrBatch['category_name'] ?? null),
+                            'subcategory_name'     => $si['subcategory_name'] ?? ($selectedQrBatch['subcategory_name'] ?? null),
+                            'sub_subcategory_name' => $si['sub_subcategory_name'] ?? ($selectedQrBatch['sub_subcategory_name'] ?? null),
+                            'size_name'            => $ri['size_name'] ?? ($si['size_name'] ?? 'Standard'),
+                            'color_name'           => $ri['color_name'] ?? ($si['color_name'] ?? 'Assorted'),
+                            'base_price'           => (float)($ri['base_price'] ?: ($si['base_price'] ?? 1000.00)),
+                            'discount_price'       => (float)($ri['discount_price'] ?: ($si['discount_price'] ?? 500.00)),
+                            'stitched_qty'         => (int)$ri['quantity'],
+                            'sku'                  => $ri['sku'] ?? ($ri['variant_code'] ?? (($ri['size_name'] ?? '') . '-' . ($ri['color_name'] ?? ''))),
+                        ];
+                    }
+                } elseif (!empty($stitchingItems)) {
+                    foreach ($stitchingItems as $si) {
+                        $items[] = [
+                            'variant_id'          => !empty($si['variant_id']) ? $si['variant_id'] : null,
+                            'category_id'         => !empty($si['category_id']) ? (int)$si['category_id'] : null,
+                            'subcategory_id'      => !empty($si['subcategory_id']) ? (int)$si['subcategory_id'] : null,
+                            'sub_subcategory_id'  => !empty($si['sub_subcategory_id']) ? (int)$si['sub_subcategory_id'] : null,
+                            'catalog_hierarchy'   => $si['catalog_hierarchy'] ?? null,
+                            'category_name'       => $si['category_name'] ?? null,
+                            'subcategory_name'    => $si['subcategory_name'] ?? null,
+                            'sub_subcategory_name'=> $si['sub_subcategory_name'] ?? null,
+                            'size_name'           => $si['display_size'] ?? ($si['size_name'] ?? 'Standard'),
+                            'color_name'          => $si['display_color'] ?? ($si['color_name'] ?? 'Assorted'),
+                            'base_price'          => (float)($si['base_price'] ?? 1000.00),
+                            'discount_price'      => (float)($si['discount_price'] ?? 500.00),
+                            'stitched_qty'        => (int)($si['stitched_qty'] ?? 0),
+                            'sku'                 => $si['sku'] ?? (($si['size_name'] ?? '') . '-' . ($si['color_name'] ?? '')),
+                        ];
+                    }
+                }
 
                 $distinctCatalogs = $this->resolveItemsCatalogHierarchy($items, $rolls, [
                     'name'               => $catalogHierarchy,
-                    'category_id'        => $selectedStitching['category_id'] ?? null,
-                    'subcategory_id'     => $selectedStitching['subcategory_id'] ?? null,
-                    'sub_subcategory_id' => $selectedStitching['sub_subcategory_id'] ?? null,
+                    'category_id'        => $selectedQrBatch['category_id'] ?? null,
+                    'subcategory_id'     => $selectedQrBatch['subcategory_id'] ?? null,
+                    'sub_subcategory_id' => $selectedQrBatch['sub_subcategory_id'] ?? null,
                 ], 'stitched_qty');
             }
         }
@@ -17450,8 +17636,8 @@ class ProductionController {
             'pageTitle'         => 'New Quality Control',
             'activeModule'      => 'production',
             'activeMenu'        => 'qc',
-            'stitchingBatches'  => $stitchingBatches,
-            'selectedStitching' => $selectedStitching,
+            'qrBatches'         => $qrBatches,
+            'selectedQrBatch'   => $selectedQrBatch,
             'users'             => $users,
             'items'             => $items,
             'catalogHierarchy'  => $catalogHierarchy,
@@ -17470,6 +17656,7 @@ class ProductionController {
             Response::back();
         }
 
+        $qrGenerationId = !empty($_POST['qr_generation_id']) ? (int)$_POST['qr_generation_id'] : null;
         $stitchingBatchId = !empty($_POST['stitching_batch_id']) ? (int)$_POST['stitching_batch_id'] : null;
         $inspectorId = !empty($_POST['inspector_id']) ? (int)$_POST['inspector_id'] : null;
         if (!$inspectorId) {
@@ -17480,40 +17667,37 @@ class ProductionController {
 
         $programId = null;
 
-        if ($stitchingBatchId) {
+        if ($qrGenerationId) {
+            $qg = Database::fetchOne("SELECT * FROM qr_generations WHERE id = ?", [$qrGenerationId]);
+            if ($qg) {
+                $programId = !empty($qg['program_id']) ? (int)$qg['program_id'] : null;
+                if (!$stitchingBatchId && !empty($qg['stitching_batch_id'])) {
+                    $stitchingBatchId = (int)$qg['stitching_batch_id'];
+                }
+            }
+        }
+
+        if ($stitchingBatchId && !$programId) {
             $sb = StitchingBatch::find($stitchingBatchId);
             if ($sb) $programId = $sb['program_id'];
         }
 
-        if (!$programId) {
-            Session::flash('error', 'Please select a valid Stitching Batch.');
+        if (!$qrGenerationId && !$stitchingBatchId) {
+            Session::flash('error', 'Please select a valid QR Generated Batch.');
             Response::back();
+            return;
         }
 
         // Prevent duplicate QC inspection
-        if (!empty($stitchingBatchId)) {
+        if (!empty($qrGenerationId)) {
             $existingQC = Database::fetchOne(
-                "SELECT id FROM qc_batches WHERE stitching_batch_id = ?",
-                [$stitchingBatchId]
+                "SELECT id FROM qc_batches WHERE qr_generation_id = ?",
+                [$qrGenerationId]
             );
             if ($existingQC) {
-                $sb = StitchingBatch::find($stitchingBatchId);
-                $sbNum = $sb['batch_number'] ?? ('#' . $stitchingBatchId);
-                Session::flash('error', "Validation Error: Stitching Batch ({$sbNum}) has already undergone QC Inspection (QC #{$existingQC['id']}). Duplicate QC inspection is not allowed.");
-                Response::back();
-                return;
-            }
-        }
-
-        if (!empty($programId)) {
-            $existingQCProg = Database::fetchOne(
-                "SELECT id FROM qc_batches WHERE program_id = ?",
-                [$programId]
-            );
-            if ($existingQCProg) {
-                $prog = ProductionProgram::find($programId);
-                $progNum = $prog['program_number'] ?? ('#' . $programId);
-                Session::flash('error', "Validation Error: Production Program ({$progNum}) has already undergone QC Inspection (QC #{$existingQCProg['id']}). Duplicate QC inspection is not allowed.");
+                $qg = Database::fetchOne("SELECT batch_code FROM qr_generations WHERE id = ?", [$qrGenerationId]);
+                $code = $qg['batch_code'] ?? ('#' . $qrGenerationId);
+                Session::flash('error', "Validation Error: QR Generated Batch ({$code}) has already undergone QC Inspection (QC #{$existingQC['id']}). Duplicate QC inspection is not allowed.");
                 Response::back();
                 return;
             }
@@ -17534,6 +17718,7 @@ class ProductionController {
             $qcBatchId = QCBatch::create([
                 'program_id'         => $programId,
                 'stitching_batch_id' => $stitchingBatchId,
+                'qr_generation_id'   => $qrGenerationId,
                 'inspector_id'       => $inspectorId,
                 'total_qty'          => $totalQty,
                 'passed_qty'         => 0,
@@ -17542,6 +17727,10 @@ class ProductionController {
                 'status'             => 'PENDING',
                 'notes'              => $notes,
             ]);
+
+            if ($qrGenerationId) {
+                Database::execute("UPDATE qr_generations SET qc_batch_id = ? WHERE id = ?", [$qcBatchId, $qrGenerationId]);
+            }
 
             foreach ($postedItems as $idx => $it) {
                 $inspected = (int)($it['inspected_qty'] ?? $it['stitched_qty'] ?? 0);
@@ -22015,6 +22204,7 @@ class ProductionController {
             url('production/qc'),
             [
                 'Program'         => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
+                'QR Batch'        => $batch['qr_batch_code'] ?? '—',
                 'Product'         => $batch['product_name'] ?? '—',
                 'Inspector'       => $batch['inspector_name'] ?? '—',
                 'Status'          => $batch['status'] ?? '—',

@@ -318,6 +318,11 @@ class CuttingBatch {
              ORDER BY cbr.id ASC",
             [$batchId]
         );
+        foreach ($rolls as &$r) {
+            $r['attributes_parsed'] = !empty($r['attributes']) && is_string($r['attributes']) ? json_decode($r['attributes'], true) : (is_array($r['attributes']) ? $r['attributes'] : null);
+        }
+        unset($r);
+        return $rolls;
     }
 
     /**
@@ -353,10 +358,11 @@ class CuttingBatch {
             $ratePerKg = $rollWeight > 0 ? ($rollPrice / $rollWeight) : 0;
             $wastageCost = max(0.0, (float)($r['wastage_cost'] ?? round($wastageWeight * $ratePerKg, 2)));
 
+            $attrData = !empty($r['attributes']) ? (is_array($r['attributes']) ? json_encode($r['attributes']) : trim((string)$r['attributes'])) : null;
             Database::execute(
-                "INSERT INTO cutting_batch_rolls (cutting_batch_id, seller_roll_id, seller_id, category_id, subcategory_id, sub_subcategory_id, roll_weight, roll_price, wastage_weight, wastage_cost, roll_color, roll_design)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$batchId, $rollId, $sellerId, $categoryId, $subcategoryId, $subSubcategoryId, $rollWeight, $rollPrice, $wastageWeight, $wastageCost, $color, $design]
+                "INSERT INTO cutting_batch_rolls (cutting_batch_id, seller_roll_id, seller_id, category_id, subcategory_id, sub_subcategory_id, roll_weight, roll_price, wastage_weight, wastage_cost, roll_color, roll_design, attributes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$batchId, $rollId, $sellerId, $categoryId, $subcategoryId, $subSubcategoryId, $rollWeight, $rollPrice, $wastageWeight, $wastageCost, $color, $design, $attrData]
             );
         }
     }

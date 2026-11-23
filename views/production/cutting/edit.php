@@ -380,6 +380,53 @@ function addCuttingRollRow(rollData = null) {
     const optionsHtml = buildRollOptionsHtml(rollId, rollData);
     const categoryOptionsHtml = buildCategoryOptionsHtml(catId);
 
+    // Decode and build Program Roll Attributes & Specifications preview
+    let rollAttrs = null;
+    if (rollData && rollData.attributes_parsed && typeof rollData.attributes_parsed === 'object') {
+        rollAttrs = rollData.attributes_parsed;
+    } else if (rollData && rollData.attributes) {
+        if (typeof rollData.attributes === 'string') {
+            try { rollAttrs = JSON.parse(rollData.attributes); } catch(e) { rollAttrs = null; }
+        } else if (typeof rollData.attributes === 'object') {
+            rollAttrs = rollData.attributes;
+        }
+    }
+
+    let attrsHtml = '';
+    let attrBadges = '';
+    if (rollAttrs && typeof rollAttrs === 'object' && Object.keys(rollAttrs).length > 0) {
+        for (const [attrKey, attrVal] of Object.entries(rollAttrs)) {
+            if (attrVal === null || attrVal === undefined || attrVal === '') continue;
+            let valDisplay = '';
+            if (Array.isArray(attrVal)) {
+                if (attrVal.length === 0) continue;
+                valDisplay = attrVal.map(v => `<span class="badge bg-primary-subtle text-primary border small me-1 mb-1">${escapeHtml(String(v))}</span>`).join('');
+            } else if (typeof attrVal === 'object') {
+                valDisplay = Object.values(attrVal).map(v => `<span class="badge bg-primary-subtle text-primary border small me-1 mb-1">${escapeHtml(String(v))}</span>`).join('');
+            } else {
+                valDisplay = `<span class="badge bg-light text-dark border small me-1 mb-1">${escapeHtml(String(attrVal))}</span>`;
+            }
+            attrBadges += `
+                <div class="d-flex align-items-center gap-1.5 flex-wrap mb-1">
+                    <span class="small fw-bold text-secondary text-uppercase" style="font-size: 11px;">${escapeHtml(attrKey)}:</span>
+                    <div class="d-flex flex-wrap gap-1">${valDisplay}</div>
+                </div>
+            `;
+        }
+    }
+
+    attrsHtml = `
+        <div class="p-2.5 bg-white rounded border mt-2 roll-attributes-summary-box" style="${attrBadges ? '' : 'display: none;'}">
+            <div class="small fw-semibold text-primary mb-1.5 d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-sliders text-primary me-1"></i>Program Attributes &amp; Specifications</span>
+                <span class="badge bg-info-subtle text-info border" style="font-size: 10px;">Configured in Program</span>
+            </div>
+            <div class="roll-attrs-content pt-1">
+                ${attrBadges}
+            </div>
+        </div>
+    `;
+
     rowDiv.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
             <span class="fw-bold text-dark small"><i class="bi bi-layers text-info me-1"></i>Fabric Roll #${idx}</span>
@@ -447,6 +494,10 @@ function addCuttingRollRow(rollData = null) {
                 </div>
             </div>
         </div>
+
+        <!-- Program Roll Attributes & Specifications Summary -->
+        ${attrsHtml}
+        <input type="hidden" name="rolls[${idx}][attributes]" class="cutting-roll-attributes-input" value="${escapeHtml(typeof rollData?.attributes === 'string' ? rollData.attributes : JSON.stringify(rollAttrs || {}))}">
     `;
 
     container.appendChild(rowDiv);
@@ -480,6 +531,53 @@ function handleCuttingRollRowChange(select) {
         if (priceInput) priceInput.value = p.toFixed(2);
         if (colorLabel) colorLabel.innerText = color || '-';
         if (designLabel) designLabel.innerText = design || '-';
+
+        // Update attributes summary box if roll exists in initialBatchRolls
+        const attrBox = row.querySelector('.roll-attributes-summary-box');
+        const attrInput = row.querySelector('.cutting-roll-attributes-input');
+        if (typeof initialBatchRolls !== 'undefined' && Array.isArray(initialBatchRolls)) {
+            const matchedRoll = initialBatchRolls.find(ar => String(ar.seller_roll_id || ar.id) === String(opt.value));
+            if (matchedRoll && (matchedRoll.attributes || matchedRoll.attributes_parsed)) {
+                let rAttrs = matchedRoll.attributes_parsed;
+                if (!rAttrs && typeof matchedRoll.attributes === 'string') {
+                    try { rAttrs = JSON.parse(matchedRoll.attributes); } catch(e) { rAttrs = null; }
+                } else if (!rAttrs && typeof matchedRoll.attributes === 'object') {
+                    rAttrs = matchedRoll.attributes;
+                }
+                if (attrInput) attrInput.value = typeof matchedRoll.attributes === 'string' ? matchedRoll.attributes : JSON.stringify(rAttrs || {});
+                if (rAttrs && typeof rAttrs === 'object' && Object.keys(rAttrs).length > 0) {
+                    let newBadges = '';
+                    for (const [attrKey, attrVal] of Object.entries(rAttrs)) {
+                        if (attrVal === null || attrVal === undefined || attrVal === '') continue;
+                        let valDisplay = '';
+                        if (Array.isArray(attrVal)) {
+                            if (attrVal.length === 0) continue;
+                            valDisplay = attrVal.map(v => `<span class="badge bg-primary-subtle text-primary border small me-1 mb-1">${escapeHtml(String(v))}</span>`).join('');
+                        } else if (typeof attrVal === 'object') {
+                            valDisplay = Object.values(attrVal).map(v => `<span class="badge bg-primary-subtle text-primary border small me-1 mb-1">${escapeHtml(String(v))}</span>`).join('');
+                        } else {
+                            valDisplay = `<span class="badge bg-light text-dark border small me-1 mb-1">${escapeHtml(String(attrVal))}</span>`;
+                        }
+                        newBadges += `
+                            <div class="d-flex align-items-center gap-1.5 flex-wrap mb-1">
+                                <span class="small fw-bold text-secondary text-uppercase" style="font-size: 11px;">${escapeHtml(attrKey)}:</span>
+                                <div class="d-flex flex-wrap gap-1">${valDisplay}</div>
+                            </div>
+                        `;
+                    }
+                    if (attrBox) {
+                        attrBox.style.display = newBadges ? 'block' : 'none';
+                        const content = attrBox.querySelector('.roll-attrs-content');
+                        if (content) content.innerHTML = newBadges;
+                    }
+                } else if (attrBox) {
+                    attrBox.style.display = 'none';
+                }
+            } else if (attrBox) {
+                attrBox.style.display = 'none';
+                if (attrInput) attrInput.value = '';
+            }
+        }
     } else {
         const colorLabel = row.querySelector('.roll-color-label');
         const designLabel = row.querySelector('.roll-design-label');

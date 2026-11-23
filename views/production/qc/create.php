@@ -1,7 +1,7 @@
 <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-patch-check me-2 text-danger"></i>New Quality Control</h2>
-        <span class="text-muted">Select a completed stitching batch to begin quality control inspection</span>
+        <span class="text-muted">Select a QR generated batch to begin quality control inspection</span>
     </div>
     <a href="<?= url('production/qc') ?>" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Back to QC List
@@ -18,20 +18,25 @@
                     <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-info-circle me-2 text-primary"></i>QC Batch Info</h5>
                 </div>
                 <div class="card-body p-4">
-                    <!-- Source Selection: Stitching Batch -->
+                    <!-- Source Selection: QR Generated Batch -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Select Source Batch <span class="text-danger">*</span></label>
-                        <select name="stitching_batch_id" id="stitchingBatchSelect" class="form-select form-select-lg border-primary" onchange="if(this.value) window.location.href='<?= url('production/qc/create?stitching_batch_id=') ?>' + this.value">
-                            <option value="">-- Choose Stitching Batch --</option>
-                            <?php foreach ($stitchingBatches as $sb): ?>
-                                <option value="<?= $sb['id'] ?>" <?= ($selectedStitching && $selectedStitching['id'] == $sb['id']) ? 'selected' : '' ?>>
-                                    Batch #<?= $sb['id'] ?> (<?= e($sb['batch_number']) ?> &bull; <?= e($sb['product_name'] ?? '') ?>)
+                        <label class="form-label fw-bold">Select Source QR Generated Batch <span class="text-danger">*</span></label>
+                        <select name="qr_generation_id" id="qrBatchSelect" class="form-select form-select-lg border-primary" onchange="if(this.value) window.location.href='<?= url('production/qc/create?qr_generation_id=') ?>' + this.value">
+                            <option value="">-- Choose QR Generated Batch --</option>
+                            <?php foreach (($qrBatches ?? []) as $qb): ?>
+                                <option value="<?= $qb['id'] ?>" <?= ($selectedQrBatch && $selectedQrBatch['id'] == $qb['id']) ? 'selected' : '' ?>>
+                                    QR Batch #<?= e($qb['batch_code']) ?> &bull; <?= e($qb['product_name'] ?? 'Finished Garment') ?> (<?= (int)$qb['quantity'] ?> pcs<?= !empty($qb['stitching_batch_number']) ? ' &bull; Stitching ' . e($qb['stitching_batch_number']) : '' ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <?php if (empty($stitchingBatches) && !$selectedStitching): ?>
+                        <?php if (empty($qrBatches) && !$selectedQrBatch): ?>
                             <div class="alert alert-warning py-2 px-3 small mt-2 mb-0">
-                                <i class="bi bi-info-circle me-1"></i> All available stitching batches have already undergone QC inspection.
+                                <i class="bi bi-info-circle me-1"></i> No QR generated batches are pending inspection.
+                                <div class="mt-2">
+                                    <a href="<?= url('production/qr-generations/create?tab=production_product') ?>" class="btn btn-sm btn-outline-dark fw-semibold">
+                                        <i class="bi bi-qr-code me-1"></i> Generate QR Code Batch First
+                                    </a>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -102,7 +107,12 @@
         <div class="col-lg-8">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-header bg-white d-flex align-items-center justify-content-between py-3 border-bottom flex-wrap gap-2">
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3 me-2 text-primary"></i>Items Ready for Inspection</h5>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3 me-2 text-primary"></i>Items Ready for Inspection</h5>
+                        <?php if ($selectedQrBatch): ?>
+                            <span class="badge bg-primary-subtle text-primary border"><i class="bi bi-qr-code me-1"></i><?= e($selectedQrBatch['batch_code']) ?></span>
+                        <?php endif; ?>
+                    </div>
                     <?php if (!empty($distinctCatalogs)): ?>
                         <div class="d-flex align-items-center gap-1 flex-wrap">
                             <span class="badge bg-light text-dark border"><i class="bi bi-diagram-3 me-1 text-primary"></i><?= count($distinctCatalogs) ?> Catalog(s)</span>
@@ -127,17 +137,21 @@
                 <?php endif; ?>
 
                 <div class="card-body p-0">
-                    <?php if (!$selectedStitching): ?>
+                    <?php if (!$selectedQrBatch): ?>
                         <div class="p-5 text-center text-muted">
                             <div class="mb-3">
                                 <div class="d-inline-flex p-3 rounded-circle bg-light">
                                     <i class="bi bi-qr-code-scan fs-1 text-primary"></i>
                                 </div>
                             </div>
-                            <h5 class="fw-bold text-dark">Select a Stitching Batch</h5>
+                            <h5 class="fw-bold text-dark">Select a QR Generated Batch</h5>
                             <p class="text-muted mb-0">Choose a batch on the left to initialize QC inspection for all sizes and colors.</p>
                         </div>
                     <?php else: ?>
+                        <input type="hidden" name="qr_generation_id" value="<?= (int)$selectedQrBatch['id'] ?>">
+                        <?php if (!empty($selectedQrBatch['stitching_batch_id'])): ?>
+                            <input type="hidden" name="stitching_batch_id" value="<?= (int)$selectedQrBatch['stitching_batch_id'] ?>">
+                        <?php endif; ?>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0" id="qcCreateItemsTable">
                                 <thead class="table-light">
@@ -187,7 +201,7 @@
                         </div>
                     <?php endif; ?>
                 </div>
-                <?php if ($selectedStitching): ?>
+                <?php if ($selectedQrBatch): ?>
                     <div class="card-footer bg-white p-3 d-flex justify-content-between border-top">
                         <a href="<?= url('production/qc') ?>" class="btn btn-outline-secondary">Cancel</a>
                         <button type="submit" class="btn btn-primary px-4 fw-semibold">

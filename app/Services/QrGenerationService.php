@@ -843,7 +843,7 @@ class QrGenerationService {
                    COALESCE(p.variants_deferred, 0) AS variants_deferred,
                    c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
             FROM stitching_batches sb
-            INNER JOIN production_programs pp ON pp.id = sb.program_id
+            LEFT JOIN production_programs pp ON pp.id = sb.program_id
             LEFT JOIN products p ON p.id = pp.product_id
             LEFT JOIN categories c ON c.id = COALESCE(sb.category_id, p.category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(sb.subcategory_id, p.subcategory_id)
@@ -855,8 +855,10 @@ class QrGenerationService {
             throw new InvalidArgumentException('Stitching batch record not found.');
         }
 
+        // Auto-complete stitching batch if not yet marked COMPLETED
         if (strtoupper(trim((string)($stitchingBatch['status'] ?? ''))) !== 'COMPLETED') {
-            throw new RuntimeException('Complete the stitching batch before generating QR codes.');
+            Database::execute("UPDATE stitching_batches SET status = 'COMPLETED', updated_at = NOW() WHERE id = ?", [$stitchingBatchId]);
+            $stitchingBatch['status'] = 'COMPLETED';
         }
 
         if (!empty($stitchingBatch['qr_generation_id'])) {
@@ -1117,11 +1119,13 @@ class QrGenerationService {
                 WHERE id = ?
             ", [$generationId, $batchCode, $stitchingBatchId]);
 
-            // Automatically register Quality Control (QC) Inspection Batch
-            $existingQc = Database::fetchOne("SELECT id FROM qc_batches WHERE stitching_batch_id = ?", [$stitchingBatchId]);
+            // Link existing QC batch if one was already registered for this stitching batch
+            $existingQc = Database::fetchOne("SELECT id FROM qc_batches WHERE stitching_batch_id = ? AND qr_generation_id IS NULL", [$stitchingBatchId]);
+            $qcBatchId = null;
             if ($existingQc) {
                 $qcBatchId = (int)$existingQc['id'];
                 Database::execute("UPDATE qc_batches SET qr_generation_id = ? WHERE id = ?", [$generationId, $qcBatchId]);
+                Database::execute("UPDATE qr_generations SET qc_batch_id = ? WHERE id = ?", [$qcBatchId, $generationId]);
                 if (!empty($stitchingBatch['variants_deferred'])) {
                     Database::execute("
                         UPDATE qc_items qi
@@ -1133,58 +1137,7 @@ class QrGenerationService {
                         WHERE qi.qc_batch_id = ? AND qi.variant_id IS NULL AND si.variant_id IS NOT NULL
                     ", [$stitchingBatchId, $qcBatchId]);
                 }
-            } else {
-                $qcBatchNum = 'QC-' . date('Ymd') . '-' . str_pad((string)$stitchingBatchId, 4, '0', STR_PAD_LEFT);
-                Database::execute("
-                    INSERT INTO qc_batches (
-                        batch_number, program_id, stitching_batch_id, qr_generation_id,
-                        inspector_id, total_qty, passed_qty, rejected_qty, rework_qty,
-                        inspected_qty, status, qc_status, concern_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 'PENDING', 'PENDING', ?)
-                ", [
-                    $qcBatchNum,
-                    (int)$stitchingBatch['program_id'],
-                    $stitchingBatchId,
-                    $generationId,
-                    $userId,
-                    $totalQty,
-                    $cid
-                ]);
-                $qcBatchId = (int)Database::lastInsertId();
-
-                if (!empty($items)) {
-                    $qcItemStmt = Database::getInstance()->prepare("
-                        INSERT INTO qc_items (
-                            qc_batch_id, variant_id, size_name, color_name, quantity, inspected_qty,
-                            passed_qty, rejected_qty, rework_qty, base_price, discount_price
-                        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
-                    ");
-                    foreach ($items as $it) {
-                        $itemQty = max(0, (int)($it['stitched_quantity'] ?: ($it['stitched_qty'] ?: $it['received_qty'])));
-                        $sizeName = trim((string)($it['variant_size_name'] ?: ($it['size_name'] ?? '')));
-                        $colorName = trim((string)($it['variant_color_name'] ?: ($it['color_name'] ?? '')));
-                        $basePrice = (float)(($it['variant_mrp'] ?? 0) > 0 ? $it['variant_mrp'] : ($it['base_price'] ?? 0));
-                        $discountPrice = (float)(($it['variant_selling_price'] ?? 0) > 0 ? $it['variant_selling_price'] : ($it['discount_price'] ?? 0));
-                        $qcItemStmt->execute([
-                            $qcBatchId,
-                            !empty($it['variant_id']) ? (int)$it['variant_id'] : null,
-                            $sizeName ?: null,
-                            $colorName ?: null,
-                            $itemQty ?: $totalQty,
-                            $itemQty ?: $totalQty,
-                            $basePrice,
-                            $discountPrice
-                        ]);
-                    }
-                } else {
-                    Database::execute("
-                        INSERT INTO qc_items (qc_batch_id, quantity, inspected_qty, passed_qty, rejected_qty, rework_qty)
-                        VALUES (?, ?, ?, 0, 0, 0)
-                    ", [$qcBatchId, $totalQty, $totalQty]);
-                }
             }
-
-            Database::execute("UPDATE qr_generations SET qc_batch_id = ? WHERE id = ?", [$qcBatchId, $generationId]);
 
             Database::commit();
 
