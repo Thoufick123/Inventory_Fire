@@ -124,6 +124,10 @@ class CashFlowController {
             'pageTitle' => 'Cash Management',
             'activeModule' => 'production',
             'activeMenu' => 'cash-flow',
+            'breadcrumb' => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Cash Management'],
+            ],
             'concernName' => $concernName,
             'activeShift' => $activeShift,
             'todayCashInflow' => $todayCashInflow,
