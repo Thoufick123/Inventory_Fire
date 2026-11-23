@@ -166,7 +166,7 @@ $inventoryVariantCount = array_sum(array_map(
         <h5 class="mb-0 fw-semibold text-dark">
             <i class="bi bi-boxes me-2 text-primary"></i>
             <span id="inventoryItemsTitle"><?= $activeTab === 'stitching' ? 'Production Stitching Stock' : ($activeTab === 'third_party' ? 'Third-Party Products' : 'Finished Goods Products') ?></span>
-            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" id="totalBatchBadgeCount"><?= $inventoryVariantCount ?> Products</span>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" id="totalBatchBadgeCount"><?= count($batches) ?> Batches (<?= $inventoryVariantCount ?> Sizes)</span>
         </h5>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -242,49 +242,68 @@ $inventoryVariantCount = array_sum(array_map(
             <?php foreach ($batches as $batch): ?>
                 <?php
                     $batchStatus = $batch['stock_status'] ?? 'IN_STOCK';
+                    $batchVariants = $batch['variants'] ?? [];
+                    $allVariantIds = array_filter(array_map('intval', array_column($batchVariants, 'variant_id')));
+                    $allVariantIdsStr = implode(',', $allVariantIds);
+                    $primaryVariantId = !empty($allVariantIds) ? $allVariantIds[0] : 0;
+
                     $batchOutwardSearchText = '';
                     foreach ($batch['outward_history'] ?? [] as $outward) {
                         $batchOutwardSearchText .= ' ' . ($outward['outward_number'] ?? '') . ' ' . ($outward['warehouse_name'] ?? '') . ' ' . ($outward['vehicle_number'] ?? '');
                     }
-                    foreach ($batch['variants'] ?? [] as $variant):
-                        $variantSearchText = strtolower(
-                            ($batch['product_name'] ?? '') . ' ' .
-                            ($batch['category_name'] ?? '') . ' ' .
-                            ($batch['program_number'] ?? '') . ' ' .
-                            ($variant['sku'] ?? '') . ' ' .
-                            ($batch['inspector_name'] ?? '') . ' ' .
-                            ($variant['size_name'] ?? '') . ' ' .
-                            ($variant['color_name'] ?? '') . ' ' .
-                            $batch['qc_batch_id'] . ' ' . $batchOutwardSearchText
-                        );
-                        $vId = (int)($variant['variant_id'] ?? 0);
-                        $vMrp = (float)($variant['mrp'] ?? 0);
-                        $vPrice = (float)($variant['selling_price'] ?? 0);
-                        $vCost = (float)($variant['cost_price'] ?? 0);
-                        $vRem = (int)($variant['remaining_qty'] ?? 0);
-                        $vVal = (float)($variant['valuation'] ?? ($vRem * $vPrice));
+
+                    $allVariantSearchText = '';
+                    foreach ($batchVariants as $bv) {
+                        $allVariantSearchText .= ' ' . ($bv['sku'] ?? '') . ' ' . ($bv['size_name'] ?? '') . ' ' . ($bv['color_name'] ?? '');
+                    }
+
+                    $batchSearchText = strtolower(
+                        ($batch['product_name'] ?? '') . ' ' .
+                        ($batch['category_name'] ?? '') . ' ' .
+                        ($batch['program_number'] ?? '') . ' ' .
+                        ($batch['inspector_name'] ?? '') . ' ' .
+                        $batch['qc_batch_id'] . ' ' .
+                        $allVariantSearchText . ' ' .
+                        $batchOutwardSearchText
+                    );
+
+                    $mrps = array_unique(array_filter(array_column($batchVariants, 'mrp'), fn($val) => $val > 0));
+                    $prices = array_unique(array_filter(array_column($batchVariants, 'selling_price'), fn($val) => $val > 0));
+                    $minMrp = !empty($mrps) ? (float)min($mrps) : 0.0;
+                    $maxMrp = !empty($mrps) ? (float)max($mrps) : 0.0;
+                    $minPrice = !empty($prices) ? (float)min($prices) : 0.0;
+                    $maxPrice = !empty($prices) ? (float)max($prices) : 0.0;
+                    $firstCost = !empty($batchVariants[0]['cost_price']) ? (float)$batchVariants[0]['cost_price'] : 0.0;
+                    $firstSku = (string)($batchVariants[0]['sku'] ?? ($batch['product_sku'] ?? ''));
+
+                    $totalPassed = (int)($batch['total_pieces'] ?? 0);
+                    $totalInStock = (int)($batch['remaining_pieces'] ?? 0);
+                    $totalOutward = (int)($batch['total_outward_pieces'] ?? 0);
+                    $batchVal = (float)($batch['remaining_value'] ?? 0);
                 ?>
                 <tr class="batch-list-row"
-                    id="stock-row-<?= $vId ?>"
+                    id="batch-row-<?= e($batch['qc_batch_id']) ?>"
                     data-batch-id="<?= e($batch['qc_batch_id']) ?>"
-                    data-variant-id="<?= $vId ?>"
+                    data-variant-id="<?= $primaryVariantId ?>"
+                    data-variant-ids="<?= e($allVariantIdsStr) ?>"
                     data-category-id="<?= (int)($batch['category_id'] ?? 0) ?>"
                     data-inv-type="<?= e($batch['tab_type'] ?? 'stitching') ?>"
-                    data-search-text="<?= e($variantSearchText) ?>"
+                    data-search-text="<?= e($batchSearchText) ?>"
                     data-filter-match="true">
                     
-                    <!-- Checkbox Column for Price Edit Mode (Image 2) -->
+                    <!-- Checkbox Column for Price Edit Mode -->
                     <td class="price-checkbox-col" style="display: none;">
                         <input type="checkbox" 
                                class="form-check-input price-item-checkbox" 
-                               value="<?= $vId ?>" 
-                               data-variant-id="<?= $vId ?>" 
-                               data-sku="<?= e($variant['sku'] ?? '') ?>" 
+                               value="<?= e($allVariantIdsStr ?: $primaryVariantId) ?>" 
+                               data-variant-id="<?= $primaryVariantId ?>" 
+                               data-variant-ids="<?= e($allVariantIdsStr) ?>"
+                               data-sku="<?= e($firstSku) ?>" 
                                data-product-name="<?= e($batch['product_name']) ?>" 
-                               data-mrp="<?= $vMrp ?>" 
-                               data-selling-price="<?= $vPrice ?>" 
-                               data-cost-price="<?= $vCost ?>" 
-                               data-stock="<?= $vRem ?>" 
+                               data-mrp="<?= $minMrp ?>" 
+                               data-selling-price="<?= $minPrice ?>" 
+                               data-cost-price="<?= $firstCost ?>" 
+                               data-stock="<?= $totalInStock ?>" 
                                onchange="updateSelectedPriceCount()">
                     </td>
 
@@ -325,8 +344,8 @@ $inventoryVariantCount = array_sum(array_map(
                         <?php else: ?>
                             <span class="fw-semibold text-secondary"><?= e($batch['program_number']) ?></span>
                         <?php endif; ?>
-                        <?php if (!empty($variant['sku'])): ?>
-                            <small class="text-muted d-block font-monospace"><?= e($variant['sku']) ?></small>
+                        <?php if (!empty($firstSku)): ?>
+                            <small class="text-muted d-block font-monospace"><?= e($firstSku) ?></small>
                         <?php endif; ?>
                     </td>
 
@@ -338,32 +357,52 @@ $inventoryVariantCount = array_sum(array_map(
                         <?php endif; ?>
                     </td>
 
-                    <!-- Variant (Size / Color) -->
+                    <!-- Variant (Size / Color) - Inside single profile to show size-wise breakdown -->
                     <td>
-                        <div class="d-flex flex-wrap gap-1">
-                            <?php if (!empty($variant['size_name'])): ?>
-                                <span class="badge bg-secondary-subtle text-secondary border">Size: <?= e($variant['size_name']) ?></span>
-                            <?php endif; ?>
-                            <?php if (!empty($variant['color_name'])): ?>
-                                <span class="badge bg-info-subtle text-info border">Color: <?= e($variant['color_name']) ?></span>
-                            <?php endif; ?>
+                        <div class="d-flex flex-column gap-1 py-1">
+                            <?php foreach ($batchVariants as $bv): ?>
+                                <div class="d-inline-flex align-items-center gap-1.5 flex-wrap">
+                                    <span class="badge bg-secondary-subtle text-secondary border fw-bold px-2 py-0.5">Size: <?= e($bv['size_name'] ?: 'STD') ?></span>
+                                    <?php if (!empty($bv['color_name'])): ?>
+                                        <span class="badge bg-info-subtle text-info border px-2 py-0.5">Color: <?= e($bv['color_name']) ?></span>
+                                    <?php endif; ?>
+                                    <span class="badge bg-success-subtle text-success border font-monospace fw-bold px-2 py-0.5"><?= number_format($bv['remaining_qty']) ?> pcs</span>
+                                    <?php if (!empty($bv['sku'])): ?>
+                                        <small class="text-muted font-monospace d-none d-xl-inline"><?= e($bv['sku']) ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
                     </td>
 
                     <!-- QC / Inward Qty -->
-                    <td class="text-center fw-semibold"><?= number_format($variant['passed_qty']) ?> pcs</td>
+                    <td class="text-center">
+                        <div class="fw-semibold text-dark"><?= number_format($totalPassed) ?> pcs</div>
+                        <?php if (count($batchVariants) > 1): ?>
+                            <small class="text-muted d-block" style="font-size: 11px;">
+                                <?= implode(' · ', array_map(fn($v) => e($v['size_name'] ?: 'STD') . ': ' . number_format($v['passed_qty']), $batchVariants)) ?>
+                            </small>
+                        <?php endif; ?>
+                    </td>
 
                     <!-- In Stock Qty -->
-                    <td class="text-center fw-bold text-success row-stock-val"><?= number_format($variant['remaining_qty']) ?> pcs</td>
+                    <td class="text-center">
+                        <div class="fw-bold text-success row-stock-val"><?= number_format($totalInStock) ?> pcs</div>
+                        <?php if (count($batchVariants) > 1): ?>
+                            <small class="text-success d-block fw-semibold" style="font-size: 11px;">
+                                <?= implode(' · ', array_map(fn($v) => e($v['size_name'] ?: 'STD') . ': ' . number_format($v['remaining_qty']), $batchVariants)) ?>
+                            </small>
+                        <?php endif; ?>
+                    </td>
 
                     <!-- Outward Qty -->
-                    <td class="text-center fw-semibold text-danger"><?= number_format($variant['outward_qty']) ?> pcs</td>
+                    <td class="text-center fw-semibold text-danger"><?= number_format($totalOutward) ?> pcs</td>
 
                     <!-- Stock State -->
                     <td>
-                        <?php if ($variant['remaining_qty'] === 0): ?>
+                        <?php if ($totalInStock === 0): ?>
                             <span class="badge bg-secondary-subtle text-secondary border">Fully Outwarded</span>
-                        <?php elseif ($variant['outward_qty'] > 0): ?>
+                        <?php elseif ($totalOutward > 0): ?>
                             <span class="badge bg-warning-subtle text-warning-emphasis border">Partially Outwarded</span>
                         <?php else: ?>
                             <span class="badge bg-success-subtle text-success border">In Stock</span>
@@ -372,17 +411,21 @@ $inventoryVariantCount = array_sum(array_map(
 
                     <!-- MRP (₹) -->
                     <td class="text-end text-nowrap">
-                        <span class="text-muted font-monospace row-mrp-val">₹<?= number_format($vMrp, 2) ?></span>
+                        <span class="text-muted font-monospace row-mrp-val">
+                            ₹<?= number_format($minMrp, 2) ?><?= ($maxMrp > $minMrp) ? ' - ₹' . number_format($maxMrp, 2) : '' ?>
+                        </span>
                     </td>
 
                     <!-- Discount Price (₹) -->
                     <td class="text-end text-nowrap">
-                        <span class="fw-bold text-success font-monospace row-selling-val">₹<?= number_format($vPrice, 2) ?></span>
+                        <span class="fw-bold text-success font-monospace row-selling-val">
+                            ₹<?= number_format($minPrice, 2) ?><?= ($maxPrice > $minPrice) ? ' - ₹' . number_format($maxPrice, 2) : '' ?>
+                        </span>
                     </td>
 
                     <!-- Total Valuation (₹) -->
                     <td class="text-end text-nowrap">
-                        <span class="fw-bold text-primary font-monospace row-val-val">₹<?= number_format($vVal, 2) ?></span>
+                        <span class="fw-bold text-primary font-monospace row-val-val">₹<?= number_format($batchVal, 2) ?></span>
                     </td>
 
                     <!-- Actions -->
@@ -391,15 +434,15 @@ $inventoryVariantCount = array_sum(array_map(
                             <?php if (hasPermission('inventory', 'edit') || (function_exists('isAdmin') && isAdmin())): ?>
                                 <button type="button" 
                                         class="btn btn-outline-success btn-action-icon" 
-                                        title="Edit Product Price"
+                                        title="Edit Batch / Variant Price"
                                         onclick='openEditPriceModal(<?= json_encode([
-                                            'variant_id'   => $vId,
-                                            'sku'          => (string)($variant['sku'] ?? ''),
-                                            'product_name' => (string)$batch['product_name'] . (!empty($variant['size_name']) ? " ({$variant['size_name']} / {$variant['color_name']})" : ''),
-                                            'cost_price'   => $vCost,
-                                            'selling_price'=> $vPrice,
-                                            'mrp'          => $vMrp,
-                                            'remaining_qty'=> $vRem,
+                                            'variant_id'   => $allVariantIdsStr ?: $primaryVariantId,
+                                            'sku'          => $firstSku,
+                                            'product_name' => (string)$batch['product_name'] . " (Batch #" . $batch['qc_batch_id'] . ")",
+                                            'cost_price'   => $firstCost,
+                                            'selling_price'=> $minPrice,
+                                            'mrp'          => $minMrp,
+                                            'remaining_qty'=> $totalInStock,
                                         ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
@@ -416,14 +459,14 @@ $inventoryVariantCount = array_sum(array_map(
                                 </a>
                             <?php else: ?>
                                 <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>"
-                                   class="btn btn-outline-secondary btn-action-icon" title="View Batch Items">
+                                   class="btn btn-outline-secondary btn-action-icon" title="View Batch Items (Size-wise & Piece-wise)">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id'] . '#qrSection') ?>"
                                    class="btn btn-outline-info btn-action-icon" title="View Garment QR Labels">
                                     <i class="bi bi-qr-code"></i>
                                 </a>
-                                <?php if (hasPermission('batches', 'create') && $variant['remaining_qty'] > 0): ?>
+                                <?php if (hasPermission('batches', 'create') && $totalInStock > 0): ?>
                                     <a href="<?= url('production/batches/create?qc_batch_id=' . $batch['qc_batch_id']) ?>"
                                        class="btn btn-outline-success btn-action-icon" title="Pack into Boxes for Central Warehouse">
                                        <i class="bi bi-box-seam"></i>
@@ -433,7 +476,6 @@ $inventoryVariantCount = array_sum(array_map(
                         </div>
                     </td>
                 </tr>
-                <?php endforeach; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
@@ -563,7 +605,7 @@ $inventoryVariantCount = array_sum(array_map(
     <div class="card-body py-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="small text-muted fw-medium" id="batchPageInfo">
-                Showing 1 to <?= min(25, $inventoryVariantCount) ?> of <?= $inventoryVariantCount ?> products
+                Showing 1 to <?= min(25, count($batches)) ?> of <?= count($batches) ?> batches
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label for="batchPageSizeSelect" class="small text-muted mb-0 fw-medium">Show:</label>
