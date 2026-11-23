@@ -927,7 +927,20 @@ function hasConcernModule(string $moduleKey): bool {
         [$concernId, $moduleKey]
     );
 
-    return !empty($module['is_enabled']);
+    if ($module !== null) {
+        return !empty($module['is_enabled']);
+    }
+
+    // Fallback: If no concern_modules records exist for this concern, default to enabled
+    $hasConfig = Database::fetchOne(
+        "SELECT COUNT(*) as cnt FROM concern_modules WHERE concern_id = ?",
+        [$concernId]
+    );
+    if (empty($hasConfig['cnt'])) {
+        return true;
+    }
+
+    return false;
 }
 
 /**

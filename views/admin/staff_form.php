@@ -4,9 +4,9 @@
  */
 $isEdit = !empty($staff['id']);
 $formAction = $isEdit ? url('admin/staff/update/' . $staff['id']) : url('admin/staff/store');
-$dept = strtoupper($_GET['department'] ?? $staff['department'] ?? 'PRODUCTION');
-if (!in_array($dept, ['PRODUCTION', 'GENERAL'])) {
-    $dept = 'PRODUCTION';
+$dept = strtoupper($_GET['department'] ?? $staff['department'] ?? 'ALL');
+if (!in_array($dept, ['PRODUCTION', 'GENERAL', 'ALL'])) {
+    $dept = 'ALL';
 }
 
 $hierarchicalModules = $hierarchicalModules ?? Role::getHierarchicalPermissions();
@@ -173,7 +173,7 @@ foreach ($hierarchicalModules as $m) {
                                 </div>
                             </div>
 
-                            <input type="hidden" name="department" id="selected_department" value="<?= e($dept ?: 'PRODUCTION') ?>">
+                            <input type="hidden" name="department" id="selected_department" value="<?= e($dept ?: 'ALL') ?>">
 
                             <!-- Dynamic Operational Concern Selection Cards -->
                             <div class="col-12 pt-3 border-top">
@@ -289,7 +289,28 @@ foreach ($hierarchicalModules as $m) {
                                     <i class="bi bi-star-fill text-warning me-1"></i>Default Active Concern (Upon Login) <span class="text-danger">*</span>
                                 </label>
                                 <select name="default_concern_id" id="default_concern_id" class="form-select" required>
-                                    <!-- Options populated dynamically from checked concerns -->
+                                    <?php 
+                                    $hasDefaultOpt = false;
+                                    foreach (($concerns ?? []) as $c): 
+                                        $cid = (int)$c['id'];
+                                        $isAssigned = in_array($cid, $staffConcerns ?? [], true);
+                                        if ($isAssigned):
+                                            $isDef = ($cid === (int)($defaultConcernId ?? 0));
+                                            if ($isDef) $hasDefaultOpt = true;
+                                    ?>
+                                        <option value="<?= $cid ?>" <?= $isDef ? 'selected' : '' ?>>
+                                            <?= e(!empty($c['code']) ? $c['code'] . ' - ' . $c['name'] : $c['name']) ?>
+                                        </option>
+                                    <?php 
+                                        endif;
+                                    endforeach; 
+                                    if (!$hasDefaultOpt && !empty($concerns)):
+                                        $firstC = $concerns[0];
+                                    ?>
+                                        <option value="<?= (int)$firstC['id'] ?>" selected>
+                                            <?= e(!empty($firstC['code']) ? $firstC['code'] . ' - ' . $firstC['name'] : $firstC['name']) ?>
+                                        </option>
+                                    <?php endif; ?>
                                 </select>
                                 <div class="form-text text-muted">The entity automatically activated when this staff member signs in. Must be one of their authorized concerns.</div>
                             </div>
@@ -540,6 +561,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const initialStaffPerms = <?= json_encode($staffPermissions, JSON_UNESCAPED_UNICODE) ?>;
     const isEditMode = <?= $isEdit ? 'true' : 'false' ?>;
 
+    const permModuleBlocks = document.querySelectorAll('.perm-module-block');
+    const allPermCheckboxes = document.querySelectorAll('.perm-checkbox');
+    const activePermCountEl = document.getElementById('activePermCount');
+    const syncRoleName = document.getElementById('syncRoleName');
+    const permSyncBadge = document.getElementById('permSyncBadge');
+    const permModuleFilter = document.getElementById('permModuleFilter');
+    const btnResetToRole = document.getElementById('btnResetToRole');
+
     const toggleBtn = document.getElementById('togglePassword');
     const pwdInput = document.getElementById('password');
     const icon = document.getElementById('togglePasswordIcon');
@@ -699,101 +728,33 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function syncRoleAndDepartment(autoSelect = true) {
-        const selectedOption = roleSelect ? roleSelect.options[roleSelect.selectedIndex] : null;
-        const targetDept = document.getElementById('selected_department')?.value || 'PRODUCTION';
+        // Multi-module enablement: Ensure all modules and submodule rows are visible, active, and selectable
+        permModuleBlocks.forEach(block => {
+            block.classList.remove('d-none');
+            block.classList.remove('perm-block-disabled');
+            const modSwitch = block.querySelector('.perm-module-switch');
+            if (modSwitch) modSwitch.disabled = false;
+            const lockBadge = block.querySelector('.perm-dept-lock-badge');
+            if (lockBadge) lockBadge.classList.add('d-none');
+            const activeBadge = block.querySelector('.perm-dept-active-badge');
+            if (activeBadge) activeBadge.classList.add('d-none');
 
-        syncPermissionsScopeWithDepartment(targetDept);
+            const subRows = block.querySelectorAll('.perm-submodule-row');
+            subRows.forEach(row => {
+                row.classList.remove('d-none');
+                row.classList.remove('perm-row-disabled');
+                row.querySelectorAll('.perm-checkbox, .row-all-toggle').forEach(cb => {
+                    cb.disabled = false;
+                });
+            });
+        });
+
         if (warningBox) warningBox.classList.add('d-none');
+        updateActiveCounterAndSwitches();
     }
 
     function syncPermissionsScopeWithDepartment(selectedDept) {
-        if (!selectedDept) {
-            selectedDept = document.getElementById('selected_department')?.value || 'PRODUCTION';
-        }
-        selectedDept = selectedDept.toUpperCase();
-
-        const operationalDepts = ['PRODUCTION', 'GENERAL'];
-
-        permModuleBlocks.forEach(block => {
-            const blockDept = (block.getAttribute('data-dept') || 'ALL').toUpperCase();
-            const modSwitch = block.querySelector('.perm-module-switch');
-            const lockBadge = block.querySelector('.perm-dept-lock-badge');
-            const activeBadge = block.querySelector('.perm-dept-active-badge');
-            const subRows = block.querySelectorAll('.perm-submodule-row');
-
-            const isOperationalBlock = operationalDepts.includes(blockDept);
-            const isBlockMismatched = isOperationalBlock && (selectedDept !== 'ALL' && selectedDept !== 'GENERAL') && (blockDept !== selectedDept);
-            const isBlockActive = isOperationalBlock && (selectedDept === blockDept);
-
-            if (isBlockMismatched) {
-                block.classList.add('d-none');
-                block.classList.add('perm-block-disabled');
-                block.classList.remove('border-info', 'border-success', 'border-primary');
-                if (lockBadge) {
-                    lockBadge.innerHTML = `<i class="bi bi-lock-fill me-1"></i>Restricted to ${blockDept}`;
-                    lockBadge.classList.remove('d-none');
-                }
-                if (activeBadge) activeBadge.classList.add('d-none');
-
-                if (modSwitch) {
-                    modSwitch.checked = false;
-                    modSwitch.disabled = true;
-                }
-
-                // Uncheck and disable all checkboxes inside this block
-                block.querySelectorAll('.perm-checkbox, .row-all-toggle').forEach(cb => {
-                    cb.checked = false;
-                    cb.disabled = true;
-                });
-            } else {
-                // ENABLED / ACTIVE / COMMON
-                block.classList.remove('d-none');
-                block.classList.remove('perm-block-disabled');
-                if (lockBadge) lockBadge.classList.add('d-none');
-
-                if (isBlockActive) {
-                    if (activeBadge) {
-                        activeBadge.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Active (${selectedDept})`;
-                        activeBadge.classList.remove('d-none');
-                    }
-                } else {
-                    if (activeBadge) activeBadge.classList.add('d-none');
-                }
-
-                if (modSwitch) {
-                    modSwitch.disabled = false;
-                }
-
-                // Check submodule-level department restrictions (e.g. inside Reports)
-                subRows.forEach(row => {
-                    const rowDepts = (row.getAttribute('data-dept') || 'ALL')
-                        .split(',')
-                        .map(dept => dept.trim().toUpperCase());
-                    const isSubOp = rowDepts.some(dept => operationalDepts.includes(dept));
-                    const isSubMismatched = isSubOp &&
-                        (selectedDept !== 'ALL' && selectedDept !== 'GENERAL') &&
-                        !rowDepts.includes(selectedDept);
-
-                    const rowCbs = row.querySelectorAll('.perm-checkbox, .row-all-toggle');
-                    if (isSubMismatched) {
-                        row.classList.add('d-none');
-                        row.classList.add('perm-row-disabled');
-                        rowCbs.forEach(cb => {
-                            cb.checked = false;
-                            cb.disabled = true;
-                        });
-                    } else {
-                        row.classList.remove('d-none');
-                        row.classList.remove('perm-row-disabled');
-                        rowCbs.forEach(cb => {
-                            cb.disabled = false;
-                        });
-                    }
-                });
-            }
-        });
-
-        updateActiveCounterAndSwitches();
+        syncRoleAndDepartment();
     }
 
     function updateActiveCounterAndSwitches() {
@@ -833,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!roleId || !rolePermissionsMap[roleId]) {
             if (!isEditMode || !isManualOverride) {
                 allPermCheckboxes.forEach(cb => {
-                    if (!cb.disabled) cb.checked = false;
+                    cb.checked = false;
                 });
             }
             if (permSyncBadge) {
@@ -846,16 +807,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const allowedPids = (rolePermissionsMap[roleId] || []).map(Number);
         allPermCheckboxes.forEach(cb => {
-            if (!cb.disabled) {
-                cb.checked = allowedPids.includes(Number(cb.value));
-            } else {
-                cb.checked = false;
-            }
+            cb.checked = allowedPids.includes(Number(cb.value));
         });
 
         if (permSyncBadge) {
             permSyncBadge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1';
-            permSyncBadge.innerHTML = `<i class="bi bi-shield-check me-1"></i>Role Defaults: <strong>${roleName}</strong>`;
+            permSyncBadge.innerHTML = `<i class="bi bi-shield-check me-1"></i>Role Defaults: <strong>${roleName}</strong> (${allowedPids.length} active)`;
         }
 
         updateActiveCounterAndSwitches();
@@ -1026,7 +983,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Concern Multi-Select & Default Sync Helpers
     // =========================================================================
     window.toggleConcernCard = function(event, cid) {
-        if (event.target.tagName === 'INPUT' || event.target.tagName === 'LABEL') {
+        if (event.target.closest('label') || event.target.closest('input')) {
             return;
         }
         const chk = document.getElementById('concern_' + cid);
