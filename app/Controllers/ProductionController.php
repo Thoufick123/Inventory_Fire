@@ -425,6 +425,16 @@ class ProductionController {
             'Supplier Name' => $name, 'Company / Mill' => $company, 'Phone' => $phone,
             'Email' => $email, 'City' => $city, 'State' => $state, 'Address' => $address,
         ]);
+        if (($_POST['return_to'] ?? '') === 'purchases/mapping/create') {
+            $returnInvoiceNumber = mb_substr(trim((string)($_POST['return_invoice_number'] ?? '')), 0, 100);
+            Session::flash('success', 'Supplier saved. Continue creating the mapping invoice.');
+            Response::redirect(url('purchases/mapping/create?' . http_build_query([
+                'seller_id' => $sellerId,
+                'invoice_number' => $returnInvoiceNumber,
+            ])));
+            return;
+        }
+
         Session::flash('success', 'Supplier details saved. Record fabric and other purchases in Purchases.');
         Response::redirect(url('production/sellers'));
     }
@@ -3603,11 +3613,20 @@ class ProductionController {
             $sellerParams[] = $cid;
         }
         $sellers = Database::fetchAll("SELECT id, name, company FROM sellers {$sellerWhere} ORDER BY company, name", $sellerParams);
+        $selectedSellerId = max(0, (int)($_GET['seller_id'] ?? 0));
+        $availableSellerIds = array_map(static fn(array $seller): int => (int)$seller['id'], $sellers);
+        if (!in_array($selectedSellerId, $availableSellerIds, true)) {
+            $selectedSellerId = 0;
+        }
+        $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
+
         Response::view('production.purchases.mapping_create', [
             'pageTitle' => 'Create Mapping Entry',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'sellers' => $sellers,
+            'selectedSellerId' => $selectedSellerId,
+            'invoiceNumber' => $invoiceNumber,
             'breadcrumb' => [
                 ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
                 ['label' => 'Create Mapping Entry'],
