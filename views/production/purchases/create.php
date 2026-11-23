@@ -88,7 +88,7 @@
                     </div>
                 </div>
                 <div class="col-12" id="quickPurchaseEntryPanel">
-                    <div class="card border-info shadow-sm">
+                    <div class="card border-info shadow-sm" style="overflow: visible;">
                         <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
                                 <strong class="text-info-emphasis"><i class="bi bi-lightning-charge me-1"></i>Simple Product Lines</strong>
@@ -96,15 +96,15 @@
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-info" id="addQuickPurchaseLine"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm align-middle mb-0">
+                        <div style="overflow: visible;">
+                            <table class="table table-bordered table-sm align-middle mb-0" style="overflow: visible;">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Product Name</th>
                                         <th style="width: 110px;">Qty</th>
                                         <th style="width: 160px;">Purchase Price (₹)</th>
                                         <th style="width: 120px;">GST %</th>
-                                        <th style="width: 190px;">HSN</th>
+                                        <th style="width: 200px;">HSN</th>
                                         <th style="width: 55px;"></th>
                                     </tr>
                                 </thead>
@@ -114,13 +114,13 @@
                                         <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.001" data-step="0.001" class="form-control form-control-sm quick-line-quantity numeric-text-input" placeholder="Qty" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
                                         <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control form-control-sm quick-line-price numeric-text-input" placeholder="Rate before GST" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
                                         <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.001" class="form-control form-control-sm quick-line-gst numeric-text-input" value="0" placeholder="GST %" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
-                                        <td>
+                                        <td style="overflow: visible; position: relative;">
                                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                                 <input type="hidden" class="quick-line-hsn" value="">
-                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.8rem; height: 31px;">
+                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="font-size: 0.8rem; height: 31px;">
                                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
                                                 </button>
-                                                <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 260px; max-width: 320px; z-index: 1055;">
+                                                <div class="dropdown-menu dropdown-menu-end shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1060;">
                                                     <div class="input-group input-group-sm mb-2">
                                                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                                                         <input type="text" class="form-control border-start-0 hsn-search-input" placeholder="Search HSN code..." autocomplete="off">
