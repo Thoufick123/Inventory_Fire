@@ -15,7 +15,7 @@ class CashFlowController {
 
     public function index(): void {
         if (!hasPermission('cash_flow', 'view') && !hasPermission('shop_cash', 'view')) {
-            Response::error(403, 'Access denied: You do not have permission to view Cash & Cash Flow.');
+            Response::error(403, 'Access denied: You do not have permission to view Cash Management.');
             return;
         }
 
@@ -121,7 +121,7 @@ class CashFlowController {
         );
 
         Response::view('production.cash_flow.index', [
-            'pageTitle' => 'Shop Cash & Cash Flow Register',
+            'pageTitle' => 'Cash Management',
             'activeModule' => 'production',
             'activeMenu' => 'cash-flow',
             'concernName' => $concernName,

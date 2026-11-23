@@ -101,7 +101,7 @@ if (!empty($authUser['production_unit_name'])) {
                             <li><a href="<?= url('production/purchases/mapping') ?>" class="<?= in_array($activeMenu ?? '', ['purchases-mapping', 'prod-purchases-mapping']) ? 'active' : '' ?>">Product Mapping</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && (hasPermission('cash_flow', 'view') || hasPermission('shop_cash', 'view'))): ?>
-                            <li><a href="<?= url('production/cash-flow') ?>" class="<?= in_array($activeMenu ?? '', ['cash-flow', 'shop-cash-flow']) ? 'active' : '' ?>">Cash &amp; Cash Flow</a></li>
+                            <li><a href="<?= url('production/cash-flow') ?>" class="<?= in_array($activeMenu ?? '', ['cash-flow', 'shop-cash-flow']) ? 'active' : '' ?>"><i class="bi bi-cash-coin me-1" aria-hidden="true"></i>Cash Management</a></li>
                             <?php endif; ?>
                             <?php if ($modProduction && hasPermission('damages', 'view')): ?>
                             <li><a href="<?= url('production/damages') ?>" class="<?= ($activeMenu ?? '') === 'prod-damages' ? 'active' : '' ?>">Damage Management</a></li>

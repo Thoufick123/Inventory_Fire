@@ -250,7 +250,7 @@ class Role {
             ['production_purchase_mapping', 'edit', 'Map Products to Catalog Variants', 'production_purchase_mapping.edit', 'production_purchases'],
             ['production_purchase_mapping', 'delete', 'Remove Product Mapping Lines', 'production_purchase_mapping.delete', 'production_purchases'],
 
-            ['cash_flow', 'view', 'View Cash & Cash Flow Management', 'cash_flow.view', 'production'],
+            ['cash_flow', 'view', 'View Cash Management', 'cash_flow.view', 'production'],
             ['cash_flow', 'create', 'Open Shift, Record Inflow/Expense, Top Up & Bank Drop', 'cash_flow.create', 'production'],
             ['cash_flow', 'edit', 'Edit Cash Flow Entries & Reconcile Till', 'cash_flow.edit', 'production'],
             ['cash_flow', 'delete', 'Close Shift & Void Cash Flow Transactions', 'cash_flow.delete', 'production'],
@@ -773,7 +773,7 @@ class Role {
                     'sellers'                   => ['name' => 'Sellers', 'icon' => 'bi-person-badge', 'desc' => 'Job worker directory, vendor ledgers, and contract rates', 'department' => 'PRODUCTION'],
                     'production_purchases'      => ['name' => 'Purchases', 'icon' => 'bi-cart-check', 'desc' => 'Production fabric, yarn, raw material purchases and supplier invoices', 'department' => 'PRODUCTION'],
                     'production_purchase_mapping' => ['name' => 'Product Mapping', 'icon' => 'bi-diagram-3', 'desc' => 'Map purchase items to catalog categories, variants, and prices', 'department' => 'PRODUCTION'],
-                    'cash_flow'                 => ['name' => 'Cash & Cash Flow', 'icon' => 'bi-cash-coin', 'desc' => 'Cash flow register, shifts, top-ups, bank deposits, and daily till balances', 'department' => 'PRODUCTION'],
+                    'cash_flow'                 => ['name' => 'Cash Management', 'icon' => 'bi-cash-coin', 'desc' => 'Cash flow register, shifts, top-ups, bank deposits, and daily till balances', 'department' => 'PRODUCTION'],
                     'damages'                   => ['name' => 'Damages', 'icon' => 'bi-exclamation-octagon', 'desc' => 'Defective fabric, floor damages, and scrap recovery logs', 'department' => 'PRODUCTION'],
                     'catalog'                   => ['name' => 'Catalog', 'icon' => 'bi-journal-bookmark', 'desc' => 'Design catalogs, style codes, and Bill of Materials (BOM)', 'department' => 'PRODUCTION'],
                     'variants'                  => ['name' => 'Product Variants', 'icon' => 'bi-tags', 'desc' => 'Manage sellable variants, collision-safe Variant IDs, and SKUs', 'department' => 'PRODUCTION'],
