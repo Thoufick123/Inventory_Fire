@@ -172,8 +172,29 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                     <input type="hidden" name="entry_type" value="FABRIC_ROLL">
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Fabric / Material Name <span class="text-danger">*</span></label>
-                            <input class="form-control" name="fabric_name" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-semibold mb-0" for="fabricNameInput">
+                                    Fabric / Material Name <span class="text-danger">*</span>
+                                </label>
+                                <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
+                                    <i class="bi bi-plus-circle me-1"></i>New Roll Product Auto-Created
+                                </span>
+                            </div>
+                            <input class="form-control" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM, panda..." autocomplete="off">
+                            <datalist id="rollProductSuggestions">
+                                <?php foreach (($existingRollProducts ?? []) as $rp): ?>
+                                    <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
+                                <?php endforeach; ?>
+                                <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
+                                <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
+                                <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
+                                <option value="100% COTTON FRENCH TERRY (240 GSM)">
+                                <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
+                                <option value="RAYON / VISCOSE PRINTED FABRIC">
+                            </datalist>
+                            <div class="form-text small text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Type any new fabric name to <strong>create a new roll product</strong> in the catalog, or select an existing one.
+                            </div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Default HSN Code</label>
@@ -185,14 +206,13 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 900px;">
+                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 800px;">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 140px;">Roll Code / #</th>
+                                    <th style="width: 160px;">Roll Code / #</th>
                                     <th>Color / Shade *</th>
-                                    <th style="width: 120px;">Length (Mtr) *</th>
-                                    <th style="width: 120px;">Weight (kg)</th>
-                                    <th style="width: 130px;">Rate (₹/Mtr) *</th>
+                                    <th style="width: 140px;">Weight (kg) *</th>
+                                    <th style="width: 140px;">Rate (₹/kg) *</th>
                                     <th style="width: 90px;">GST %</th>
                                     <th style="width: 110px;">HSN</th>
                                     <th style="width: 45px;"></th>
@@ -202,8 +222,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                                 <tr class="mapping-roll-row">
                                     <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
-                                    <td><input class="form-control form-control-sm roll-num-dec roll-meters" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][meters]" placeholder="100.00" required></td>
-                                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50"></td>
+                                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
                                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
                                     <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[0][hsn_code]" value="5208"></td>
@@ -872,8 +891,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML = `
                     <td><input class="form-control form-control-sm font-monospace" name="rolls[${nextRollIndex}][roll_code]" placeholder="ROLL-${String(nextRollIndex + 1).padStart(3, '0')}"></td>
                     <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][color]" placeholder="Navy Blue" required></td>
-                    <td><input class="form-control form-control-sm roll-num-dec roll-meters" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][meters]" placeholder="100.00" required></td>
-                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50"></td>
+                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50" required></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
                     <td><input class="form-control form-control-sm font-monospace roll-hsn-input" name="rolls[${nextRollIndex}][hsn_code]" value="${hsnVal}"></td>
@@ -940,13 +958,11 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let i = 0; i < rRows.length; i++) {
                 const rRow = rRows[i];
                 const colorInput = rRow.querySelector('[name$="[color]"]');
-                const metersInput = rRow.querySelector('[name$="[meters]"]');
                 const weightInput = rRow.querySelector('[name$="[weight_kg]"]');
                 const rateInput = rRow.querySelector('[name$="[rate]"]');
                 const gstInput = rRow.querySelector('[name$="[gst_rate]"]');
 
                 const colorVal = (colorInput?.value || '').trim();
-                const metersVal = parseFloat(metersInput?.value || '0') || 0;
                 const weightVal = parseFloat(weightInput?.value || '0') || 0;
                 const rateVal = parseFloat(rateInput?.value || '0') || 0;
                 const gstVal = parseFloat(gstInput?.value || '0') || 0;
@@ -956,13 +972,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     colorInput?.focus();
                     return;
                 }
-                if (metersVal <= 0 && weightVal <= 0) {
-                    alert('Validation Error: Please enter a valid Length (Mtr) or Weight (kg) for roll #' + (i + 1) + '.');
-                    metersInput?.focus();
+                if (weightVal <= 0) {
+                    alert('Validation Error: Please enter a valid Weight (kg) for roll #' + (i + 1) + '.');
+                    weightInput?.focus();
                     return;
                 }
                 if (rateVal <= 0) {
-                    alert('Validation Error: Please enter a valid Rate (₹/Mtr) for roll #' + (i + 1) + '.');
+                    alert('Validation Error: Please enter a valid Rate (₹/kg) for roll #' + (i + 1) + '.');
                     rateInput?.focus();
                     return;
                 }
