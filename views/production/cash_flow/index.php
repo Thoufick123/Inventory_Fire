@@ -1,6 +1,5 @@
 <?php
 declare(strict_types=1);
-use App\Helpers\CSRF;
 ?>
 
 <div class="container-fluid py-3 cash-flow-page">
