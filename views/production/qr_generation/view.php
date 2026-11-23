@@ -204,48 +204,57 @@
                 $itemVariantCode = trim((string)($item['variant_code'] ?? ($batch['variant_code'] ?? '')));
             ?>
             <div class="col">
-                <div class="p-3 border rounded bg-white text-center shadow-sm h-100 d-flex flex-column justify-content-between align-items-center">
-                    <div class="w-100">
-                        <div class="fw-bold text-uppercase small text-dark pb-1 border-bottom text-truncate">
+                <div class="p-3 border rounded bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <!-- Top: Brand name -->
+                        <div class="fw-bold text-uppercase small text-dark pb-1 mb-2 border-bottom text-truncate text-center">
                             <?= e($batch['brand_name']) ?>
                         </div>
-                        <div class="d-flex justify-content-center my-2">
-                            <div class="batch-qr-canvas p-1 bg-white border rounded" data-code="<?= e($item['qr_code']) ?>"></div>
+
+                        <!-- 2 Column Body: Left side QR & Code & Variant ID | Right side Product, Size, MRP, Sale -->
+                        <div class="d-flex align-items-center justify-content-between gap-2 text-start">
+                            <!-- Left: QR Code + Code + Variant ID below -->
+                            <div class="text-center pe-2 border-end border-dark-subtle d-flex flex-column align-items-center justify-content-center" style="flex: 0 0 100px;">
+                                <div class="batch-qr-canvas p-1 bg-white border rounded mb-1" data-code="<?= e($item['qr_code']) ?>"></div>
+                                <div class="font-monospace fw-bold text-dark text-truncate w-100" style="font-size: 11px; letter-spacing: -0.2px;">
+                                    <?= e($item['qr_code']) ?>
+                                </div>
+                                <?php if ($itemVariantId): ?>
+                                <div class="font-monospace text-muted fw-bold text-truncate w-100" style="font-size: 10px;">
+                                    VID: #<?= $itemVariantId ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Right: Product Name, Size, MRP, Selling Amount -->
+                            <div class="ps-1 flex-grow-1 overflow-hidden" style="min-width: 0;">
+                                <div class="fw-bold text-dark text-truncate text-uppercase mb-1" style="font-size: 11px; line-height: 1.2;" title="<?= e($batch['product_name'] ?? ($batch['category_name'] ?: 'FINISHED GARMENT')) ?>">
+                                    <?= e($batch['product_name'] ?? ($batch['category_name'] ?: 'FINISHED GARMENT')) ?>
+                                </div>
+                                <?php if ($sizeName !== ''): ?>
+                                <div class="fw-semibold text-secondary mb-1" style="font-size: 11px;">
+                                    SIZE: <?= e($sizeName) ?>
+                                </div>
+                                <?php endif; ?>
+                                <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
+                                <div class="text-muted mb-1" style="font-size: 11px;">
+                                    MRP: <del>₹<?= number_format((float)$item['mrp'], 2) ?></del>
+                                </div>
+                                <?php endif; ?>
+                                <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
+                                <div class="fw-bold text-success mb-1" style="font-size: 11px;">
+                                    SALE: ₹<?= number_format((float)$item['selling_price'], 2) ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                        <div class="font-monospace fw-bold text-primary text-truncate" style="font-size: 11px;">
-                            <?= e($item['qr_code']) ?><?php if ($isFabricBatch && $fabricMonthYear): ?> <span class="text-muted fw-normal" style="font-size: 10px;">(<?= e($fabricMonthYear) ?>)</span><?php endif; ?>
-                        </div>
-                        <?php if ($itemVariantId): ?>
-                        <div class="mt-1">
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1" style="font-size: 11px;">
-                                <i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= $itemVariantId ?><?= $itemVariantCode !== '' ? ' (' . e($itemVariantCode) . ')' : '' ?>
-                            </span>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ($colorName !== '' || $sizeName !== ''): ?>
-                        <div class="small text-muted mt-1">
-                            <?= e($colorName) ?><?= $colorName !== '' && $sizeName !== '' ? ' · ' : '' ?><?php if ($sizeName !== ''): ?><span class="badge bg-dark text-white px-2 py-0" style="font-size: 10px;"><?= e($sizeName) ?></span><?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ((float)($item['mrp'] ?? 0) > 0 || (float)($item['selling_price'] ?? 0) > 0): ?>
-                        <div class="small fw-bold mt-1">
-                            <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
-                            MRP: <del>₹<?= number_format((float)$item['mrp'], 2) ?></del>
-                            <?php endif; ?>
-                            <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
-                            <span class="text-primary ms-1">SALE: ₹<?= number_format((float)$item['selling_price'], 2) ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
                     </div>
                     <?php if (!$isFabricBatch): ?>
                     <div class="w-100 d-flex justify-content-between align-items-center mt-2 pt-1 border-top small">
                         <span class="badge bg-light text-muted border">#<?= $item['sequence_num'] ?></span>
-                        <?php if ($itemVariantId): ?>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="font-size: 10px;" title="Product Variant ID">
-                            VID: #<?= $itemVariantId ?>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 9px;">
+                            <i class="bi bi-patch-check me-1"></i>QC REQ
                         </span>
-                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 </div>

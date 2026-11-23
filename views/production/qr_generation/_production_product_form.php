@@ -142,21 +142,38 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                 <h6 class="mb-0 fw-semibold"><i class="bi bi-eye-fill me-2 text-warning"></i>Piece Label Preview</h6>
             </div>
             <div class="card-body p-4 text-center">
-                <div class="thermal-preview-card p-3 border border-dark rounded bg-white shadow-sm mx-auto text-center" style="max-width: 280px; border-width: 2px !important;">
-                    <div class="fw-bold text-uppercase fs-6 pb-1 border-bottom border-dark text-truncate" id="prodStickerBrand">GRM APPARELS</div>
-                    <div class="small fw-semibold text-muted text-uppercase mt-1" id="prodStickerItem">FINISHED GARMENT</div>
-                    <div class="d-flex justify-content-center my-2">
-                        <div id="prodStickerQrBox" class="p-1 bg-white border rounded"></div>
-                    </div>
-                    <div class="font-monospace fw-bold text-dark" style="font-size: 11px;" id="prodStickerCode">PRD<?= date('ym') ?>-0001</div>
-                    <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top border-dark small fw-bold">
-                        <div>
-                            <div id="prodStickerVariant">VARIANT</div>
-                            <div class="label-mrp" id="prodStickerMrp"></div>
+                <div class="thermal-preview-card p-3 border border-dark rounded bg-white shadow-sm mx-auto" style="max-width: 330px; border-width: 2px !important;">
+                    <div class="fw-bold text-uppercase fs-6 pb-2 mb-2 border-bottom border-dark text-truncate text-center" id="prodStickerBrand">GRM APPARELS</div>
+                    
+                    <div class="d-flex align-items-center justify-content-between gap-3 text-start">
+                        <!-- Left Side: QR Code & QR Code (Variant ID) below -->
+                        <div class="text-center pe-2 border-end border-dark-subtle d-flex flex-column align-items-center justify-content-center" style="flex: 0 0 115px;">
+                            <div class="d-flex justify-content-center mb-1">
+                                <div id="prodStickerQrBox" class="p-1 bg-white border rounded"></div>
+                            </div>
+                            <div class="font-monospace fw-bold text-dark text-truncate w-100" style="font-size: 11px; letter-spacing: -0.2px;" id="prodStickerCode">PRD<?= date('ym') ?>-0001</div>
+                            <div class="font-monospace text-muted fw-bold text-truncate w-100" style="font-size: 10px;" id="prodStickerVariantId">VID: —</div>
                         </div>
-                        <div class="text-success text-end">
-                            <div id="prodStickerSale"></div>
-                            <div><i class="bi bi-patch-check me-1"></i>QC REQ</div>
+
+                        <!-- Right Side: Product Name, Size, MRP, Selling Amount -->
+                        <div class="ps-1 flex-grow-1 overflow-hidden" style="min-width: 0;">
+                            <div class="fw-bold text-dark text-truncate text-uppercase mb-1" style="font-size: 12px; line-height: 1.25;" id="prodStickerItem" title="Product Name">
+                                FINISHED GARMENT
+                            </div>
+                            <div class="fw-semibold text-secondary mb-1" style="font-size: 11px;" id="prodStickerVariant">
+                                SIZE: M
+                            </div>
+                            <div class="text-muted mb-1" style="font-size: 11px;" id="prodStickerMrp">
+                                MRP: <del>₹100.00</del>
+                            </div>
+                            <div class="fw-bold text-success mb-1" style="font-size: 12px;" id="prodStickerSale">
+                                SALE: ₹80.00
+                            </div>
+                            <div class="mt-1">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-1 py-0" style="font-size: 9px;">
+                                    <i class="bi bi-patch-check me-1"></i>QC REQ
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -229,24 +246,37 @@ function onStitchingBatchChanged() {
 
     const itemLabel = document.getElementById('prodStickerItem');
     if (itemLabel) {
-        itemLabel.textContent = (batch.product_name || hierText || 'FINISHED GARMENT').substring(0, 24);
+        itemLabel.textContent = (batch.product_name || hierText || 'FINISHED GARMENT').substring(0, 30);
+        itemLabel.title = batch.product_name || hierText || 'FINISHED GARMENT';
     }
 
     const firstVariant = (batch.items || []).find(it => it.variant_id || it.sku || it.variant_code);
     const variantEl = document.getElementById('prodStickerVariant');
     if (variantEl) {
         const sizeStr = firstVariant ? (firstVariant.variant_size_name || firstVariant.size_name || '') : '';
-        variantEl.textContent = sizeStr ? ('SIZE: ' + sizeStr) : 'PIECE';
+        variantEl.textContent = sizeStr ? ('SIZE: ' + sizeStr) : 'SIZE: Standard';
     }
     const mrpEl = document.getElementById('prodStickerMrp');
     if (mrpEl) {
         const mrp = Number(firstVariant && (firstVariant.variant_mrp || firstVariant.base_price) || 0);
-        mrpEl.innerHTML = mrp > 0 ? 'MRP: <del>₹' + mrp.toFixed(2) + '</del>' : '';
+        mrpEl.innerHTML = mrp > 0 ? 'MRP: <del>₹' + mrp.toFixed(2) + '</del>' : 'MRP: ₹0.00';
     }
     const saleEl = document.getElementById('prodStickerSale');
     if (saleEl) {
         const sale = Number(firstVariant && (firstVariant.variant_selling_price || firstVariant.discount_price) || 0);
-        saleEl.textContent = sale > 0 ? 'SALE: ₹' + sale.toFixed(2) : '';
+        saleEl.textContent = sale > 0 ? 'SALE: ₹' + sale.toFixed(2) : 'SALE: ₹0.00';
+    }
+    const vidEl = document.getElementById('prodStickerVariantId');
+    if (vidEl) {
+        const vId = firstVariant ? (firstVariant.variant_id || '') : '';
+        const vCode = firstVariant ? (firstVariant.variant_code || firstVariant.sku || '') : '';
+        if (vId) {
+            vidEl.textContent = 'VID: #' + vId;
+        } else if (vCode) {
+            vidEl.textContent = vCode;
+        } else {
+            vidEl.textContent = 'VID: —';
+        }
     }
 
     const prefixInput = document.getElementById('prodQrPrefix');
@@ -275,8 +305,8 @@ function updateProdPreview() {
         qrBox.innerHTML = '';
         new QRCode(qrBox, {
             text: previewCode,
-            width: 100,
-            height: 100,
+            width: 85,
+            height: 85,
             colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
