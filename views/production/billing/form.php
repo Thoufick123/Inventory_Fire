@@ -1413,9 +1413,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const vCode = (it.variant_code || '').toUpperCase();
                     const vId = String(it.variant_id || '');
                     const uNeedle = needle.toUpperCase();
+                    const cleanNum = uNeedle.replace(/^V0*|^#0*/i, '');
+                    const cleanNeedleNum = parseInt(cleanNum, 10);
+                    const itVIdNum = parseInt(vId, 10);
                     return available.some(t => t.toUpperCase() === uNeedle)
                         || (vCode !== '' && vCode === uNeedle)
-                        || (vId !== '0' && (vId === uNeedle || vId === uNeedle.replace('#', '')));
+                        || (vId !== '0' && (vId === uNeedle || vId === uNeedle.replace('#', '') || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)));
                 });
 
                 if (exactMatch) {
