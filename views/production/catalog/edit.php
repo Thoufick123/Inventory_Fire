@@ -181,7 +181,7 @@ if (empty($existingColorIds)) {
                                     </button>
                                 </div>
                                 <div class="position-relative" id="hsnSearchContainer">
-                                    <div class="input-group">
+                                    <div class="input-group input-group-sm">
                                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                                         <input type="text" id="hsnSearchInput" class="form-control border-start-0 ps-0" placeholder="Type HSN code or description (e.g. 6109, Shirt, Cotton)..." autocomplete="off" onfocus="openHsnDropdown()" oninput="filterHsnList(this.value)">
                                         <button class="btn btn-outline-secondary" type="button" onclick="toggleHsnDropdown()" title="Toggle HSN list">
@@ -258,7 +258,7 @@ if (empty($existingColorIds)) {
                                 </label>
                                 <div class="input-group">
                                     <input type="text" name="hsn_code" id="hsn_code" class="form-control text-uppercase fw-bold" placeholder="e.g. 6109" maxlength="15" value="<?= e($product['hsn_code'] ?? '') ?>" required>
-                                    <button class="btn btn-outline-secondary" type="button" onclick="clearHsnFields()" title="Clear HSN">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearHsnFields()" title="Clear HSN">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 </div>
@@ -271,7 +271,6 @@ if (empty($existingColorIds)) {
                                     <input type="number" step="0.01" min="0" max="28" name="gst_percentage" id="gst_percentage" class="form-control fw-bold" value="<?= e((float)($product['gst_percentage'] ?? 5.00)) ?>" placeholder="5.00">
                                     <span class="input-group-text">%</span>
                                 </div>
-                                <small class="text-muted" style="font-size:0.75rem;">Standard 5% / 12% GST</small>
                             </div>
                         </div>
                     </div>
