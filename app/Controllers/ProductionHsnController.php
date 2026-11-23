@@ -126,6 +126,27 @@ class ProductionHsnController {
             [$hsnCode, $gst, $categories, $subcategories, $subSubcategories, $product, $isActive]
         );
 
+        // Sync to system-wide hsn_codes table so every dropdown dynamically has this HSN code
+        $descParts = array_filter([$product, $subSubcategories, $subcategories, $categories]);
+        $description = !empty($descParts) ? implode(' - ', $descParts) : ('Production HSN ' . $hsnCode);
+
+        try {
+            $existingHsn = Database::fetchOne("SELECT id FROM hsn_codes WHERE hsn_code = ?", [$hsnCode]);
+            if ($existingHsn) {
+                Database::execute(
+                    "UPDATE hsn_codes SET description = ?, gst_rate = ?, updated_at = NOW() WHERE id = ?",
+                    [$description, $gst, (int)$existingHsn['id']]
+                );
+            } else {
+                Database::execute(
+                    "INSERT INTO hsn_codes (hsn_code, description, gst_rate, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+                    [$hsnCode, $description, $gst]
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('HSN sync error: ' . $e->getMessage());
+        }
+
         Session::flash('success', 'HSN Code "' . htmlspecialchars($hsnCode) . '" added successfully.');
         Response::redirect(url('production/hsn-config'));
     }
@@ -239,6 +260,27 @@ class ProductionHsnController {
             [$hsnCode, $gst, $categories, $subcategories, $subSubcategories, $product, $isActive, (int)$id]
         );
 
+        // Sync update to system-wide hsn_codes table
+        $descParts = array_filter([$product, $subSubcategories, $subcategories, $categories]);
+        $description = !empty($descParts) ? implode(' - ', $descParts) : ('Production HSN ' . $hsnCode);
+
+        try {
+            $existingHsn = Database::fetchOne("SELECT id FROM hsn_codes WHERE hsn_code = ? OR hsn_code = ?", [$hsnCode, $record['hsn_code']]);
+            if ($existingHsn) {
+                Database::execute(
+                    "UPDATE hsn_codes SET hsn_code = ?, description = ?, gst_rate = ?, updated_at = NOW() WHERE id = ?",
+                    [$hsnCode, $description, $gst, (int)$existingHsn['id']]
+                );
+            } else {
+                Database::execute(
+                    "INSERT INTO hsn_codes (hsn_code, description, gst_rate, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+                    [$hsnCode, $description, $gst]
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('HSN sync error: ' . $e->getMessage());
+        }
+
         Session::flash('success', 'HSN Code "' . htmlspecialchars($hsnCode) . '" updated successfully.');
         Response::redirect(url('production/hsn-config'));
     }
@@ -268,6 +310,13 @@ class ProductionHsnController {
             "DELETE FROM production_hsn_config WHERE id = ?",
             [(int)$id]
         );
+
+        // Also clean up from hsn_codes if exists
+        try {
+            Database::execute("DELETE FROM hsn_codes WHERE hsn_code = ?", [$record['hsn_code']]);
+        } catch (\Throwable $e) {
+            error_log('HSN delete sync error: ' . $e->getMessage());
+        }
 
         Session::flash('success', 'HSN Code "' . htmlspecialchars($record['hsn_code']) . '" deleted successfully.');
         Response::redirect(url('production/hsn-config'));

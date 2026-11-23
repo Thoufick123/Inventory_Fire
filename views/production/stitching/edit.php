@@ -81,6 +81,7 @@ input[type=number] {
                                 <option value="IN_PROGRESS" <?= $batch['status'] === 'IN_PROGRESS' ? 'selected' : '' ?>>In Progress</option>
                                 <option value="COMPLETED" <?= $batch['status'] === 'COMPLETED' ? 'selected' : '' ?>>Completed</option>
                             </select>
+                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status advances batch to QR Code Generations.</div>
                         </div>
                     </div>
 

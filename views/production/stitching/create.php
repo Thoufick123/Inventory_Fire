@@ -83,6 +83,7 @@ input[type=number] {
                                 <option value="PENDING">Pending</option>
                                 <option value="COMPLETED">Completed</option>
                             </select>
+                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status advances batch to QR Code Generations.</div>
                         </div>
                     </div>
 

@@ -14579,6 +14579,12 @@ class ProductionController {
                 'notes'              => $notes,
             ], $items, $userId);
 
+            if (strtoupper($status) === 'COMPLETED') {
+                Session::flash('success', "Stitching Batch '{$name}' created with status COMPLETED! Proceed to generate QR codes for finished garments.");
+                Response::redirect(url('production/qr-generations/create?tab=production_product&stitching_batch_id=' . $batchId));
+                return;
+            }
+
             Session::flash('success', "Stitching Batch '{$name}' created successfully with {$totalStitched} pcs (" . number_format($totalWeight, 2) . " kg).");
             Response::redirect(url('production/stitching'));
         } catch (Exception $e) {
@@ -14815,6 +14821,12 @@ class ProductionController {
             if ($subSubcategoryId) $batchData['sub_subcategory_id'] = $subSubcategoryId;
 
             ProductionService::updateStitchingBatch((int)$id, $batchData, $items);
+
+            if (strtoupper($status) === 'COMPLETED') {
+                Session::flash('success', "Stitching Batch updated to COMPLETED! Proceed to generate QR codes for finished garments.");
+                Response::redirect(url('production/qr-generations/create?tab=production_product&stitching_batch_id=' . $id));
+                return;
+            }
 
             Session::flash('success', "Stitching Batch updated successfully with {$totalStitched} pcs (" . number_format($totalWeight, 2) . " kg).");
             Response::redirect(url('production/stitching'));
@@ -21974,8 +21986,21 @@ class ProductionController {
         array $itemColumns,
         string $itemsTitle,
         array $qrLabel = [],
-        ?array $customBreadcrumb = null
+        $arg10 = null,
+        ?array $arg11 = null
     ): void {
+        $recordIcon = 'bi-eye';
+        $customBreadcrumb = null;
+
+        if (is_string($arg10)) {
+            $recordIcon = $arg10;
+            if (is_array($arg11)) {
+                $customBreadcrumb = $arg11;
+            }
+        } elseif (is_array($arg10)) {
+            $customBreadcrumb = $arg10;
+        }
+
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
             'activeModule' => 'production',
@@ -21986,6 +22011,7 @@ class ProductionController {
                 ['label' => $recordTitle],
             ],
             'recordTitle'  => $recordTitle,
+            'recordIcon'   => $recordIcon,
             'sectionTitle' => $sectionTitle,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
@@ -22000,7 +22026,17 @@ class ProductionController {
      * AJAX endpoint to list all HSN codes & GST rates from database.
      */
     public function ajaxHsnCodesList(): void {
-        $codes = Database::fetchAll("SELECT * FROM hsn_codes ORDER BY hsn_code ASC");
+        try {
+            $codes = Database::fetchAll("
+                SELECT id, hsn_code, description, gst_rate FROM hsn_codes
+                UNION
+                SELECT id, hsn_code, COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description, gst_percentage AS gst_rate 
+                FROM production_hsn_config WHERE is_active = 1
+                ORDER BY hsn_code ASC
+            ");
+        } catch (\Throwable $e) {
+            $codes = Database::fetchAll("SELECT * FROM hsn_codes ORDER BY hsn_code ASC");
+        }
         Response::json(['success' => true, 'data' => $codes]);
     }
 
@@ -22060,6 +22096,14 @@ class ProductionController {
                 "SELECT id, hsn_code, description, gst_rate FROM hsn_codes WHERE id = ?",
                 [$existing['id']]
             );
+            // Sync to production_hsn_config
+            try {
+                Database::execute(
+                    "INSERT INTO production_hsn_config (hsn_code, gst_percentage, is_active) VALUES (?, ?, 1)
+                     ON DUPLICATE KEY UPDATE gst_percentage = VALUES(gst_percentage), is_active = 1",
+                    [$hsnCode, $gstRate ?: 0.00]
+                );
+            } catch (\Throwable $e) {}
             Response::json([
                 'success' => true,
                 'message' => 'HSN Code updated successfully.',
@@ -22073,6 +22117,14 @@ class ProductionController {
             [$hsnCode, $description, $gstRate]
         );
         $newId = (int)Database::lastInsertId();
+        // Sync to production_hsn_config
+        try {
+            Database::execute(
+                "INSERT INTO production_hsn_config (hsn_code, gst_percentage, is_active) VALUES (?, ?, 1)
+                 ON DUPLICATE KEY UPDATE gst_percentage = VALUES(gst_percentage), is_active = 1",
+                [$hsnCode, $gstRate ?: 0.00]
+            );
+        } catch (\Throwable $e) {}
         $saved = Database::fetchOne(
             "SELECT id, hsn_code, description, gst_rate FROM hsn_codes WHERE id = ?",
             [$newId]
