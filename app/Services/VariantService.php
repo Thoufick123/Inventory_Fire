@@ -190,12 +190,13 @@ class VariantService {
             throw new RuntimeException("SKU '{$sku}' is already taken. Please customize the SKU.");
         }
 
-        // Stable QR Code: Default directly to Variant ID (e.g. V0001) for single stable variant QR
-        $qrCode = !empty($data['qr_code']) ? strtoupper(trim($data['qr_code'])) : $variantCode;
-        $qrExists = Database::fetchOne("SELECT id FROM product_variants WHERE qr_code = ?", [$qrCode]);
-        if ($qrExists) {
-            // If candidate QR exists (e.g. V0001 taken), fallback to SKU or next code
-            $qrCode = $sku;
+        // Only assign QR Code if explicitly provided or generated
+        $qrCode = !empty($data['qr_code']) ? strtoupper(trim($data['qr_code'])) : null;
+        if ($qrCode) {
+            $qrExists = Database::fetchOne("SELECT id FROM product_variants WHERE qr_code = ?", [$qrCode]);
+            if ($qrExists) {
+                $qrCode = null;
+            }
         }
 
         $mrp = max(0.0, (float)($data['mrp'] ?? 0));
@@ -451,6 +452,14 @@ class VariantService {
         if (isset($filters['is_active']) && $filters['is_active'] !== '') {
             $sql .= " AND pv.is_active = ?";
             $params[] = (int)$filters['is_active'];
+        }
+
+        if (!empty($filters['qr_status'])) {
+            if ($filters['qr_status'] === 'with_qr') {
+                $sql .= " AND (pv.qr_code IS NOT NULL AND pv.qr_code != '')";
+            } elseif ($filters['qr_status'] === 'no_qr') {
+                $sql .= " AND (pv.qr_code IS NULL OR pv.qr_code = '')";
+            }
         }
 
         $sql .= " ORDER BY pv.id DESC";

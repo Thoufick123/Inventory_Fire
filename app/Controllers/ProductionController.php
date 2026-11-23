@@ -5324,9 +5324,13 @@ class ProductionController {
                     COALESCE(NULLIF(ppi.design_name, ''), sr.design_name) AS design_name,
                     ppi.design_count, COALESCE(NULLIF(ppi.weight_kg, 0), sr.weight) AS weight_kg,
                     ppi.quantity, ppi.unit,
+                    COALESCE(NULLIF(ppi.unit_price, 0), sr.price, 0) AS unit_price,
+                    COALESCE(NULLIF(ppi.hsn_code, ''), sr.hsn_code, '') AS hsn_code,
+                    ppi.seller_roll_id,
                     ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
                     pp.purchase_number, pp.purchase_date, pp.invoice_number,
-                    s.name AS seller_name, s.company AS seller_company
+                    s.name AS seller_name, s.company AS seller_company,
+                    0 AS is_mapping_draft
              FROM production_purchase_items ppi
              INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
              LEFT JOIN seller_rolls sr ON sr.id = ppi.seller_roll_id
@@ -5336,6 +5340,41 @@ class ProductionController {
              LIMIT 1000",
             $fabricRollParams
         );
+
+        $draftRollWhere = ["mi.item_type = 'FABRIC_ROLL'", "mb.status != 'MOVED'"];
+        $draftRollParams = [];
+        if ($cid) {
+            $draftRollWhere[] = ($cid === 1)
+                ? "(mb.concern_id = ? OR mb.concern_id IS NULL)"
+                : "mb.concern_id = ?";
+            $draftRollParams[] = $cid;
+        }
+        $draftRollItems = Database::fetchAll(
+            "SELECT mi.id, NULL AS purchase_id, mi.item_name,
+                    COALESCE(NULLIF(mi.roll_code, ''), '') AS roll_number,
+                    COALESCE(NULLIF(mi.color, ''), '') AS color,
+                    '' AS design_name,
+                    1 AS design_count, COALESCE(mi.weight_kg, 0) AS weight_kg,
+                    mi.quantity, mi.unit,
+                    COALESCE(mi.unit_price, 0) AS unit_price,
+                    COALESCE(mi.hsn_code, '') AS hsn_code,
+                    NULL AS seller_roll_id,
+                    mi.qr_generation_id, qrg.batch_code AS qr_batch_code, NULL AS grn_id, NULL AS grn_number,
+                    mb.invoice_number AS purchase_number, mb.invoice_date AS purchase_date, mb.invoice_number,
+                    s.name AS seller_name, s.company AS seller_company,
+                    1 AS is_mapping_draft, mi.mapping_bill_id
+             FROM third_party_mapping_items mi
+             INNER JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             LEFT JOIN qr_generations qrg ON qrg.id = mi.qr_generation_id
+             LEFT JOIN sellers s ON s.id = mb.seller_id
+             WHERE " . implode(' AND ', $draftRollWhere) . "
+             ORDER BY mb.created_at DESC, mi.id ASC
+             LIMIT 500",
+            $draftRollParams
+        );
+        if (!empty($draftRollItems)) {
+            $fabricRollItems = array_merge($draftRollItems, $fabricRollItems);
+        }
 
         $metricWhere = "WHERE ppi.item_type = 'THIRD_PARTY'";
         $metricParams = [];
@@ -6654,6 +6693,275 @@ class ProductionController {
         } catch (Throwable $e) {
             $db->rollBack();
             Response::json(['success' => false, 'message' => 'Error deleting product: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * AJAX endpoint to update fabric roll details from Mapping -> Fabric Rolls tab
+     */
+    public function ajaxUpdateFabricRoll(): void {
+        header('Content-Type: application/json; charset=utf-8');
+
+        // Check CSRF
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            echo json_encode(['success' => false, 'message' => 'Security token invalid or expired. Please refresh and try again.']);
+            return;
+        }
+
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        $isMappingDraft = !empty($_POST['is_mapping_draft']) && (int)$_POST['is_mapping_draft'] === 1;
+        $itemName = trim((string)($_POST['item_name'] ?? ''));
+        $rollNumber = trim((string)($_POST['roll_number'] ?? ''));
+        $color = trim((string)($_POST['color'] ?? ''));
+        $designName = trim((string)($_POST['design_name'] ?? ''));
+        $quantity = (float)($_POST['quantity'] ?? 0);
+        $unit = trim((string)($_POST['unit'] ?? 'MTR'));
+        if ($unit === '') {
+            $unit = 'MTR';
+        }
+        $weightKg = (float)($_POST['weight_kg'] ?? 0);
+        $unitPrice = (float)($_POST['unit_price'] ?? 0);
+        $hsnCode = trim((string)($_POST['hsn_code'] ?? ''));
+
+        if ($itemId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid roll ID provided.']);
+            return;
+        }
+
+        if ($itemName === '') {
+            echo json_encode(['success' => false, 'message' => 'Fabric / Material Name is required.']);
+            return;
+        }
+
+        if ($quantity <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Quantity / Length must be greater than zero.']);
+            return;
+        }
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+        try {
+            if ($isMappingDraft) {
+                // Update third_party_mapping_items
+                $mappingItem = Database::fetchOne("SELECT * FROM third_party_mapping_items WHERE id = ? FOR UPDATE", [$itemId]);
+                if (!$mappingItem) {
+                    throw new Exception("Mapping roll item #{$itemId} not found.");
+                }
+
+                $db->prepare("
+                    UPDATE third_party_mapping_items
+                    SET item_name = ?,
+                        roll_code = ?,
+                        color = ?,
+                        quantity = ?,
+                        meters = ?,
+                        weight_kg = ?,
+                        unit = ?,
+                        unit_price = ?,
+                        hsn_code = ?
+                    WHERE id = ?
+                ")->execute([
+                    $itemName,
+                    $rollNumber,
+                    $color,
+                    $quantity,
+                    $quantity,
+                    $weightKg,
+                    $unit,
+                    $unitPrice,
+                    $hsnCode,
+                    $itemId
+                ]);
+
+                // Update mapping bill totals
+                $db->prepare("
+                    UPDATE third_party_mapping_bills
+                    SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
+                        updated_at = NOW()
+                    WHERE id = ?
+                ")->execute([$mappingItem['mapping_bill_id'], $mappingItem['mapping_bill_id']]);
+
+                // If QR batch was generated for this mapping item
+                if (!empty($mappingItem['qr_generation_id'])) {
+                    $db->prepare("
+                        UPDATE qr_generations
+                        SET color_name = ?,
+                            design_name = ?,
+                            selling_price = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([
+                        $color,
+                        $designName,
+                        $unitPrice,
+                        $mappingItem['qr_generation_id']
+                    ]);
+
+                    $this->ensureQrItemDesignNameColumn();
+                    $db->prepare("
+                        UPDATE qr_generation_items
+                        SET color_name = ?,
+                            design_name = ?,
+                            selling_price = ?
+                        WHERE generation_id = ?
+                    ")->execute([
+                        $color,
+                        $designName,
+                        $unitPrice,
+                        $mappingItem['qr_generation_id']
+                    ]);
+                }
+            } else {
+                // Standard production_purchase_items
+                $purchaseItem = Database::fetchOne("SELECT * FROM production_purchase_items WHERE id = ? FOR UPDATE", [$itemId]);
+                if (!$purchaseItem) {
+                    throw new Exception("Purchase roll item #{$itemId} not found.");
+                }
+
+                $totalPrice = round($quantity * $unitPrice, 2);
+
+                $db->prepare("
+                    UPDATE production_purchase_items
+                    SET item_name = ?,
+                        roll_number = ?,
+                        color = ?,
+                        design_name = ?,
+                        quantity = ?,
+                        unit = ?,
+                        weight_kg = ?,
+                        unit_price = ?,
+                        total_price = ?,
+                        hsn_code = ?
+                    WHERE id = ?
+                ")->execute([
+                    $itemName,
+                    $rollNumber,
+                    $color,
+                    $designName,
+                    $quantity,
+                    $unit,
+                    $weightKg,
+                    $unitPrice,
+                    $totalPrice,
+                    $hsnCode,
+                    $itemId
+                ]);
+
+                // Recalculate purchase total
+                if (!empty($purchaseItem['purchase_id'])) {
+                    $db->prepare("
+                        UPDATE production_purchases
+                        SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([$purchaseItem['purchase_id'], $purchaseItem['purchase_id']]);
+                }
+
+                // Update seller_rolls if linked
+                if (!empty($purchaseItem['seller_roll_id'])) {
+                    $db->prepare("
+                        UPDATE seller_rolls
+                        SET roll_number = ?,
+                            color = ?,
+                            design_name = ?,
+                            quantity = ?,
+                            weight = ?,
+                            price = ?,
+                            material_type = ?,
+                            hsn_code = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([
+                        $rollNumber,
+                        $color,
+                        $designName,
+                        (int)$quantity,
+                        $weightKg,
+                        $unitPrice,
+                        $itemName,
+                        $hsnCode,
+                        $purchaseItem['seller_roll_id']
+                    ]);
+                }
+
+                // Update QR generations if batch exists
+                if (!empty($purchaseItem['qr_generation_id'])) {
+                    $db->prepare("
+                        UPDATE qr_generations
+                        SET color_name = ?,
+                            design_name = ?,
+                            selling_price = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ")->execute([
+                        $color,
+                        $designName,
+                        $unitPrice,
+                        $purchaseItem['qr_generation_id']
+                    ]);
+
+                    $this->ensureQrItemDesignNameColumn();
+                    $db->prepare("
+                        UPDATE qr_generation_items
+                        SET color_name = ?,
+                            design_name = ?,
+                            selling_price = ?
+                        WHERE generation_id = ?
+                    ")->execute([
+                        $color,
+                        $designName,
+                        $unitPrice,
+                        $purchaseItem['qr_generation_id']
+                    ]);
+                }
+
+                // Also check if linked to third_party_mapping_items
+                $db->prepare("
+                    UPDATE third_party_mapping_items
+                    SET item_name = ?,
+                        roll_code = ?,
+                        color = ?,
+                        quantity = ?,
+                        meters = ?,
+                        weight_kg = ?,
+                        unit = ?,
+                        unit_price = ?,
+                        hsn_code = ?
+                    WHERE purchase_item_id = ?
+                ")->execute([
+                    $itemName,
+                    $rollNumber,
+                    $color,
+                    $quantity,
+                    $quantity,
+                    $weightKg,
+                    $unit,
+                    $unitPrice,
+                    $hsnCode,
+                    $itemId
+                ]);
+            }
+
+            $db->commit();
+            echo json_encode([
+                'success' => true,
+                'message' => 'Fabric roll details updated successfully!',
+                'data' => [
+                    'id' => $itemId,
+                    'item_name' => $itemName,
+                    'roll_number' => $rollNumber,
+                    'color' => $color,
+                    'design_name' => $designName,
+                    'quantity' => $quantity,
+                    'unit' => $unit,
+                    'weight_kg' => $weightKg,
+                    'unit_price' => $unitPrice,
+                    'hsn_code' => $hsnCode
+                ]
+            ]);
+        } catch (Throwable $e) {
+            $db->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Error updating fabric roll: ' . $e->getMessage()]);
         }
     }
 
@@ -12096,16 +12404,9 @@ class ProductionController {
             return ['', []];
         }
 
-        if ($concernId === 1) {
-            return [
-                " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL)"
-                    . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL)",
-                [$concernId, $concernId],
-            ];
-        }
-
         return [
-            " AND {$rollAlias}.concern_id = ? AND {$sellerAlias}.concern_id = ?",
+            " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL OR {$rollAlias}.concern_id = 1)"
+                . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL OR {$sellerAlias}.concern_id = 1)",
             [$concernId, $concernId],
         ];
     }
@@ -12115,13 +12416,62 @@ class ProductionController {
         return Database::fetchOne(
             "SELECT sr.seller_id, sr.weight, sr.price, sr.color, sr.design_name, sr.quantity
              FROM seller_rolls sr
-             JOIN sellers s ON s.id = sr.seller_id
-             WHERE sr.id = ? AND s.is_active = 1{$concernSql}",
+             LEFT JOIN sellers s ON s.id = sr.seller_id
+             WHERE sr.id = ? AND (s.is_active = 1 OR s.id IS NULL){$concernSql}",
             array_merge([$rollId], $concernParams)
         );
     }
 
     private function getAvailableSellerRollsWithPieces(int $excludeProgramId = 0): array {
+        try {
+            // Self-heal: ensure all fabric rolls in Purchased Stock have corresponding seller_rolls records
+            $unlinkedStocked = Database::fetchAll("
+                SELECT qrg.id as qrg_id, qrg.concern_id, qrg.quantity, qrg.selling_price, qrg.color_name, qrg.design_name,
+                       ppi.id as ppi_id, ppi.item_name, ppi.roll_number, ppi.weight_kg, ppi.hsn_code, ppi.seller_roll_id,
+                       COALESCE(pp.seller_id, mb.seller_id, 1) AS seller_id
+                FROM qr_generations qrg
+                LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
+                LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
+                LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
+                LEFT JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                WHERE qrg.qr_source = 'FABRIC_ROLL' AND qrg.stock_added = 1
+                  AND (ppi.id IS NOT NULL AND (ppi.seller_roll_id IS NULL OR ppi.seller_roll_id = 0))
+            ");
+            foreach ($unlinkedStocked as $un) {
+                $firstCode = Database::fetchOne("SELECT qr_code, sequence_num FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num ASC LIMIT 1", [$un['qrg_id']]);
+                $lastCode = Database::fetchOne("SELECT qr_code, sequence_num FROM qr_generation_items WHERE generation_id = ? ORDER BY sequence_num DESC LIMIT 1", [$un['qrg_id']]);
+                $sSeq = (int)($firstCode['sequence_num'] ?? 1);
+                $eSeq = (int)($lastCode['sequence_num'] ?? $un['quantity']);
+                $sCode = (string)($firstCode['qr_code'] ?? '');
+                $eCode = (string)($lastCode['qr_code'] ?? '');
+                $qrCodeRange = $sCode ? ($sCode . ($eCode !== $sCode ? '-' . $eCode : '')) : '';
+
+                Database::execute("
+                    INSERT INTO seller_rolls (concern_id, seller_id, roll_number, color, design_name, weight, price, material_type,
+                                             start_seq, end_seq, start_code, end_code, qr_code, hsn_code, quantity, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ", [
+                    $un['concern_id'] ?: 1,
+                    $un['seller_id'] ?: 1,
+                    $un['roll_number'] ?: 'ROLL #1',
+                    $un['color_name'] ?? null,
+                    $un['design_name'] ?? null,
+                    (float)($un['weight_kg'] ?? 0),
+                    (float)($un['selling_price'] ?? 0),
+                    $un['item_name'] ?? 'Fabric Roll',
+                    $sSeq,
+                    $eSeq,
+                    $sCode,
+                    $eCode,
+                    $qrCodeRange,
+                    $un['hsn_code'] ?? null,
+                    (int)$un['quantity']
+                ]);
+                $newSrId = (int)Database::lastInsertId();
+                Database::execute("UPDATE production_purchase_items SET seller_roll_id = ? WHERE id = ?", [$newSrId, $un['ppi_id']]);
+            }
+        } catch (\Throwable $e) {}
+
         [$concernSql, $concernParams] = $this->getActiveConcernSellerRollScope('sr', 's');
         $rolls = Database::fetchAll(
             "SELECT sr.*, s.name as seller_name, s.company as seller_company, s.material_type,
@@ -12137,7 +12487,7 @@ class ProductionController {
                     dmg.damage_reason,
                     dmg.damage_status
              FROM seller_rolls sr
-             JOIN sellers s ON sr.seller_id = s.id
+             LEFT JOIN sellers s ON sr.seller_id = s.id
              LEFT JOIN (
                  SELECT ppr.seller_roll_id, 
                         SUM(ppr.roll_qty) as used_quantity,
@@ -12159,7 +12509,7 @@ class ProductionController {
                  WHERE rd.status NOT IN ('CLOSED', 'CANCELLED')
                  GROUP BY rd.seller_roll_id
              ) dmg ON sr.id = dmg.seller_roll_id
-             WHERE s.is_active = 1{$concernSql}
+             WHERE (s.is_active = 1 OR s.id IS NULL){$concernSql}
              ORDER BY sr.id DESC",
             $concernParams
         );
@@ -12224,36 +12574,87 @@ class ProductionController {
             $availCodes = [];
             $legacyToSkip = $legacyUsedQty[$rollId] ?? 0;
 
-            for ($seq = $startSeq; $seq <= $endSeq; $seq++) {
-                $code = $prefix . sprintf('%0' . $seqDigits . 'd', $seq);
-                $status = 'AVAILABLE';
-                $meta = '';
+            // Check if actual QR items exist for this roll in qr_generation_items
+            $qrBatchItems = Database::fetchAll(
+                "SELECT qri.qr_code, qri.sequence_num, qri.status
+                 FROM qr_generation_items qri
+                 JOIN qr_generations qrg ON qrg.id = qri.generation_id
+                 LEFT JOIN production_purchase_items ppi ON ppi.qr_generation_id = qrg.id
+                 WHERE ppi.seller_roll_id = ? OR qrg.source_purchase_item_id IN (
+                     SELECT id FROM production_purchase_items WHERE seller_roll_id = ?
+                 )
+                 ORDER BY qri.sequence_num ASC",
+                [$rollId, $rollId]
+            );
 
-                if (isset($deletedMap[$rollId . '_' . $seq])) {
-                    $status = 'DELETED';
-                    $meta = 'Deleted Label';
-                } elseif (isset($damageMap[strtoupper($code)])) {
-                    $status = 'DAMAGED';
-                    $meta = 'Damage ' . $damageMap[strtoupper($code)];
-                } elseif (isset($allocatedMap[strtoupper($code)])) {
-                    $status = 'USED';
-                    $meta = 'Allocated to ' . $allocatedMap[strtoupper($code)];
-                } elseif ($legacyToSkip > 0) {
-                    $status = 'USED';
-                    $meta = 'Used in Program';
-                    $legacyToSkip--;
+            if (!empty($qrBatchItems)) {
+                foreach ($qrBatchItems as $qItem) {
+                    $code = strtoupper(trim((string)$qItem['qr_code']));
+                    $seq = (int)$qItem['sequence_num'];
+                    $status = 'AVAILABLE';
+                    $meta = '';
+
+                    if (isset($deletedMap[$rollId . '_' . $seq])) {
+                        $status = 'DELETED';
+                        $meta = 'Deleted Label';
+                    } elseif (isset($damageMap[$code])) {
+                        $status = 'DAMAGED';
+                        $meta = 'Damage ' . $damageMap[$code];
+                    } elseif (isset($allocatedMap[$code])) {
+                        $status = 'USED';
+                        $meta = 'Allocated to ' . $allocatedMap[$code];
+                    } elseif ($legacyToSkip > 0) {
+                        $status = 'USED';
+                        $meta = 'Used in Program';
+                        $legacyToSkip--;
+                    } elseif (strtoupper((string)$qItem['status']) === 'DAMAGED' || strtoupper((string)$qItem['status']) === 'USED') {
+                        $status = strtoupper((string)$qItem['status']);
+                        $meta = 'Batch ' . $status;
+                    }
+
+                    if ($status === 'AVAILABLE') {
+                        $availCodes[] = $code;
+                    }
+
+                    $pieces[] = [
+                        'seq'    => $seq,
+                        'code'   => $code,
+                        'status' => $status,
+                        'meta'   => $meta,
+                    ];
                 }
+            } else {
+                for ($seq = $startSeq; $seq <= $endSeq; $seq++) {
+                    $code = $prefix . sprintf('%0' . $seqDigits . 'd', $seq);
+                    $status = 'AVAILABLE';
+                    $meta = '';
 
-                if ($status === 'AVAILABLE') {
-                    $availCodes[] = $code;
+                    if (isset($deletedMap[$rollId . '_' . $seq])) {
+                        $status = 'DELETED';
+                        $meta = 'Deleted Label';
+                    } elseif (isset($damageMap[strtoupper($code)])) {
+                        $status = 'DAMAGED';
+                        $meta = 'Damage ' . $damageMap[strtoupper($code)];
+                    } elseif (isset($allocatedMap[strtoupper($code)])) {
+                        $status = 'USED';
+                        $meta = 'Allocated to ' . $allocatedMap[strtoupper($code)];
+                    } elseif ($legacyToSkip > 0) {
+                        $status = 'USED';
+                        $meta = 'Used in Program';
+                        $legacyToSkip--;
+                    }
+
+                    if ($status === 'AVAILABLE') {
+                        $availCodes[] = $code;
+                    }
+
+                    $pieces[] = [
+                        'seq' => $seq,
+                        'code' => $code,
+                        'status' => $status,
+                        'meta' => $meta,
+                    ];
                 }
-
-                $pieces[] = [
-                    'seq' => $seq,
-                    'code' => $code,
-                    'status' => $status,
-                    'meta' => $meta,
-                ];
             }
 
             $rangeSummary = '';

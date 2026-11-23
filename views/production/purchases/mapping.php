@@ -292,27 +292,36 @@
                     <tbody>
                         <?php if (empty($fabricRollItems)): ?>
                             <tr><td colspan="7" class="text-center text-muted py-5">No fabric-roll purchase lines found.</td></tr>
-                        <?php else: foreach ($fabricRollItems as $roll): ?>
-                            <tr>
+                        <?php else: foreach ($fabricRollItems as $roll): 
+                            $isDraft = !empty($roll['is_mapping_draft']);
+                            $rowKey = ($isDraft ? 'draft-' : 'item-') . (int)$roll['id'];
+                        ?>
+                            <tr id="fabric-roll-row-<?= $rowKey ?>">
                                 <td>
-                                    <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="fw-bold text-decoration-none font-monospace">
-                                        <?= e($roll['purchase_number']) ?>
-                                    </a>
-                                    <small class="text-muted d-block"><?= e(date('d M Y', strtotime($roll['purchase_date']))) ?></small>
+                                    <?php if (!empty($roll['purchase_id'])): ?>
+                                        <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="fw-bold text-decoration-none font-monospace">
+                                            <?= e($roll['purchase_number']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="fw-bold font-monospace text-primary"><?= e($roll['purchase_number'] ?: 'Draft Roll') ?></span>
+                                        <span class="badge bg-warning-subtle text-warning border ms-1">Draft</span>
+                                    <?php endif; ?>
+                                    <small class="text-muted d-block"><?= !empty($roll['purchase_date']) ? e(date('d M Y', strtotime($roll['purchase_date']))) : '-' ?></small>
                                     <?php if (!empty($roll['invoice_number'])): ?><small class="text-muted d-block">Inv: <?= e($roll['invoice_number']) ?></small><?php endif; ?>
                                 </td>
                                 <td>
-                                    <strong><?= e($roll['seller_company'] ?: $roll['seller_name']) ?></strong>
-                                    <?php if (!empty($roll['seller_company'])): ?><small class="text-muted d-block"><?= e($roll['seller_name']) ?></small><?php endif; ?>
+                                    <strong><?= e($roll['seller_company'] ?: $roll['seller_name'] ?: '-') ?></strong>
+                                    <?php if (!empty($roll['seller_company']) && !empty($roll['seller_name'])): ?><small class="text-muted d-block"><?= e($roll['seller_name']) ?></small><?php endif; ?>
                                 </td>
-                                <td><?= e($roll['item_name']) ?></td>
+                                <td id="roll-fabric-<?= $rowKey ?>"><?= e($roll['item_name']) ?></td>
                                 <td>
-                                    <span class="font-monospace"><?= e($roll['roll_number'] ?: '-') ?></span>
-                                    <small class="text-muted d-block"><?= e($roll['color'] ?: '-') ?> / <?= e($roll['design_name'] ?: '-') ?></small>
+                                    <span class="font-monospace" id="roll-code-<?= $rowKey ?>"><?= e($roll['roll_number'] ?: '-') ?></span>
+                                    <small class="text-muted d-block" id="roll-details-<?= $rowKey ?>"><?= e($roll['color'] ?: '-') ?> / <?= e($roll['design_name'] ?: '-') ?></small>
                                 </td>
-                                <td class="text-end">
+                                <td class="text-end" id="roll-qty-<?= $rowKey ?>">
                                     <?= number_format((float)$roll['quantity'], 0) ?> <?= e($roll['unit'] ?: 'PCS') ?>
                                     <?php if ((float)$roll['weight_kg'] > 0): ?><small class="text-muted d-block"><?= number_format((float)$roll['weight_kg'], 2) ?> kg</small><?php endif; ?>
+                                    <?php if ((float)$roll['unit_price'] > 0): ?><small class="text-muted d-block">₹<?= number_format((float)$roll['unit_price'], 2) ?></small><?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if (!empty($roll['qr_generation_id'])): ?>
@@ -339,7 +348,16 @@
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end text-nowrap">
-                                    <?php if (empty($roll['qr_generation_id']) && hasPermission('qr_generation', 'create')): ?>
+                                    <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark me-1" onclick="openEditFabricRollModal(<?= htmlspecialchars(json_encode($roll), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Fabric Roll Details">
+                                            <i class="bi bi-pencil me-1"></i>Edit
+                                        </button>
+                                    <?php endif; ?>
+                                    <?php if (empty($roll['purchase_id'])): ?>
+                                        <a href="<?= url('purchases/mapping/draft/' . (int)($roll['mapping_bill_id'] ?? 0)) ?>" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-eye me-1"></i>View Draft
+                                        </a>
+                                    <?php elseif (empty($roll['qr_generation_id']) && hasPermission('qr_generation', 'create')): ?>
                                         <a href="<?= url('production/qr-generations/create?tab=fabric&purchase_id=' . (int)$roll['purchase_id'] . '&purchase_item_id=' . (int)$roll['id']) ?>" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-qr-code-scan me-1"></i>Generate QR
                                         </a>
@@ -425,7 +443,180 @@
     </div>
 </div>
 
+<!-- Modal: Edit Fabric Roll -->
+<div class="modal fade" id="editFabricRollModal" tabindex="-1" aria-labelledby="editFabricRollModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning-subtle text-dark">
+                <h5 class="modal-title fw-bold" id="editFabricRollModalLabel">
+                    <i class="bi bi-pencil-square me-2 text-warning"></i>Edit Fabric Roll Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editFabricRollForm" onsubmit="submitEditFabricRoll(event)">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="_csrf_token" value="<?= CSRF::token() ?>">
+                    <input type="hidden" name="item_id" id="editRollItemId">
+                    <input type="hidden" name="is_mapping_draft" id="editRollIsMappingDraft" value="0">
+
+                    <div id="editRollAlert" class="alert alert-danger d-none mb-3 py-2 small"></div>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold text-secondary">Fabric / Material Name <span class="text-danger">*</span></label>
+                            <input type="text" name="item_name" id="editRollItemName" class="form-control" required placeholder="e.g. Cotton 30s">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-secondary">Roll Number / Code</label>
+                            <input type="text" name="roll_number" id="editRollNumber" class="form-control font-monospace" placeholder="e.g. R-261123-001">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-secondary">Color / Shade</label>
+                            <input type="text" name="color" id="editRollColor" class="form-control" placeholder="e.g. Navy Blue">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-secondary">Design Name / Pattern</label>
+                            <input type="text" name="design_name" id="editRollDesignName" class="form-control" placeholder="e.g. Plain / Floral">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-secondary">HSN Code</label>
+                            <input type="text" name="hsn_code" id="editRollHsnCode" class="form-control font-monospace" placeholder="e.g. 5208">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-secondary">Quantity / Length <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="quantity" id="editRollQuantity" class="form-control" required placeholder="0.00">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-secondary">Unit</label>
+                            <select name="unit" id="editRollUnit" class="form-select">
+                                <option value="MTR">MTR</option>
+                                <option value="PCS">PCS</option>
+                                <option value="KG">KG</option>
+                                <option value="YDS">YDS</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-secondary">Weight (KG)</label>
+                            <input type="number" step="0.001" min="0" name="weight_kg" id="editRollWeightKg" class="form-control" placeholder="0.000">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label small fw-semibold text-secondary">Purchase Rate / Price (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" step="0.01" min="0" name="unit_price" id="editRollUnitPrice" class="form-control" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="editRollSubmitBtn">
+                        <i class="bi bi-check-circle me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+let editFabricRollModalInstance = null;
+let currentEditingRoll = null;
+
+function openEditFabricRollModal(roll) {
+    currentEditingRoll = roll;
+    const modalEl = document.getElementById('editFabricRollModal');
+    if (!editFabricRollModalInstance) {
+        editFabricRollModalInstance = new bootstrap.Modal(modalEl);
+    }
+
+    const alertBox = document.getElementById('editRollAlert');
+    if (alertBox) {
+        alertBox.classList.add('d-none');
+        alertBox.textContent = '';
+    }
+
+    document.getElementById('editRollItemId').value = roll.id || '';
+    document.getElementById('editRollIsMappingDraft').value = roll.is_mapping_draft ? '1' : '0';
+    document.getElementById('editRollItemName').value = roll.item_name || '';
+    document.getElementById('editRollNumber').value = roll.roll_number || '';
+    document.getElementById('editRollColor').value = roll.color || '';
+    document.getElementById('editRollDesignName').value = roll.design_name || '';
+    document.getElementById('editRollHsnCode').value = roll.hsn_code || '';
+    document.getElementById('editRollQuantity').value = roll.quantity || '';
+    document.getElementById('editRollUnit').value = roll.unit || 'MTR';
+    document.getElementById('editRollWeightKg').value = (parseFloat(roll.weight_kg) > 0) ? roll.weight_kg : '';
+    document.getElementById('editRollUnitPrice').value = (parseFloat(roll.unit_price) > 0) ? roll.unit_price : '';
+
+    editFabricRollModalInstance.show();
+}
+
+async function submitEditFabricRoll(e) {
+    e.preventDefault();
+    const form = document.getElementById('editFabricRollForm');
+    const alertBox = document.getElementById('editRollAlert');
+    const submitBtn = document.getElementById('editRollSubmitBtn');
+
+    alertBox.classList.add('d-none');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+
+    const formData = new FormData(form);
+
+    try {
+        const response = await fetch('<?= url('purchases/mapping/edit-roll') ?>', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const res = await response.json();
+        if (res.success) {
+            editFabricRollModalInstance.hide();
+            // Remember tab hash and reload cleanly to synchronize all QR/Purchased stock views
+            window.location.hash = 'mappingFabricRollsPane';
+            window.location.reload();
+        } else {
+            alertBox.textContent = res.message || 'Failed to update roll details.';
+            alertBox.classList.remove('d-none');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Changes';
+        }
+    } catch (err) {
+        alertBox.textContent = 'Server error: ' + err.message;
+        alertBox.classList.remove('d-none');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Changes';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const hash = window.location.hash;
+    if (hash === '#mappingFabricRollsPane') {
+        const tabBtn = document.getElementById('mappingFabricRollsTab');
+        if (tabBtn) {
+            const tab = new bootstrap.Tab(tabBtn);
+            tab.show();
+        }
+    } else if (hash === '#mappingLogsPane') {
+        const tabBtn = document.getElementById('mappingLogsTab');
+        if (tabBtn) {
+            const tab = new bootstrap.Tab(tabBtn);
+            tab.show();
+        }
+    }
+});
+
 function unmapItem(itemId, itemName) {
     if (!confirm(`Are you sure you want to delete the mapping for '${itemName}'? It will automatically be marked as unmapped.`)) {
         return;

@@ -365,6 +365,13 @@ class QrGenerationService {
                 $generatedCodes[] = $qrCode;
             }
 
+            if ($variantId > 0 && !empty($generatedCodes[0])) {
+                Database::execute(
+                    "UPDATE product_variants SET qr_code = ? WHERE id = ? AND (qr_code IS NULL OR qr_code = '')",
+                    [$generatedCodes[0], $variantId]
+                );
+            }
+
             Database::commit();
 
             return [
@@ -513,6 +520,13 @@ class QrGenerationService {
 
                 $insertItemStmt->execute([$generationId, $qrCode, $currSeq]);
                 $generatedCodes[] = $qrCode;
+            }
+
+            if ($variantId > 0 && !empty($generatedCodes[0])) {
+                Database::execute(
+                    "UPDATE product_variants SET qr_code = ? WHERE id = ? AND (qr_code IS NULL OR qr_code = '')",
+                    [$generatedCodes[0], $variantId]
+                );
             }
 
             Database::commit();
@@ -829,18 +843,75 @@ class QrGenerationService {
                 "UPDATE production_purchase_items SET qr_generation_id = ?, qr_batch_code = ? WHERE id = ?",
                 [$generationId, $batchCode, $itemId]
             );
+
+            if ($variantId > 0 && !empty($codes[0]['code'])) {
+                Database::execute(
+                    "UPDATE product_variants SET qr_code = ? WHERE id = ? AND (qr_code IS NULL OR qr_code = '')",
+                    [$codes[0]['code'], $variantId]
+                );
+            }
             Database::execute(
                 "UPDATE purchase_inward_items SET batch_lot_no = ? WHERE production_purchase_item_id = ?",
                 [$batchCode, $itemId]
             );
 
-            // Move roll directly to purchased stock upon QR generation
+            // Move roll directly to purchased stock upon QR generation and ensure seller_rolls sync
             if ($source === self::SOURCE_FABRIC) {
                 $curUserId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null;
                 Database::execute(
                     "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
                     [$curUserId, $generationId]
                 );
+
+                $rollNumber = trim((string)($item['roll_number'] ?: 'ROLL #1'));
+                $startCode = !empty($codes[0]['code']) ? (string)$codes[0]['code'] : '';
+                $endCode = !empty($codes[count($codes) - 1]['code']) ? (string)$codes[count($codes) - 1]['code'] : $startCode;
+                $startSeq = !empty($codes[0]['sequence']) ? (int)$codes[0]['sequence'] : 1;
+                $endSeq = !empty($codes[count($codes) - 1]['sequence']) ? (int)$codes[count($codes) - 1]['sequence'] : count($codes);
+                $qrCodeRange = $startCode ? ($startCode . ($endCode !== $startCode ? '-' . $endCode : '')) : '';
+
+                if (empty($item['seller_roll_id'])) {
+                    Database::execute(
+                        "INSERT INTO seller_rolls 
+                            (concern_id, seller_id, roll_number, color, design_name, weight, price, material_type,
+                             start_seq, end_seq, start_code, end_code, qr_code, hsn_code, quantity, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        [
+                            $generationConcernId ?: 1,
+                            !empty($item['seller_id']) ? (int)$item['seller_id'] : 1,
+                            $rollNumber,
+                            $item['color'] ?? null,
+                            $item['design_name'] ?? null,
+                            (float)($item['weight_kg'] ?? 0),
+                            (float)($item['unit_price'] ?? 0),
+                            $item['item_name'] ?? 'Fabric Roll',
+                            $startSeq,
+                            $endSeq,
+                            $startCode,
+                            $endCode,
+                            $qrCodeRange,
+                            $item['hsn_code'] ?? null,
+                            count($codes)
+                        ]
+                    );
+                    $newSrId = (int)Database::lastInsertId();
+                    Database::execute("UPDATE production_purchase_items SET seller_roll_id = ? WHERE id = ?", [$newSrId, $itemId]);
+                } else {
+                    Database::execute(
+                        "UPDATE seller_rolls 
+                         SET start_seq = ?, end_seq = ?, start_code = ?, end_code = ?, qr_code = ?, quantity = ?, updated_at = NOW()
+                         WHERE id = ?",
+                        [
+                            $startSeq,
+                            $endSeq,
+                            $startCode,
+                            $endCode,
+                            $qrCodeRange,
+                            count($codes),
+                            (int)$item['seller_roll_id']
+                        ]
+                    );
+                }
             }
 
             Database::commit();
@@ -1085,6 +1156,13 @@ class QrGenerationService {
                 Database::execute(
                     "UPDATE production_purchase_items SET qr_generation_id = ?, qr_batch_code = ? WHERE id = ?",
                     [$generationId, $batchCode, (int)$item['purchase_item_id']]
+                );
+            }
+
+            if ($variantId > 0 && !empty($codes[0]['code'])) {
+                Database::execute(
+                    "UPDATE product_variants SET qr_code = ? WHERE id = ? AND (qr_code IS NULL OR qr_code = '')",
+                    [$codes[0]['code'], $variantId]
                 );
             }
 
