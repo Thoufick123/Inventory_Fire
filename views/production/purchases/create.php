@@ -81,55 +81,59 @@
                     <input type="text" class="form-control" name="invoice_number" id="invoiceNumber" maxlength="100">
                 </div>
                 <div class="col-12">
-                        <div class="row g-2">
-                            <div class="col-lg-6">
-                                <div class="form-check border rounded bg-info-subtle p-3 ps-5 h-100">
-                                    <input class="form-check-input" type="checkbox" name="quick_purchase_entry" id="quickPurchaseEntry" value="1">
-                                    <label class="form-check-label fw-semibold" for="quickPurchaseEntry">Quick bill entry (map products later)</label>
-                                </div>
-                            </div>
-                            <div class="col-lg-6">
-                                <div class="form-check border rounded bg-light p-3 ps-5 h-100">
-                                    <input class="form-check-input" type="checkbox" name="use_mapping_invoice" id="useMappingInvoice" value="1">
-                                    <label class="form-check-label fw-semibold" for="useMappingInvoice">Import products saved in Purchase Item Mapping</label>
-                                    <div class="small text-muted">Mark the entry <strong>Move to Purchase</strong> in Mapping first, then enter the same supplier and invoice number here.</div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="form-check border rounded bg-info-subtle p-3 ps-5">
+                        <input class="form-check-input" type="checkbox" name="quick_purchase_entry" id="quickPurchaseEntry" value="1" checked>
+                        <label class="form-check-label fw-semibold" for="quickPurchaseEntry">Quick bill entry (map products later)</label>
+                        <div class="small text-muted">Enter product name, quantity, purchase price, GST % and HSN. Invoice number is required; complete product mapping afterward.</div>
                     </div>
-                    <div class="col-12 d-none" id="quickPurchaseEntryPanel">
-                        <div class="card border-info shadow-sm">
-                            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <div>
-                                    <strong class="text-info-emphasis"><i class="bi bi-lightning-charge me-1"></i>Simple Product Lines</strong>
-                                    <div class="small text-muted">Purchase price is before GST; these items will appear in Product Mapping after saving.</div>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-info" id="addQuickPurchaseLine"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
+                </div>
+                <div class="col-12" id="quickPurchaseEntryPanel">
+                    <div class="card border-info shadow-sm">
+                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <strong class="text-info-emphasis"><i class="bi bi-lightning-charge me-1"></i>Simple Product Lines</strong>
+                                <div class="small text-muted">Purchase price is before GST; these items will appear in Product Mapping after saving.</div>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-sm align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Product Name</th>
-                                            <th style="width: 110px;">Qty</th>
-                                            <th style="width: 160px;">Purchase Price (₹)</th>
-                                            <th style="width: 120px;">GST %</th>
-                                            <th style="width: 150px;">HSN</th>
-                                            <th style="width: 55px;"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="quickPurchaseLines">
-                                        <tr class="quick-purchase-line">
-                                            <td><input class="form-control form-control-sm quick-line-name" maxlength="255" placeholder="Product name"></td>
-                                            <td><input class="form-control form-control-sm quick-line-quantity" type="number" min="0.001" step="0.001" placeholder="Qty"></td>
-                                            <td><input class="form-control form-control-sm quick-line-price" type="number" min="0.01" step="0.01" placeholder="Rate before GST"></td>
-                                            <td><input class="form-control form-control-sm quick-line-gst" type="number" min="0" max="100" step="0.001" value="0" placeholder="GST %"></td>
-                                            <td><input class="form-control form-control-sm quick-line-hsn font-monospace" maxlength="20" placeholder="HSN code"></td>
-                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-quick-line" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-info" id="addQuickPurchaseLine"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th style="width: 110px;">Qty</th>
+                                        <th style="width: 160px;">Purchase Price (₹)</th>
+                                        <th style="width: 120px;">GST %</th>
+                                        <th style="width: 190px;">HSN</th>
+                                        <th style="width: 55px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quickPurchaseLines">
+                                    <tr class="quick-purchase-line">
+                                        <td><input class="form-control form-control-sm quick-line-name" maxlength="255" placeholder="Product name"></td>
+                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.001" data-step="0.001" class="form-control form-control-sm quick-line-quantity numeric-text-input" placeholder="Qty" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
+                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control form-control-sm quick-line-price numeric-text-input" placeholder="Rate before GST" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
+                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.001" class="form-control form-control-sm quick-line-gst numeric-text-input" value="0" placeholder="GST %" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
+                                        <td>
+                                            <div class="dropdown hsn-dropdown w-100 position-relative">
+                                                <input type="hidden" class="quick-line-hsn" value="">
+                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="font-size: 0.8rem; height: 31px;">
+                                                    <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
+                                                </button>
+                                                <div class="dropdown-menu shadow-lg p-2 hsn-dropdown-menu" style="min-width: 260px; max-width: 320px; z-index: 1055;">
+                                                    <div class="input-group input-group-sm mb-2">
+                                                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                                        <input type="text" class="form-control border-start-0 hsn-search-input" placeholder="Search HSN code..." autocomplete="off">
+                                                    </div>
+                                                    <div class="hsn-options-list overflow-auto" style="max-height: 200px;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-quick-line" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                             <div class="card-footer bg-light d-flex justify-content-end gap-4 flex-wrap">
                                 <span>Subtotal: <strong id="quickEntrySubtotal">₹0.00</strong></span>
                                 <span>GST: <strong id="quickEntryTax">₹0.00</strong></span>
@@ -1219,6 +1223,7 @@
         if (quickPurchaseEntry.checked && useMappingInvoice) useMappingInvoice.checked = false;
         syncPurchaseEntryMode();
     });
+    syncPurchaseEntryMode();
 
     function updateQuickPurchaseTotals() {
         if (!quickPurchaseLines) return;
@@ -1237,9 +1242,30 @@
         document.getElementById('quickEntryTotal').textContent = money(subtotal + taxTotal);
     }
 
+    function bindQuickLineEvents(row) {
+        if (!row) return;
+        initHsnDropdown(row, '.quick-line-hsn');
+        const hsnHidden = row.querySelector('.quick-line-hsn');
+        const gstInput = row.querySelector('.quick-line-gst');
+        if (hsnHidden && gstInput) {
+            hsnHidden.addEventListener('change', function () {
+                const code = (this.value || '').trim();
+                const found = (window.hsnCodesList || []).find(h => String(h.hsn_code).toUpperCase() === code.toUpperCase());
+                if (found && found.gst_rate !== null && found.gst_rate !== undefined && found.gst_rate !== '') {
+                    gstInput.value = parseFloat(found.gst_rate);
+                    gstInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        }
+    }
+
     function addQuickPurchaseLine() {
         if (!quickPurchaseLines || !quickPurchaseLineTemplate) return;
         quickPurchaseLines.insertAdjacentHTML('beforeend', quickPurchaseLineTemplate);
+        const lastRow = quickPurchaseLines.lastElementChild;
+        if (lastRow) {
+            bindQuickLineEvents(lastRow);
+        }
         updateQuickPurchaseTotals();
     }
 
@@ -1256,8 +1282,16 @@
             row.querySelectorAll('input').forEach(input => {
                 input.value = input.classList.contains('quick-line-gst') ? '0' : '';
             });
+            const hsnHidden = row.querySelector('.quick-line-hsn');
+            const hsnBtnText = row.querySelector('.hsn-btn-text');
+            if (hsnHidden) hsnHidden.value = '';
+            if (hsnBtnText) hsnBtnText.textContent = '-- Select HSN --';
         }
         updateQuickPurchaseTotals();
+    });
+
+    quickPurchaseLines?.querySelectorAll('.quick-purchase-line').forEach(row => {
+        bindQuickLineEvents(row);
     });
 
     function sanitizeNumericInput(input) {
