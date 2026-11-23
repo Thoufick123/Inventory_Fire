@@ -195,7 +195,16 @@ class QrGenerationController {
         );
 
         foreach ($rows as $row) {
-            $source = strtoupper((string)$row['item_type']);
+            $isRoll = strtoupper((string)$row['item_type']) === 'FABRIC_ROLL'
+                || !empty($row['seller_roll_id'])
+                || (!empty($row['roll_number']) && trim((string)$row['roll_number']) !== '')
+                || in_array(strtoupper(trim((string)($row['unit'] ?? ''))), ['ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG'], true);
+
+            if ($isRoll) {
+                $source = QrGenerationService::SOURCE_FABRIC;
+            } else {
+                $source = strtoupper((string)$row['item_type']);
+            }
             if (!isset($groups[$source])) {
                 continue;
             }
@@ -274,7 +283,16 @@ class QrGenerationController {
         );
 
         foreach ($mappingRows as $mRow) {
-            $source = strtoupper((string)($mRow['item_type'] ?: 'THIRD_PARTY'));
+            $isRoll = strtoupper((string)($mRow['item_type'] ?? '')) === 'FABRIC_ROLL'
+                || (!empty($mRow['roll_code']) && trim((string)$mRow['roll_code']) !== '')
+                || (!empty($mRow['roll_number']) && trim((string)$mRow['roll_number']) !== '')
+                || (!empty($mRow['weight_kg']) && (float)$mRow['weight_kg'] > 0)
+                || (!empty($mRow['meters']) && (float)$mRow['meters'] > 0)
+                || in_array(strtoupper(trim((string)($mRow['unit'] ?? ''))), ['ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG', 'KGS'], true)
+                || (stripos((string)($mRow['item_name'] ?? ''), 'roll') !== false && stripos((string)($mRow['item_name'] ?? ''), 'payroll') === false)
+                || stripos((string)($mRow['item_name'] ?? ''), 'fabric') !== false;
+
+            $source = $isRoll ? QrGenerationService::SOURCE_FABRIC : QrGenerationService::SOURCE_THIRD_PARTY;
             if (!isset($groups[$source])) {
                 continue;
             }
@@ -293,6 +311,7 @@ class QrGenerationController {
                 ];
             }
             $itemEntry = $mRow;
+            $itemEntry['item_type'] = $source;
             $itemEntry['item_id'] = 'map_' . $mRow['raw_item_id'];
             $itemEntry['is_mapping'] = true;
             $itemEntry['purchase_id'] = $mapBillKey;
@@ -358,20 +377,36 @@ class QrGenerationController {
 
         if ($isMapping) {
             $selectedItem = Database::fetchOne(
-                "SELECT item_type FROM third_party_mapping_items WHERE id = ?",
+                "SELECT * FROM third_party_mapping_items WHERE id = ?",
                 [$mappingItemId]
             );
-            if (!$selectedItem || strtoupper((string)$selectedItem['item_type']) !== $source) {
+            $isRollItem = strtoupper((string)($selectedItem['item_type'] ?? '')) === 'FABRIC_ROLL'
+                || (!empty($selectedItem['roll_code']) && trim((string)$selectedItem['roll_code']) !== '')
+                || (!empty($selectedItem['roll_number']) && trim((string)$selectedItem['roll_number']) !== '')
+                || (!empty($selectedItem['weight_kg']) && (float)$selectedItem['weight_kg'] > 0)
+                || (!empty($selectedItem['meters']) && (float)$selectedItem['meters'] > 0)
+                || in_array(strtoupper(trim((string)($selectedItem['unit'] ?? ''))), ['ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG', 'KGS'], true)
+                || (stripos((string)($selectedItem['item_name'] ?? ''), 'roll') !== false && stripos((string)($selectedItem['item_name'] ?? ''), 'payroll') === false)
+                || stripos((string)($selectedItem['item_name'] ?? ''), 'fabric') !== false;
+
+            $itemCategory = $isRollItem ? QrGenerationService::SOURCE_FABRIC : QrGenerationService::SOURCE_THIRD_PARTY;
+            if (!$selectedItem || $itemCategory !== $source) {
                 Session::flash('error', 'The selected product does not belong to this QR tab. Choose a product from the tab-specific list.');
                 Response::redirect(url('production/qr-generations/create?tab=' . $tab));
                 return;
             }
         } else {
             $selectedItem = Database::fetchOne(
-                "SELECT item_type FROM production_purchase_items WHERE id = ?",
+                "SELECT * FROM production_purchase_items WHERE id = ?",
                 [$itemId]
             );
-            if (!$selectedItem || strtoupper((string)$selectedItem['item_type']) !== $source) {
+            $isRollItem = strtoupper((string)($selectedItem['item_type'] ?? '')) === 'FABRIC_ROLL'
+                || !empty($selectedItem['seller_roll_id'])
+                || (!empty($selectedItem['roll_number']) && trim((string)$selectedItem['roll_number']) !== '')
+                || in_array(strtoupper(trim((string)($selectedItem['unit'] ?? ''))), ['ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG'], true);
+
+            $itemCategory = $isRollItem ? QrGenerationService::SOURCE_FABRIC : strtoupper((string)$selectedItem['item_type']);
+            if (!$selectedItem || $itemCategory !== $source) {
                 Session::flash('error', 'The selected product does not belong to this QR tab. Choose a product from the tab-specific list.');
                 Response::redirect(url('production/qr-generations/create?tab=' . $tab));
                 return;

@@ -80,6 +80,23 @@ class QrGenerationService {
         Database::ensureColumn('qr_generations', 'stock_added_by', 'INT UNSIGNED DEFAULT NULL AFTER stock_added_at');
         Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
 
+        // Auto-heal any mapping roll rows that had item_type set to THIRD_PARTY
+        try {
+            Database::execute("
+                UPDATE third_party_mapping_items 
+                SET item_type = 'FABRIC_ROLL'
+                WHERE item_type != 'FABRIC_ROLL'
+                  AND (
+                      (roll_code IS NOT NULL AND TRIM(roll_code) != '')
+                      OR (weight_kg IS NOT NULL AND weight_kg > 0)
+                      OR (meters IS NOT NULL AND meters > 0)
+                      OR UPPER(TRIM(unit)) IN ('ROLL', 'ROLLS', 'MTR', 'MTRS', 'METER', 'METERS', 'KG', 'KGS')
+                      OR LOWER(item_name) LIKE '%roll%'
+                      OR LOWER(item_name) LIKE '%fabric%'
+                  )
+            ");
+        } catch (\Throwable $e) {}
+
         Database::ensureColumn('stitching_batches', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER status');
         Database::ensureColumn('stitching_batches', 'qr_batch_code', 'VARCHAR(50) DEFAULT NULL AFTER qr_generation_id');
         Database::ensureColumn('qc_batches', 'qr_generation_id', 'INT UNSIGNED DEFAULT NULL AFTER label_batch_id');
@@ -817,6 +834,15 @@ class QrGenerationService {
                 [$batchCode, $itemId]
             );
 
+            // Move roll directly to purchased stock upon QR generation
+            if ($source === self::SOURCE_FABRIC) {
+                $curUserId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null;
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
+                    [$curUserId, $generationId]
+                );
+            }
+
             Database::commit();
 
             return [
@@ -1060,6 +1086,64 @@ class QrGenerationService {
                     "UPDATE production_purchase_items SET qr_generation_id = ?, qr_batch_code = ? WHERE id = ?",
                     [$generationId, $batchCode, (int)$item['purchase_item_id']]
                 );
+            }
+
+            // Move roll directly to purchased stock upon QR generation
+            if ($source === self::SOURCE_FABRIC) {
+                $curUserId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : null;
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 1, stock_added_at = NOW(), stock_added_by = ? WHERE id = ?",
+                    [$curUserId, $generationId]
+                );
+
+                // Create or link seller_rolls record
+                try {
+                    $rollNumber = trim((string)($item['roll_code'] ?: ($codes[0]['code'] ?? 'ROLL-1')));
+                    $existingSr = Database::fetchOne(
+                        "SELECT id FROM seller_rolls WHERE qr_code = ? OR (seller_id = ? AND roll_number = ?) LIMIT 1",
+                        [$codes[0]['code'] ?? '', !empty($item['seller_id']) ? (int)$item['seller_id'] : 1, $rollNumber]
+                    );
+                    if (!$existingSr) {
+                        Database::execute(
+                            "INSERT INTO seller_rolls 
+                                (concern_id, seller_id, roll_number, color, design_name, weight, price, material_type, qr_code, hsn_code, quantity, created_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                            [
+                                $generationConcernId ?: 1,
+                                !empty($item['seller_id']) ? (int)$item['seller_id'] : 1,
+                                $rollNumber,
+                                $item['color'] ?? null,
+                                $item['item_name'] ?? null,
+                                (float)($item['weight_kg'] ?? 0),
+                                (float)($item['unit_price'] ?? 0),
+                                $item['item_name'] ?? null,
+                                $codes[0]['code'] ?? null,
+                                $item['hsn_code'] ?? null,
+                            ]
+                        );
+                    }
+                } catch (\Throwable $e) {}
+
+                // Increase warehouse stock
+                if ($variantId > 0 && class_exists('StockService')) {
+                    $warehouse = Database::fetchOne("SELECT id FROM warehouses WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+                        ?: Database::fetchOne("SELECT id FROM warehouses ORDER BY id ASC LIMIT 1");
+                    $warehouseId = $warehouse ? (int)$warehouse['id'] : 1;
+                    try {
+                        StockService::increase(
+                            $variantId,
+                            'WAREHOUSE',
+                            $warehouseId,
+                            'AVAILABLE',
+                            (float)($item['quantity'] ?: 1),
+                            'INWARD',
+                            'QR_BATCH',
+                            $generationId,
+                            $curUserId,
+                            "QR batch {$batchCode} — fabric roll credited to purchased stock"
+                        );
+                    } catch (\Throwable $e) {}
+                }
             }
 
             Database::commit();
