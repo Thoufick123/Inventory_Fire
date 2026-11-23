@@ -85,6 +85,7 @@ class AdminController {
                 'sellers'                    => ['production/sellers', 'production/sellers/create'],
                 'production_purchases'       => ['production/purchases', 'production/purchases/create'],
                 'production_purchase_mapping'=> ['production/purchases/mapping', null],
+                'cash_flow'                  => ['production/cash-flow', null],
                 'damages'                    => ['production/damages', null],
                 'catalog'                    => ['production/catalog', 'production/catalog/create'],
                 'variants'                   => ['production/variants', 'production/variants/create'],
@@ -104,6 +105,7 @@ class AdminController {
                 'outward'                    => ['production/outward', null],
                 'production_stock_requests'  => ['production/stock-requests', 'production/stock-requests/create'],
                 'warehouse_rework'           => ['production/warehouse-rework', null],
+                'production_hsn'             => ['production/hsn-config', 'production/hsn-config/create'],
                 'asset_register'             => ['assets', 'assets/create'],
                 'asset_maintenance'          => ['assets/maintenance', 'assets/maintenance/create'],
                 'reports'                    => ['export', null],
@@ -117,6 +119,8 @@ class AdminController {
             ];
             $permissionAliases = [
                 'production_purchases' => ['production_purchases', 'purchases'],
+                'cash_flow' => ['cash_flow', 'shop_cash'],
+                'production_hsn' => ['production_hsn', 'hsn_config'],
             ];
             $dashboardGroups = [];
 

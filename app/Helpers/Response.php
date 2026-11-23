@@ -379,6 +379,9 @@ function concernModuleForPermission(string $module): ?string {
         'asset_maintenance' => 'assets',
         'reports_production' => 'production',
         'digital_sales' => 'digital_sales',
+        'cash_flow' => 'production',
+        'production_hsn' => 'production',
+        'hsn_config' => 'production',
     ];
 
     return $moduleMap[$module] ?? null;
@@ -492,6 +495,16 @@ function hasPermission(string $module, ?string $action = null): bool {
     }
     if ($module === 'production_stock_requests' || $module === 'stock_requests' || $module === 'stock_requirements') {
         if (in_array('production_stock_requests.' . $action, $userPermissions, true) || in_array('stock_requests.' . $action, $userPermissions, true) || in_array('inventory.' . $action, $userPermissions, true)) {
+            return true;
+        }
+    }
+    if ($module === 'cash_flow') {
+        if (in_array('cash_flow.' . $action, $userPermissions, true) || in_array('shop_cash.' . $action, $userPermissions, true)) {
+            return true;
+        }
+    }
+    if ($module === 'production_hsn' || $module === 'hsn_config') {
+        if (in_array('production_hsn.' . $action, $userPermissions, true) || in_array('hsn_config.' . $action, $userPermissions, true)) {
             return true;
         }
     }

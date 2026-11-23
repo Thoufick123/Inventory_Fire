@@ -50,6 +50,11 @@ class ProductionHsnController {
      */
     public function index(): void {
         self::ensureSchema();
+        if (!hasPermission('production_hsn', 'view') && !hasPermission('hsn_config', 'view')) {
+            Response::error(403, 'Access denied: You do not have permission to view HSN Config.');
+            return;
+        }
+
         $items = Database::fetchAll(
             "SELECT * FROM production_hsn_config ORDER BY created_at DESC"
         );
@@ -64,6 +69,11 @@ class ProductionHsnController {
      * Show create form.
      */
     public function create(): void {
+        if (!hasPermission('production_hsn', 'create') && !hasPermission('hsn_config', 'create')) {
+            Response::error(403, 'Access denied: You do not have permission to create HSN Config.');
+            return;
+        }
+
         Response::view('production.hsn_config.create', [
             'activeModule' => 'production',
             'activeMenu'   => 'production-hsn-config',
@@ -74,6 +84,11 @@ class ProductionHsnController {
      * Store a new HSN config record.
      */
     public function store(): void {
+        if (!hasPermission('production_hsn', 'create') && !hasPermission('hsn_config', 'create')) {
+            Response::error(403, 'Access denied: You do not have permission to create HSN Config.');
+            return;
+        }
+
         CSRF::validateRequest();
 
         $hsnCode         = trim($_POST['hsn_code'] ?? '');
@@ -120,6 +135,11 @@ class ProductionHsnController {
      */
     public function view(string $id): void {
         self::ensureSchema();
+        if (!hasPermission('production_hsn', 'view') && !hasPermission('hsn_config', 'view')) {
+            Response::error(403, 'Access denied: You do not have permission to view HSN Config.');
+            return;
+        }
+
         $record = Database::fetchOne(
             "SELECT * FROM production_hsn_config WHERE id = ?",
             [(int)$id]
@@ -141,6 +161,11 @@ class ProductionHsnController {
      */
     public function edit(string $id): void {
         self::ensureSchema();
+        if (!hasPermission('production_hsn', 'edit') && !hasPermission('hsn_config', 'edit')) {
+            Response::error(403, 'Access denied: You do not have permission to edit HSN Config.');
+            return;
+        }
+
         $record = Database::fetchOne(
             "SELECT * FROM production_hsn_config WHERE id = ?",
             [(int)$id]
@@ -161,6 +186,11 @@ class ProductionHsnController {
      * Update an existing HSN config record.
      */
     public function update(string $id): void {
+        if (!hasPermission('production_hsn', 'edit') && !hasPermission('hsn_config', 'edit')) {
+            Response::error(403, 'Access denied: You do not have permission to edit HSN Config.');
+            return;
+        }
+
         CSRF::validateRequest();
 
         $record = Database::fetchOne(
@@ -217,6 +247,11 @@ class ProductionHsnController {
      * Delete a HSN config record.
      */
     public function delete(string $id): void {
+        if (!hasPermission('production_hsn', 'delete') && !hasPermission('hsn_config', 'delete')) {
+            Response::error(403, 'Access denied: You do not have permission to delete HSN Config.');
+            return;
+        }
+
         CSRF::validateRequest();
 
         $record = Database::fetchOne(
