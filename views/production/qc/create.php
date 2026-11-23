@@ -1,6 +1,6 @@
 <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-        <h2 class="mb-1"><i class="bi bi-shield-check me-2 text-primary"></i>Initialize QC Inspection Batch</h2>
+        <h2 class="mb-1"><i class="bi bi-patch-check me-2 text-danger"></i>New Quality Control</h2>
         <span class="text-muted">Select a completed stitching batch to begin quality control inspection</span>
     </div>
     <a href="<?= url('production/qc') ?>" class="btn btn-outline-secondary">

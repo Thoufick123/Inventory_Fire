@@ -17271,15 +17271,15 @@ class ProductionController {
         ]);
 
         Response::view('production.qc.index', [
-            'pageTitle'    => 'Quality Control (QC) Inspections',
+            'pageTitle'    => 'Quality Control',
             'activeModule' => 'production',
             'activeMenu'   => 'qc',
             'batches'      => $batches,
             'filters'      => ['status' => $status, 'search' => $search],
             'scopedUnitId' => $scopedUnitId,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'QC Inspections'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Quality Control'],
             ],
         ]);
     }
@@ -17371,7 +17371,7 @@ class ProductionController {
         }
 
         Response::view('production.qc.create', [
-            'pageTitle'         => 'Initialize QC Inspection Batch',
+            'pageTitle'         => 'New Quality Control',
             'activeModule'      => 'production',
             'activeMenu'        => 'qc',
             'stitchingBatches'  => $stitchingBatches,
@@ -17381,9 +17381,9 @@ class ProductionController {
             'catalogHierarchy'  => $catalogHierarchy,
             'distinctCatalogs'  => array_values($distinctCatalogs),
             'breadcrumb'        => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'QC Inspections', 'url' => url('production/qc')],
-                ['label' => 'New QC Inspection Batch'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Quality Control', 'url' => url('production/qc')],
+                ['label' => 'New Quality Control'],
             ],
         ]);
     }
@@ -17692,8 +17692,8 @@ class ProductionController {
             'catalogHierarchy' => $catalogHierarchy,
             'distinctCatalogs' => array_values($distinctCatalogs),
             'breadcrumb'       => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'QC Inspections', 'url' => url('production/qc')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Quality Control', 'url' => url('production/qc')],
                 ['label' => 'Inspect Batch #' . $batchId],
             ],
         ]);
@@ -18768,8 +18768,8 @@ class ProductionController {
             'search'         => $search,
             'categoryFilter' => $categoryFilter,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'QC Inspections', 'url' => url('production/qc')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Quality Control', 'url' => url('production/qc')],
                 ['label' => 'Inventory'],
             ],
         ]);
@@ -21973,7 +21973,8 @@ class ProductionController {
         array $items,
         array $itemColumns,
         string $itemsTitle,
-        array $qrLabel = []
+        array $qrLabel = [],
+        ?array $customBreadcrumb = null
     ): void {
         Response::view('production.record_view', [
             'pageTitle'    => $recordTitle,
@@ -21982,9 +21983,10 @@ class ProductionController {
             'breadcrumb'   => $customBreadcrumb ?? [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => $sectionTitle, 'url' => $backUrl],
-                ['label' => 'Details'],
+                ['label' => $recordTitle],
             ],
             'recordTitle'  => $recordTitle,
+            'sectionTitle' => $sectionTitle,
             'backUrl'      => $backUrl,
             'fields'       => $fields,
             'items'        => $items,

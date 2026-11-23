@@ -1,7 +1,7 @@
 <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <h2 class="mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>QC Inspection Workstation — Batch #<?= $batch['id'] ?></h2>
+            <h2 class="mb-0"><i class="bi bi-patch-check me-2 text-danger"></i>QC Inspection Workstation — Batch #<?= $batch['id'] ?></h2>
             <span id="autoSaveIndicator" class="badge bg-success-subtle text-success border py-1 px-2" style="font-size: 0.8rem;">
                 <i class="bi bi-cloud-check me-1"></i>All changes saved
             </span>

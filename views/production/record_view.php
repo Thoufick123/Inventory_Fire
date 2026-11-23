@@ -1,11 +1,7 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-<<<<<<< HEAD
-        <h2 class="mb-1"><i class="bi <?= e($recordIcon ?? 'bi-eye') ?> me-2 text-primary"></i><?= e($recordTitle) ?></h2>
-        <span class="text-muted">Read-only record details</span>
-=======
         <h2 class="mb-1"><i class="bi bi-eye me-2 text-primary"></i><?= e($recordTitle) ?></h2>
->>>>>>> f7b47a395aeca1873324d4f8e6d99dabf580e870
+        <span class="text-muted">Read-only record details</span>
     </div>
     <a href="<?= e($backUrl) ?>" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i> Back to <?= e($sectionTitle ?? 'List') ?>

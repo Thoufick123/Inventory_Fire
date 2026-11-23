@@ -1,6 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-shield-check me-2 text-primary"></i>Quality Control (QC) Inspections</h2>
+        <h2 class="mb-1"><i class="bi bi-patch-check me-2 text-danger"></i>Quality Control</h2>
         <span class="text-muted">Multi-checkpoint inspection (stitching, fabric, color, size, trims) & finished goods approval</span>
     </div>
     <?php if (hasPermission('qc', 'create')): ?>
