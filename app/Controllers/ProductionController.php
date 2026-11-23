@@ -3360,20 +3360,20 @@ class ProductionController {
                     if ($hasRollHsn) {
                         Database::execute(
                             "INSERT INTO seller_rolls
-                                (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
                                  material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code, hsn_code)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            [$sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            [$activeConcernId, $sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
                                 $item['quantity'], $item['weight'], $item['unit_price'], $item['item_name'], $item['photo_url'],
                                 $startSeq, $endSeq, $startCode, $endCode, $rollQrCode, $item['hsn_code']]
                         );
                     } else {
                         Database::execute(
                             "INSERT INTO seller_rolls
-                                (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
                                  material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            [$sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            [$activeConcernId, $sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
                                 $item['quantity'], $item['weight'], $item['unit_price'], $item['item_name'], $item['photo_url'],
                                 $startSeq, $endSeq, $startCode, $endCode, $rollQrCode]
                         );
@@ -5070,12 +5070,14 @@ class ProductionController {
                 } else {
                     $rollQrCode = 'SR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
                     try {
+                        $rollConcernId = (int)($draft['concern_id'] ?? (currentConcernId() ?: 1));
                         Database::execute(
                             "INSERT INTO seller_rolls
-                                (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
                                  material_type, qr_code, hsn_code, created_at, updated_at)
-                             VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
                             [
+                                $rollConcernId,
                                 $sellerId, $rollCode, $item['color'] ?: 'Standard', $item['item_name'],
                                 $item['quantity'], $item['weight_kg'] ?: $item['quantity'], $item['unit_price'],
                                 $item['item_name'], $rollQrCode, $item['hsn_code']
@@ -10201,6 +10203,7 @@ class ProductionController {
                 $rollParams
             );
         } else {
+            $replacementConcernId = !empty($origRoll['concern_id']) ? (int)$origRoll['concern_id'] : (!empty($damage['concern_id']) ? (int)$damage['concern_id'] : ((function_exists('currentConcernId') ? currentConcernId() : null) ?: 1));
             $sequence = $sequence ?? ProductionService::getNextFabricRollSequence($quantity);
             $startSeq = (int)$sequence['start_seq'];
             $endSeq = (int)$sequence['end_seq'];
@@ -10210,20 +10213,20 @@ class ProductionController {
             if ($hasRollHsn) {
                 Database::execute(
                     "INSERT INTO seller_rolls
-                        (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                        (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
                          material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code, hsn_code, notes, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                    [$sellerId, $rollNumber, $color, $designName, $designCount, $quantity, $weight, $price,
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                    [$replacementConcernId, $sellerId, $rollNumber, $color, $designName, $designCount, $quantity, $weight, $price,
                         $materialType, $replacementPhoto, $startSeq, $endSeq, $startCode, $endCode, $qrCode,
                         $hsnCode !== '' ? $hsnCode : null, $rollNotes]
                 );
             } else {
                 Database::execute(
                     "INSERT INTO seller_rolls
-                        (seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                        (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
                          material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code, notes, created_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
-                    [$sellerId, $rollNumber, $color, $designName, $designCount, $quantity, $weight, $price,
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                    [$replacementConcernId, $sellerId, $rollNumber, $color, $designName, $designCount, $quantity, $weight, $price,
                         $materialType, $replacementPhoto, $startSeq, $endSeq, $startCode, $endCode, $qrCode, $rollNotes]
                 );
             }
@@ -12404,8 +12407,16 @@ class ProductionController {
             return ['', []];
         }
 
+        if ($concernId === 1) {
+            return [
+                " AND ({$rollAlias}.concern_id = 1 OR {$rollAlias}.concern_id IS NULL)"
+                    . " AND ({$sellerAlias}.concern_id = 1 OR {$sellerAlias}.concern_id IS NULL)",
+                [],
+            ];
+        }
+
         return [
-            " AND ({$rollAlias}.concern_id = ? OR {$rollAlias}.concern_id IS NULL OR {$rollAlias}.concern_id = 1)"
+            " AND {$rollAlias}.concern_id = ?"
                 . " AND ({$sellerAlias}.concern_id = ? OR {$sellerAlias}.concern_id IS NULL OR {$sellerAlias}.concern_id = 1)",
             [$concernId, $concernId],
         ];
@@ -12424,11 +12435,30 @@ class ProductionController {
 
     private function getAvailableSellerRollsWithPieces(int $excludeProgramId = 0): array {
         try {
+            // Update any existing seller_rolls to inherit concern_id from their linked production purchase or mapping bill
+            Database::execute("
+                UPDATE seller_rolls sr
+                JOIN production_purchase_items ppi ON ppi.seller_roll_id = sr.id
+                JOIN production_purchases pp ON pp.id = ppi.purchase_id
+                SET sr.concern_id = pp.concern_id
+                WHERE pp.concern_id IS NOT NULL AND (sr.concern_id IS NULL OR sr.concern_id = 1) AND pp.concern_id != 1
+            ");
+            Database::execute("
+                UPDATE seller_rolls sr
+                JOIN third_party_mapping_items mi ON mi.purchase_item_id IN (
+                    SELECT id FROM production_purchase_items WHERE seller_roll_id = sr.id
+                )
+                JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                SET sr.concern_id = mb.concern_id
+                WHERE mb.concern_id IS NOT NULL AND (sr.concern_id IS NULL OR sr.concern_id = 1) AND mb.concern_id != 1
+            ");
+
             // Self-heal: ensure all fabric rolls in Purchased Stock have corresponding seller_rolls records
             $unlinkedStocked = Database::fetchAll("
                 SELECT qrg.id as qrg_id, qrg.concern_id, qrg.quantity, qrg.selling_price, qrg.color_name, qrg.design_name,
                        ppi.id as ppi_id, ppi.item_name, ppi.roll_number, ppi.weight_kg, ppi.hsn_code, ppi.seller_roll_id,
-                       COALESCE(pp.seller_id, mb.seller_id, 1) AS seller_id
+                       COALESCE(pp.seller_id, mb.seller_id, 1) AS seller_id,
+                       COALESCE(pp.concern_id, mb.concern_id, qrg.concern_id, 1) AS target_concern_id
                 FROM qr_generations qrg
                 LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
                 LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
@@ -12451,7 +12481,7 @@ class ProductionController {
                                              start_seq, end_seq, start_code, end_code, qr_code, hsn_code, quantity, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 ", [
-                    $un['concern_id'] ?: 1,
+                    $un['target_concern_id'] ?: 1,
                     $un['seller_id'] ?: 1,
                     $un['roll_number'] ?: 'ROLL #1',
                     $un['color_name'] ?? null,

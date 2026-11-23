@@ -1304,19 +1304,15 @@ class QrGenerationService {
 
         $batchCode = self::generateBatchCode();
         $brandName = trim((string)($data['brand_name'] ?? '')) ?: 'GRM APPARELS';
-        $prefix = trim((string)($data['qr_prefix'] ?? '')) ?: 'PRD' . date('ym');
+        $prefix = trim((string)($data['qr_prefix'] ?? ''));
         $notes = trim((string)($data['notes'] ?? ''));
         $cid = function_exists('currentConcernId') ? currentConcernId() : ($stitchingBatch['concern_id'] ?? null);
         $userId = (session_status() === PHP_SESSION_ACTIVE && class_exists('Auth') && Auth::check()) ? Auth::id() : 1;
 
-        // Option A: Unified Sequential Tracking QR for Production Pieces
-        // Unified batch prefix (e.g. PRD2611) across all sizes/variants.
-        // Piece codes run sequentially: PRD2611-0001, PRD2611-0002...
-        // Each piece item in qr_generation_items stores its exact variant_id, size_name, color_name, mrp, selling_price.
+        // Unified piece tracking QR for Production Pieces:
+        // Prefers Variant ID (e.g. V0001, V0002) as the piece QR prefix.
         $cleanPrefix = strtoupper(trim(preg_replace('/[^A-Za-z0-9_-]+/', '', $prefix)));
-        if ($cleanPrefix === '') {
-            $cleanPrefix = 'PRD' . date('ym');
-        }
+        $useVariantPrefix = empty($cleanPrefix) || str_starts_with($cleanPrefix, 'PRD');
 
         $productId = (int)($stitchingBatch['prog_product_id'] ?? 0);
         if ($productId <= 0 && !empty($stitchingBatch['program_id'])) {
@@ -1385,11 +1381,20 @@ class QrGenerationService {
                     if (!$firstProductId) $firstProductId = (int)($it['variant_product_id'] ?? $productId);
                 }
 
+                // Resolve variant_code
+                $vCode = $it['variant_code'] ?? null;
+                if (!$vCode && $variantId > 0) {
+                    $vRow = Database::fetchOne("SELECT variant_code FROM product_variants WHERE id = ?", [$variantId]);
+                    $vCode = $vRow['variant_code'] ?? null;
+                }
+                $vCode = $vCode ?: ($variantId > 0 ? ('V' . str_pad((string)$variantId, 4, '0', STR_PAD_LEFT)) : ($cleanPrefix ?: 'V0001'));
+                $itemPrefix = $useVariantPrefix ? $vCode : $cleanPrefix;
+
                 for ($i = 0; $i < $itemQty; $i++) {
-                    $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+                    $code = $itemPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
                     while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$code])) {
                         $sequence++;
-                        $code = $cleanPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
+                        $code = $itemPrefix . '-' . str_pad((string)$sequence, 4, '0', STR_PAD_LEFT);
                     }
                     $codes[] = [
                         'code' => $code,
@@ -1403,6 +1408,15 @@ class QrGenerationService {
                         'selling_price' => $sellingPrice,
                     ];
                     $sequence++;
+                }
+
+                if ($variantId > 0) {
+                    try {
+                        Database::execute(
+                            "UPDATE product_variants SET qr_code = ? WHERE id = ? AND (qr_code IS NULL OR qr_code = '')",
+                            [$vCode, $variantId]
+                        );
+                    } catch (\Throwable $e) {}
                 }
             }
         } else {

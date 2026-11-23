@@ -97,6 +97,12 @@
 
         $itemHierarchy = $it['catalog_hierarchy'] ?? 'General Apparel';
         $catalogPrefix = $getPieceCatalogAbbr($it, $batch);
+        $variantCode = !empty($it['display_variant_code']) 
+            ? $it['display_variant_code'] 
+            : (!empty($it['variant_code']) 
+                ? $it['variant_code'] 
+                : (!empty($it['variant_id']) ? ('V' . str_pad((string)$it['variant_id'], 4, '0', STR_PAD_LEFT)) : ''));
+
         for ($p = 1; $p <= $inspectedQty; $p++) {
             $pieceTagCode = !empty($linkedQrCodes[$pieceIndex - 1])
                 ? $linkedQrCodes[$pieceIndex - 1]
@@ -134,6 +140,8 @@
                 'item'              => $it,
                 'catalog_hierarchy' => $itemHierarchy,
                 'catalog_abbr'      => $catalogPrefix,
+                'variant_code'      => $variantCode,
+                'variant_id'        => $it['variant_id'] ?? null,
                 'tag_code'          => $pieceTagCode,
                 'status'            => $initialStatus,
                 'is_reinspected'    => $isReinspected,
@@ -162,7 +170,7 @@
                 <div class="col-md-8">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-primary"><i class="bi bi-upc-scan text-primary fs-5"></i></span>
-                        <input type="text" id="qrScanInput" class="form-control form-control-lg border-primary fw-bold" placeholder="Scan QR sticker tag (e.g. <?= $allPieces[0]['tag_code'] ?? ($catalogPrefix . $monthStr . $yearStr . '01') ?>)..." autofocus onkeydown="if(event.key==='Enter'){event.preventDefault();handleQRScanInput();}">
+                        <input type="text" id="qrScanInput" class="form-control form-control-lg border-primary fw-bold" placeholder="Scan QR sticker tag / Variant ID (e.g. <?= e($allPieces[0]['variant_code'] ?? ($catalogPrefix . $monthStr . $yearStr . '01')) ?>)..." autofocus onkeydown="if(event.key==='Enter'){event.preventDefault();handleQRScanInput();}">
                         <button type="button" class="btn btn-primary btn-lg fw-semibold px-4" onclick="handleQRScanInput()">
                             <i class="bi bi-search me-1"></i>Scan &amp; Locate
                         </button>
@@ -170,7 +178,7 @@
                 </div>
                 <div class="col-md-4 mt-2 mt-md-0">
                     <small class="text-muted d-block" style="font-size: 0.85rem;">
-                        <i class="bi bi-info-circle me-1 text-primary"></i>Scan product tag code e.g. <code><?= $allPieces[0]['tag_code'] ?? ($catalogPrefix . $monthStr . $yearStr . '01') ?></code> to locate and highlight the garment piece.
+                        <i class="bi bi-info-circle me-1 text-primary"></i>Scan product Variant ID / QR tag e.g. <code><?= e($allPieces[0]['variant_code'] ?? ($catalogPrefix . $monthStr . $yearStr . '01')) ?></code> to locate and highlight the garment piece.
                     </small>
                 </div>
             </div>
@@ -295,6 +303,8 @@
                                 data-item-id="<?= $it['id'] ?>"
                                 data-catalog="<?= e($pc['catalog_hierarchy']) ?>"
                                 data-tag-code="<?= $pc['tag_code'] ?>"
+                                data-variant-code="<?= e($pc['variant_code']) ?>"
+                                data-variant-id="<?= e($pc['variant_id'] ?? '') ?>"
                                 data-locked="<?= $isLocked ? '1' : '0' ?>"
                                 data-outwarded="<?= $isOutwarded ? '1' : '0' ?>"
                                 data-size="<?= e($it['display_size']) ?>"
@@ -307,7 +317,13 @@
                                         </span>
                                     </div>
                                     <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
-                                        <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1"><i class="bi bi-tag-fill me-1 text-warning"></i><?= $pc['tag_code'] ?></span>
+                                        <?php 
+                                            $displayTag = !empty($pc['variant_code']) ? $pc['variant_code'] : $pc['tag_code'];
+                                            if (preg_match('/^PRD/i', (string)$displayTag)) {
+                                                $displayTag = !empty($pc['variant_code']) ? $pc['variant_code'] : (!empty($it['variant_id']) ? ('V' . str_pad((string)$it['variant_id'], 4, '0', STR_PAD_LEFT)) : 'VARIANT');
+                                            }
+                                        ?>
+                                        <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1" title="Variant ID for QR"><i class="bi bi-qr-code me-1 text-warning"></i><?= e($displayTag) ?></span>
                                         <span class="badge bg-secondary-subtle text-secondary border px-2 py-1"><?= e($it['display_size']) ?></span>
                                         <span class="badge bg-primary-subtle text-primary border px-2 py-1"><?= e($it['display_color']) ?></span>
                                         <?php if ($isOutwarded): ?>
@@ -744,7 +760,7 @@ function openPieceDefectModal(pieceIdx, mode = 'REJECTED') {
     const size = row.getAttribute('data-size');
     const color = row.getAttribute('data-color');
     const sku = row.getAttribute('data-sku');
-    const tagCode = row.getAttribute('data-tag-code');
+    const tagCode = row.getAttribute('data-variant-code') || row.getAttribute('data-tag-code');
 
     document.getElementById('modalPieceIndex').value = pieceIdx;
     document.getElementById('modalActionMode').value = mode;
@@ -868,7 +884,9 @@ function handleQRScanInput() {
 
     rows.forEach(r => {
         const tagCode = (r.getAttribute('data-tag-code') || '').toUpperCase();
-        if (scannedCode === tagCode || rawVal.includes(tagCode)) {
+        const varCode = (r.getAttribute('data-variant-code') || '').toUpperCase();
+        const varId = (r.getAttribute('data-variant-id') || '').toUpperCase();
+        if (scannedCode === tagCode || (varCode && scannedCode === varCode) || (varId && scannedCode === ('V' + varId)) || rawVal.includes(tagCode) || (varCode && rawVal.includes(varCode))) {
             matchedRow = r;
         }
     });
@@ -886,7 +904,7 @@ function handleQRScanInput() {
 
     if (matchedRow) {
         const pieceIdx = matchedRow.getAttribute('data-piece-index');
-        const tagCode = matchedRow.getAttribute('data-tag-code');
+        const tagCode = matchedRow.getAttribute('data-variant-code') || matchedRow.getAttribute('data-tag-code');
         const rowCatalog = (matchedRow.getAttribute('data-catalog') || '').trim();
         const statusInput = document.getElementById('pieceStatusInput_' + pieceIdx);
         const currentStatus = statusInput ? statusInput.value : 'PENDING';
