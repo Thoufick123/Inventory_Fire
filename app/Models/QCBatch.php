@@ -21,10 +21,12 @@ class QCBatch {
                     COALESCE(sc.name, sc_pp.name) as subcategory_name,
                     COALESCE(ssc.name, ssc_pp.name) as sub_subcategory_name,
                     sb.id as stitching_batch_id, sb.batch_number as stitching_batch_number,
+                    qg.id as qr_generation_id, qg.batch_code as qr_batch_code,
                     u.full_name as inspector_name
              FROM qc_batches qb
-             JOIN production_programs pp ON qb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
+             LEFT JOIN production_programs pp ON qb.program_id = pp.id
+             LEFT JOIN qr_generations qg ON qb.qr_generation_id = qg.id
+             LEFT JOIN products p ON COALESCE(pp.product_id, qg.product_id) = p.id
              LEFT JOIN categories c ON p.category_id = c.id
              LEFT JOIN categories c_pp ON pp.category_id = c_pp.id
              LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
@@ -45,6 +47,7 @@ class QCBatch {
         $sql = "SELECT qb.*, 
                        pp.program_number, pp.name as program_name,
                        p.name as product_name, p.code as product_code,
+                       qg.batch_code as qr_batch_code,
                        u.full_name as inspector_name,
                        COALESCE((
                            SELECT SUM(pbi.quantity)
@@ -57,7 +60,8 @@ class QCBatch {
                        (SELECT pb.status FROM production_batches pb WHERE pb.qc_batch_id = qb.id AND pb.status != 'CANCELLED' ORDER BY pb.id DESC LIMIT 1) as packed_batch_status
                 FROM qc_batches qb
                 LEFT JOIN production_programs pp ON qb.program_id = pp.id
-                LEFT JOIN products p ON pp.product_id = p.id
+                LEFT JOIN qr_generations qg ON qb.qr_generation_id = qg.id
+                LEFT JOIN products p ON COALESCE(pp.product_id, qg.product_id) = p.id
                 LEFT JOIN users u ON qb.inspector_id = u.id
                 WHERE 1=1";
         $params = [];
@@ -97,8 +101,8 @@ class QCBatch {
             $cleanNum = preg_replace('/^(qc\s*#?|batch\s*#?)/i', '', $rawSearch);
             $s = '%' . $rawSearch . '%';
             $sn = '%' . trim($cleanNum) . '%';
-            $sql .= " AND (CAST(qb.id AS CHAR) LIKE ? OR CAST(qb.id AS CHAR) LIKE ? OR pp.program_number LIKE ? OR pp.name LIKE ? OR p.name LIKE ? OR p.code LIKE ? OR u.full_name LIKE ?)";
-            $params = array_merge($params, [$s, $sn, $s, $s, $s, $s, $s]);
+            $sql .= " AND (CAST(qb.id AS CHAR) LIKE ? OR CAST(qb.id AS CHAR) LIKE ? OR pp.program_number LIKE ? OR pp.name LIKE ? OR p.name LIKE ? OR p.code LIKE ? OR u.full_name LIKE ? OR qg.batch_code LIKE ?)";
+            $params = array_merge($params, [$s, $sn, $s, $s, $s, $s, $s, $s]);
         }
 
         $sql .= " ORDER BY qb.created_at DESC";
@@ -133,13 +137,14 @@ class QCBatch {
 
         Database::execute(
             "INSERT INTO qc_batches 
-             (concern_id, batch_number, program_id, stitching_batch_id, inspector_id, total_qty, passed_qty, rejected_qty, rework_qty, status, notes)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (concern_id, batch_number, program_id, stitching_batch_id, qr_generation_id, inspector_id, total_qty, passed_qty, rejected_qty, rework_qty, status, notes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $concernId,
                 $data['batch_number'],
                 $data['program_id'],
                 $data['stitching_batch_id'] ?? null,
+                $data['qr_generation_id'] ?? null,
                 $data['inspector_id'] ?? null,
                 $data['total_qty'] ?? 0,
                 $data['passed_qty'] ?? 0,

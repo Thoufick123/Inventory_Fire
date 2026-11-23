@@ -524,7 +524,7 @@ class ProductionProgram {
      * Get all assigned fabric rolls for this program.
      */
     public static function getRolls(int $programId): array {
-        return Database::fetchAll(
+        $rolls = Database::fetchAll(
             "SELECT ppr.*, 
                     COALESCE(NULLIF(sr.roll_number, ''), CONCAT('ROLL #', ppr.id)) as roll_number,
                     COALESCE(NULLIF(ppr.roll_color, ''), NULLIF(ppr.color, ''), sr.color, 'Standard') as roll_color,
@@ -556,6 +556,11 @@ class ProductionProgram {
              ORDER BY ppr.id ASC",
             [$programId, $programId]
         );
+        foreach ($rolls as &$r) {
+            $r['attributes_parsed'] = !empty($r['attributes']) && is_string($r['attributes']) ? json_decode($r['attributes'], true) : (is_array($r['attributes']) ? $r['attributes'] : null);
+        }
+        unset($r);
+        return $rolls;
     }
 
     /**

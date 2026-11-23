@@ -298,12 +298,8 @@ class QrGenerationController {
 
         try {
             $result = QrGenerationService::generateStitchingBatch($_POST);
-            Session::flash('success', "Production Product QR Batch {$result['batch_code']} generated with {$result['quantity']} pieces and moved to Quality Control (QC)!");
-            if (!empty($result['qc_batch_id'])) {
-                Response::redirect(url('production/qc/inspect/' . $result['qc_batch_id']));
-            } else {
-                Response::redirect(url('production/qc'));
-            }
+            Session::flash('success', "Production Product QR Batch {$result['batch_code']} generated with {$result['quantity']} pieces! Now select inspector to start Quality Control (QC).");
+            Response::redirect(url('production/qc/create?qr_generation_id=' . $result['generation_id']));
             return;
         } catch (Throwable $e) {
             Session::flash('error', $e->getMessage());
@@ -319,28 +315,30 @@ class QrGenerationController {
         $concernWhere = "";
         $params = [];
         if ($cid) {
-            if ($cid === 1) {
-                $concernWhere = " AND (sb.concern_id = ? OR sb.concern_id IS NULL)";
-            } else {
-                $concernWhere = " AND sb.concern_id = ?";
-            }
+            $concernWhere = " AND (sb.concern_id = ? OR sb.concern_id IS NULL OR sb.concern_id = 0)";
             $params[] = $cid;
+        }
+
+        $requestedId = (int)($_GET['stitching_batch_id'] ?? 0);
+        $qrGenFilter = "(sb.qr_generation_id IS NULL OR sb.qr_generation_id = 0)";
+        if ($requestedId > 0) {
+            $qrGenFilter = "({$qrGenFilter} OR sb.id = {$requestedId})";
         }
 
         $batches = Database::fetchAll("
             SELECT sb.id, sb.batch_number, sb.name, sb.program_id, sb.category_id,
-                   sb.stitched_qty, sb.received_qty, sb.created_at, sb.status,
+                   sb.stitched_qty, sb.received_qty, sb.total_stitched_qty, sb.total_cut_qty, sb.created_at, sb.status,
                    pp.program_number, pp.name AS program_name,
                    p.name AS product_name, p.code AS product_code,
                    c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
             FROM stitching_batches sb
-            INNER JOIN production_programs pp ON pp.id = sb.program_id
+            LEFT JOIN production_programs pp ON pp.id = sb.program_id
             LEFT JOIN products p ON p.id = pp.product_id
             LEFT JOIN categories c ON c.id = COALESCE(sb.category_id, p.category_id)
             LEFT JOIN subcategories sc ON sc.id = COALESCE(sb.subcategory_id, p.subcategory_id)
             LEFT JOIN sub_subcategories ssc ON ssc.id = COALESCE(sb.sub_subcategory_id, p.sub_subcategory_id)
-            WHERE (sb.qr_generation_id IS NULL OR sb.qr_generation_id = 0)
-              AND UPPER(COALESCE(sb.status, '')) = 'COMPLETED'
+            WHERE {$qrGenFilter}
+              AND (sb.status IS NULL OR UPPER(sb.status) != 'CANCELLED')
               {$concernWhere}
             ORDER BY sb.id DESC
             LIMIT 200
@@ -378,7 +376,7 @@ class QrGenerationController {
             foreach ($items as $it) {
                 $calcTotal += (int)$it['qty'];
             }
-            $b['total_pieces'] = $calcTotal > 0 ? $calcTotal : max(1, (int)($b['stitched_qty'] ?: $b['received_qty']));
+            $b['total_pieces'] = $calcTotal > 0 ? $calcTotal : max(1, (int)($b['total_stitched_qty'] ?: ($b['stitched_qty'] ?: ($b['received_qty'] ?: ($b['total_cut_qty'] ?: 1)))));
         }
         unset($b);
 

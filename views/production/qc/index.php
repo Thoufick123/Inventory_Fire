@@ -74,7 +74,7 @@
                                     </a>
                                 <?php else: ?>
                                     <h6 class="fw-bold text-dark">No QC inspections recorded.</h6>
-                                    <p class="small text-muted mb-3">Start by creating a new QC batch from completed stitching or labeling.</p>
+                                    <p class="small text-muted mb-3">Start by creating a new QC batch from completed QR generated batches.</p>
                                     <?php if (hasPermission('qc', 'create')): ?>
                                     <a href="<?= url('production/qc/create') ?>" class="btn btn-sm btn-primary">
                                         <i class="bi bi-plus-circle me-1"></i> New QC Batch
