@@ -4,6 +4,17 @@ declare(strict_types=1);
 
 <div class="container-fluid py-3 cash-flow-page">
 <div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small text-muted mb-1">
+            <li class="breadcrumb-item">
+                <a href="<?= url('admin/dashboard') ?>" class="text-decoration-none" aria-label="Home" title="Home">
+                    <i class="bi bi-house-door text-primary" aria-hidden="true"></i>
+                </a>
+            </li>
+            <li class="breadcrumb-item">All Modules</li>
+            <li class="breadcrumb-item active" aria-current="page">Cash Management</li>
+        </ol>
+    </nav>
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center flex-wrap gap-2">
             <h2 class="mb-0 fw-bold">Cash Management</h2>
