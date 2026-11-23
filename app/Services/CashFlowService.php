@@ -86,7 +86,7 @@ class CashFlowService {
         }
 
         $shift = Database::fetchOne(
-            "SELECT s.*, u.name AS cashier_name, c.name AS concern_name
+            "SELECT s.*, u.full_name AS cashier_name, c.name AS concern_name
              FROM shop_shifts s
              LEFT JOIN users u ON u.id = s.cashier_id
              LEFT JOIN concerns c ON c.id = s.concern_id
