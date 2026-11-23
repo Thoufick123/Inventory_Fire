@@ -7,59 +7,21 @@
     </a>
 </div>
 
-<!-- Mapping entries saved before purchase entry -->
-<div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
-        <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
-            <tbody>
-                <?php if (empty($mappingDrafts)): ?>
-                    <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
-                <?php else: foreach ($mappingDrafts as $draft): ?>
-                    <tr>
-                        <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
-                        <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
-                        <td><?= (int)$draft['product_count'] ?></td>
-                        <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
-                        <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
-                        <td>
-                            <?php if (!empty($draft['purchase_number'])): ?>
-                                <a href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" class="fw-bold font-monospace text-primary text-decoration-none" title="View Purchase Bill">
-                                    <i class="bi bi-receipt me-1"></i><?= e($draft['purchase_number']) ?>
-                                </a>
-                            <?php else: ?>
-                                <span class="badge bg-light text-muted border">Not linked</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-end">
-                            <div class="d-inline-flex gap-1 align-items-center">
-                                <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Open Mapping Invoice">
-                                    <i class="bi bi-pencil-square me-1"></i>Open
-                                </a>
-                                <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
-                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
-                                        <?= CSRF::field() ?>
-                                        <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
-                                            <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
-                                        </button>
-                                    </form>
-                                <?php elseif (!empty($draft['purchase_id'])): ?>
-                                    <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
-                                        <i class="bi bi-eye me-1"></i>View
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
-                <?php endforeach; endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
+<ul class="nav nav-tabs mb-3" id="mappingPageTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" id="mappingProductsTab" data-bs-toggle="tab" data-bs-target="#mappingProductsPane" type="button" role="tab" aria-controls="mappingProductsPane" aria-selected="true">
+            <i class="bi bi-diagram-3 me-1"></i>Product Mapping
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="mappingLogsTab" data-bs-toggle="tab" data-bs-target="#mappingLogsPane" type="button" role="tab" aria-controls="mappingLogsPane" aria-selected="false">
+            <i class="bi bi-journal-text me-1"></i>Mapping Invoice Log
+            <span class="badge bg-secondary ms-1"><?= count($mappingDrafts ?? []) ?></span>
+        </button>
+    </li>
+</ul>
+<div class="tab-content" id="mappingPageTabContent">
+    <div class="tab-pane fade show active" id="mappingProductsPane" role="tabpanel" aria-labelledby="mappingProductsTab">
 
 <!-- KPI Metric Cards -->
 <div class="row g-3 mb-4">
@@ -295,6 +257,63 @@
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+    </div>
+    <div class="tab-pane fade" id="mappingLogsPane" role="tabpanel" aria-labelledby="mappingLogsTab">
+        <div class="card border shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
+                <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                        <?php if (empty($mappingDrafts)): ?>
+                            <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
+                        <?php else: foreach ($mappingDrafts as $draft): ?>
+                            <tr>
+                                <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
+                                <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
+                                <td><?= (int)$draft['product_count'] ?></td>
+                                <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
+                                <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
+                                <td>
+                                    <?php if (!empty($draft['purchase_number'])): ?>
+                                        <a href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" class="fw-bold font-monospace text-primary text-decoration-none" title="View Purchase Bill">
+                                            <i class="bi bi-receipt me-1"></i><?= e($draft['purchase_number']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-muted border">Not linked</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Open Mapping Invoice">
+                                            <i class="bi bi-pencil-square me-1"></i>Open
+                                        </a>
+                                        <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
+                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
+                                                <?= CSRF::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
+                                                    <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
+                                                </button>
+                                            </form>
+                                        <?php elseif (!empty($draft['purchase_id'])): ?>
+                                            <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
+                                                <i class="bi bi-eye me-1"></i>View
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -3723,9 +3723,9 @@ class ProductionController {
              ORDER BY mi.id ASC",
             [$mappingBillId]
         );
-        $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY name");
-        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
-        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
+        $categories = Database::fetchAll("SELECT id, name, code FROM third_party_categories ORDER BY name");
+        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories ORDER BY name");
+        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories ORDER BY name");
 
         $candidateScope = $cid !== null
             ? ($cid === 1 ? ' AND (pp.concern_id = ? OR pp.concern_id IS NULL)' : ' AND pp.concern_id = ?')
@@ -4019,7 +4019,7 @@ class ProductionController {
                     || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
                     throw new InvalidArgumentException('Each variant needs a whole-number quantity, valid prices, GST rate and HSN code.');
                 }
-                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
+                if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
                     throw new InvalidArgumentException('Select a valid category hierarchy for every variant.');
                 }
                 if ($sku === '') {
@@ -4855,6 +4855,7 @@ class ProductionController {
                     'category_id' => (int)$item['category_id'],
                     'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
                     'sub_subcategory_id' => (int)($item['sub_subcategory_id'] ?? 0) ?: null,
+                    'include_inactive_categories' => true,
                     'attributes' => $attributes,
                     'is_complementary' => 0,
                     'mrp' => (float)$item['mrp'],

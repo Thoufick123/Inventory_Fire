@@ -327,6 +327,7 @@ class PurchaseMappingFulfillmentService {
         $categoryId = (int)($mapping['category_id'] ?? 0);
         $subcategoryId = !empty($mapping['subcategory_id']) ? (int)$mapping['subcategory_id'] : null;
         $subSubcategoryId = !empty($mapping['sub_subcategory_id']) ? (int)$mapping['sub_subcategory_id'] : null;
+        $includeInactiveCategories = !empty($mapping['include_inactive_categories']);
         $isComplementary = !empty($mapping['is_complementary']) ? 1 : 0;
         $variantIsComplementary = array_key_exists('variant_is_complementary', $mapping)
             ? (!empty($mapping['variant_is_complementary']) ? 1 : 0)
@@ -346,19 +347,20 @@ class PurchaseMappingFulfillmentService {
             throw new InvalidArgumentException('Selling price cannot be greater than MRP.');
         }
 
+        $categoryActiveCondition = $includeInactiveCategories ? '' : ' AND is_active = 1';
         $category = Database::fetchOne(
-            "SELECT id, name, code FROM third_party_categories WHERE id = ? AND is_active = 1",
+            "SELECT id, name, code FROM third_party_categories WHERE id = ?{$categoryActiveCondition}",
             [$categoryId]
         );
         if (!$category) {
             throw new InvalidArgumentException('Selected category does not exist.');
         }
-        if (!self::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
+        if (!self::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, $includeInactiveCategories)) {
             throw new InvalidArgumentException('Select a valid category hierarchy from the Third-Party Catalog.');
         }
         if ($subcategoryId) {
             $validSub = Database::fetchOne(
-                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ?{$categoryActiveCondition}",
                 [$subcategoryId, $categoryId]
             );
             if (!$validSub) {
@@ -368,7 +370,7 @@ class PurchaseMappingFulfillmentService {
         }
         if ($subSubcategoryId) {
             $validSubSub = Database::fetchOne(
-                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ?{$categoryActiveCondition}",
                 [$subSubcategoryId, $subcategoryId ?: 0]
             );
             if (!$validSubSub) {
@@ -443,9 +445,15 @@ class PurchaseMappingFulfillmentService {
         }
     }
 
-    public static function isExternalCatalogHierarchy(int $categoryId, ?int $subcategoryId = null, ?int $subSubcategoryId = null): bool {
+    public static function isExternalCatalogHierarchy(
+        int $categoryId,
+        ?int $subcategoryId = null,
+        ?int $subSubcategoryId = null,
+        bool $includeInactive = false
+    ): bool {
+        $activeCondition = $includeInactive ? '' : ' AND is_active = 1';
         if ($categoryId <= 0 || !Database::fetchOne(
-            "SELECT id FROM third_party_categories WHERE id = ? AND is_active = 1",
+            "SELECT id FROM third_party_categories WHERE id = ?{$activeCondition}",
             [$categoryId]
         )) {
             return false;
@@ -453,7 +461,7 @@ class PurchaseMappingFulfillmentService {
 
         if ($subcategoryId) {
             if (!Database::fetchOne(
-                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_subcategories WHERE id = ? AND category_id = ?{$activeCondition}",
                 [$subcategoryId, $categoryId]
             )) {
                 return false;
@@ -461,7 +469,7 @@ class PurchaseMappingFulfillmentService {
         }
         if ($subSubcategoryId) {
             if (!$subcategoryId || !Database::fetchOne(
-                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ? AND is_active = 1",
+                "SELECT id FROM third_party_sub_subcategories WHERE id = ? AND subcategory_id = ?{$activeCondition}",
                 [$subSubcategoryId, $subcategoryId]
             )) {
                 return false;

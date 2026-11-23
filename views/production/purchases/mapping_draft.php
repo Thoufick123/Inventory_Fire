@@ -93,18 +93,28 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Items to Mapping</h5>
             <div class="small text-muted mt-1">Add both Third-Party Product Variants and Fabric Rolls with HSN, GST, quantities and rates.</div>
         </div>
-        <ul class="nav nav-pills" id="mappingEntryTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active py-1 px-3 fw-semibold" id="tabThirdPartyBtn" data-bs-toggle="pill" data-bs-target="#tabThirdParty" type="button" role="tab">
-                    <i class="bi bi-tag me-1"></i>Third-Party Products &amp; Variants
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link py-1 px-3 fw-semibold text-primary border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
-                    <i class="bi bi-layers-half me-1"></i>Fabric Rolls (Multiple Rolls)
-                </button>
-            </li>
-        </ul>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <ul class="nav nav-pills" id="mappingEntryTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-1 px-3 fw-semibold" id="tabThirdPartyBtn" data-bs-toggle="pill" data-bs-target="#tabThirdParty" type="button" role="tab">
+                        <i class="bi bi-tag me-1"></i>Third-Party Products &amp; Variants
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link py-1 px-3 fw-semibold text-primary border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
+                        <i class="bi bi-layers-half me-1"></i>Fabric Rolls (Multiple Rolls)
+                    </button>
+                </li>
+            </ul>
+            <div class="d-flex align-items-end gap-2" id="mappingVariantControls">
+                <div>
+                    <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
+                    <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 80px;" autocomplete="off">
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
+            </div>
+        </div>
     </div>
     <div class="card-body">
         <div class="tab-content" id="mappingEntryTabContent">
@@ -149,15 +159,7 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
                             <tbody id="mappingVariantRows"><?php $variantRow(0); ?></tbody>
                         </table>
                     </div>
-                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
-                        <div class="d-flex align-items-end gap-2">
-                            <div>
-                                <label class="form-label small mb-1" for="mappingVariantRowsToAdd">Variant rows to add</label>
-                                <input class="form-control form-control-sm" id="mappingVariantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 110px;" autocomplete="off">
-                            </div>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingVariantRows"><i class="bi bi-plus-lg me-1"></i>Add Rows</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingVariant"><i class="bi bi-plus-lg me-1"></i>Add 1 Variant</button>
-                        </div>
+                    <div class="d-flex justify-content-end">
                         <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>Save Product to Mapping</button>
                     </div>
                 </form>
@@ -512,6 +514,16 @@ $variantRow = static function (int $index = 0) use ($categories, $subcategories,
             if (subSubcat) subSubcat.value = '';
             updateRowCascade(row);
         }
+    });
+
+    const variantControls = document.getElementById('mappingVariantControls');
+    const fabricTab = document.getElementById('tabFabricRollsBtn');
+    const productTab = document.getElementById('tabThirdPartyBtn');
+    fabricTab?.addEventListener('shown.bs.tab', function () {
+        variantControls?.classList.add('d-none');
+    });
+    productTab?.addEventListener('shown.bs.tab', function () {
+        variantControls?.classList.remove('d-none');
     });
 })();
 </script>
