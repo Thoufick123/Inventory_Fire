@@ -8,7 +8,6 @@
             <h4 class="fw-bold text-dark mb-1">
                 <i class="bi bi-recycle text-success me-2"></i>Fabric &amp; Cutting Wastage Selling
             </h4>
-            <span class="text-muted small">Maintain selling prices, link cutting module scrap batches, track buyers, and record waste revenue</span>
         </div>
         <div class="d-flex gap-2">
             <?php if (hasPermission('wastage', 'create')): ?>

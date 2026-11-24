@@ -558,6 +558,9 @@ function addProgramRollRow(rollData = null) {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'p-4 bg-white rounded-3 border shadow-sm program-roll-card mb-4';
     rowDiv.id = 'program_roll_card_' + idx;
+    if (rollData?.is_scanned) {
+        rowDiv.dataset.isScanned = 'true';
+    }
 
     const optionsHtml = buildRollOptionsHtml(rollData ? (rollData.seller_roll_id || rollData.id) : '', idx);
 
@@ -715,6 +718,25 @@ function addProgramRollRow(rollData = null) {
     container.appendChild(rowDiv);
     updateRollIndices();
 
+    // Prevent key/wheel increase on locked scanned roll qty
+    const qtyInpEl = rowDiv.querySelector('.roll-qty-input');
+    if (qtyInpEl) {
+        qtyInpEl.addEventListener('keydown', function(e) {
+            const parentCard = this.closest('.program-roll-card');
+            if (parentCard && parentCard.dataset.isScanned === 'true') {
+                if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', '+', '-'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            }
+        });
+        qtyInpEl.addEventListener('wheel', function(e) {
+            const parentCard = this.closest('.program-roll-card');
+            if (parentCard && parentCard.dataset.isScanned === 'true') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+
     if (rollData) {
         const sel = rowDiv.querySelector('.roll-select');
         if (sel) sel.dataset.previousRollId = String(sel.value || '');
@@ -767,6 +789,17 @@ function handleRollQtyInput(counterId) {
     }
     const allocatedCodesInput = document.getElementById('roll_allocated_qrs_' + counterId);
     const qtyInput = document.getElementById('roll_qty_' + counterId);
+
+    // Scan Fabric Roll Barcode / QR Tag time: Roll Qty (pcs) CANNOT be increased!
+    if (card.dataset.isScanned === 'true') {
+        if (qtyInput) {
+            qtyInput.value = '1';
+            qtyInput.readOnly = true;
+            qtyInput.max = '1';
+        }
+        return;
+    }
+
     const rollObj = availableSellerRolls.find(r => String(r.id) === String(select.value));
     if (rollObj && rollObj.pieces && rollObj.pieces.length > 0 && allocatedCodesInput) {
         const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
@@ -831,7 +864,33 @@ function renderRollPieces(counterId) {
     if (!container) return;
     const selectedCodes = new Set(getSelectedRollPieceCodes(counterId));
     const quantityInput = document.getElementById('roll_qty_' + counterId);
-    if (quantityInput) quantityInput.readOnly = selectedCodes.size > 0;
+    const isScanned = card?.dataset?.isScanned === 'true';
+
+    if (quantityInput) {
+        if (isScanned) {
+            // Scan Fabric Roll Barcode / QR Tag time: Roll Qty CANNOT be increased!
+            quantityInput.readOnly = true;
+            quantityInput.value = '1';
+            quantityInput.max = '1';
+            quantityInput.min = '1';
+            quantityInput.classList.add('bg-light');
+            quantityInput.style.cursor = 'not-allowed';
+            quantityInput.title = 'Roll Qty is locked to 1 pc for individual scanned roll QR tag.';
+        } else {
+            // Select Raw Material Roll dropdown option choose time: Roll Qty CAN be increased!
+            quantityInput.readOnly = false;
+            quantityInput.min = '1';
+            if (rollObj) {
+                const totalAvail = (rollObj.available_quantity !== undefined && rollObj.available_quantity !== null)
+                    ? parseInt(rollObj.available_quantity, 10)
+                    : parseInt(rollObj.quantity || 1, 10);
+                quantityInput.max = String(Math.max(1, totalAvail));
+            }
+            quantityInput.classList.remove('bg-light');
+            quantityInput.style.cursor = '';
+            quantityInput.removeAttribute('title');
+        }
+    }
     if (badge) badge.textContent = `${selectedCodes.size} Selected`;
 
     const scannedBadge = document.getElementById('roll_scanned_badge_' + counterId);
@@ -839,7 +898,8 @@ function renderRollPieces(counterId) {
     const scannedBanner = document.getElementById('roll_scanned_banner_' + counterId);
     const scannedBannerCode = document.getElementById('roll_scanned_banner_code_' + counterId);
 
-    if (selectedCodes.size > 0) {
+    // Only display scanned QR badges/banners if this roll card was explicitly scanned!
+    if (isScanned && selectedCodes.size > 0) {
         const codeList = [...selectedCodes].join(', ');
         if (scannedLabel) scannedLabel.textContent = codeList;
         if (scannedBadge) scannedBadge.classList.remove('d-none');
@@ -892,6 +952,13 @@ function updateRollPieceSelection(counterId, code, isSelected) {
         : null;
     if (!rollObj || !input || !quantity) return false;
 
+    // Scanned roll item is restricted to 1 piece
+    if (card?.dataset?.isScanned === 'true' && isSelected && getSelectedRollPieceCodes(counterId).length >= 1) {
+        showScanFeedback('Scanned QR roll is restricted to 1 individual piece.', 'warning');
+        renderRollPieces(counterId);
+        return false;
+    }
+
     const normalizedCode = String(code || '').trim().toUpperCase();
     const selectedCodes = new Set(getSelectedRollPieceCodes(counterId));
     const piece = (rollObj.pieces || []).find(item => String(item.code || '').toUpperCase() === normalizedCode);
@@ -925,6 +992,10 @@ function updateRollPieceSelection(counterId, code, isSelected) {
 
 function selectAllRollPieces(counterId) {
     const card = document.getElementById('program_roll_card_' + counterId);
+    if (card?.dataset?.isScanned === 'true') {
+        showScanFeedback('Cannot select all pieces on an individual scanned roll item.', 'warning');
+        return;
+    }
     const select = card?.querySelector('.roll-select');
     const input = document.getElementById('roll_allocated_qrs_' + counterId);
     const quantity = document.getElementById('roll_qty_' + counterId);
@@ -954,7 +1025,11 @@ function clearRollPieces(counterId) {
     renderRollPieces(counterId);
 }
 
-function handleRollRowChange(selectElement, counterId, autoPopulate = true) {
+function handleRollRowChange(selectElement, counterId, autoPopulate = true, isScan = false) {
+    const card = document.getElementById('program_roll_card_' + counterId);
+    if (!isScan && card) {
+        card.dataset.isScanned = 'false';
+    }
     const qtyInput = document.getElementById('roll_qty_' + counterId);
     const weightInput = document.getElementById('roll_weight_' + counterId);
     const priceInput = document.getElementById('roll_price_' + counterId);
@@ -998,6 +1073,12 @@ function handleRollRowChange(selectElement, counterId, autoPopulate = true) {
     if (qtyInput) {
         qtyInput.disabled = false;
         qtyInput.placeholder = 'e.g. 1';
+        if (!isScan && (!card || card.dataset.isScanned !== 'true')) {
+            qtyInput.readOnly = false;
+            qtyInput.classList.remove('bg-light');
+            qtyInput.style.cursor = '';
+            qtyInput.removeAttribute('title');
+        }
     }
     if (catSelect) {
         catSelect.disabled = false;
@@ -1868,7 +1949,8 @@ function processScannedRollCode(rawCode) {
             roll_qty: 1,
             roll_weight: matchedRoll.weight,
             roll_price: matchedRoll.price,
-            allocated_qr_codes: targetPieceCode || ''
+            allocated_qr_codes: targetPieceCode || '',
+            is_scanned: true
         });
         targetCard = document.getElementById('program_roll_card_' + rollCounter);
     }
@@ -1878,12 +1960,23 @@ function processScannedRollCode(rawCode) {
     const select = targetCard?.querySelector('.roll-select');
     if (!counterId || !select) return false;
 
-    select.value = String(matchedRoll.id);
-    handleRollRowChange(select, counterId, true);
+    // Mark card as scanned explicitly
+    targetCard.dataset.isScanned = 'true';
 
-    // Enforce Quantity = 1 for this scanned roll item
+    select.value = String(matchedRoll.id);
+    handleRollRowChange(select, counterId, true, true);
+
+    // Enforce Quantity = 1 for this scanned roll item (CANNOT be increased)
     const quantity = document.getElementById('roll_qty_' + counterId);
-    if (quantity) quantity.value = '1';
+    if (quantity) {
+        quantity.value = '1';
+        quantity.readOnly = true;
+        quantity.max = '1';
+        quantity.min = '1';
+        quantity.classList.add('bg-light');
+        quantity.style.cursor = 'not-allowed';
+        quantity.title = 'Roll Qty is locked to 1 pc for individual scanned roll QR tag.';
+    }
 
     if (matchedPiece) {
         const allocInput = document.getElementById('roll_allocated_qrs_' + counterId);
