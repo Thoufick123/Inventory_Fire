@@ -1603,14 +1603,19 @@ class ProductionBillingController
 
         // Get all piece tags that were already packed into dispatched batches
         $outwardedTagRows = Database::fetchAll(
-            "SELECT pbi.piece_tags
+            "SELECT pbi.piece_tags, pb.status as batch_status, w.concern_id as dest_concern_id
              FROM production_batch_items pbi
              JOIN production_batches pb ON pb.id = pbi.production_batch_id
+             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
              JOIN production_outwards po ON po.production_batch_id = pb.id
              WHERE po.status IN ('DISPATCHED', 'RECEIVED') OR pb.status IN ('DISPATCHED', 'RECEIVED')"
         );
         $outwardedTags = [];
         foreach ($outwardedTagRows as $otRow) {
+            // If the batch was received into a warehouse belonging to the active concern, do not mark as outwarded for this concern
+            if ($cid && !empty($otRow['dest_concern_id']) && (int)$otRow['dest_concern_id'] === (int)$cid && ($otRow['batch_status'] ?? '') === 'RECEIVED') {
+                continue;
+            }
             if (!empty($otRow['piece_tags'])) {
                 $decoded = json_decode($otRow['piece_tags'], true);
                 $tagList = is_array($decoded) ? $decoded : explode(',', $otRow['piece_tags']);
@@ -1709,6 +1714,85 @@ class ProductionBillingController
                 'hsn_code' => (string)($row['hsn_code'] ?? '6109'),
                 'available_tags' => $tags,
             ];
+        }
+
+        // Also fetch inwarded finished goods received in warehouses belonging to this concern
+        if ($cid) {
+            try {
+                $inwardBillingRows = Database::fetchAll(
+                    "SELECT pbi.id AS batch_item_id, pbi.production_batch_id, pbi.variant_id, pbi.quantity,
+                            pbi.received_qty, pbi.received_qr_codes, pbi.piece_tags,
+                            pb.batch_number, pb.program_id,
+                            COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
+                            p.id AS product_id,
+                            COALESCE(p.variants_deferred, 0) AS variants_deferred,
+                            p.code AS product_code, p.gst_percentage, p.hsn_code,
+                            p.is_complementary AS prod_is_comp,
+                            COALESCE(NULLIF(pv.variant_code, ''), IF(pbi.variant_id > 0, CONCAT('V', LPAD(pbi.variant_id, 4, '0')), NULL)) AS variant_code,
+                            pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
+                            pv.is_complementary AS var_is_comp,
+                            s.name AS size_name, c.name AS color_name,
+                            pp.program_number
+                     FROM production_batch_items pbi
+                     JOIN production_batches pb ON pb.id = pbi.production_batch_id
+                     JOIN warehouses w ON pb.destination_warehouse_id = w.id
+                     LEFT JOIN production_programs pp ON pb.program_id = pp.id
+                     LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+                     LEFT JOIN products p ON pv.product_id = p.id
+                     LEFT JOIN sizes s ON pv.size_id = s.id
+                     LEFT JOIN colors c ON pv.color_id = c.id
+                     WHERE pb.status = 'RECEIVED'
+                       AND (w.concern_id = ? OR (w.concern_id IS NULL AND pb.destination_warehouse_id = ?))",
+                    [$cid, $cid]
+                );
+
+                foreach ($inwardBillingRows as $iRow) {
+                    $rawTags = [];
+                    if (!empty($iRow['received_qr_codes'])) {
+                        $rawTags = array_filter(array_map('trim', explode(',', $iRow['received_qr_codes'])));
+                    } elseif (!empty($iRow['piece_tags'])) {
+                        $dec = json_decode($iRow['piece_tags'], true);
+                        $rawTags = is_array($dec) ? $dec : array_filter(array_map('trim', explode(',', $iRow['piece_tags'])));
+                    }
+                    
+                    // Exclude tags already sold in bills or marked as damaged
+                    $availTags = array_values(array_filter(
+                        $rawTags,
+                        static fn(string $tag): bool => !isset($soldTags[strtoupper(trim($tag))])
+                            && !isset($damagedTags[strtoupper(trim($tag))])
+                    ));
+
+                    if (empty($availTags)) {
+                        continue;
+                    }
+
+                    $mrp = (float)($iRow['variant_mrp'] ?? 0);
+                    $price = (float)($iRow['selling_price'] ?? 0);
+                    if ($price <= 0) $price = $mrp;
+                    $isComp = (!empty($iRow['prod_is_comp']) || !empty($iRow['var_is_comp']));
+                    if ($isComp) $price = 0.00;
+
+                    $available[] = [
+                        'qc_item_id' => 0,
+                        'qc_batch_id' => (int)$iRow['production_batch_id'],
+                        'variant_id' => (int)($iRow['variant_id'] ?? 0),
+                        'variant_code' => (string)(!empty($iRow['variant_code']) ? $iRow['variant_code'] : ((int)($iRow['variant_id'] ?? 0) > 0 ? sprintf('V%04d', (int)$iRow['variant_id']) : '')),
+                        'product_name' => (string)$iRow['product_name'],
+                        'program_number' => (string)($iRow['program_number'] ?? $iRow['batch_number']),
+                        'sku' => (string)(!empty($iRow['sku']) ? $iRow['sku'] : ($iRow['product_code'] ?? '')),
+                        'size_name' => (string)($iRow['size_name'] ?? 'Std'),
+                        'color_name' => (string)($iRow['color_name'] ?? 'Std'),
+                        'mrp' => $mrp,
+                        'unit_price' => $price,
+                        'is_complementary' => $isComp ? 1 : 0,
+                        'gst_percentage' => max(0, (float)($iRow['gst_percentage'] ?? 0)),
+                        'hsn_code' => (string)($iRow['hsn_code'] ?? '6109'),
+                        'available_tags' => $availTags,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                error_log('Error loading inward billing inventory: ' . $e->getMessage());
+            }
         }
 
         return $available;

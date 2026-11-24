@@ -19485,9 +19485,207 @@ class ProductionController {
             error_log('Error loading third-party product inventory: ' . $e->getMessage());
         }
 
-        // Tab Navigation: 'all', 'stitching', 'third_party'
+        // Fetch All Inwarded Finished Goods Received into Warehouses of Active Concern
+        try {
+            $inwardBatchSql = "
+                SELECT pb.id AS production_batch_id,
+                       pb.batch_number,
+                       pb.status AS batch_status,
+                       pb.created_at AS batch_created_at,
+                       pb.packed_date,
+                       pb.program_id,
+                       pb.qc_batch_id,
+                       pb.destination_warehouse_id,
+                       pb.concern_id AS origin_concern_id,
+                       w.name AS warehouse_name,
+                       w.code AS warehouse_code,
+                       w.concern_id AS warehouse_concern_id,
+                       pp.program_number,
+                       pp.name AS program_name,
+                       c_orig.name AS origin_concern_name,
+                       pbi.id AS batch_item_id,
+                       pbi.variant_id,
+                       pbi.quantity AS dispatched_qty,
+                       pbi.received_qty,
+                       pbi.damaged_qty,
+                       pbi.missing_qty,
+                       pbi.piece_tags,
+                       pbi.received_qr_codes,
+                       pv.sku AS variant_sku,
+                       pv.mrp AS variant_mrp,
+                       pv.selling_price AS variant_selling_price,
+                       pv.production_cost,
+                       pv.purchase_price,
+                       pv.product_id,
+                       COALESCE(NULLIF(pv.variant_code, ''), IF(pbi.variant_id > 0, CONCAT('V', LPAD(pbi.variant_id, 4, '0')), NULL)) AS variant_code,
+                       p.name AS product_name,
+                       p.code AS product_code,
+                       p.image_url AS product_image,
+                       p.category_id,
+                       cat.name AS category_name,
+                       s.name AS size_name,
+                       c.name AS color_name
+                FROM production_batches pb
+                JOIN production_batch_items pbi ON pb.id = pbi.production_batch_id
+                JOIN warehouses w ON pb.destination_warehouse_id = w.id
+                LEFT JOIN concerns c_orig ON pb.concern_id = c_orig.id
+                LEFT JOIN production_programs pp ON pb.program_id = pp.id
+                LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+                LEFT JOIN products p ON pv.product_id = p.id
+                LEFT JOIN categories cat ON p.category_id = cat.id
+                LEFT JOIN sizes s ON pv.size_id = s.id
+                LEFT JOIN colors c ON pv.color_id = c.id
+                WHERE pb.status = 'RECEIVED'
+            ";
+            $inwardParams = [];
+
+            if ($cid) {
+                $inwardBatchSql .= " AND (w.concern_id = ? OR (w.concern_id IS NULL AND pb.destination_warehouse_id = ?))";
+                $inwardParams[] = $cid;
+                $inwardParams[] = $cid;
+            }
+
+            if (!empty($search)) {
+                $inwardBatchSql .= " AND (
+                    pb.batch_number LIKE ?
+                    OR pp.program_number LIKE ?
+                    OR p.name LIKE ?
+                    OR p.code LIKE ?
+                    OR pv.sku LIKE ?
+                    OR cat.name LIKE ?
+                    OR s.name LIKE ?
+                    OR c.name LIKE ?
+                )";
+                $sp = '%' . $search . '%';
+                $inwardParams = array_merge($inwardParams, [$sp, $sp, $sp, $sp, $sp, $sp, $sp, $sp]);
+            }
+
+            if ($categoryFilter) {
+                $inwardBatchSql .= " AND p.category_id = ?";
+                $inwardParams[] = $categoryFilter;
+            }
+
+            $inwardBatchSql .= " ORDER BY pb.updated_at DESC, pb.id DESC";
+            $inwardRows = Database::fetchAll($inwardBatchSql, $inwardParams);
+
+            foreach ($inwardRows as $row) {
+                $pbId = (int)$row['production_batch_id'];
+                $bKey = 'inward_' . $pbId;
+                if (!isset($batches[$bKey])) {
+                    $batches[$bKey] = [
+                        'inventory_type'        => 'INWARD',
+                        'tab_type'              => 'inward',
+                        'is_fabric'             => false,
+                        'is_product'            => true,
+                        'is_qc'                 => false,
+                        'is_supply'             => false,
+                        'is_inward'             => true,
+                        'supply_item_id'        => 0,
+                        'purchase_id'           => 0,
+                        'production_batch_id'   => $pbId,
+                        'batch_number'          => $row['batch_number'],
+                        'unit'                  => 'Pcs',
+                        'roll_number'           => '',
+                        'material_type'         => '',
+                        'qc_batch_id'           => $row['qc_batch_id'] ?: $pbId,
+                        'program_id'            => $row['program_id'],
+                        'program_number'        => $row['program_number'] ?: $row['batch_number'],
+                        'product_name'          => $row['product_name'] ?: 'Inwarded Finished Product',
+                        'category_name'         => $row['category_name'] ?? 'Apparel',
+                        'category_id'           => $row['category_id'] ?? null,
+                        'inspector_name'        => $row['origin_concern_name'] ?: 'Production Facility',
+                        'origin_facility'       => $row['origin_concern_name'] ?: 'Production Unit',
+                        'warehouse_name'        => $row['warehouse_name'],
+                        'batch_created_at'      => $row['batch_created_at'],
+                        'total_passed_pieces'   => 0,
+                        'total_rework_pieces'   => 0,
+                        'total_rejected_pieces' => 0,
+                        'total_pieces'          => 0,
+                        'total_value'           => 0.0,
+                        'total_outward_pieces'  => 0,
+                        'total_billed_pieces'   => 0,
+                        'remaining_pieces'      => 0,
+                        'remaining_value'       => 0.0,
+                        'total_passed_value'    => 0.0,
+                        'stock_status'          => 'IN_STOCK',
+                        'outward_history'       => [],
+                        'outward_count'         => 0,
+                        'variants'              => [],
+                        'variant_indexes'       => [],
+                    ];
+                }
+
+                $recQty = (int)($row['received_qty'] > 0 ? $row['received_qty'] : $row['dispatched_qty']);
+                $vId = (int)$row['variant_id'];
+                $mrp = (float)(($row['variant_mrp'] ?? 0) > 0 ? $row['variant_mrp'] : 0);
+                $price = (float)(($row['variant_selling_price'] ?? 0) > 0 ? $row['variant_selling_price'] : $mrp);
+                $costPrice = (float)(($row['production_cost'] ?? 0) > 0 ? $row['production_cost'] : ($row['purchase_price'] ?? 0));
+
+                // Check billed piece count for this item if any tags were billed in this concern
+                $itemTags = [];
+                if (!empty($row['received_qr_codes'])) {
+                    $itemTags = array_filter(array_map('trim', explode(',', $row['received_qr_codes'])));
+                } elseif (!empty($row['piece_tags'])) {
+                    $decoded = json_decode($row['piece_tags'], true);
+                    $itemTags = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $row['piece_tags'])));
+                }
+                $itemBilledQty = 0;
+                if (!empty($itemTags)) {
+                    $inPlaceholders = implode(',', array_fill(0, count($itemTags), '?'));
+                    $billedCheckSql = "SELECT COUNT(*) as cnt FROM production_bill_item_tags WHERE tag_code IN ($inPlaceholders)";
+                    $bRow = Database::fetchOne($billedCheckSql, $itemTags);
+                    $itemBilledQty = (int)($bRow['cnt'] ?? 0);
+                }
+                $itemRemainingQty = max(0, $recQty - $itemBilledQty);
+
+                $batches[$bKey]['total_passed_pieces'] += $recQty;
+                $batches[$bKey]['total_pieces']        += $recQty;
+                $batches[$bKey]['total_value']         += ($recQty * $price);
+                $batches[$bKey]['total_billed_pieces']  += $itemBilledQty;
+                $batches[$bKey]['remaining_pieces']       += $itemRemainingQty;
+                $batches[$bKey]['remaining_value']        += ($itemRemainingQty * $price);
+                $batches[$bKey]['total_passed_value']     += ($recQty * $price);
+
+                $variantKey = strtolower(trim((string)$row['size_name'])) . '|' . strtolower(trim((string)$row['color_name']));
+                if (!isset($batches[$bKey]['variant_indexes'][$variantKey])) {
+                    $batches[$bKey]['variant_indexes'][$variantKey] = count($batches[$bKey]['variants']);
+                    $batches[$bKey]['variants'][] = [
+                        'variant_id'    => $vId,
+                        'product_id'    => (int)($row['product_id'] ?? 0),
+                        'sku'           => (string)($row['variant_sku'] ?? ($row['product_code'] ?? '')),
+                        'size_name'     => $row['size_name'] ?: 'Std',
+                        'color_name'    => $row['color_name'] ?: 'Std',
+                        'mrp'           => $mrp,
+                        'selling_price' => $price,
+                        'cost_price'    => $costPrice,
+                        'passed_qty'    => 0,
+                        'outward_qty'   => 0,
+                        'billed_qty'    => 0,
+                        'remaining_qty' => 0,
+                        'valuation'     => 0.0,
+                    ];
+                }
+                $vIdx = $batches[$bKey]['variant_indexes'][$variantKey];
+                $batches[$bKey]['variants'][$vIdx]['passed_qty'] += $recQty;
+                $batches[$bKey]['variants'][$vIdx]['billed_qty'] += $itemBilledQty;
+                $batches[$bKey]['variants'][$vIdx]['remaining_qty'] += $itemRemainingQty;
+                $batches[$bKey]['variants'][$vIdx]['valuation'] += ($itemRemainingQty * $price);
+
+                if ($batches[$bKey]['remaining_pieces'] === 0) {
+                    $batches[$bKey]['stock_status'] = ($batches[$bKey]['total_billed_pieces'] > 0) ? 'FULLY_BILLED' : 'FULLY_OUTWARDED';
+                } elseif ($batches[$bKey]['remaining_pieces'] < $batches[$bKey]['total_pieces']) {
+                    $batches[$bKey]['stock_status'] = 'PARTIALLY_OUTWARDED';
+                } else {
+                    $batches[$bKey]['stock_status'] = 'IN_STOCK';
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('Error loading inwarded batch inventory: ' . $e->getMessage());
+        }
+
+        // Tab Navigation: 'all', 'stitching', 'third_party', 'inward'
         $activeTab = strtolower(trim($_GET['tab'] ?? ($_GET['type'] ?? 'all')));
-        if (!in_array($activeTab, ['all', 'stitching', 'third_party'], true)) {
+        if (!in_array($activeTab, ['all', 'stitching', 'third_party', 'inward'], true)) {
             $activeTab = 'all';
         }
 
@@ -19497,6 +19695,7 @@ class ProductionController {
         $allBatches = $batches;
         $stitchingBatches = array_filter($allBatches, fn($b) => ($b['tab_type'] ?? '') === 'stitching');
         $thirdPartyBatches = array_filter($allBatches, fn($b) => ($b['tab_type'] ?? '') === 'third_party');
+        $inwardBatches = array_filter($allBatches, fn($b) => ($b['tab_type'] ?? '') === 'inward');
 
         $stats = [
             'total_remaining_pieces'    => array_sum(array_column($allBatches, 'remaining_pieces')),
@@ -19514,6 +19713,9 @@ class ProductionController {
             'third_party_count'         => count($thirdPartyBatches),
             'third_party_pieces'        => array_sum(array_column($thirdPartyBatches, 'remaining_pieces')),
             'third_party_val'           => array_sum(array_column($thirdPartyBatches, 'remaining_value')),
+            'inward_count'              => count($inwardBatches),
+            'inward_pieces'             => array_sum(array_column($inwardBatches, 'remaining_pieces')),
+            'inward_val'                => array_sum(array_column($inwardBatches, 'remaining_value')),
         ];
 
         // Apply Tab Filter
@@ -19521,6 +19723,8 @@ class ProductionController {
             $batches = $stitchingBatches;
         } elseif ($activeTab === 'third_party') {
             $batches = $thirdPartyBatches;
+        } elseif ($activeTab === 'inward') {
+            $batches = $inwardBatches;
         }
 
         // Apply Stock State Filter

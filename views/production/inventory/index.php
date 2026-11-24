@@ -43,12 +43,19 @@ $inventoryVariantCount = array_sum(array_map(
         <div class="card border-0 shadow-sm border-start border-primary border-4 h-100 bg-primary bg-opacity-10">
             <div class="card-body p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Production Stitching Stock</span>
-                    <h3 class="fw-bold text-primary mb-0 mt-1"><?= number_format($stats['stitching_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($stats['stitching_val'] ?? 0, 2) ?></small>
+                    <?php 
+                        $hasStitching = ($stats['stitching_pieces'] ?? 0) > 0;
+                        $hasInward = ($stats['inward_pieces'] ?? 0) > 0;
+                        $primaryStockTitle = $hasStitching ? 'Production Stitching Stock' : ($hasInward ? 'Inward Finished Stock' : 'Production Stitching Stock');
+                        $primaryStockPieces = $hasStitching ? ($stats['stitching_pieces'] ?? 0) : ($stats['inward_pieces'] ?? 0);
+                        $primaryStockVal = $hasStitching ? ($stats['stitching_val'] ?? 0) : ($stats['inward_val'] ?? 0);
+                    ?>
+                    <span class="text-uppercase text-muted fw-semibold small d-block"><?= $primaryStockTitle ?></span>
+                    <h3 class="fw-bold text-primary mb-0 mt-1"><?= number_format($primaryStockPieces) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
+                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($primaryStockVal, 2) ?></small>
                 </div>
                 <div class="bg-primary text-white rounded-3 p-3">
-                    <i class="bi bi-scissors fs-4"></i>
+                    <i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> fs-4"></i>
                 </div>
             </div>
         </div>
@@ -89,14 +96,23 @@ $inventoryVariantCount = array_sum(array_map(
 <ul class="nav nav-pills mb-4 gap-2 flex-wrap" id="inventoryNavTabs">
     <li class="nav-item">
         <a class="nav-link <?= ($activeTab === 'all' || empty($activeTab)) ? 'active bg-dark text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=all' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
-            <i class="bi bi-collection me-1"></i> All Stock (<?= ($stats['stitching_count'] ?? 0) + ($stats['third_party_count'] ?? 0) ?>)
+            <i class="bi bi-collection me-1"></i> All Stock (<?= ($stats['stitching_count'] ?? 0) + ($stats['third_party_count'] ?? 0) + ($stats['inward_count'] ?? 0) ?>)
         </a>
     </li>
+    <?php if (($stats['inward_count'] ?? 0) > 0): ?>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab === 'inward') ? 'active bg-info text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=inward' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
+            <i class="bi bi-box-arrow-in-down me-1"></i> Inwarded Finished Goods (<?= $stats['inward_count'] ?? 0 ?>)
+        </a>
+    </li>
+    <?php endif; ?>
+    <?php if (($stats['stitching_count'] ?? 0) > 0 || ($stats['inward_count'] ?? 0) === 0): ?>
     <li class="nav-item">
         <a class="nav-link <?= ($activeTab === 'stitching') ? 'active bg-success text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=stitching' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
             <i class="bi bi-scissors me-1"></i> Production Stitching Stock (<?= $stats['stitching_count'] ?? 0 ?>)
         </a>
     </li>
+    <?php endif; ?>
     <li class="nav-item">
         <a class="nav-link <?= ($activeTab === 'third_party') ? 'active bg-primary text-white shadow-sm' : 'bg-white text-dark border' ?> fw-semibold px-4 py-2 rounded-pill" href="<?= url('production/inventory?tab=third_party' . (!empty($categoryFilter) ? '&category_id=' . $categoryFilter : '') . (!empty($stockState) ? '&stock_state=' . $stockState : '') . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
             <i class="bi bi-box-seam me-1"></i> Third-Party Products (<?= $stats['third_party_count'] ?? 0 ?>)
@@ -165,7 +181,7 @@ $inventoryVariantCount = array_sum(array_map(
     <div class="d-flex align-items-center gap-2">
         <h5 class="mb-0 fw-semibold text-dark">
             <i class="bi bi-boxes me-2 text-primary"></i>
-            <span id="inventoryItemsTitle"><?= $activeTab === 'stitching' ? 'Production Stitching Stock' : ($activeTab === 'third_party' ? 'Third-Party Products' : 'Finished Goods Products') ?></span>
+            <span id="inventoryItemsTitle"><?= $activeTab === 'stitching' ? 'Production Stitching Stock' : ($activeTab === 'third_party' ? 'Third-Party Products' : ($activeTab === 'inward' ? 'Inwarded Finished Goods' : 'Finished Goods Products')) ?></span>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill ms-2" id="totalBatchBadgeCount"><?= count($batches) ?> Batches (<?= $inventoryVariantCount ?> Sizes)</span>
         </h5>
     </div>
@@ -309,7 +325,14 @@ $inventoryVariantCount = array_sum(array_map(
 
                     <!-- Batch / Source Column -->
                     <td class="text-nowrap">
-                        <?php if (($batch['tab_type'] ?? '') === 'third_party'): ?>
+                        <?php if (!empty($batch['is_inward']) || ($batch['tab_type'] ?? '') === 'inward'): ?>
+                            <div class="fw-semibold text-dark">
+                                <a href="<?= url('production/inwards/view/' . ($batch['production_batch_id'] ?? $batch['qc_batch_id'])) ?>" class="text-decoration-none text-dark">
+                                    <i class="bi bi-box-arrow-in-down me-1 text-info"></i><?= e($batch['batch_number'] ?? ('Batch #' . $batch['qc_batch_id'])) ?>
+                                </a>
+                            </div>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size: 10px;">Inwarded Stock</span>
+                        <?php elseif (($batch['tab_type'] ?? '') === 'third_party'): ?>
                             <div class="fw-semibold text-primary">
                                 <?php if (!empty($batch['supply_item_id'])): ?>
                                     <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="text-decoration-none text-primary">
@@ -333,7 +356,14 @@ $inventoryVariantCount = array_sum(array_map(
 
                     <!-- Program / PO # -->
                     <td>
-                        <?php if (!empty($batch['purchase_id'])): ?>
+                        <?php if (!empty($batch['is_inward'])): ?>
+                            <span class="fw-semibold text-dark">
+                                <?= e($batch['program_number'] ?: ($batch['batch_number'] ?? '')) ?>
+                            </span>
+                            <?php if (!empty($batch['origin_facility'])): ?>
+                                <small class="text-muted d-block"><i class="bi bi-geo-alt me-1"></i>From: <?= e($batch['origin_facility']) ?></small>
+                            <?php endif; ?>
+                        <?php elseif (!empty($batch['purchase_id'])): ?>
                             <a href="<?= url('production/purchases/supply-qr/' . $batch['purchase_id']) ?>" class="text-decoration-none fw-semibold text-primary">
                                 <?= e($batch['program_number']) ?>
                             </a>
@@ -448,7 +478,16 @@ $inventoryVariantCount = array_sum(array_map(
                                 </button>
                             <?php endif; ?>
 
-                            <?php if (!empty($batch['is_supply'])): ?>
+                            <?php if (!empty($batch['is_inward'])): ?>
+                                <a href="<?= url('production/inwards/view/' . ($batch['production_batch_id'] ?? $batch['qc_batch_id'])) ?>"
+                                   class="btn btn-outline-secondary btn-action-icon" title="View Inwarded Batch Breakdown & Pieces">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="<?= url('production/inwards/view/' . ($batch['production_batch_id'] ?? $batch['qc_batch_id']) . '#qrSection') ?>"
+                                   class="btn btn-outline-info btn-action-icon" title="View Inward Piece QR Codes">
+                                    <i class="bi bi-qr-code"></i>
+                                </a>
+                            <?php elseif (!empty($batch['is_supply'])): ?>
                                 <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>"
                                    class="btn btn-outline-secondary btn-action-icon" title="View Supply Batch & Inventory">
                                     <i class="bi bi-eye"></i>
