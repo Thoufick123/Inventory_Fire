@@ -117,8 +117,9 @@
                                         <td style="overflow: visible; position: relative;">
                                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                                 <input type="hidden" class="quick-line-hsn" value="">
-                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="font-size: 0.8rem; height: 31px;">
+                                                <button type="button" class="form-control form-control-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn bg-white" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="cursor: pointer;">
                                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
+                                                    <i class="bi bi-chevron-down text-muted ms-1" style="font-size: 0.75rem;"></i>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1060;">
                                                     <div class="input-group input-group-sm mb-2">
@@ -203,7 +204,7 @@
     </div>
 
     <!-- Multi-Category Inward Selector (Single Invoice with Multiple Product Categories) -->
-    <div class="card shadow-sm border mb-4" id="purchaseCategorySelectorCard">
+    <div class="card shadow-sm border mb-4 d-none" id="purchaseCategorySelectorCard">
         <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories *</h5>
@@ -286,7 +287,7 @@
     </div>
 
     <!-- 1. FABRIC ROLL SECTION -->
-    <div id="sectionFabricRoll">
+    <div id="sectionFabricRoll" class="d-none">
     <div class="card shadow-sm border mb-4">
         <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold"><i class="bi bi-layers-half me-2 text-primary"></i>Fabric Roll &amp; Material Supply Details</h5>
@@ -560,7 +561,7 @@
     </div>
 
     <!-- Invoice Financial Breakdown Summary (Unified Across Selected Categories) -->
-    <div class="card border shadow-sm mb-4" id="invoiceFinancialBreakdownCard">
+    <div class="card border shadow-sm mb-4 d-none" id="invoiceFinancialBreakdownCard">
         <div class="card-header bg-white py-3 px-4 fw-bold small text-muted text-uppercase d-flex justify-content-between align-items-center">
             <span><i class="bi bi-receipt me-1 text-primary"></i>Invoice Financial Breakdown</span>
             <span id="activeCategoriesCountBadge" class="badge bg-primary-subtle text-primary border">1 Category Selected</span>
@@ -1211,8 +1212,40 @@
             sectionThirdParty: 'THIRD_PARTY'
         };
         purchaseItemSections.forEach(section => {
-            section.classList.toggle('d-none', hideStandardItems || !activePurchaseTypes.has(typeBySection[section.id]));
+            const isTypeActive = activePurchaseTypes.has(typeBySection[section.id]);
+            const shouldHide = hideStandardItems || !isTypeActive;
+            section.classList.toggle('d-none', shouldHide);
+            section.querySelectorAll('input, select, textarea').forEach(el => {
+                const shouldEnable = !hideStandardItems && isTypeActive;
+                el.disabled = !shouldEnable;
+                if (!shouldEnable) {
+                    if (el.hasAttribute('required')) {
+                        el.dataset.wasRequired = 'true';
+                        el.removeAttribute('required');
+                    }
+                } else if (el.dataset.wasRequired === 'true') {
+                    el.setAttribute('required', '');
+                }
+            });
         });
+
+        const fabDesc = document.getElementById('fabricDescription');
+        if (fabDesc) {
+            const shouldEnable = !hideStandardItems && activePurchaseTypes.has('FABRIC_ROLL');
+            fabDesc.disabled = !shouldEnable;
+            if (shouldEnable) {
+                fabDesc.setAttribute('required', '');
+            } else {
+                fabDesc.removeAttribute('required');
+            }
+        }
+
+        if (!hideStandardItems && activePurchaseTypes.has('FABRIC_ROLL')) {
+            const rollCards = document.querySelectorAll('#rollsContainer .roll-card');
+            if (rollCards.length === 0 && typeof addRoll === 'function') {
+                addRoll();
+            }
+        }
     }
 
     useMappingInvoice?.addEventListener('change', function () {
@@ -2121,15 +2154,17 @@
                 ? (type === 'FABRIC_ROLL' ? 'badge bg-primary text-white' : (type === 'RAW_MATERIAL' ? 'badge bg-warning text-dark' : 'badge bg-info text-white'))
                 : 'badge bg-light text-muted border';
         }
+        const hideStandardItems = !!(useMappingInvoice?.checked || quickPurchaseEntry?.checked);
         if (jump) {
-            jump.classList.toggle('d-none', !isActive);
+            jump.classList.toggle('d-none', hideStandardItems || !isActive);
         }
 
         if (section) {
-            section.classList.toggle('d-none', !isActive);
+            section.classList.toggle('d-none', hideStandardItems || !isActive);
             section.querySelectorAll('input, select, textarea').forEach(el => {
-                el.disabled = !isActive;
-                if (!isActive) {
+                const shouldEnable = !hideStandardItems && isActive;
+                el.disabled = !shouldEnable;
+                if (!shouldEnable) {
                     if (el.hasAttribute('required')) {
                         el.dataset.wasRequired = 'true';
                         el.removeAttribute('required');
@@ -2144,8 +2179,9 @@
 
         const fabDesc = document.getElementById('fabricDescription');
         if (fabDesc && type === 'FABRIC_ROLL') {
-            fabDesc.disabled = !isActive;
-            if (isActive) {
+            const shouldEnable = !hideStandardItems && isActive;
+            fabDesc.disabled = !shouldEnable;
+            if (shouldEnable) {
                 fabDesc.setAttribute('required', '');
             } else {
                 fabDesc.removeAttribute('required');
@@ -3549,7 +3585,9 @@
         syncCategoryCardUI('FABRIC_ROLL', false);
         syncCategoryCardUI('RAW_MATERIAL', false);
     } else {
-        addRoll();
+        if (!quickPurchaseEntry?.checked && !useMappingInvoice?.checked) {
+            addRoll();
+        }
         activePurchaseTypes.clear();
         activePurchaseTypes.add('FABRIC_ROLL');
         syncCategoryCardUI('FABRIC_ROLL', true);
@@ -3557,5 +3595,6 @@
         syncCategoryCardUI('THIRD_PARTY', false);
     }
     updateTotal();
+    syncPurchaseEntryMode();
 })();
 </script>
