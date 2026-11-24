@@ -618,6 +618,13 @@ class ProductionService {
             $deletedRows
         ), true);
 
+        // Also exclude pieces already billed in POS Billing
+        $billedRows = Database::fetchAll("SELECT tag_code FROM production_bill_item_tags");
+        $billedTags = array_fill_keys(array_map(
+            static fn(array $row): string => strtoupper(trim((string)$row['tag_code'])),
+            $billedRows
+        ), true);
+
         $availableByItem = [];
         foreach ($approvedByItem as $itemId => $itemData) {
             $variantId = $itemData['variant_id'];
@@ -628,7 +635,8 @@ class ProductionService {
                     $legacySkip--;
                     continue;
                 }
-                if (empty($assignedTagsByVariant[$variantId][strtoupper($tag)]) && empty($deletedTags[strtoupper($tag)])) {
+                $upperTag = strtoupper($tag);
+                if (empty($assignedTagsByVariant[$variantId][$upperTag]) && empty($deletedTags[$upperTag]) && empty($billedTags[$upperTag])) {
                     $available[] = $tag;
                 }
             }

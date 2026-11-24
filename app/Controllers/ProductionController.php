@@ -16301,19 +16301,65 @@ class ProductionController {
              ORDER BY qb.created_at DESC"
         );
 
+        // Fetch all billed pieces from POS billing to deduct from in-stock inventory
+        $billedRows = Database::fetchAll(
+            "SELECT COALESCE(qi.qc_batch_id, 0) as qc_batch_id,
+                    COALESCE(pbi.variant_id, qi.variant_id, 0) as variant_id,
+                    CASE WHEN COUNT(pbit.id) > 0 THEN COUNT(pbit.id) ELSE SUM(pbi.quantity) END as billed_qty
+             FROM production_bill_items pbi
+             LEFT JOIN production_bill_item_tags pbit ON pbit.bill_item_id = pbi.id
+             LEFT JOIN qc_items qi ON (pbit.qc_item_id = qi.id OR pbi.qc_item_id = qi.id)
+             JOIN production_bills pb ON pbi.bill_id = pb.id
+             GROUP BY qi.qc_batch_id, COALESCE(pbi.variant_id, qi.variant_id, 0)"
+        );
+        $billedByQC = [];
+        $billedByVariant = [];
+        foreach ($billedRows as $br) {
+            $qbId = (int)$br['qc_batch_id'];
+            $vId = (int)$br['variant_id'];
+            $bQty = (int)$br['billed_qty'];
+            if ($qbId > 0) {
+                $billedByQC[$qbId] = ($billedByQC[$qbId] ?? 0) + $bQty;
+            }
+            if ($vId > 0) {
+                $billedByVariant[$vId] = ($billedByVariant[$vId] ?? 0) + $bQty;
+            }
+        }
+
+        // Fetch deleted label codes to deduct from in-stock inventory
+        $deletedRows = Database::fetchAll("SELECT code FROM production_deleted_label_codes");
+        $deletedCodeList = array_map(static fn(array $row): string => strtoupper(trim((string)$row['code'])), $deletedRows);
+        $deletedCodeSet = array_fill_keys($deletedCodeList, true);
+        $deletedByQC = [];
+        if (!empty($deletedCodeSet)) {
+            foreach ($rawQcBatches as $rqb) {
+                $qId = (int)$rqb['id'];
+                $delCounts = ProductionService::getDeletedQCPieceCounts($qId, $deletedCodeList);
+                $qTotalDel = array_sum($delCounts);
+                if ($qTotalDel > 0) {
+                    $deletedByQC[$qId] = $qTotalDel;
+                }
+            }
+        }
+
         $qcBatches = [];
         foreach ($rawQcBatches as $qb) {
+            $qId = (int)$qb['id'];
             $passed = (int)($qb['total_qc_passed'] ?: $qb['passed_qty']);
             $packed = (int)$qb['already_packed_qty'];
+            $billed = (int)($billedByQC[$qId] ?? 0);
+            $deleted = (int)($deletedByQC[$qId] ?? 0);
             $rework = (int)($qb['total_qc_rework'] ?: ($qb['rework_qty'] ?? 0));
-            $remaining = max(0, $passed - $packed);
+            $remaining = max(0, $passed - $packed - $billed - $deleted);
             
             $qb['total_qc_passed'] = $passed;
             $qb['total_qc_rework'] = $rework;
             $qb['already_packed_qty'] = $packed;
+            $qb['already_billed_qty'] = $billed;
+            $qb['already_deleted_qty'] = $deleted;
             $qb['remaining_qty'] = $remaining;
 
-            if ($remaining > 0 || $rework > 0 || ($qcBatchId && (int)$qcBatchId === (int)$qb['id'])) {
+            if ($remaining > 0 || $rework > 0 || ($qcBatchId && (int)$qcBatchId === $qId)) {
                 $qcBatches[] = $qb;
             }
         }
@@ -16375,9 +16421,14 @@ class ProductionController {
                     $totalQCRework = (int)($selectedQC['rework_qty'] ?? 0);
                 }
 
+                $alreadyBilledTotal = (int)($billedByQC[(int)$qcBatchId] ?? 0);
+                $alreadyDeletedTotal = (int)($deletedByQC[(int)$qcBatchId] ?? 0);
+
                 $selectedQC['total_qc_passed'] = $totalQCPassed;
                 $selectedQC['already_packed_qty'] = $alreadyPackedTotal;
-                $selectedQC['remaining_qty'] = max(0, $totalQCPassed - $alreadyPackedTotal);
+                $selectedQC['already_billed_qty'] = $alreadyBilledTotal;
+                $selectedQC['already_deleted_qty'] = $alreadyDeletedTotal;
+                $selectedQC['remaining_qty'] = max(0, $totalQCPassed - $alreadyPackedTotal - $alreadyBilledTotal - $alreadyDeletedTotal);
                 $selectedQC['total_qc_rework'] = $totalQCRework;
 
                 $combinedTotals['total_passed'] += $totalQCPassed;
@@ -16444,6 +16495,7 @@ class ProductionController {
                 $primaryItems = QCBatch::getItems((int)$qcBatchId);
                 $productId = ProductionService::findOrCreateProductForProgram((int)$selectedQC['program_id']);
                 $availablePieceTags = ProductionService::getAvailableQCPieceTags((int)$qcBatchId, $includeRework);
+                $primaryDeletedCounts = ProductionService::getDeletedQCPieceCounts((int)$qcBatchId, $deletedCodeList ?? []);
 
                 foreach ($primaryItems as &$it) {
                     if (empty($it['variant_id']) && $productId > 0) {
@@ -16471,8 +16523,12 @@ class ProductionController {
                     }
                     $vId = (int)($it['variant_id'] ?? 0);
                     $vPacked = $variantPackedMap[$vId] ?? 0;
+                    $vBilled = (int)($billedByVariant[$vId] ?? 0);
+                    $vDeleted = (int)($primaryDeletedCounts[(int)$it['id']] ?? 0);
                     $it['already_packed'] = $vPacked;
-                    $it['remaining_qty'] = max(0, (int)$it['passed_qty'] - $vPacked);
+                    $it['already_billed'] = $vBilled;
+                    $it['already_deleted'] = $vDeleted;
+                    $it['remaining_qty'] = max(0, (int)$it['passed_qty'] - $vPacked - $vBilled - $vDeleted);
                     $it['available_piece_tags'] = $availablePieceTags[(int)$it['id']] ?? [];
                     $it['rework_qty'] = (int)($it['rework_qty'] ?? 0);
                     $it['qc_batch_id'] = (int)$selectedQC['id'];
@@ -16558,10 +16614,15 @@ class ProductionController {
                                 error_log("findOrCreateVariant error in createBatch additional QC: " . $ve->getMessage());
                             }
                         }
+                        $addDeletedCounts = ProductionService::getDeletedQCPieceCounts($addId, $deletedCodeList ?? []);
                         $vId = (int)($ait['variant_id'] ?? 0);
                         $vPacked = $addVariantPackedMap[$vId] ?? 0;
+                        $vBilled = (int)($billedByVariant[$vId] ?? 0);
+                        $vDeleted = (int)($addDeletedCounts[(int)$ait['id']] ?? 0);
                         $ait['already_packed'] = $vPacked;
-                        $ait['remaining_qty'] = max(0, (int)$ait['passed_qty'] - $vPacked);
+                        $ait['already_billed'] = $vBilled;
+                        $ait['already_deleted'] = $vDeleted;
+                        $ait['remaining_qty'] = max(0, (int)$ait['passed_qty'] - $vPacked - $vBilled - $vDeleted);
                         $ait['available_piece_tags'] = $addTagsMap[(int)$ait['id']] ?? [];
                         $ait['rework_qty'] = (int)($ait['rework_qty'] ?? 0);
                         $ait['qc_batch_id'] = $addId;

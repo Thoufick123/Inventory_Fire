@@ -2130,13 +2130,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             return;
         }
         const creditedCount = (BATCH_STATUS === 'RECEIVED') ? (parseInt(item.received_qty) || 0) : 0;
-
-        if (PERSISTED_INWARD_TAGS.has(normalizedTag) || (BATCH_STATUS === 'RECEIVED' && SCANNED_TAGS.has(normalizedTag)) || (tagSeq < creditedCount && BATCH_STATUS === 'RECEIVED')) {
-            playBeep('error');
-            showScanFeedback(`🔒 Piece <span class="badge bg-dark font-monospace">${escapeHtml(normalizedTag)}</span> was already credited to warehouse inventory and cannot be changed to damaged.`, 'warning');
-            return;
-        }
-
+        // Lock restriction removed: Staff can freely change any product to damaged
         SCANNED_TAGS.delete(normalizedTag);
         DAMAGED_TAGS.add(normalizedTag);
 
@@ -2658,378 +2652,199 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             }
         }
 
-        // Render Individual Pieces Breakdown Grid Filtered by modalPieceFilter with High-Size QR Display
+        // Render Consolidated Variant Details & Live Good/Damaged Controls (Single QR per variant, No Locks)
         const piecesCount = document.getElementById('modalMissingPiecesCount');
         const piecesGrid = document.getElementById('modalMissingPiecesGrid');
         if (piecesCount) piecesCount.textContent = (modalPieceFilter === 'mismatched') ? missing : ((modalPieceFilter === 'verified') ? scanned : ((modalPieceFilter === 'damaged') ? damaged : expected));
 
         if (piecesGrid) {
-            let gridHtml = '';
-            let displayedCount = 0;
-
             const displayBrand = (item.brand_name || item.product_name || WAREHOUSE_NAME || 'GRM WAREHOUSE').toUpperCase();
             const displayAttr = `${item.size_name || 'Free'}-${item.color_name || 'Std'}`.toUpperCase();
+            const variantDisplayCode = getDisplayVariantCode(item.sku || ('V' + String(variantId).padStart(4, '0')), item);
 
             let mrp = parseFloat(item.qc_base_price || item.mrp || item.base_price || item.selling_price || 0);
             let cost = parseFloat(item.qc_discount_price || item.purchase_price || item.production_cost || item.cost_price || item.selling_price || 0);
-
             if (isNaN(mrp)) mrp = 0;
             if (isNaN(cost)) cost = 0;
-
             const fmtMrp = mrp > 0 ? mrp.toFixed(2) : '—';
             const fmtCost = cost > 0 ? cost.toFixed(2) : '—';
 
-            for (let i = 0; i < (item.dispatchTags || []).length; i++) {
-                const pieceTagCode = item.dispatchTags[i];
-                
-                const isGood = SCANNED_TAGS.has(pieceTagCode);
-                const isDamaged = DAMAGED_TAGS.has(pieceTagCode);
-                const isVerified = isGood || isDamaged;
-                const isAlreadyCredited = PERSISTED_INWARD_TAGS.has(pieceTagCode) || (BATCH_STATUS === 'RECEIVED' && isGood);
-                const isAlreadyDamagedPersisted = PERSISTED_DAMAGED_TAGS.has(pieceTagCode) || (BATCH_STATUS === 'RECEIVED' && isDamaged);
-
-                // Apply Active Filter: Skip non-matching pieces
-                if (modalPieceFilter === 'mismatched' && isVerified) {
-                    continue; // Skip already verified pieces when viewing only mismatched!
-                }
-                if (modalPieceFilter === 'verified' && !isGood) {
-                    continue; // Skip non-good pieces when viewing verified only
-                }
-                if (modalPieceFilter === 'damaged' && !isDamaged) {
-                    continue; // Skip non-damaged pieces when viewing damaged only
-                }
-
-                displayedCount++;
-                const pieceQrPayload = pieceTagCode;
-
-                // use globalSeq index for ID numbering
-                const pieceNum = i + 1;
-
-                if (isGood) {
-                    if (isAlreadyCredited) {
-                        // LOCKED & DISABLED ACTION FOR ALREADY INVENTORY ADDED PRODUCT
-                        gridHtml += `
-                            <div class="col-12 col-md-6 mb-2">
-                                <div class="p-2.5 border rounded-3 bg-success-subtle border-success border-opacity-50 d-flex align-items-center justify-content-between gap-2 shadow-xs h-100 position-relative overflow-hidden" style="background-color: #f0fdf4;">
-                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                        <div class="text-center flex-shrink-0" style="width: 88px;">
-                                            <div class="inward-piece-qr bg-white p-1 rounded border border-success-subtle shadow-xs d-flex align-items-center justify-content-center cursor-pointer" 
-                                                 id="piece-qr-${pieceNum}"
-                                                 data-qr="${escapeHtml(pieceQrPayload)}" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="Click to view full 2D QR Code Tag" 
-                                                 style="width: 80px; height: 80px; cursor: pointer;">
-                                            </div>
-                                            <div class="badge bg-dark text-white font-monospace mt-1 px-1 py-1 w-100 text-truncate cursor-pointer shadow-xs" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="${escapeHtml(pieceTagCode)}" 
-                                                 style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
-                                            </div>
+            let gridHtml = `
+                <div class="col-12 mb-3">
+                    <div class="card border rounded-3 shadow-sm bg-white overflow-hidden">
+                        <div class="card-body p-3">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-7 d-flex align-items-center gap-3">
+                                    <div class="text-center flex-shrink-0" style="width: 105px;">
+                                        <div class="bg-white p-2 rounded-2 border shadow-xs d-flex align-items-center justify-content-center"
+                                             id="modalVariantSingleQr"
+                                             style="width: 100px; height: 100px;">
                                         </div>
-                                        <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
-                                            <div class="fw-bold text-uppercase text-dark text-truncate" style="font-size: 0.80rem; letter-spacing: 0.2px;" title="${escapeHtml(displayBrand)}">
-                                                ${escapeHtml(displayBrand)}
-                                            </div>
-                                            <div class="fw-bold text-secondary text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                                ${escapeHtml(displayAttr)}
-                                            </div>
-                                            <div class="text-muted text-decoration-line-through mt-0.5" style="font-size: 0.74rem;">
-                                                MRP: ₹${fmtMrp}
-                                            </div>
-                                            <div class="fw-bold text-success mt-0.5" style="font-size: 0.82rem;">
-                                                Disc: ₹${fmtCost}
-                                            </div>
-                                            <div class="mt-1">
-                                                <span class="badge bg-success text-white py-0.5 px-1.5 shadow-xs" style="font-size: 0.68rem; letter-spacing: 0.2px;">
-                                                    <i class="bi bi-lock-fill me-1"></i>Stock Added
-                                                </span>
-                                            </div>
+                                        <div class="badge bg-dark text-warning font-monospace mt-1 px-2 py-1 w-100 text-truncate shadow-xs" style="font-size: 0.75rem;">
+                                            ${escapeHtml(variantDisplayCode)}
                                         </div>
                                     </div>
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-success d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.95;" disabled title="Good Product (Credited to Inventory)">
-                                            <i class="bi bi-check-lg" style="font-size: 1.05rem;"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.55;" disabled title="Already credited to inventory in previous inward session (Locked)">
-                                            <i class="bi bi-lock-fill" style="font-size: 0.90rem;"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        gridHtml += `
-                            <div class="col-12 col-md-6 mb-2">
-                                <div class="p-2.5 border rounded-3 bg-success-subtle border-success border-opacity-50 d-flex align-items-center justify-content-between gap-2 shadow-xs h-100 position-relative overflow-hidden">
-                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                        <div class="text-center flex-shrink-0" style="width: 88px;">
-                                            <div class="inward-piece-qr bg-white p-1 rounded border border-success-subtle shadow-xs d-flex align-items-center justify-content-center cursor-pointer" 
-                                                 id="piece-qr-${pieceNum}"
-                                                 data-qr="${escapeHtml(pieceQrPayload)}" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="Click to view full 2D QR Code Tag" 
-                                                 style="width: 80px; height: 80px; cursor: pointer;">
-                                            </div>
-                                            <div class="badge bg-dark text-white font-monospace mt-1 px-1 py-1 w-100 text-truncate cursor-pointer shadow-xs" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="${escapeHtml(pieceTagCode)}" 
-                                                 style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
-                                            </div>
-                                        </div>
-                                        <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
-                                            <div class="fw-bold text-uppercase text-dark text-truncate" style="font-size: 0.80rem; letter-spacing: 0.2px;" title="${escapeHtml(displayBrand)}">
-                                                ${escapeHtml(displayBrand)}
-                                            </div>
-                                            <div class="fw-bold text-secondary text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                                ${escapeHtml(displayAttr)}
-                                            </div>
-                                            <div class="text-muted text-decoration-line-through mt-0.5" style="font-size: 0.74rem;">
-                                                MRP: ₹${fmtMrp}
-                                            </div>
-                                            <div class="fw-bold text-success mt-0.5" style="font-size: 0.82rem;">
-                                                Disc: ₹${fmtCost}
-                                            </div>
-                                            <div class="mt-1">
-                                                <span class="badge bg-success-subtle text-success border border-success py-0.5 px-1.5 shadow-xs" style="font-size: 0.68rem; letter-spacing: 0.2px;">
-                                                    <i class="bi bi-check2 me-1"></i>Newly Scanned
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-success d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.9;" disabled title="Good Product">
-                                            <i class="bi bi-check-lg" style="font-size: 1.05rem;"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 30px; padding: 0; border-radius: 6px;" onclick="markPieceDamaged(${variantId}, '${escapeHtml(pieceTagCode)}');" title="Change to Damage Product">
-                                            <i class="bi bi-slash-circle" style="font-size: 0.95rem;"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                } else if (isDamaged) {
-                    if (isAlreadyDamagedPersisted) {
-                        // FULLY LOCKED & DISABLED ACTION FOR ALREADY QUARANTINED DAMAGED PRODUCT
-                        gridHtml += `
-                            <div class="col-12 col-md-6 mb-2">
-                                <div class="p-2.5 border rounded-3 bg-danger-subtle border-danger border-opacity-50 d-flex align-items-center justify-content-between gap-2 shadow-xs h-100 position-relative overflow-hidden" style="background-color: #fef2f2;">
-                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                        <div class="text-center flex-shrink-0" style="width: 88px;">
-                                            <div class="inward-piece-qr bg-white p-1 rounded border border-danger-subtle shadow-xs d-flex align-items-center justify-content-center cursor-pointer" 
-                                                 id="piece-qr-${pieceNum}"
-                                                 data-qr="${escapeHtml(pieceQrPayload)}" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="Click to view full 2D QR Code Tag" 
-                                                 style="width: 80px; height: 80px; cursor: pointer;">
-                                            </div>
-                                            <div class="badge bg-danger text-white font-monospace mt-1 px-1 py-1 w-100 text-truncate cursor-pointer shadow-xs" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="${escapeHtml(pieceTagCode)}" 
-                                                 style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
-                                            </div>
-                                        </div>
-                                        <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
-                                            <div class="fw-bold text-uppercase text-dark text-truncate" style="font-size: 0.80rem; letter-spacing: 0.2px;" title="${escapeHtml(displayBrand)}">
-                                                ${escapeHtml(displayBrand)}
-                                            </div>
-                                            <div class="fw-bold text-secondary text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                                ${escapeHtml(displayAttr)}
-                                            </div>
-                                            <div class="text-muted text-decoration-line-through mt-0.5" style="font-size: 0.74rem;">
-                                                MRP: ₹${fmtMrp}
-                                            </div>
-                                            <div class="fw-bold text-danger mt-0.5" style="font-size: 0.82rem;">
-                                                <i class="bi bi-exclamation-octagon-fill me-1"></i>QUARANTINED
-                                            </div>
-                                            <div class="mt-1">
-                                                <span class="badge bg-danger text-white py-0.5 px-1.5 shadow-xs" style="font-size: 0.68rem; letter-spacing: 0.2px;">
-                                                    <i class="bi bi-lock-fill me-1"></i>Damage Logged (Locked)
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.95;" disabled title="Quarantined Damage Product (Locked)">
-                                            <i class="bi bi-slash-circle" style="font-size: 0.95rem;"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.55;" disabled title="Already recorded as damaged in previous inward session (Locked)">
-                                            <i class="bi bi-lock-fill" style="font-size: 0.90rem;"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        gridHtml += `
-                            <div class="col-12 col-md-6 mb-2">
-                                <div class="p-2.5 border rounded-3 bg-danger-subtle border-danger border-opacity-50 d-flex align-items-center justify-content-between gap-2 shadow-xs h-100 position-relative overflow-hidden">
-                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                        <div class="text-center flex-shrink-0" style="width: 88px;">
-                                            <div class="inward-piece-qr bg-white p-1 rounded border border-danger-subtle shadow-xs d-flex align-items-center justify-content-center cursor-pointer" 
-                                                 id="piece-qr-${pieceNum}"
-                                                 data-qr="${escapeHtml(pieceQrPayload)}" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="Click to view full 2D QR Code Tag" 
-                                                 style="width: 80px; height: 80px; cursor: pointer;">
-                                            </div>
-                                            <div class="badge bg-danger text-white font-monospace mt-1 px-1 py-1 w-100 text-truncate cursor-pointer shadow-xs" 
-                                                 onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                                 title="${escapeHtml(pieceTagCode)}" 
-                                                 style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
-                                            </div>
-                                        </div>
-                                        <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
-                                            <div class="fw-bold text-uppercase text-dark text-truncate" style="font-size: 0.80rem; letter-spacing: 0.2px;" title="${escapeHtml(displayBrand)}">
-                                                ${escapeHtml(displayBrand)}
-                                            </div>
-                                            <div class="fw-bold text-secondary text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                                ${escapeHtml(displayAttr)}
-                                            </div>
-                                            <div class="text-muted text-decoration-line-through mt-0.5" style="font-size: 0.74rem;">
-                                                MRP: ₹${fmtMrp}
-                                            </div>
-                                            <div class="fw-bold text-danger mt-0.5" style="font-size: 0.82rem;">
-                                                <i class="bi bi-exclamation-octagon-fill me-1"></i>QUARANTINED
-                                            </div>
-                                            <div class="mt-1">
-                                                <span class="badge bg-danger-subtle text-danger border border-danger py-0.5 px-1.5 shadow-xs" style="font-size: 0.68rem; letter-spacing: 0.2px;">
-                                                    <i class="bi bi-exclamation-circle me-1"></i>Newly Marked Damage
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 30px; padding: 0; border-radius: 6px;" onclick="markPieceIntact(${variantId}, '${escapeHtml(pieceTagCode)}');" title="Change to Good Product">
-                                            <i class="bi bi-check-lg" style="font-size: 1.05rem;"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center shadow-xs disabled" style="width: 32px; height: 30px; padding: 0; border-radius: 6px; opacity: 0.9;" disabled title="Damage Product">
-                                            <i class="bi bi-slash-circle" style="font-size: 0.95rem;"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                } else {
-                    gridHtml += `
-                        <div class="col-12 col-md-6 mb-2">
-                            <div class="p-2.5 border rounded-3 bg-white d-flex align-items-center justify-content-between gap-2 shadow-xs h-100 hover-shadow position-relative overflow-hidden">
-                                <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                    <div class="text-center flex-shrink-0" style="width: 88px;">
-                                        <div class="inward-piece-qr bg-white p-1 rounded border shadow-xs d-flex align-items-center justify-content-center cursor-pointer"
-                                             id="piece-qr-${pieceNum}"
-                                             data-qr="${escapeHtml(pieceQrPayload)}" 
-                                             onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                             title="Click to view full 2D QR Code Tag" 
-                                             style="width: 80px; height: 80px; cursor: pointer;">
-                                        </div>
-                                        <div class="badge bg-dark text-warning font-monospace mt-1 px-1 py-1 w-100 text-truncate cursor-pointer shadow-xs"
-                                             onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
-                                             title="${escapeHtml(pieceTagCode)}" 
-                                             style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                            ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
-                                        </div>
-                                    </div>
-                                    <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
-                                        <div class="fw-bold text-uppercase text-dark text-truncate" style="font-size: 0.80rem; letter-spacing: 0.2px;" title="${escapeHtml(displayBrand)}">
+                                    <div class="min-w-0 flex-grow-1" style="line-height: 1.35;">
+                                        <h6 class="fw-bold text-dark text-uppercase mb-1" style="letter-spacing: 0.2px;">
                                             ${escapeHtml(displayBrand)}
+                                        </h6>
+                                        <div class="badge bg-light text-dark border px-2 py-1 mb-1 font-monospace" style="font-size: 0.78rem;">
+                                            ${escapeHtml(displayAttr)} · ${escapeHtml(item.sku || '')}
                                         </div>
-                                        <div class="fw-bold text-secondary text-truncate mt-0.5" style="font-size: 0.76rem;">
-                                            ${escapeHtml(displayAttr)}
+                                        <div class="text-muted small">
+                                            <span>MRP: <span class="text-decoration-line-through">₹${fmtMrp}</span></span>
+                                            <span class="ms-2 fw-bold text-success">Disc: ₹${fmtCost}</span>
                                         </div>
-                                        <div class="text-muted text-decoration-line-through mt-0.5" style="font-size: 0.74rem;">
-                                            MRP: ₹${fmtMrp}
-                                        </div>
-                                        <div class="fw-bold text-success mt-0.5" style="font-size: 0.82rem;">
-                                            Disc: ₹${fmtCost}
+                                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2 py-1">
+                                                Expected: <strong>${expected}</strong> pcs
+                                            </span>
+                                            <span class="badge ${missing === 0 ? 'bg-success-subtle text-success border-success' : 'bg-warning-subtle text-warning-emphasis border-warning'} border px-2 py-1">
+                                                ${missing === 0 ? '<i class="bi bi-check-all me-1"></i>All Inwarded' : '<i class="bi bi-clock me-1"></i>Pending: ' + missing + ' pcs'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                                    <button type="button" class="btn btn-sm btn-success d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 30px; padding: 0; border-radius: 6px;" onclick="fastScanVariant(${variantId}, '${escapeHtml(pieceTagCode)}', 'good');" title="Mark Good Product">
-                                        <i class="bi bi-check-lg" style="font-size: 1.05rem;"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 30px; padding: 0; border-radius: 6px;" onclick="fastScanVariant(${variantId}, '${escapeHtml(pieceTagCode)}', 'damage');" title="Mark Damage Product">
-                                        <i class="bi bi-slash-circle" style="font-size: 0.95rem;"></i>
-                                    </button>
+                                <div class="col-md-5 d-flex align-items-center justify-content-end gap-3 flex-wrap">
+                                    <!-- GOOD / INTACT COUNTER -->
+                                    <div class="p-2.5 rounded-3 border border-success border-opacity-50 text-center shadow-xs flex-grow-1" style="background-color: #f0fdf4; min-width: 140px;">
+                                        <div class="small fw-bold text-success text-uppercase mb-1">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Good (Intact)
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-center gap-2 my-1">
+                                            <button type="button" class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0;" onclick="adjustVariantPieceQty(${variantId}, 'good', -1)" title="Decrease Good Qty">
+                                                −
+                                            </button>
+                                            <span class="fs-4 fw-bold text-success px-2 font-monospace" id="counter-good-${variantId}">${scanned}</span>
+                                            <button type="button" class="btn btn-sm btn-success fw-bold d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0;" onclick="adjustVariantPieceQty(${variantId}, 'good', 1)" title="Increase Good Qty">
+                                                +
+                                            </button>
+                                        </div>
+                                        <small class="text-success fw-semibold" style="font-size: 0.72rem;">Verified Intact Stock</small>
+                                    </div>
+
+                                    <!-- DAMAGED / QUARANTINED COUNTER -->
+                                    <div class="p-2.5 rounded-3 border border-danger border-opacity-50 text-center shadow-xs flex-grow-1" style="background-color: #fef2f2; min-width: 140px;">
+                                        <div class="small fw-bold text-danger text-uppercase mb-1">
+                                            <i class="bi bi-slash-circle-fill me-1"></i>Damaged (Quarantine)
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-center gap-2 my-1">
+                                            <button type="button" class="btn btn-sm btn-outline-danger fw-bold d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0;" onclick="adjustVariantPieceQty(${variantId}, 'damage', -1)" title="Decrease Damaged Qty">
+                                                −
+                                            </button>
+                                            <span class="fs-4 fw-bold text-danger px-2 font-monospace" id="counter-dmg-${variantId}">${damaged}</span>
+                                            <button type="button" class="btn btn-sm btn-danger fw-bold d-flex align-items-center justify-content-center shadow-xs" style="width: 32px; height: 32px; font-size: 1.1rem; padding: 0;" onclick="adjustVariantPieceQty(${variantId}, 'damage', 1)" title="Increase Damaged Qty">
+                                                +
+                                            </button>
+                                        </div>
+                                        <small class="text-danger fw-semibold" style="font-size: 0.72rem;">Quarantined Defect</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    `;
-                }
-            }
-
-            if (displayedCount === 0) {
-                if (modalPieceFilter === 'mismatched') {
-                    gridHtml = `
-                        <div class="col-12 text-center py-4">
-                            <div class="p-3 bg-success-subtle text-success rounded-3 border border-success-subtle shadow-sm">
-                                <i class="bi bi-check-circle-fill fs-3 d-block mb-1"></i>
-                                <span class="fw-bold fs-6">All pieces matched!</span>
-                                <p class="small text-muted mb-0 mt-1">No mismatched or missing pieces remaining for <strong>${escapeHtml(item.sku)}</strong>.</p>
-                            </div>
-                        </div>
-                    `;
-                } else if (modalPieceFilter === 'verified') {
-                    gridHtml = `
-                        <div class="col-12 text-center py-4">
-                            <div class="p-3 bg-light text-muted rounded-3 border">
-                                <i class="bi bi-inbox fs-3 d-block mb-1"></i>
-                                <span class="fw-bold">No good pieces verified yet</span>
-                                <p class="small text-muted mb-0 mt-1">Scan or click pieces to mark them as received.</p>
-                            </div>
-                        </div>
-                    `;
-                } else if (modalPieceFilter === 'damaged') {
-                    gridHtml = `
-                        <div class="col-12 text-center py-4">
-                            <div class="p-3 bg-light text-muted rounded-3 border">
-                                <i class="bi bi-shield-check fs-3 text-success d-block mb-1"></i>
-                                <span class="fw-bold">No damaged pieces</span>
-                                <p class="small text-muted mb-0 mt-1">No damaged pieces quarantined for this product.</p>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    gridHtml = `
-                        <div class="col-12 text-center py-4 text-muted">
-                            <i class="bi bi-box-seam fs-3 d-block mb-1"></i>
-                            No pieces found.
-                        </div>
-                    `;
-                }
-            }
-
+                    </div>
+                </div>
+            `;
             piecesGrid.innerHTML = gridHtml;
-
-            // Render live 2D QR Code on each piece card
-            if (typeof QRCode !== 'undefined') {
-                piecesGrid.querySelectorAll('.inward-piece-qr').forEach(box => {
-                    const payload = box.getAttribute('data-qr');
-                    if (payload) {
-                        box.innerHTML = '';
-                        try {
-                            new QRCode(box, {
-                                text: payload,
-                                width: 52,
-                                height: 52,
-                                colorDark: "#0f172a",
-                                colorLight: "#ffffff",
-                                correctLevel: QRCode.CorrectLevel.M
-                            });
-                        } catch(err) {
-                            console.warn("QR render err:", err);
-                        }
-                    }
-                });
+            // Render the single variant QR thumbnail
+            const thumbQrEl = document.getElementById('modalVariantSingleQr');
+            if (thumbQrEl && typeof QRCode !== 'undefined') {
+                try {
+                    new QRCode(thumbQrEl, {
+                        text: String(currentTagCode),
+                        width: 84,
+                        height: 84,
+                        colorDark: "#0f172a",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                } catch(e) {
+                    console.warn("Variant thumb QR note:", e);
+                }
             }
         }
     }
+
+    window.adjustVariantPieceQty = function(vid, type, delta) {
+        const item = ITEMS.find(i => String(i.variant_id) === String(vid));
+        if (!item) return;
+
+        const tags = item.dispatchTags || [];
+        const expected = parseInt(item.quantity) || tags.length || 0;
+        let currentGood = getVariantVerifiedTagCount(item);
+        let currentDmg = getVariantDamagedTagCount(item);
+
+        if (type === 'good') {
+            if (delta > 0) {
+                // Find tag to add as Good: prefer converting damaged tag or taking unused tag
+                let candidateTag = tags.find(t => DAMAGED_TAGS.has(t)) || tags.find(t => !SCANNED_TAGS.has(t) && !DAMAGED_TAGS.has(t));
+                if (!candidateTag && (currentGood + currentDmg < expected)) {
+                    candidateTag = tags.find(t => !SCANNED_TAGS.has(t));
+                }
+                if (candidateTag) {
+                    DAMAGED_TAGS.delete(candidateTag);
+                    SCANNED_TAGS.add(candidateTag);
+                    playBeep('success');
+                } else if (currentGood < expected) {
+                    playBeep('success');
+                } else {
+                    playBeep('error');
+                    showScanFeedback(`All ${expected} pieces for this product are already verified!`, 'warning');
+                    return;
+                }
+            } else if (delta < 0) {
+                const goodTag = [...tags].reverse().find(t => SCANNED_TAGS.has(t));
+                if (goodTag) {
+                    SCANNED_TAGS.delete(goodTag);
+                    playBeep('success');
+                }
+            }
+        } else if (type === 'damage' || type === 'damaged') {
+            if (delta > 0) {
+                let candidateTag = tags.find(t => SCANNED_TAGS.has(t)) || tags.find(t => !SCANNED_TAGS.has(t) && !DAMAGED_TAGS.has(t));
+                if (candidateTag) {
+                    SCANNED_TAGS.delete(candidateTag);
+                    DAMAGED_TAGS.add(candidateTag);
+                    playBeep('error');
+                } else if (currentGood + currentDmg < expected) {
+                    playBeep('error');
+                } else {
+                    playBeep('error');
+                    showScanFeedback(`All ${expected} pieces for this product are already accounted for!`, 'warning');
+                    return;
+                }
+            } else if (delta < 0) {
+                const dmgTag = [...tags].reverse().find(t => DAMAGED_TAGS.has(t));
+                if (dmgTag) {
+                    DAMAGED_TAGS.delete(dmgTag);
+                    playBeep('success');
+                }
+            }
+        }
+
+        const recvInput = document.getElementById(`input-recv-${vid}`);
+        const dmgInput = document.getElementById(`input-dmg-${vid}`);
+        const newGood = getVariantVerifiedTagCount(item);
+        const newDmg = getVariantDamagedTagCount(item);
+
+        if (recvInput) recvInput.value = newGood;
+        if (dmgInput) {
+            dmgInput.value = newDmg;
+            dmgInput.readOnly = true;
+            if (newDmg > 0) {
+                dmgInput.classList.remove('is-locked');
+                dmgInput.classList.add('is-active');
+            } else {
+                dmgInput.classList.add('is-locked');
+                dmgInput.classList.remove('is-active');
+            }
+        }
+
+        recalculateMatrix();
+        if (activeModalVariantId) {
+            updateModalState(activeModalVariantId);
+        }
+    };
 
     function fastScanVariant(vid, specificTag = '', mode = 'good') {
         const item = ITEMS.find(i => String(i.variant_id) === String(vid));
@@ -3044,17 +2859,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         const creditedCount = (BATCH_STATUS === 'RECEIVED') ? (parseInt(item.received_qty) || 0) : 0;
         const currentGood = getVariantVerifiedTagCount(item);
         const currentDmg = getVariantDamagedTagCount(item);
-
-        // 1. Check if variant was already fully credited/inwarded from a previous inward session
-        if (creditedCount > 0 && creditedCount >= expected) {
-            playBeep('error');
-            if (row) {
-                row.classList.add('table-warning');
-                setTimeout(() => row.classList.remove('table-warning'), 1200);
-            }
-            showScanFeedback(`🔒 <strong>ALREADY INWARDED:</strong> Product <strong>${escapeHtml(item.sku)}</strong> (${expected} pcs) has ALREADY been fully verified and inwarded into <strong>${escapeHtml(WAREHOUSE_NAME)}</strong> inventory (${creditedCount} pcs credited).`, 'warning');
-            return;
-        }
 
         let tagToProcess = specificTag ? specificTag.toUpperCase() : '';
         
@@ -3084,19 +2888,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
 
         // 2. Specific Piece Tag Validations
         if (isValidPieceTag) {
-            // Already credited piece check
-            if (PERSISTED_INWARD_TAGS.has(tagToProcess) || (BATCH_STATUS === 'RECEIVED' && SCANNED_TAGS.has(tagToProcess)) || (pieceSeq !== -1 && pieceSeq < creditedCount && BATCH_STATUS === 'RECEIVED')) {
-                playBeep('error');
-                showScanFeedback(`🔒 <strong>ALREADY INWARDED:</strong> Piece <span class="badge bg-dark font-monospace">${escapeHtml(tagToProcess)}</span> was already credited to warehouse inventory.`, 'warning');
-                return;
-            }
-
-            // Already quarantined damage piece check
-            if (PERSISTED_DAMAGED_TAGS.has(tagToProcess) || (BATCH_STATUS === 'RECEIVED' && DAMAGED_TAGS.has(tagToProcess))) {
-                playBeep('error');
-                showScanFeedback(`🔒 <strong>ALREADY INWARDED:</strong> Piece <span class="badge bg-dark font-monospace">${escapeHtml(tagToProcess)}</span> was already inwarded as damaged/quarantined (Locked).`, 'warning');
-                return;
-            }
 
             if (mode === 'good') {
                 if (SCANNED_TAGS.has(tagToProcess)) {
@@ -3157,7 +2948,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             // Find next unverified piece in sequence for this variant
             tagToProcess = '';
             for (const code of item.dispatchTags || []) {
-                if (PERSISTED_INWARD_TAGS.has(code) || PERSISTED_DAMAGED_TAGS.has(code)) continue;
                 if (!SCANNED_TAGS.has(code) && !DAMAGED_TAGS.has(code)) {
                     tagToProcess = code;
                     break;
@@ -3172,7 +2962,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             // Single scan inwards ALL counts for series and complementary products!
             let newlyAdded = 0;
             for (const code of item.dispatchTags || []) {
-                if (PERSISTED_INWARD_TAGS.has(code) || PERSISTED_DAMAGED_TAGS.has(code)) continue;
                 if (!SCANNED_TAGS.has(code) && !DAMAGED_TAGS.has(code)) {
                     SCANNED_TAGS.add(code);
                     newlyAdded++;
@@ -3250,17 +3039,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             showScanFeedback('This garment tag is not included in the outward batch.', 'warning');
             return;
         }
-        if (PERSISTED_INWARD_TAGS.has(normalizedTag) || (BATCH_STATUS === 'RECEIVED' && SCANNED_TAGS.has(normalizedTag)) || (tagSeq < creditedCount && BATCH_STATUS === 'RECEIVED')) {
-            playBeep('error');
-            showScanFeedback(`🔒 Piece <span class="badge bg-dark font-monospace">${escapeHtml(normalizedTag)}</span> was already credited to warehouse inventory and cannot be un-verified.`, 'warning');
-            return;
-        }
-        if (PERSISTED_DAMAGED_TAGS.has(normalizedTag) || (BATCH_STATUS === 'RECEIVED' && DAMAGED_TAGS.has(normalizedTag))) {
-            playBeep('error');
-            showScanFeedback(`🔒 Piece <span class="badge bg-dark font-monospace">${escapeHtml(normalizedTag)}</span> was already inwarded as damaged/quarantined and cannot be un-verified.`, 'warning');
-            return;
-        }
-
+        // Lock restrictions removed: Staff can freely unverify or adjust pieces
         SCANNED_TAGS.delete(normalizedTag);
         DAMAGED_TAGS.delete(normalizedTag);
 

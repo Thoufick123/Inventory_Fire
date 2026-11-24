@@ -338,15 +338,15 @@
                                                             </span>
                                                         <?php endif; ?>
                                                     </div>
-                                                    <?php if (($it['already_packed'] ?? 0) > 0): ?>
-                                                        <small class="text-muted d-block mt-1">
-                                                            Total Passed: <?= number_format($it['passed_qty']) ?> pcs (<?= number_format($it['already_packed']) ?> already packed)
-                                                        </small>
-                                                    <?php else: ?>
-                                                        <small class="text-muted d-block mt-1">
-                                                            Total Passed: <?= number_format($it['passed_qty']) ?> pcs
-                                                        </small>
-                                                    <?php endif; ?>
+                                                    <?php
+                                                        $metaDetails = [];
+                                                        if (($it['already_packed'] ?? 0) > 0) $metaDetails[] = number_format($it['already_packed']) . ' packed';
+                                                        if (($it['already_billed'] ?? 0) > 0) $metaDetails[] = number_format($it['already_billed']) . ' billed';
+                                                        if (($it['already_deleted'] ?? 0) > 0) $metaDetails[] = number_format($it['already_deleted']) . ' deleted';
+                                                    ?>
+                                                    <small class="text-muted d-block mt-1">
+                                                        Total Passed: <?= number_format($it['passed_qty']) ?> pcs<?= !empty($metaDetails) ? ' (' . implode(', ', $metaDetails) . ')' : '' ?>
+                                                    </small>
                                                 </td>
                                                 <td>
                                                     <?php if ($hasAvailableTags): ?>
