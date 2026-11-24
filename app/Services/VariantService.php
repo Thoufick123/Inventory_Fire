@@ -190,12 +190,12 @@ class VariantService {
             throw new RuntimeException("SKU '{$sku}' is already taken. Please customize the SKU.");
         }
 
-        // Only assign QR Code if explicitly provided or generated
-        $qrCode = !empty($data['qr_code']) ? strtoupper(trim($data['qr_code'])) : null;
+        // Assign QR Code: default to variant_code so the variant has a permanent, scannable QR identity
+        $qrCode = !empty($data['qr_code']) ? strtoupper(trim($data['qr_code'])) : $variantCode;
         if ($qrCode) {
             $qrExists = Database::fetchOne("SELECT id FROM product_variants WHERE qr_code = ?", [$qrCode]);
             if ($qrExists) {
-                $qrCode = null;
+                $qrCode = $variantCode;
             }
         }
 
@@ -373,7 +373,17 @@ class VariantService {
      * Query variants with rich filtering and pagination.
      */
     public static function listVariants(array $filters = []): array {
+        try {
+            Database::execute("
+                UPDATE product_variants 
+                SET qr_code = COALESCE(NULLIF(variant_code, ''), CONCAT('V', LPAD(id, 4, '0')))
+                WHERE (qr_code IS NULL OR qr_code = '')
+            ");
+        } catch (\Throwable $e) {}
+
         $sql = "SELECT pv.*,
+                       COALESCE(NULLIF(pv.qr_code, ''), NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as qr_code,
+                       COALESCE(NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as variant_code,
                        p.name as product_name, p.code as parent_sku,
                        c.name as category_name, c.id as category_id,
                        sc.name as subcategory_name, sc.id as subcategory_id,
@@ -381,7 +391,7 @@ class VariantService {
                        col.name as color_name, col.hex_code as color_hex,
                        d.name as design_name, d.code as design_code,
                        s.name as size_name, s.code as size_code,
-                       COALESCE(stk.total_stock, 0) as current_stock
+                       (COALESCE(stk.total_stock, 0) + COALESCE(qc_stk.total_stock, 0)) as current_stock
                 FROM product_variants pv
                 JOIN products p ON p.id = pv.product_id
                 LEFT JOIN categories c ON c.id = p.category_id
@@ -396,6 +406,25 @@ class VariantService {
                     WHERE location_type = 'PRODUCTION_UNIT' AND stock_state = 'AVAILABLE'
                     GROUP BY variant_id
                 ) stk ON stk.variant_id = pv.id
+                LEFT JOIN (
+                    SELECT qi.variant_id, 
+                           GREATEST(0, SUM(qi.passed_qty) - COALESCE(ow.out_qty, 0) - COALESCE(bl.bill_qty, 0)) as total_stock
+                    FROM qc_items qi
+                    LEFT JOIN (
+                        SELECT pbi.variant_id, SUM(pbi.quantity) as out_qty
+                        FROM production_batch_items pbi
+                        WHERE pbi.variant_id > 0
+                        GROUP BY pbi.variant_id
+                    ) ow ON ow.variant_id = qi.variant_id
+                    LEFT JOIN (
+                        SELECT pbi2.variant_id, SUM(pbi2.quantity) as bill_qty
+                        FROM production_bill_items pbi2
+                        WHERE pbi2.variant_id > 0
+                        GROUP BY pbi2.variant_id
+                    ) bl ON bl.variant_id = qi.variant_id
+                    WHERE qi.passed_qty > 0 AND qi.variant_id IS NOT NULL AND qi.variant_id > 0
+                    GROUP BY qi.variant_id
+                ) qc_stk ON qc_stk.variant_id = pv.id
                 WHERE 1 = 1";
         
         $params = [];

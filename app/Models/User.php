@@ -92,11 +92,6 @@ class User {
                 INDEX idx_uc_user (user_id),
                 INDEX idx_uc_concern (concern_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-            $concernCount = Database::fetchOne("SELECT COUNT(*) as c FROM concerns");
-            if (empty($concernCount['c'])) {
-                Database::execute("INSERT IGNORE INTO concerns (id, name, code, legal_name, invoice_prefix, po_prefix, dispatch_prefix, is_active)
-                    VALUES (1, 'GRM Apparels Unit 1', 'CN-01', 'GRM Apparels Private Limited', 'INV-', 'PO-', 'DSP-', 1)");
-            }
             $concernsList = Database::fetchAll("SELECT id FROM concerns");
             $stdModules = ['production', 'purchases', 'warehouse', 'retail_pos', 'digital_sales', 'returns', 'expenses', 'assets'];
             foreach ($concernsList as $cRow) {

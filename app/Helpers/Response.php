@@ -849,13 +849,9 @@ function currentConcernId(): ?int {
         }
     }
 
-    // Super admin default: return active_concern_id if valid, or fallback to first active concern
-    if ($isSuper && class_exists('Database')) {
-        $first = Database::fetchOne("SELECT id FROM concerns WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
-        if ($first) {
-            Session::set('active_concern_id', (int)$first['id']);
-            return (int)$first['id'];
-        }
+    // Super admin default: stays in Global Admin context (null / All Concerns) unless explicitly switched
+    if ($isSuper) {
+        return null;
     }
     return null;
 }

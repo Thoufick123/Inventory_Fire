@@ -72,30 +72,5 @@ ALTER TABLE `stitching_wastage_sales` ADD COLUMN IF NOT EXISTS `concern_id` INT 
 ALTER TABLE `stock_balances` ADD COLUMN IF NOT EXISTS `concern_id` INT NULL DEFAULT 1 AFTER `id`, ADD INDEX IF NOT EXISTS `idx_stock_balances_concern` (`concern_id`);
 ALTER TABLE `stock_transactions` ADD COLUMN IF NOT EXISTS `concern_id` INT NULL DEFAULT 1 AFTER `id`, ADD INDEX IF NOT EXISTS `idx_stock_transactions_concern` (`concern_id`);
 
--- 5. Default Concern Seed
-INSERT IGNORE INTO `concerns` (`id`, `name`, `code`, `legal_name`, `invoice_prefix`, `po_prefix`, `dispatch_prefix`, `is_active`)
-VALUES (1, 'GRM Apparels Unit 1', 'CN-01', 'GRM Apparels Private Limited', 'INV-', 'PO-', 'DSP-', 1);
-
-INSERT IGNORE INTO `concern_modules` (`concern_id`, `module_key`, `is_enabled`) VALUES
-(1, 'production', 1),
-(1, 'purchases', 1),
-(1, 'warehouse', 1),
-(1, 'retail_pos', 1),
-(1, 'digital_sales', 1),
-(1, 'returns', 1),
-(1, 'expenses', 1),
-(1, 'assets', 1);
-
-UPDATE `users` u
-LEFT JOIN `roles` r ON r.`id` = u.`role_id`
-SET u.`default_concern_id` = 1
-WHERE u.`default_concern_id` IS NULL
-  AND (u.`role_id` IS NULL OR u.`role_id` <> 1)
-  AND (r.`slug` IS NULL OR r.`slug` <> 'super_admin');
-
-INSERT IGNORE INTO `user_concerns` (`user_id`, `concern_id`, `is_default`)
-SELECT u.`id`, 1, 1
-FROM `users` u
-LEFT JOIN `roles` r ON r.`id` = u.`role_id`
-WHERE (u.`role_id` IS NULL OR u.`role_id` <> 1)
-  AND (r.`slug` IS NULL OR r.`slug` <> 'super_admin');
+-- 5. Default Concern Seed (Removed: fresh databases start cleanly in Global Admin context without default concerns)
+-- Concerns can be added by the administrator via the Manage Business Concerns interface.

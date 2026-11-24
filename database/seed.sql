@@ -45,10 +45,6 @@ INSERT INTO `sales_channels` (`id`, `name`, `code`, `is_active`, `created_at`) V
 (2, 'WhatsApp Catalog Sales', 'WHATSAPP', 1, NOW()),
 (3, 'B2B Wholesale Channel', 'WHOLESALE', 1, NOW());
 
--- Default business concern (master record for scoping/branding)
-INSERT IGNORE INTO `concerns` (`id`, `name`, `code`, `invoice_prefix`, `po_prefix`, `dispatch_prefix`, `is_active`, `created_at`) VALUES
-(1, 'GRM Apparels', 'CN-01', 'INV', 'PO', 'DSP', 1, NOW());
-
 -- ------------------------------------------------------------
 -- 3. Admin User Seed (Credentials: admin / admin123)
 -- ------------------------------------------------------------

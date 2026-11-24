@@ -301,13 +301,16 @@
 
                         <!-- QR Identity -->
                         <td class="text-center">
-                            <?php if (!empty($v['qr_code'])): ?>
+                            <?php 
+                            $vQr = !empty($v['qr_code']) ? $v['qr_code'] : (!empty($v['variant_code']) ? $v['variant_code'] : ('V' . str_pad((string)$v['id'], 4, '0', STR_PAD_LEFT)));
+                            ?>
                             <button type="button" class="btn btn-sm btn-outline-dark font-monospace py-0 px-2"
+                                    title="View & Scan Variant QR"
                                     onclick='viewVariantQr(<?= json_encode([
                                         "id"           => (int)$v["id"],
-                                        "variant_code" => (string)$v["variant_code"],
+                                        "variant_code" => (string)($v["variant_code"] ?: $vQr),
                                         "sku"          => (string)$v["sku"],
-                                        "qr_code"      => (string)$v["qr_code"],
+                                        "qr_code"      => (string)$vQr,
                                         "product_name" => (string)$v["product_name"],
                                         "parent_sku"   => (string)$v["parent_sku"],
                                         "color_name"   => (string)($v["color_name"] ?? "-"),
@@ -316,18 +319,8 @@
                                         "price"        => number_format((float)$v["selling_price"], 2),
                                         "stock"        => (float)$v["current_stock"],
                                     ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                                <i class="bi bi-qr-code me-1 text-primary"></i><?= e($v['qr_code']) ?>
+                                <i class="bi bi-qr-code me-1 text-primary"></i><?= e($vQr) ?>
                             </button>
-                            <?php else: ?>
-                            <span class="badge bg-light text-secondary border py-1 px-2">
-                                <i class="bi bi-qr-code me-1 text-muted"></i>Pending QR
-                            </span>
-                            <?php if (hasPermission('qr_generation', 'create')): ?>
-                            <a href="<?= url('production/qr-generations/create?mode=catalog&variant_id=' . (int)$v['id']) ?>" class="btn btn-sm btn-outline-primary py-0 px-1 ms-1" title="Generate QR Batch">
-                                <i class="bi bi-qr-code-scan"></i>
-                            </a>
-                            <?php endif; ?>
-                            <?php endif; ?>
                         </td>
 
                         <!-- Status -->

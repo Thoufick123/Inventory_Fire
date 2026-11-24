@@ -477,15 +477,23 @@ class ProductionBillingController
         $items = $this->getAvailableInventory($billId, $productionUnitId);
         $exactAvailableItems = [];
         $cleanNeedle = ltrim($needle, '#');
+        $needleNum = (int)preg_replace('/[^0-9]/', '', $needle);
+        $needleIsVariantCode = (bool)preg_match('/^V0*([0-9]+)$/i', $needle);
 
         foreach ($items as $item) {
             $tagsUpper = array_map('strtoupper', array_map('trim', $item['available_tags']));
             $vCodeUpper = strtoupper(trim((string)($item['variant_code'] ?? '')));
-            $vIdStr = (string)($item['variant_id'] ?? 0);
+            $vId = (int)($item['variant_id'] ?? 0);
+            $vIdStr = (string)$vId;
+            $formattedVCode = $vId > 0 ? sprintf('V%04d', $vId) : '';
+            $shortVCode = $vId > 0 ? ('V' . $vId) : '';
 
             $isExactMatch = in_array($needle, $tagsUpper, true)
                 || ($vCodeUpper !== '' && $vCodeUpper === $needle)
-                || ($vIdStr !== '0' && ($vIdStr === $needle || $vIdStr === $cleanNeedle));
+                || ($formattedVCode !== '' && $formattedVCode === $needle)
+                || ($shortVCode !== '' && $shortVCode === $needle)
+                || ($vIdStr !== '0' && ($vIdStr === $needle || $vIdStr === $cleanNeedle))
+                || ($vId > 0 && $needleNum === $vId && ($needleIsVariantCode || str_starts_with($needle, '#') || is_numeric($needle)));
 
             if ($isExactMatch) {
                 $item['matched_tag'] = in_array($needle, $tagsUpper, true) ? $needle : ($item['available_tags'][0] ?? $needle);
@@ -575,7 +583,9 @@ class ProductionBillingController
 
         // Check if scanned input matches a Variant QR Code, Variant SKU, Variant Code, or Variant ID
         $cleanId = preg_replace('/[^0-9]/', '', $needle);
-        $variantIdParam = ($cleanId !== '' && (str_starts_with($needle, '#') || is_numeric($needle))) ? (int)$cleanId : 0;
+        $variantIdParam = ($cleanId !== '' && (str_starts_with($needle, '#') || str_starts_with($needle, 'V') || is_numeric($needle))) ? (int)$cleanId : 0;
+        $vPadded = $variantIdParam > 0 ? sprintf('V%04d', $variantIdParam) : $needle;
+        $vShort = $variantIdParam > 0 ? ('V' . $variantIdParam) : $needle;
 
         $variantMatch = Database::fetchOne(
             "SELECT pv.*, p.name as product_name, p.code as parent_sku, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
@@ -592,8 +602,10 @@ class ProductionBillingController
              WHERE UPPER(TRIM(pv.qr_code)) = ? 
                 OR UPPER(TRIM(pv.sku)) = ? 
                 OR UPPER(TRIM(pv.variant_code)) = ?
+                OR UPPER(TRIM(pv.variant_code)) = ?
+                OR UPPER(TRIM(pv.variant_code)) = ?
                 OR (? > 0 AND pv.id = ?)",
-            [$needle, $needle, $needle, $variantIdParam, $variantIdParam]
+            [$needle, $needle, $needle, $vPadded, $vShort, $variantIdParam, $variantIdParam]
         );
 
         if ($variantMatch) {
@@ -606,14 +618,18 @@ class ProductionBillingController
             }
 
             $varId = (int)$variantMatch['id'];
-            $varCode = strtoupper(trim((string)$variantMatch['variant_code']));
+            $varCode = strtoupper(trim((string)($variantMatch['variant_code'] ?: sprintf('V%04d', $varId))));
             $varSku = strtoupper(trim((string)$variantMatch['sku']));
 
             // Find matching item in available inventory from QC batches
             $variantItems = [];
             foreach ($items as $item) {
-                if ((int)($item['variant_id'] ?? 0) === $varId
-                    || (!empty($item['variant_code']) && strtoupper($item['variant_code']) === $varCode)
+                $iVarId = (int)($item['variant_id'] ?? 0);
+                $iVarCode = strtoupper(trim((string)($item['variant_code'] ?? '')));
+                $iVarPadded = $iVarId > 0 ? sprintf('V%04d', $iVarId) : '';
+                if ($iVarId === $varId
+                    || ($iVarCode !== '' && ($iVarCode === $varCode || $iVarCode === $vPadded))
+                    || ($iVarPadded !== '' && $iVarPadded === $vPadded)
                     || (!empty($item['sku']) && strtoupper($item['sku']) === $varSku)) {
                     $variantItems[] = $item;
                 }
@@ -638,7 +654,7 @@ class ProductionBillingController
                 JOIN production_programs pp ON pp.id = qb.program_id
                 JOIN products p ON p.id = pp.product_id
                 JOIN product_variants pv ON pv.id = ?
-                WHERE (qi.variant_id = ? OR (qi.variant_id IS NULL AND qi.product_id = pv.product_id))
+                WHERE (qi.variant_id = ? OR (qi.variant_id IS NULL AND pp.product_id = pv.product_id))
                   AND qi.passed_qty > 0
                 ORDER BY qb.id DESC
             ", [$varId, $varId]);
@@ -813,11 +829,20 @@ class ProductionBillingController
                 $item['available_tags'],
                 static fn(string $tag): bool => str_contains(strtoupper($tag), $needle)
             ));
+            $vCodeUpper = strtoupper(trim((string)($item['variant_code'] ?? '')));
+            $vId = (int)($item['variant_id'] ?? 0);
+            $formattedVCode = $vId > 0 ? sprintf('V%04d', $vId) : '';
+            $shortVCode = $vId > 0 ? ('V' . $vId) : '';
+
             $metadataMatch = stripos($item['product_name'], $query) !== false
                 || stripos((string)$item['sku'], $query) !== false
                 || stripos((string)$item['size_name'], $query) !== false
                 || stripos((string)$item['color_name'], $query) !== false
-                || stripos((string)$item['program_number'], $query) !== false;
+                || stripos((string)$item['program_number'], $query) !== false
+                || ($vCodeUpper !== '' && stripos($vCodeUpper, $needle) !== false)
+                || ($formattedVCode !== '' && stripos($formattedVCode, $needle) !== false)
+                || ($shortVCode !== '' && stripos($shortVCode, $needle) !== false)
+                || ($vId > 0 && ($needleNum === $vId || (string)$vId === $cleanNeedle));
 
             if ($metadataMatch || $matchingTags) {
                 if ($matchingTags) {
@@ -1297,7 +1322,7 @@ class ProductionBillingController
         $concernFilter = '';
         $params = [];
         if ($cid) {
-            $concernFilter = ' AND (qb.concern_id = ? OR pp.concern_id = ? OR qb.concern_id IS NULL OR pp.concern_id IS NULL)';
+            $concernFilter = ' AND (qb.concern_id = ? OR pp.concern_id = ? OR qb.concern_id IS NULL OR pp.concern_id IS NULL OR qb.concern_id = 1 OR pp.concern_id = 1)';
             $params = [$cid, $cid];
         }
 
@@ -1311,7 +1336,8 @@ class ProductionBillingController
                     COALESCE(p.variants_deferred, 0) AS variants_deferred,
                     p.code AS product_code, p.gst_percentage, p.hsn_code,
                     p.is_complementary AS prod_is_comp,
-                    pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
+                    COALESCE(NULLIF(pv.variant_code, ''), IF(qi.variant_id > 0, CONCAT('V', LPAD(qi.variant_id, 4, '0')), NULL)) AS variant_code,
+                    pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
                     pv.is_complementary AS var_is_comp,
                     c.name AS color_from_variant, sz.name AS size_from_variant
              FROM qc_items qi
@@ -1482,7 +1508,7 @@ class ProductionBillingController
                 'qc_item_id' => $qcItemId,
                 'qc_batch_id' => (int)$row['qc_batch_id'],
                 'variant_id' => (int)($row['variant_id'] ?? 0),
-                'variant_code' => (string)($row['variant_code'] ?? ''),
+                'variant_code' => (string)(!empty($row['variant_code']) ? $row['variant_code'] : ((int)($row['variant_id'] ?? 0) > 0 ? sprintf('V%04d', (int)$row['variant_id']) : '')),
                 'product_name' => (string)$row['product_name'],
                 'program_number' => (string)($row['program_number'] ?? ''),
                 'sku' => (string)(!empty($row['sku']) ? $row['sku'] : ($row['product_code'] ?? '')),

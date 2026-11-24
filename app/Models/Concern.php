@@ -111,12 +111,30 @@ class Concern {
                 }
             }
 
-            // Keep a single usable concern so scoping/branding helpers never see an empty master.
-            if (!Database::fetchOne("SELECT id FROM concerns LIMIT 1")) {
-                Database::execute(
-                    "INSERT INTO concerns (id, name, code, invoice_prefix, po_prefix, dispatch_prefix, is_active, created_at)
-                     VALUES (1, 'GRM Apparels', 'CN-01', 'INV', 'PO', 'DSP', 1, NOW())"
+            // Auto-clean unconfigured dummy default concern (CN-01 / GRM Apparels) if previously auto-seeded
+            try {
+                $dummy = Database::fetchOne(
+                    "SELECT id FROM concerns 
+                     WHERE (code = 'CN-01' OR name = 'GRM Apparels' OR name = 'GRM Apparels Unit 1') 
+                       AND (created_by IS NULL OR created_by = 0)
+                       AND legal_name IS NULL 
+                       AND gst_number IS NULL 
+                       AND address IS NULL 
+                     LIMIT 1"
                 );
+                if ($dummy) {
+                    $dummyId = (int)$dummy['id'];
+                    $hasUnits = Database::fetchOne("SELECT 1 FROM production_units WHERE concern_id = ? LIMIT 1", [$dummyId]);
+                    $hasPurchases = Database::fetchOne("SELECT 1 FROM production_purchases WHERE concern_id = ? LIMIT 1", [$dummyId]);
+                    $hasBills = Database::fetchOne("SELECT 1 FROM production_bills WHERE concern_id = ? LIMIT 1", [$dummyId]);
+                    if (!$hasUnits && !$hasPurchases && !$hasBills) {
+                        Database::execute("DELETE FROM user_concerns WHERE concern_id = ?", [$dummyId]);
+                        Database::execute("DELETE FROM concern_modules WHERE concern_id = ?", [$dummyId]);
+                        Database::execute("DELETE FROM concerns WHERE id = ?", [$dummyId]);
+                    }
+                }
+            } catch (Throwable $e) {
+                // Ignore cleanup errors
             }
 
             if (session_status() === PHP_SESSION_ACTIVE) {

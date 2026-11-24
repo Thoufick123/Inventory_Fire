@@ -4,16 +4,9 @@ declare(strict_types=1);
 
 <div class="container-fluid py-3 cash-flow-page">
 <div class="mb-4">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb small text-muted mb-1">
-            <li class="breadcrumb-item"><a href="<?= url('') ?>" class="text-decoration-none">Home</a></li>
-            <li class="breadcrumb-item"><a href="<?= url('production') ?>" class="text-decoration-none">Shop</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Cash &amp; Cash Flow</li>
-        </ol>
-    </nav>
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center flex-wrap gap-2">
-            <h2 class="mb-0 fw-bold">Shop Cash &amp; Cash Flow Register</h2>
+            <h2 class="mb-0 fw-bold">Cash Management</h2>
             <span class="badge bg-light text-primary border px-2 py-1"><i class="bi bi-building me-1"></i><?= e($concernName) ?></span>
             <?php if (!empty($activeShift)): ?>
                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">

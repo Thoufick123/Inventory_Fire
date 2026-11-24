@@ -1,21 +1,36 @@
--- ============================================================
--- GRM INVENTORY SOFTWARE - SAFE ADDITIVE MASTER SCHEMA
--- Generated: 2026-11-20
--- Tables: 95 (Master Complete Database Schema & Safe Migration)
--- Generated: 2026-11-21
--- Tables: 94 (Master Complete Database Schema & Safe Migration)
--- Existing-database upgrade: creates missing tables and adds missing columns/indexes.
--- Does not drop tables, delete rows, or insert seed/demo users.
--- Review and back up the live database before importing.
--- ============================================================
+-- ============================================================================
+-- CONSOLIDATED FRESH-INSTALL DATABASE SCHEMA
+-- Includes current schema changes from database/migrations through 2026-12-08.
+-- Import only into a new, empty database; this is not an existing-database upgrade.
+-- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';
-SET time_zone = '+05:30';
+SET NAMES utf8mb4;
 
--- ------------------------------------------------------------
--- [1/91] Table structure for `allocation_outwards`
--- ------------------------------------------------------------
+-- MariaDB dump 10.19  Distrib 10.4.32-MariaDB, for Win64 (AMD64)
+--
+-- Host: 127.0.0.1    Database: grm_inventory
+-- ------------------------------------------------------
+-- Server version	10.4.32-MariaDB
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `allocation_outwards`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `allocation_outwards` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `outward_number` varchar(50) NOT NULL,
@@ -46,10 +61,14 @@ CREATE TABLE IF NOT EXISTS `allocation_outwards` (
   KEY `idx_outward_alloc` (`allocation_id`),
   KEY `idx_outward_wh` (`warehouse_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [2/91] Table structure for `asset_categories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `asset_categories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `asset_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
@@ -65,10 +84,14 @@ CREATE TABLE IF NOT EXISTS `asset_categories` (
   KEY `idx_code` (`code`),
   KEY `idx_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [3/91] Table structure for `asset_maintenance_logs`
--- ------------------------------------------------------------
+--
+-- Table structure for table `asset_maintenance_logs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `asset_maintenance_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -98,10 +121,14 @@ CREATE TABLE IF NOT EXISTS `asset_maintenance_logs` (
   KEY `idx_status` (`status`),
   KEY `idx_asset_maintenance_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [4/91] Table structure for `assets`
--- ------------------------------------------------------------
+--
+-- Table structure for table `assets`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `assets` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -147,10 +174,14 @@ CREATE TABLE IF NOT EXISTS `assets` (
   KEY `idx_code` (`asset_code`),
   KEY `idx_assets_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [5/91] Table structure for `audit_logs`
--- ------------------------------------------------------------
+--
+-- Table structure for table `audit_logs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `audit_logs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned DEFAULT NULL,
@@ -175,11 +206,15 @@ CREATE TABLE IF NOT EXISTS `audit_logs` (
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `audit_logs_chk_1` CHECK (json_valid(`previous_value`)),
   CONSTRAINT `audit_logs_chk_2` CHECK (json_valid(`new_value`))
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [6/91] Table structure for `brands`
--- ------------------------------------------------------------
+--
+-- Table structure for table `brands`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `brands` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -192,10 +227,14 @@ CREATE TABLE IF NOT EXISTS `brands` (
   `description` text DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [7/91] Table structure for `categories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `categories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -212,11 +251,15 @@ CREATE TABLE IF NOT EXISTS `categories` (
   `image` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [8/91] Table structure for `colors`
--- ------------------------------------------------------------
+--
+-- Table structure for table `colors`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `colors` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -225,11 +268,15 @@ CREATE TABLE IF NOT EXISTS `colors` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [9/91] Table structure for `concern_modules`
--- ------------------------------------------------------------
+--
+-- Table structure for table `concern_modules`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `concern_modules` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) NOT NULL,
@@ -239,11 +286,15 @@ CREATE TABLE IF NOT EXISTS `concern_modules` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_concern_module` (`concern_id`,`module_key`),
   CONSTRAINT `fk_concern_module_concern` FOREIGN KEY (`concern_id`) REFERENCES `concerns` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [10/91] Table structure for `concerns`
--- ------------------------------------------------------------
+--
+-- Table structure for table `concerns`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `concerns` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
@@ -270,11 +321,15 @@ CREATE TABLE IF NOT EXISTS `concerns` (
   UNIQUE KEY `code` (`code`),
   KEY `idx_concerns_code` (`code`),
   KEY `idx_concerns_active` (`is_active`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [11/91] Table structure for `cutting_batch_rolls`
--- ------------------------------------------------------------
+--
+-- Table structure for table `cutting_batch_rolls`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `cutting_batch_rolls` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `cutting_batch_id` int(10) unsigned NOT NULL,
@@ -295,11 +350,15 @@ CREATE TABLE IF NOT EXISTS `cutting_batch_rolls` (
   PRIMARY KEY (`id`),
   KEY `idx_cbr_batch` (`cutting_batch_id`),
   KEY `idx_cbr_roll` (`seller_roll_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [12/91] Table structure for `cutting_batches`
--- ------------------------------------------------------------
+--
+-- Table structure for table `cutting_batches`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `cutting_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -345,11 +404,15 @@ CREATE TABLE IF NOT EXISTS `cutting_batches` (
   CONSTRAINT `cutting_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`),
   CONSTRAINT `cutting_batches_ibfk_2` FOREIGN KEY (`operator_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `cutting_batches_ibfk_3` FOREIGN KEY (`production_unit_id`) REFERENCES `production_units` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [13/91] Table structure for `cutting_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `cutting_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `cutting_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `cutting_batch_id` int(10) unsigned NOT NULL,
@@ -373,11 +436,15 @@ CREATE TABLE IF NOT EXISTS `cutting_items` (
   KEY `variant_id` (`variant_id`),
   CONSTRAINT `cutting_items_ibfk_1` FOREIGN KEY (`cutting_batch_id`) REFERENCES `cutting_batches` (`id`) ON DELETE CASCADE,
   CONSTRAINT `cutting_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [14/91] Table structure for `designs`
--- ------------------------------------------------------------
+--
+-- Table structure for table `designs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `designs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
@@ -389,10 +456,14 @@ CREATE TABLE IF NOT EXISTS `designs` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [15/91] Table structure for `expense_categories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `expense_categories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `expense_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -404,10 +475,14 @@ CREATE TABLE IF NOT EXISTS `expense_categories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [16/91] Table structure for `hsn_codes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `hsn_codes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `hsn_codes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `hsn_code` varchar(20) NOT NULL,
@@ -419,11 +494,76 @@ CREATE TABLE IF NOT EXISTS `hsn_codes` (
   UNIQUE KEY `uniq_hsn_code` (`hsn_code`),
   KEY `idx_hsn_code_search` (`hsn_code`),
   KEY `idx_gst_rate` (`gst_rate`)
-) ENGINE=InnoDB AUTO_INCREMENT=17466 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- Table structure for `product_price_logs`
--- ------------------------------------------------------------
+
+
+-- Storage locations used by warehouse racks, shelves, and bins.
+CREATE TABLE IF NOT EXISTS `locations` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `warehouse_id` int(10) unsigned NOT NULL,
+  `rack` varchar(50) DEFAULT NULL,
+  `shelf` varchar(50) DEFAULT NULL,
+  `bin` varchar(50) DEFAULT NULL,
+  `label` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `zone` varchar(50) NOT NULL,
+  `barcode` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_loc_warehouse` (`warehouse_id`),
+  CONSTRAINT `locations_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `notifications`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) unsigned DEFAULT NULL,
+  `type` varchar(50) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text DEFAULT NULL,
+  `reference_type` varchar(50) DEFAULT NULL,
+  `reference_id` int(10) unsigned DEFAULT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `link` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_notif_user` (`user_id`,`is_read`),
+  CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `permissions`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `permissions` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `module` varchar(50) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `slug` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_module_action` (`module`,`action`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `product_price_logs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `product_price_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `variant_id` int(10) unsigned DEFAULT NULL,
@@ -447,43 +587,14 @@ CREATE TABLE IF NOT EXISTS `product_price_logs` (
   CONSTRAINT `product_price_logs_ibfk_1` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE SET NULL,
   CONSTRAINT `product_price_logs_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- Table structure for `notifications`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `notifications` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int(10) unsigned DEFAULT NULL,
-  `type` varchar(50) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `message` text DEFAULT NULL,
-  `reference_type` varchar(50) DEFAULT NULL,
-  `reference_id` int(10) unsigned DEFAULT NULL,
-  `is_read` tinyint(1) DEFAULT 0,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `link` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_notif_user` (`user_id`,`is_read`),
-  CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Table structure for table `product_variants`
+--
 
--- ------------------------------------------------------------
--- [20/91] Table structure for `permissions`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `permissions` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `module` varchar(50) NOT NULL,
-  `action` varchar(50) NOT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `slug` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_module_action` (`module`,`action`)
-) ENGINE=InnoDB AUTO_INCREMENT=448 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------------
--- [21/91] Table structure for `product_variants`
--- ------------------------------------------------------------
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `product_variants` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `variant_code` varchar(20) DEFAULT NULL,
@@ -525,14 +636,19 @@ CREATE TABLE IF NOT EXISTS `product_variants` (
   KEY `idx_variant_qr` (`qr_code`),
   KEY `size_id` (`size_id`),
   KEY `color_id` (`color_id`),
+  KEY `idx_pv_product_active` (`product_id`,`is_active`),
   CONSTRAINT `product_variants_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
   CONSTRAINT `product_variants_ibfk_2` FOREIGN KEY (`size_id`) REFERENCES `sizes` (`id`) ON DELETE SET NULL,
   CONSTRAINT `product_variants_ibfk_3` FOREIGN KEY (`color_id`) REFERENCES `colors` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [22/91] Table structure for `production_batch_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_batch_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_batch_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `production_batch_id` int(10) unsigned NOT NULL,
@@ -550,10 +666,14 @@ CREATE TABLE IF NOT EXISTS `production_batch_items` (
   CONSTRAINT `production_batch_items_ibfk_1` FOREIGN KEY (`production_batch_id`) REFERENCES `production_batches` (`id`) ON DELETE CASCADE,
   CONSTRAINT `production_batch_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [23/91] Table structure for `production_batches`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_batches`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -601,10 +721,14 @@ CREATE TABLE IF NOT EXISTS `production_batches` (
   CONSTRAINT `production_batches_ibfk_4` FOREIGN KEY (`prepared_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `production_batches_ibfk_5` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [24/91] Table structure for `production_bill_item_tags`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_bill_item_tags`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_bill_item_tags` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `bill_id` int(10) unsigned NOT NULL,
@@ -619,11 +743,15 @@ CREATE TABLE IF NOT EXISTS `production_bill_item_tags` (
   KEY `idx_production_bill_tags_qc` (`qc_item_id`),
   CONSTRAINT `production_bill_tags_ibfk_1` FOREIGN KEY (`bill_id`) REFERENCES `production_bills` (`id`) ON DELETE CASCADE,
   CONSTRAINT `production_bill_tags_ibfk_2` FOREIGN KEY (`bill_item_id`) REFERENCES `production_bill_items` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [25/91] Table structure for `production_bill_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_bill_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_bill_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `bill_id` int(10) unsigned NOT NULL,
@@ -657,11 +785,15 @@ CREATE TABLE IF NOT EXISTS `production_bill_items` (
   KEY `idx_production_bill_items_bill` (`bill_id`),
   KEY `idx_production_bill_items_qc` (`qc_item_id`),
   CONSTRAINT `production_bill_items_ibfk_1` FOREIGN KEY (`bill_id`) REFERENCES `production_bills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [26/91] Table structure for `production_bills`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_bills`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_bills` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `bill_number` varchar(50) NOT NULL,
@@ -686,7 +818,6 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `cash_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `upi_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `upi_reference` varchar(150) DEFAULT NULL,
-  `upi_payment_screenshot_url` varchar(500) DEFAULT NULL,
   `gross_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -704,6 +835,7 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `concern_id` int(11) DEFAULT NULL,
+  `upi_payment_screenshot_url` varchar(500) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_production_bills_number` (`bill_number`),
   KEY `idx_production_bills_date` (`bill_date`),
@@ -711,14 +843,19 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   KEY `idx_production_bills_customer_phone` (`customer_phone`),
   KEY `production_bills_ibfk_1` (`created_by`),
   KEY `idx_production_bills_unit` (`production_unit_id`),
-  KEY `idx_production_bills_direct` (`is_direct_bill`),
   KEY `idx_production_bills_concern_id` (`concern_id`),
+  KEY `idx_production_bills_direct` (`is_direct_bill`),
+  KEY `idx_production_bills_concern` (`concern_id`),
   CONSTRAINT `production_bills_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [27/91] Table structure for `production_category_attributes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_category_attributes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_category_attributes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` int(10) unsigned NOT NULL,
@@ -735,20 +872,28 @@ CREATE TABLE IF NOT EXISTS `production_category_attributes` (
   PRIMARY KEY (`id`),
   KEY `idx_production_cat_attrs` (`category_id`,`subcategory_id`,`sub_subcategory_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [28/91] Table structure for `production_deleted_label_codes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_deleted_label_codes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_deleted_label_codes` (
   `code` varchar(50) NOT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [29/91] Table structure for `production_expense_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_expense_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_expense_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -760,10 +905,14 @@ CREATE TABLE IF NOT EXISTS `production_expense_items` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_production_expense_items_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [30/91] Table structure for `production_expenses`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_expenses`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_expenses` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `expense_number` varchar(50) NOT NULL,
@@ -799,11 +948,14 @@ CREATE TABLE IF NOT EXISTS `production_expenses` (
   KEY `idx_production_expenses_concern_id` (`concern_id`),
   KEY `idx_production_expenses_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `production_hsn_config`
+--
 
--- ------------------------------------------------------------
--- Table structure for `production_hsn_config`
--- ------------------------------------------------------------
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_hsn_config` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `hsn_code` varchar(8) NOT NULL,
@@ -817,14 +969,16 @@ CREATE TABLE IF NOT EXISTS `production_hsn_config` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_hsn_code` (`hsn_code`),
-  KEY `idx_phc_is_active` (`is_active`)
+  UNIQUE KEY `uk_hsn_code` (`hsn_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Table structure for table `production_outward_batches`
+--
 
--- ------------------------------------------------------------
--- [31/91] Table structure for `production_outward_batches`
--- ------------------------------------------------------------
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_outward_batches` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `production_outward_id` int(10) unsigned NOT NULL,
@@ -836,10 +990,14 @@ CREATE TABLE IF NOT EXISTS `production_outward_batches` (
   KEY `idx_pob_outward` (`production_outward_id`),
   KEY `idx_pob_batch` (`production_batch_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [32/91] Table structure for `production_outwards`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_outwards`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_outwards` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -877,10 +1035,14 @@ CREATE TABLE IF NOT EXISTS `production_outwards` (
   CONSTRAINT `production_outwards_ibfk_1` FOREIGN KEY (`production_batch_id`) REFERENCES `production_batches` (`id`),
   CONSTRAINT `production_outwards_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [33/91] Table structure for `production_program_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_program_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_program_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `program_id` int(10) unsigned NOT NULL,
@@ -895,10 +1057,14 @@ CREATE TABLE IF NOT EXISTS `production_program_items` (
   CONSTRAINT `production_program_items_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`) ON DELETE CASCADE,
   CONSTRAINT `production_program_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [34/91] Table structure for `production_program_rolls`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_program_rolls`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_program_rolls` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `production_program_id` int(11) NOT NULL,
@@ -922,11 +1088,15 @@ CREATE TABLE IF NOT EXISTS `production_program_rolls` (
   PRIMARY KEY (`id`),
   KEY `idx_ppr_program` (`production_program_id`),
   KEY `idx_ppr_roll` (`seller_roll_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [35/91] Table structure for `production_programs`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_programs`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_programs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -978,15 +1148,38 @@ CREATE TABLE IF NOT EXISTS `production_programs` (
   CONSTRAINT `production_programs_ibfk_3` FOREIGN KEY (`assigned_to`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `production_programs_ibfk_4` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `production_programs_ibfk_5` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [36/91] Table structure for `production_purchase_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_purchase_documents`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `production_purchase_documents` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `purchase_id` int(10) unsigned NOT NULL,
+  `document_url` varchar(500) NOT NULL,
+  `file_name` varchar(255) DEFAULT NULL,
+  `file_type` varchar(50) DEFAULT NULL,
+  `file_size` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_pp_docs_purchase` (`purchase_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `production_purchase_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_purchase_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `purchase_id` int(10) unsigned NOT NULL,
-  `item_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT') NOT NULL DEFAULT 'FABRIC_ROLL',
+  `item_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','GENERAL_SUPPLY') NOT NULL DEFAULT 'FABRIC_ROLL',
   `item_name` varchar(255) NOT NULL,
   `product_id` int(10) unsigned DEFAULT NULL,
   `third_party_product_id` int(10) unsigned DEFAULT NULL,
@@ -1047,14 +1240,24 @@ CREATE TABLE IF NOT EXISTS `production_purchase_items` (
   KEY `idx_ppi_type_mapped_qrg` (`item_type`,`is_mapped`,`qr_generation_id`),
   KEY `idx_ppi_qr_generation` (`qr_generation_id`),
   KEY `idx_ppi_grn` (`grn_id`),
+  KEY `idx_ppi_purchase_type` (`purchase_id`,`item_type`),
+  KEY `idx_ppi_variant` (`variant_id`),
+  KEY `idx_ppi_qr` (`qr_generation_id`),
+  KEY `idx_purch_items_type_mapped` (`item_type`,`is_mapped`,`created_at`),
+  KEY `idx_purch_items_prod_var` (`product_id`,`variant_id`),
+  KEY `idx_purch_items_mapped_cat` (`mapped_category_id`,`mapped_subcategory_id`),
   CONSTRAINT `fk_ppi_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `production_purchase_items_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `production_purchases` (`id`) ON DELETE CASCADE,
   CONSTRAINT `production_purchase_items_ibfk_2` FOREIGN KEY (`seller_roll_id`) REFERENCES `seller_rolls` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [37/91] Table structure for `production_purchases`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_purchases`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_purchases` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -1079,16 +1282,23 @@ CREATE TABLE IF NOT EXISTS `production_purchases` (
   UNIQUE KEY `uniq_production_purchase_number` (`purchase_number`),
   KEY `idx_production_purchases_seller_date` (`seller_id`,`purchase_date`),
   KEY `idx_purchases_type_date` (`purchase_type`,`purchase_date`,`seller_id`),
-  KEY `idx_pp_grn` (`grn_id`),
-  KEY `idx_production_purchases_concern` (`concern_id`),
   KEY `idx_production_purchases_concern_id` (`concern_id`),
   KEY `idx_pp_concern_date` (`concern_id`,`purchase_date`),
+  KEY `idx_pp_grn` (`grn_id`),
+  KEY `idx_production_purchases_concern` (`concern_id`),
+  KEY `idx_pp_seller_inv` (`seller_id`,`invoice_number`),
+  KEY `idx_pp_concern_type` (`concern_id`,`purchase_type`),
+  KEY `idx_purchases_covering_list` (`id`,`purchase_type`,`seller_id`,`purchase_date`,`total_amount`),
   CONSTRAINT `production_purchases_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [38/91] Table structure for `production_return_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_return_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_return_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `return_id` int(10) unsigned NOT NULL,
@@ -1117,10 +1327,14 @@ CREATE TABLE IF NOT EXISTS `production_return_items` (
   KEY `idx_prod_ret_items_tag` (`tag_code`),
   CONSTRAINT `fk_prod_ret_items_return` FOREIGN KEY (`return_id`) REFERENCES `production_returns` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [39/91] Table structure for `production_returns`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_returns`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_returns` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -1137,7 +1351,7 @@ CREATE TABLE IF NOT EXISTS `production_returns` (
   `gst_reversal_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `net_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `status` varchar(50) NOT NULL DEFAULT 'PENDING_INSPECTION',
-  `refund_mode` enum('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT 'STORE_CREDIT',
+  `refund_mode` enum('CASH','UPI','CARD','ONLINE','BANK_TRANSFER','SPLIT','CREDIT_NOTE','STORE_CREDIT','NONE') DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
@@ -1148,10 +1362,14 @@ CREATE TABLE IF NOT EXISTS `production_returns` (
   KEY `idx_prod_returns_date` (`created_at`),
   KEY `idx_production_returns_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [40/91] Table structure for `production_stock_request_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_stock_request_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_stock_request_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `request_id` int(10) unsigned NOT NULL,
@@ -1171,10 +1389,14 @@ CREATE TABLE IF NOT EXISTS `production_stock_request_items` (
   KEY `idx_prod_stock_req_items_req` (`request_id`),
   CONSTRAINT `fk_prod_stock_req_items_parent` FOREIGN KEY (`request_id`) REFERENCES `production_stock_requests` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [41/91] Table structure for `production_stock_requests`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_stock_requests`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_stock_requests` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `request_number` varchar(50) NOT NULL,
@@ -1207,10 +1429,14 @@ CREATE TABLE IF NOT EXISTS `production_stock_requests` (
   KEY `idx_production_stock_requests_created_at` (`created_at`),
   KEY `idx_production_stock_requests_concern_id` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [42/91] Table structure for `production_units`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_units`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_units` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT NULL,
@@ -1233,11 +1459,15 @@ CREATE TABLE IF NOT EXISTS `production_units` (
   KEY `manager_id` (`manager_id`),
   KEY `idx_production_units_concern` (`concern_id`),
   CONSTRAINT `production_units_ibfk_1` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [43/91] Table structure for `production_warehouse_reworks`
--- ------------------------------------------------------------
+--
+-- Table structure for table `production_warehouse_reworks`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_warehouse_reworks` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -1278,10 +1508,14 @@ CREATE TABLE IF NOT EXISTS `production_warehouse_reworks` (
   KEY `idx_pwr_status` (`status`),
   KEY `idx_pwr_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [44/91] Table structure for `products`
--- ------------------------------------------------------------
+--
+-- Table structure for table `products`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `products` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(300) NOT NULL,
@@ -1297,7 +1531,6 @@ CREATE TABLE IF NOT EXISTS `products` (
   `brand_id` int(10) unsigned DEFAULT NULL,
   `seller_id` int(10) unsigned DEFAULT NULL,
   `concern_id` int(11) DEFAULT NULL,
-  `variants_deferred` tinyint(1) NOT NULL DEFAULT 0,
   `source_type` enum('OWN_PRODUCTION','EXTERNAL_PURCHASE') NOT NULL DEFAULT 'OWN_PRODUCTION',
   `is_complementary` tinyint(1) NOT NULL DEFAULT 0,
   `material` varchar(200) DEFAULT NULL,
@@ -1323,25 +1556,30 @@ CREATE TABLE IF NOT EXISTS `products` (
   `image` varchar(255) DEFAULT NULL,
   `mfg_date` date DEFAULT NULL,
   `expiry_date` date DEFAULT NULL,
+  `variants_deferred` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`),
   KEY `idx_product_category` (`category_id`),
   KEY `idx_product_brand` (`brand_id`),
-  KEY `idx_products_concern_id` (`concern_id`),
   KEY `idx_product_source` (`source_type`),
   KEY `subcategory_id` (`subcategory_id`),
   KEY `sub_subcategory_id` (`sub_subcategory_id`),
   KEY `fk_products_seller` (`seller_id`),
+  KEY `idx_products_concern_id` (`concern_id`),
   CONSTRAINT `fk_products_seller` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_2` FOREIGN KEY (`subcategory_id`) REFERENCES `subcategories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_3` FOREIGN KEY (`sub_subcategory_id`) REFERENCES `sub_subcategories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_4` FOREIGN KEY (`brand_id`) REFERENCES `brands` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [45/91] Table structure for `purchase_inward_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `purchase_inward_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `purchase_inward_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `purchase_inward_id` int(10) unsigned NOT NULL,
@@ -1363,17 +1601,21 @@ CREATE TABLE IF NOT EXISTS `purchase_inward_items` (
   `rejection_reason` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `purchase_inward_id` (`purchase_inward_id`),
-  KEY `idx_pii_production_purchase_item` (`production_purchase_item_id`),
   KEY `variant_id` (`variant_id`),
   KEY `location_id` (`location_id`),
+  KEY `idx_pii_production_purchase_item` (`production_purchase_item_id`),
   CONSTRAINT `purchase_inward_items_ibfk_1` FOREIGN KEY (`purchase_inward_id`) REFERENCES `purchase_inwards` (`id`) ON DELETE CASCADE,
   CONSTRAINT `purchase_inward_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`),
   CONSTRAINT `purchase_inward_items_ibfk_3` FOREIGN KEY (`location_id`) REFERENCES `locations` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [46/91] Table structure for `purchase_inwards`
--- ------------------------------------------------------------
+--
+-- Table structure for table `purchase_inwards`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `purchase_inwards` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `purchase_order_id` int(10) unsigned DEFAULT NULL,
@@ -1408,10 +1650,14 @@ CREATE TABLE IF NOT EXISTS `purchase_inwards` (
   CONSTRAINT `purchase_inwards_ibfk_3` FOREIGN KEY (`received_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `purchase_inwards_ibfk_4` FOREIGN KEY (`verified_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [47/91] Table structure for `purchase_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `purchase_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `purchase_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `purchase_order_id` int(10) unsigned NOT NULL,
@@ -1420,7 +1666,6 @@ CREATE TABLE IF NOT EXISTS `purchase_items` (
   `unit_price` decimal(10,2) NOT NULL,
   `discount_percentage` decimal(5,2) DEFAULT 0.00,
   `gst_percentage` decimal(5,2) DEFAULT 0.00,
-  `hsn_code` varchar(20) DEFAULT NULL,
   `cgst_amount` decimal(10,2) DEFAULT 0.00,
   `sgst_amount` decimal(10,2) DEFAULT 0.00,
   `igst_amount` decimal(10,2) DEFAULT 0.00,
@@ -1432,16 +1677,21 @@ CREATE TABLE IF NOT EXISTS `purchase_items` (
   `received_quantity` int(11) DEFAULT 0,
   `tax_percentage` decimal(5,2) DEFAULT 0.00,
   `notes` varchar(255) DEFAULT NULL,
+  `hsn_code` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `purchase_order_id` (`purchase_order_id`),
   KEY `variant_id` (`variant_id`),
   CONSTRAINT `purchase_items_ibfk_1` FOREIGN KEY (`purchase_order_id`) REFERENCES `purchase_orders` (`id`) ON DELETE CASCADE,
   CONSTRAINT `purchase_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [48/91] Table structure for `purchase_orders`
--- ------------------------------------------------------------
+--
+-- Table structure for table `purchase_orders`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `purchase_orders` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `production_purchase_id` int(10) unsigned DEFAULT NULL,
@@ -1476,18 +1726,22 @@ CREATE TABLE IF NOT EXISTS `purchase_orders` (
   `warehouse_supplier_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `po_number` (`po_number`),
-  KEY `idx_po_production_purchase` (`production_purchase_id`),
   KEY `seller_id` (`seller_id`),
   KEY `warehouse_id` (`warehouse_id`),
   KEY `created_by` (`created_by`),
+  KEY `idx_po_production_purchase` (`production_purchase_id`),
   CONSTRAINT `purchase_orders_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`),
   CONSTRAINT `purchase_orders_ibfk_2` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`),
   CONSTRAINT `purchase_orders_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [49/91] Table structure for `qc_batches`
--- ------------------------------------------------------------
+--
+-- Table structure for table `qc_batches`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `qc_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -1495,7 +1749,6 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   `qc_number` varchar(50) DEFAULT NULL,
   `program_id` int(10) unsigned NOT NULL,
   `stitching_batch_id` int(10) unsigned DEFAULT NULL,
-  `label_batch_id` int(10) unsigned DEFAULT NULL,
   `qr_generation_id` int(10) unsigned DEFAULT NULL,
   `inspector_id` int(10) unsigned DEFAULT NULL,
   `total_qty` int(11) NOT NULL DEFAULT 0,
@@ -1517,20 +1770,23 @@ CREATE TABLE IF NOT EXISTS `qc_batches` (
   KEY `program_id` (`program_id`),
   KEY `stitching_batch_id` (`stitching_batch_id`),
   KEY `inspector_id` (`inspector_id`),
-  KEY `fk_qc_label_batch` (`label_batch_id`),
   KEY `idx_qc_batches_created_at` (`created_at`),
   KEY `idx_qc_batches_concern_id` (`concern_id`),
   KEY `idx_qcb_stitching_status` (`stitching_batch_id`,`status`),
   KEY `idx_qcb_qr_generation` (`qr_generation_id`),
-  CONSTRAINT `fk_qc_label_batch` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE SET NULL,
+  KEY `idx_qc_batches_concern` (`concern_id`),
   CONSTRAINT `qc_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`),
   CONSTRAINT `qc_batches_ibfk_2` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
   CONSTRAINT `qc_batches_ibfk_3` FOREIGN KEY (`inspector_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [50/91] Table structure for `qc_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `qc_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `qc_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `qc_batch_id` int(10) unsigned NOT NULL,
@@ -1541,7 +1797,6 @@ CREATE TABLE IF NOT EXISTS `qc_items` (
   `catalog_hierarchy` varchar(255) DEFAULT NULL,
   `size_name` varchar(100) DEFAULT NULL,
   `color_name` varchar(100) DEFAULT NULL,
-  `total_qty` int(11) NOT NULL DEFAULT 0,
   `tag_code` varchar(100) DEFAULT NULL,
   `base_price` decimal(10,2) DEFAULT 0.00,
   `discount_price` decimal(10,2) DEFAULT 0.00,
@@ -1558,17 +1813,22 @@ CREATE TABLE IF NOT EXISTS `qc_items` (
   `notes` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `total_qty` int(11) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `qc_batch_id` (`qc_batch_id`),
   KEY `variant_id` (`variant_id`),
   KEY `idx_qci_batch_passed` (`qc_batch_id`,`passed_qty`),
   CONSTRAINT `qc_items_ibfk_1` FOREIGN KEY (`qc_batch_id`) REFERENCES `qc_batches` (`id`) ON DELETE CASCADE,
   CONSTRAINT `qc_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [51/91] Table structure for `qr_generation_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `qr_generation_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `qr_generation_items` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `generation_id` int(10) unsigned NOT NULL,
@@ -1576,8 +1836,8 @@ CREATE TABLE IF NOT EXISTS `qr_generation_items` (
   `size_name` varchar(100) DEFAULT NULL,
   `color_name` varchar(100) DEFAULT NULL,
   `design_name` varchar(150) DEFAULT NULL,
-  `mrp` decimal(10,2) DEFAULT NULL,
-  `selling_price` decimal(10,2) DEFAULT NULL,
+  `mrp` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `selling_price` decimal(10,2) NOT NULL DEFAULT 0.00,
   `qr_code` varchar(100) NOT NULL,
   `sequence_num` int(11) NOT NULL,
   `status` enum('ACTIVE','USED','DAMAGED','CANCELLED') DEFAULT 'ACTIVE',
@@ -1588,11 +1848,15 @@ CREATE TABLE IF NOT EXISTS `qr_generation_items` (
   KEY `idx_qr_code` (`qr_code`),
   KEY `idx_qrgi_gen_status` (`generation_id`,`status`),
   CONSTRAINT `fk_qrg_gen` FOREIGN KEY (`generation_id`) REFERENCES `qr_generations` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [52/91] Table structure for `qr_generations`
--- ------------------------------------------------------------
+--
+-- Table structure for table `qr_generations`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `qr_generations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `batch_code` varchar(50) NOT NULL,
@@ -1601,6 +1865,7 @@ CREATE TABLE IF NOT EXISTS `qr_generations` (
   `source_purchase_id` int(10) unsigned DEFAULT NULL,
   `source_purchase_item_id` int(10) unsigned DEFAULT NULL,
   `source_mapping_item_id` int(10) unsigned DEFAULT NULL,
+  `source_variant_id` int(10) unsigned DEFAULT NULL,
   `stitching_batch_id` int(10) unsigned DEFAULT NULL,
   `program_id` int(10) unsigned DEFAULT NULL,
   `qc_batch_id` int(10) unsigned DEFAULT NULL,
@@ -1638,14 +1903,19 @@ CREATE TABLE IF NOT EXISTS `qr_generations` (
   KEY `idx_qrg_var` (`variant_id`),
   KEY `idx_qrg_source` (`qr_source`),
   KEY `idx_qrg_source_purchase` (`source_purchase_id`,`qr_source`),
-  KEY `idx_qrg_source_mapping_item` (`source_mapping_item_id`),
   KEY `idx_qr_generations_concern_id` (`concern_id`),
-  KEY `idx_qrg_source_concern` (`qr_source`,`concern_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_qrg_source_concern` (`qr_source`,`concern_id`),
+  KEY `idx_qrg_source_mapping` (`source_mapping_item_id`),
+  KEY `idx_qrg_stock_status` (`stock_added`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [53/91] Table structure for `role_permissions`
--- ------------------------------------------------------------
+--
+-- Table structure for table `role_permissions`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `role_permissions` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `role_id` int(10) unsigned NOT NULL,
@@ -1656,11 +1926,15 @@ CREATE TABLE IF NOT EXISTS `role_permissions` (
   KEY `permission_id` (`permission_id`),
   CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1332 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [54/91] Table structure for `roles`
--- ------------------------------------------------------------
+--
+-- Table structure for table `roles`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `roles` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -1674,11 +1948,15 @@ CREATE TABLE IF NOT EXISTS `roles` (
   `is_system` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [55/91] Table structure for `roll_damage_reasons`
--- ------------------------------------------------------------
+--
+-- Table structure for table `roll_damage_reasons`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `roll_damage_reasons` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `reason` varchar(255) NOT NULL,
@@ -1686,10 +1964,14 @@ CREATE TABLE IF NOT EXISTS `roll_damage_reasons` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_roll_damage_reasons_reason` (`reason`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [56/91] Table structure for `roll_damages`
--- ------------------------------------------------------------
+--
+-- Table structure for table `roll_damages`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `roll_damages` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -1725,14 +2007,17 @@ CREATE TABLE IF NOT EXISTS `roll_damages` (
   UNIQUE KEY `uniq_roll_damages_number` (`damage_number`),
   KEY `idx_roll_damages_seller` (`seller_id`),
   KEY `idx_roll_damages_roll` (`seller_roll_id`),
-  UNIQUE KEY `uniq_roll_damages_qr_code` (`qr_code`),
   KEY `idx_roll_damages_qr_code` (`qr_code`),
   KEY `idx_roll_damages_concern_id` (`concern_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [57/91] Table structure for `sales_channels`
--- ------------------------------------------------------------
+--
+-- Table structure for table `sales_channels`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `sales_channels` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -1747,11 +2032,15 @@ CREATE TABLE IF NOT EXISTS `sales_channels` (
   `channel_type` enum('WHATSAPP','WEBSITE','OTHER') DEFAULT 'OTHER',
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [58/91] Table structure for `seller_roll_deleted_labels`
--- ------------------------------------------------------------
+--
+-- Table structure for table `seller_roll_deleted_labels`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `seller_roll_deleted_labels` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `seller_roll_id` int(10) unsigned NOT NULL,
@@ -1761,10 +2050,14 @@ CREATE TABLE IF NOT EXISTS `seller_roll_deleted_labels` (
   UNIQUE KEY `uq_seller_roll_deleted_sequence` (`seller_roll_id`,`sequence`),
   CONSTRAINT `seller_roll_deleted_labels_ibfk_1` FOREIGN KEY (`seller_roll_id`) REFERENCES `seller_rolls` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [59/91] Table structure for `seller_rolls`
--- ------------------------------------------------------------
+--
+-- Table structure for table `seller_rolls`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `seller_rolls` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -1793,11 +2086,15 @@ CREATE TABLE IF NOT EXISTS `seller_rolls` (
   KEY `idx_seller_rolls_created_at` (`created_at`),
   KEY `idx_seller_rolls_concern` (`concern_id`),
   CONSTRAINT `seller_rolls_ibfk_1` FOREIGN KEY (`seller_id`) REFERENCES `sellers` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [60/91] Table structure for `sellers`
--- ------------------------------------------------------------
+--
+-- Table structure for table `sellers`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `sellers` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -1830,11 +2127,15 @@ CREATE TABLE IF NOT EXISTS `sellers` (
   `company_name` varchar(200) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_sellers_concern_id` (`concern_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [61/91] Table structure for `settings`
--- ------------------------------------------------------------
+--
+-- Table structure for table `settings`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `settings` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `setting_key` varchar(100) NOT NULL,
@@ -1845,11 +2146,53 @@ CREATE TABLE IF NOT EXISTS `settings` (
   `is_public` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting_key` (`setting_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [62/91] Table structure for `shops`
--- ------------------------------------------------------------
+--
+-- Table structure for table `shop_damages`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `shop_damages` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `damage_number` varchar(50) NOT NULL,
+  `shop_id` int(10) unsigned NOT NULL,
+  `variant_id` int(10) unsigned NOT NULL,
+  `tag_code` varchar(100) DEFAULT NULL,
+  `source_type` enum('INWARD_TRANSIT','SHOP_BIN_HANDLING','STORAGE_HANDLING','CUSTOMER_RETURN','EXPIRED_SPOILED','OTHER') DEFAULT 'SHOP_BIN_HANDLING',
+  `reference_id` int(10) unsigned DEFAULT NULL,
+  `allocation_id` int(10) unsigned DEFAULT NULL,
+  `defect_type` enum('FABRIC_DEFECT','COLOR_FADE','STITCHING_ERROR','PACKAGING_DAMAGE','WATER_STAIN','TRANSIT_DAMAGE','EXPIRED','SHOP_SOIL','OTHER') DEFAULT 'OTHER',
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `cost_per_unit` decimal(10,2) DEFAULT 0.00,
+  `estimated_cost` decimal(10,2) DEFAULT 0.00,
+  `total_loss` decimal(10,2) DEFAULT 0.00,
+  `damage_reason` varchar(255) NOT NULL,
+  `defect_notes` text DEFAULT NULL,
+  `photo_url` varchar(500) DEFAULT NULL,
+  `status` enum('LOGGED','INSPECTED','SALVAGED','WRITTEN_OFF','REPAIRED','RETURN_TO_WH','REWORK','CANCELLED') DEFAULT 'LOGGED',
+  `disposition_notes` text DEFAULT NULL,
+  `reported_by` int(10) unsigned DEFAULT NULL,
+  `inspected_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `product_id` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `damage_number` (`damage_number`),
+  KEY `shop_id` (`shop_id`),
+  KEY `variant_id` (`variant_id`),
+  KEY `reported_by` (`reported_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `shops`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `shops` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -1868,11 +2211,15 @@ CREATE TABLE IF NOT EXISTS `shops` (
   KEY `manager_id` (`manager_id`),
   KEY `idx_shops_concern` (`concern_id`),
   CONSTRAINT `shops_ibfk_1` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [63/91] Table structure for `sizes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `sizes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `sizes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL,
@@ -1882,11 +2229,15 @@ CREATE TABLE IF NOT EXISTS `sizes` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [64/91] Table structure for `stitching_batches`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stitching_batches`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stitching_batches` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `partition_id` int(10) unsigned DEFAULT 1,
@@ -1928,16 +2279,20 @@ CREATE TABLE IF NOT EXISTS `stitching_batches` (
   KEY `worker_id` (`worker_id`),
   KEY `idx_stitching_batches_created_at` (`created_at`),
   KEY `idx_stitching_batches_concern_id` (`concern_id`),
-  KEY `idx_stitching_batches_concern` (`concern_id`),
   KEY `idx_sb_qrg_concern_status` (`qr_generation_id`,`concern_id`,`status`),
+  KEY `idx_stitching_batches_concern` (`concern_id`),
   CONSTRAINT `stitching_batches_ibfk_1` FOREIGN KEY (`cutting_batch_id`) REFERENCES `cutting_batches` (`id`),
   CONSTRAINT `stitching_batches_ibfk_2` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`),
   CONSTRAINT `stitching_batches_ibfk_3` FOREIGN KEY (`worker_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [65/91] Table structure for `stitching_items`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stitching_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stitching_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `stitching_batch_id` int(10) unsigned NOT NULL,
@@ -1965,11 +2320,15 @@ CREATE TABLE IF NOT EXISTS `stitching_items` (
   KEY `variant_id` (`variant_id`),
   CONSTRAINT `stitching_items_ibfk_1` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE CASCADE,
   CONSTRAINT `stitching_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [66/91] Table structure for `stitching_wastage_sales`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stitching_wastage_sales`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stitching_wastage_sales` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -2002,10 +2361,14 @@ CREATE TABLE IF NOT EXISTS `stitching_wastage_sales` (
   KEY `idx_stitching_wastage_sales_date` (`sale_date`),
   KEY `idx_stitching_wastage_sales_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [67/91] Table structure for `stock_adjustments`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stock_adjustments`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stock_adjustments` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `adjustment_number` varchar(50) NOT NULL,
@@ -2037,10 +2400,14 @@ CREATE TABLE IF NOT EXISTS `stock_adjustments` (
   CONSTRAINT `stock_adjustments_ibfk_3` FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `stock_adjustments_ibfk_4` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [68/91] Table structure for `stock_balances`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stock_balances`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stock_balances` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `variant_id` int(10) unsigned NOT NULL,
@@ -2058,12 +2425,17 @@ CREATE TABLE IF NOT EXISTS `stock_balances` (
   KEY `idx_stock_variant` (`variant_id`),
   KEY `idx_stock_balances_concern_id` (`concern_id`),
   KEY `idx_stock_balances_concern` (`concern_id`),
+  KEY `idx_sb_variant_loc_state` (`variant_id`,`location_type`,`location_id`,`stock_state`),
   CONSTRAINT `stock_balances_ibfk_1` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [69/91] Table structure for `stock_transactions`
--- ------------------------------------------------------------
+--
+-- Table structure for table `stock_transactions`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `stock_transactions` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `variant_id` int(10) unsigned NOT NULL,
@@ -2072,8 +2444,6 @@ CREATE TABLE IF NOT EXISTS `stock_transactions` (
   `stock_state` enum('AVAILABLE','RESERVED','DAMAGED','RETURNED') NOT NULL,
   `transaction_type` varchar(50) NOT NULL,
   `quantity` decimal(10,2) NOT NULL,
-  `before_quantity` decimal(10,2) DEFAULT NULL,
-  `after_quantity` decimal(10,2) DEFAULT NULL,
   `balance_after` decimal(10,2) NOT NULL DEFAULT 0.00,
   `reference_type` varchar(50) DEFAULT NULL,
   `reference_id` int(10) unsigned DEFAULT NULL,
@@ -2084,12 +2454,14 @@ CREATE TABLE IF NOT EXISTS `stock_transactions` (
   `source_id` int(10) unsigned DEFAULT NULL,
   `dest_type` enum('PRODUCTION','PURCHASE','WAREHOUSE','SHOP','CUSTOMER','SUPPLIER','ADJUSTMENT','CHANNEL','OFFICE') DEFAULT NULL,
   `dest_id` int(10) unsigned DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `concern_id` int(11) DEFAULT NULL,
+  `before_quantity` decimal(10,2) DEFAULT NULL,
+  `after_quantity` decimal(10,2) DEFAULT NULL,
   `from_location_type` varchar(50) DEFAULT NULL,
   `from_location_id` int(10) unsigned DEFAULT NULL,
   `to_location_type` varchar(50) DEFAULT NULL,
   `to_location_id` int(10) unsigned DEFAULT NULL,
-  `created_by` int(10) unsigned DEFAULT NULL,
-  `concern_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_txn_variant` (`variant_id`),
   KEY `idx_txn_location` (`location_type`,`location_id`),
@@ -2099,20 +2471,24 @@ CREATE TABLE IF NOT EXISTS `stock_transactions` (
   KEY `user_id` (`user_id`),
   KEY `idx_stock_transactions_concern_id` (`concern_id`),
   KEY `idx_stock_transactions_concern` (`concern_id`),
+  KEY `idx_st_variant_loc_state` (`variant_id`,`location_type`,`location_id`),
   CONSTRAINT `stock_transactions_ibfk_1` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`),
   CONSTRAINT `stock_transactions_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [70/91] Table structure for `sub_subcategories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `sub_subcategories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `sub_subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `subcategory_id` int(10) unsigned NOT NULL,
   `name` varchar(200) NOT NULL,
   `code` varchar(50) DEFAULT NULL,
   `slug` varchar(200) NOT NULL,
-  `is_complementary` tinyint(1) NOT NULL DEFAULT 0,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -2123,11 +2499,15 @@ CREATE TABLE IF NOT EXISTS `sub_subcategories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_sub_subcat_slug` (`subcategory_id`,`slug`),
   CONSTRAINT `sub_subcategories_ibfk_1` FOREIGN KEY (`subcategory_id`) REFERENCES `subcategories` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [71/91] Table structure for `subcategories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `subcategories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` int(10) unsigned NOT NULL,
@@ -2144,11 +2524,15 @@ CREATE TABLE IF NOT EXISTS `subcategories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_subcat_slug` (`category_id`,`slug`),
   CONSTRAINT `subcategories_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [72/91] Table structure for `third_party_categories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `third_party_categories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `third_party_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -2162,10 +2546,120 @@ CREATE TABLE IF NOT EXISTS `third_party_categories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_third_party_category_slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [73/91] Table structure for `third_party_products`
--- ------------------------------------------------------------
+--
+-- Table structure for table `third_party_mapping_bills`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `third_party_mapping_bills` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(10) unsigned NOT NULL,
+  `seller_id` int(10) unsigned NOT NULL,
+  `invoice_number` varchar(100) NOT NULL,
+  `status` enum('DRAFT','READY','MOVED') NOT NULL DEFAULT 'DRAFT',
+  `purchase_id` int(10) unsigned DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tpmb_supplier_invoice` (`concern_id`,`seller_id`,`invoice_number`),
+  KEY `idx_tpmb_match` (`concern_id`,`seller_id`,`status`),
+  KEY `idx_tpmb_purchase` (`purchase_id`),
+  KEY `idx_tpmb_match_inv` (`concern_id`,`seller_id`,`invoice_number`),
+  KEY `idx_tpmb_purchase_link` (`purchase_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `third_party_mapping_items`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `third_party_mapping_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `mapping_bill_id` int(10) unsigned NOT NULL,
+  `purchase_item_id` int(10) unsigned DEFAULT NULL,
+  `item_type` enum('THIRD_PARTY','FABRIC_ROLL') NOT NULL DEFAULT 'THIRD_PARTY',
+  `product_id` int(10) unsigned NOT NULL,
+  `variant_id` int(10) unsigned NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `product_code` varchar(100) DEFAULT NULL,
+  `roll_code` varchar(100) DEFAULT NULL,
+  `vendor_sku` varchar(100) DEFAULT NULL,
+  `quantity` decimal(12,3) NOT NULL,
+  `weight_kg` decimal(10,3) DEFAULT NULL,
+  `meters` decimal(10,3) DEFAULT NULL,
+  `unit` varchar(30) NOT NULL DEFAULT 'PCS',
+  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `gst_rate` decimal(8,3) NOT NULL DEFAULT 0.000,
+  `hsn_code` varchar(20) NOT NULL,
+  `color` varchar(100) DEFAULT NULL,
+  `size` varchar(50) DEFAULT NULL,
+  `category_id` int(10) unsigned NOT NULL,
+  `subcategory_id` int(10) unsigned DEFAULT NULL,
+  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `qr_generation_id` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tpmi_bill` (`mapping_bill_id`),
+  KEY `idx_tpmi_variant` (`variant_id`),
+  KEY `idx_tpmi_qr` (`qr_generation_id`),
+  KEY `idx_tpmi_purchase_item` (`purchase_item_id`),
+  KEY `idx_tpmi_variant_link` (`variant_id`),
+  CONSTRAINT `fk_tpmi_bill` FOREIGN KEY (`mapping_bill_id`) REFERENCES `third_party_mapping_bills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `third_party_product_variants`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `third_party_product_id` int(10) unsigned NOT NULL,
+  `product_variant_id` int(10) unsigned DEFAULT NULL,
+  `purchase_item_id` int(10) unsigned DEFAULT NULL,
+  `sku` varchar(100) NOT NULL,
+  `size` varchar(50) NOT NULL,
+  `color` varchar(50) DEFAULT NULL,
+  `allocated_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `purchase_rate` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `gst_rate` decimal(8,3) NOT NULL DEFAULT 0.000,
+  `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `barcode` varchar(100) DEFAULT NULL,
+  `third_party_category_id` int(10) unsigned DEFAULT NULL,
+  `third_party_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL,
+  `hsn_code` varchar(20) DEFAULT NULL,
+  `qr_generation_id` int(10) unsigned DEFAULT NULL,
+  `qr_batch_code` varchar(100) DEFAULT NULL,
+  `is_complementary` tinyint(1) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tppv_product` (`third_party_product_id`),
+  KEY `idx_tppv_item` (`purchase_item_id`),
+  KEY `idx_tppv_sku` (`sku`),
+  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`),
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `third_party_products`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `third_party_products` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT NULL,
@@ -2199,55 +2693,19 @@ CREATE TABLE IF NOT EXISTS `third_party_products` (
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`),
-  KEY `idx_tp_code` (`code`),
-  KEY `idx_tp_name` (`name`),
-  KEY `idx_tp_category` (`third_party_category_id`),
   KEY `idx_tp_cat` (`category_id`),
   KEY `idx_tp_subcat` (`subcategory_id`),
   KEY `idx_tp_seller` (`seller_id`),
   KEY `idx_tp_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- Table structure for `third_party_product_variants`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `third_party_product_id` int(10) unsigned NOT NULL,
-  `purchase_item_id` int(10) unsigned DEFAULT NULL,
-  `sku` varchar(100) NOT NULL,
-  `size` varchar(50) NOT NULL,
-  `color` varchar(50) DEFAULT NULL,
-  `allocated_qty` decimal(12,3) NOT NULL DEFAULT 0.000,
-  `purchase_rate` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `barcode` varchar(100) DEFAULT NULL,
-  `third_party_category_id` int(10) unsigned DEFAULT NULL,
-  `third_party_subcategory_id` int(10) unsigned DEFAULT NULL,
-  `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL,
-  `hsn_code` varchar(20) DEFAULT NULL,
-  `qr_generation_id` int(10) unsigned DEFAULT NULL,
-  `qr_batch_code` varchar(100) DEFAULT NULL,
-  `is_complementary` tinyint(1) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_tppv_product` (`third_party_product_id`),
-  KEY `idx_tppv_item` (`purchase_item_id`),
-  KEY `idx_tppv_sku` (`sku`),
-  KEY `idx_tppv_third_party_cat` (`third_party_category_id`),
-  KEY `idx_tppv_third_party_subcat` (`third_party_subcategory_id`),
-  KEY `idx_tppv_third_party_sub_subcat` (`third_party_sub_subcategory_id`),
-  KEY `idx_tppv_hsn_code` (`hsn_code`),
-  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`),
-  CONSTRAINT `third_party_product_variants_ibfk_1` FOREIGN KEY (`third_party_product_id`) REFERENCES `third_party_products` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Table structure for table `third_party_sub_subcategories`
+--
 
--- ------------------------------------------------------------
--- [74/91] Table structure for `third_party_sub_subcategories`
--- ------------------------------------------------------------
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `third_party_sub_subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `subcategory_id` int(10) unsigned NOT NULL,
@@ -2262,10 +2720,14 @@ CREATE TABLE IF NOT EXISTS `third_party_sub_subcategories` (
   UNIQUE KEY `uk_third_party_sub_subcategory_slug` (`subcategory_id`,`slug`),
   CONSTRAINT `fk_third_party_sub_subcategories_subcategory` FOREIGN KEY (`subcategory_id`) REFERENCES `third_party_subcategories` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [75/91] Table structure for `third_party_subcategories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `third_party_subcategories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `third_party_subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` int(10) unsigned NOT NULL,
@@ -2280,10 +2742,14 @@ CREATE TABLE IF NOT EXISTS `third_party_subcategories` (
   UNIQUE KEY `uk_third_party_subcategory_slug` (`category_id`,`slug`),
   CONSTRAINT `fk_third_party_subcategories_category` FOREIGN KEY (`category_id`) REFERENCES `third_party_categories` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [76/91] Table structure for `units`
--- ------------------------------------------------------------
+--
+-- Table structure for table `units`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `units` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -2292,11 +2758,15 @@ CREATE TABLE IF NOT EXISTS `units` (
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [77/91] Table structure for `user_concerns`
--- ------------------------------------------------------------
+--
+-- Table structure for table `user_concerns`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `user_concerns` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
@@ -2307,29 +2777,41 @@ CREATE TABLE IF NOT EXISTS `user_concerns` (
   UNIQUE KEY `uniq_user_concern` (`user_id`,`concern_id`),
   KEY `idx_uc_user` (`user_id`),
   KEY `idx_uc_concern` (`concern_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [78/91] Table structure for `user_permission_overrides`
--- ------------------------------------------------------------
+--
+-- Table structure for table `user_permission_overrides`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `user_permission_overrides` (
   `user_id` int(10) unsigned NOT NULL,
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [79/91] Table structure for `user_permissions`
--- ------------------------------------------------------------
+--
+-- Table structure for table `user_permissions`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `user_permissions` (
   `user_id` int(10) unsigned NOT NULL,
   `permission_id` int(10) unsigned NOT NULL,
   PRIMARY KEY (`user_id`,`permission_id`),
   KEY `idx_user_perms` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [80/91] Table structure for `users`
--- ------------------------------------------------------------
+--
+-- Table structure for table `users`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `username` varchar(100) NOT NULL,
@@ -2357,11 +2839,15 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `username` (`username`),
   KEY `role_id` (`role_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [81/91] Table structure for `warehouse_allocations`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_allocations`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_allocations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `allocation_number` varchar(50) NOT NULL,
@@ -2386,10 +2872,14 @@ CREATE TABLE IF NOT EXISTS `warehouse_allocations` (
   CONSTRAINT `warehouse_allocations_ibfk_2` FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `warehouse_allocations_ibfk_3` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [82/91] Table structure for `warehouse_categories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_categories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
@@ -2409,10 +2899,14 @@ CREATE TABLE IF NOT EXISTS `warehouse_categories` (
   UNIQUE KEY `code` (`code`),
   UNIQUE KEY `slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [83/91] Table structure for `warehouse_damages`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_damages`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_damages` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `damage_number` varchar(50) NOT NULL,
@@ -2459,14 +2953,20 @@ CREATE TABLE IF NOT EXISTS `warehouse_damages` (
   KEY `reported_by` (`reported_by`),
   KEY `idx_warehouse_damages_tag_code` (`tag_code`),
   KEY `idx_warehouse_damages_status` (`status`),
+  KEY `idx_warehouse_damages_deleted_at` (`deleted_at`),
+  KEY `idx_warehouse_damages_replacement_variant` (`replacement_variant_id`),
   CONSTRAINT `warehouse_damages_ibfk_1` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`),
   CONSTRAINT `warehouse_damages_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`),
   CONSTRAINT `warehouse_damages_ibfk_3` FOREIGN KEY (`reported_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [84/91] Table structure for `warehouse_qr_codes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_qr_codes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_qr_codes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `qr_code` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -2484,10 +2984,14 @@ CREATE TABLE IF NOT EXISTS `warehouse_qr_codes` (
   KEY `idx_warehouse_qr_variant` (`variant_id`),
   KEY `idx_warehouse_qr_warehouse` (`warehouse_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [85/91] Table structure for `warehouse_sub_subcategories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_sub_subcategories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_sub_subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `subcategory_id` int(10) unsigned NOT NULL,
@@ -2506,10 +3010,14 @@ CREATE TABLE IF NOT EXISTS `warehouse_sub_subcategories` (
   UNIQUE KEY `unique_subcat_slug` (`subcategory_id`,`slug`),
   KEY `subcategory_id` (`subcategory_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [86/91] Table structure for `warehouse_subcategories`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouse_subcategories`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouse_subcategories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` int(10) unsigned NOT NULL,
@@ -2528,10 +3036,14 @@ CREATE TABLE IF NOT EXISTS `warehouse_subcategories` (
   UNIQUE KEY `unique_category_slug` (`category_id`,`slug`),
   KEY `category_id` (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [87/91] Table structure for `warehouses`
--- ------------------------------------------------------------
+--
+-- Table structure for table `warehouses`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `warehouses` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(200) NOT NULL,
@@ -2551,11 +3063,15 @@ CREATE TABLE IF NOT EXISTS `warehouses` (
   KEY `idx_warehouses_concern_id` (`concern_id`),
   KEY `idx_warehouses_concern` (`concern_id`),
   CONSTRAINT `warehouses_ibfk_1` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [88/91] Table structure for `wastage_sales`
--- ------------------------------------------------------------
+--
+-- Table structure for table `wastage_sales`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `wastage_sales` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `concern_id` int(11) DEFAULT 1,
@@ -2588,10 +3104,14 @@ CREATE TABLE IF NOT EXISTS `wastage_sales` (
   KEY `idx_wastage_sales_date` (`sale_date`),
   KEY `idx_wastage_sales_concern` (`concern_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ------------------------------------------------------------
--- [89/91] Table structure for `wh_category_attributes`
--- ------------------------------------------------------------
+--
+-- Table structure for table `wh_category_attributes`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `wh_category_attributes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `category_id` int(10) unsigned NOT NULL,
@@ -2608,2000 +3128,187 @@ CREATE TABLE IF NOT EXISTS `wh_category_attributes` (
   PRIMARY KEY (`id`),
   KEY `idx_cat_attrs` (`category_id`,`subcategory_id`,`sub_subcategory_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- ============================================================
+--
+-- Dumping routines for database 'grm_inventory'
+--
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
--- ------------------------------------------------------------
--- [90/91] Table structure for `shop_damages`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `shop_damages` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `damage_number` varchar(50) NOT NULL,
-  `shop_id` int(10) unsigned NOT NULL,
-  `variant_id` int(10) unsigned NOT NULL,
-  `tag_code` varchar(100) DEFAULT NULL,
-  `source_type` enum('INWARD_TRANSIT','SHOP_BIN_HANDLING','STORAGE_HANDLING','CUSTOMER_RETURN','EXPIRED_SPOILED','OTHER') DEFAULT 'SHOP_BIN_HANDLING',
-  `reference_id` int(10) unsigned DEFAULT NULL,
-  `allocation_id` int(10) unsigned DEFAULT NULL,
-  `defect_type` enum('FABRIC_DEFECT','COLOR_FADE','STITCHING_ERROR','PACKAGING_DAMAGE','WATER_STAIN','TRANSIT_DAMAGE','EXPIRED','SHOP_SOIL','OTHER') DEFAULT 'OTHER',
-  `quantity` int(11) NOT NULL DEFAULT 1,
-  `cost_per_unit` decimal(10,2) DEFAULT 0.00,
-  `estimated_cost` decimal(10,2) DEFAULT 0.00,
-  `total_loss` decimal(10,2) DEFAULT 0.00,
-  `damage_reason` varchar(255) NOT NULL,
-  `defect_notes` text DEFAULT NULL,
-  `photo_url` varchar(500) DEFAULT NULL,
-  `status` enum('LOGGED','INSPECTED','SALVAGED','WRITTEN_OFF','REPAIRED','RETURN_TO_WH','REWORK','CANCELLED') DEFAULT 'LOGGED',
-  `disposition_notes` text DEFAULT NULL,
-  `reported_by` int(10) unsigned DEFAULT NULL,
-  `inspected_by` int(10) unsigned DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `product_id` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `damage_number` (`damage_number`),
-  KEY `shop_id` (`shop_id`),
-  KEY `variant_id` (`variant_id`),
-  KEY `reported_by` (`reported_by`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- ------------------------------------------------------------
--- [91/93] Table structure for `production_purchase_documents`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `production_purchase_documents` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `purchase_id` int(10) unsigned NOT NULL,
-  `document_url` varchar(500) NOT NULL,
-  `file_name` varchar(255) DEFAULT NULL,
-  `file_type` varchar(50) DEFAULT NULL,
-  `file_size` int(10) unsigned DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_pp_docs_purchase` (`purchase_id`)
+-- Dump completed on 2026-11-23 18:08:55
+
+
+
+
+-- -------------------------------------------------------------
+-- Migration: Shop Cash & Cash Flow Register System
+-- Adds tables for till shifts, cash transactions, and bank drops
+-- -------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `shop_shifts` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_code` VARCHAR(50) NOT NULL UNIQUE,
+    `cashier_id` INT UNSIGNED NOT NULL,
+    `opening_float` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `opened_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `closed_at` DATETIME DEFAULT NULL,
+    `closed_by` INT UNSIGNED DEFAULT NULL,
+    `expected_cash` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `actual_cash` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `variance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `denominations` JSON DEFAULT NULL,
+    `closing_notes` TEXT DEFAULT NULL,
+    `status` ENUM('OPEN', 'CLOSED') NOT NULL DEFAULT 'OPEN',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_shift_concern_status` (`concern_id`, `status`),
+    INDEX `idx_shift_opened_at` (`opened_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ------------------------------------------------------------
--- [92/93] Table structure for `label_batches`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `label_batches` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `program_id` int(10) unsigned NOT NULL,
-  `stitching_batch_id` int(10) unsigned DEFAULT NULL,
-  `batch_number` varchar(50) NOT NULL,
-  `required_qty` int(11) NOT NULL DEFAULT 0,
-  `printed_qty` int(11) DEFAULT 0,
-  `used_qty` int(11) DEFAULT 0,
-  `damaged_qty` int(11) DEFAULT 0,
-  `status` enum('PENDING','IN_PROGRESS','COMPLETED') DEFAULT 'PENDING',
-  `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `total_qty` int(11) NOT NULL DEFAULT 0,
-  `applied_qty` int(11) DEFAULT 0,
-  `session_data` longtext DEFAULT NULL,
-  `notes` text DEFAULT NULL,
-  `created_by` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `batch_number` (`batch_number`),
-  KEY `program_id` (`program_id`),
-  KEY `fk_label_batches_stitching` (`stitching_batch_id`),
-  CONSTRAINT `fk_label_batches_stitching` FOREIGN KEY (`stitching_batch_id`) REFERENCES `stitching_batches` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `label_batches_ibfk_1` FOREIGN KEY (`program_id`) REFERENCES `production_programs` (`id`)
+CREATE TABLE IF NOT EXISTS `cash_flow_transactions` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_id` INT UNSIGNED NULL,
+    `tx_number` VARCHAR(50) NOT NULL UNIQUE,
+    `transaction_type` ENUM('FLOAT_OPEN', 'FLOAT_TOPUP', 'PETTY_EXPENSE', 'BANK_DROP', 'SALE_INFLOW', 'REFUND_OUTFLOW') NOT NULL,
+    `flow` ENUM('INFLOW', 'OUTFLOW') NOT NULL,
+    `payment_mode` VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `source_or_recipient` VARCHAR(255) DEFAULT NULL,
+    `reference_number` VARCHAR(100) DEFAULT NULL,
+    `reason` TEXT DEFAULT NULL,
+    `created_by` INT UNSIGNED NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_cftx_concern` (`concern_id`),
+    INDEX `idx_cftx_shift` (`shift_id`),
+    INDEX `idx_cftx_type` (`transaction_type`),
+    INDEX `idx_cftx_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ------------------------------------------------------------
--- [93/93] Table structure for `label_items`
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `label_items` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `label_batch_id` int(10) unsigned NOT NULL,
-  `variant_id` int(10) unsigned DEFAULT NULL,
-  `category_id` int(10) unsigned DEFAULT NULL,
-  `subcategory_id` int(10) unsigned DEFAULT NULL,
-  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
-  `catalog_hierarchy` varchar(255) DEFAULT NULL,
-  `size_name` varchar(100) DEFAULT NULL,
-  `color_name` varchar(100) DEFAULT NULL,
-  `base_price` decimal(10,2) DEFAULT 0.00,
-  `discount_price` decimal(10,2) DEFAULT 0.00,
-  `required_qty` int(11) NOT NULL DEFAULT 0,
-  `printed_qty` int(11) DEFAULT 0,
-  `used_qty` int(11) DEFAULT 0,
-  `damaged_qty` int(11) DEFAULT 0,
-  `start_seq` int(11) DEFAULT 1,
-  `end_seq` int(11) DEFAULT 1,
-  `start_code` varchar(50) DEFAULT NULL,
-  `end_code` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `label_batch_id` (`label_batch_id`),
-  KEY `variant_id` (`variant_id`),
-  CONSTRAINT `label_items_ibfk_1` FOREIGN KEY (`label_batch_id`) REFERENCES `label_batches` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `label_items_ibfk_2` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`)
+CREATE TABLE IF NOT EXISTS `bank_deposits` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `concern_id` INT UNSIGNED NULL,
+    `shift_id` INT UNSIGNED NULL,
+    `deposit_number` VARCHAR(50) NOT NULL UNIQUE,
+    `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `bank_name` VARCHAR(150) NOT NULL,
+    `deposit_date` DATE NOT NULL,
+    `slip_number` VARCHAR(100) DEFAULT NULL,
+    `remarks` TEXT DEFAULT NULL,
+    `created_by` INT UNSIGNED NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_bd_concern` (`concern_id`),
+    INDEX `idx_bd_shift` (`shift_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ------------------------------------------------------------
--- Additive upgrades for databases created from earlier repository schemas
--- Conditional DDL avoids overwriting existing columns or indexes.
--- ------------------------------------------------------------
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cutting_batches' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `cutting_batches` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cutting_batches' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `cutting_batches` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cutting_batches' AND INDEX_NAME = 'idx_cutting_batches_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `cutting_batches` ADD INDEX `idx_cutting_batches_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cutting_batches' AND INDEX_NAME = 'idx_cutting_batches_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `cutting_batches` ADD INDEX `idx_cutting_batches_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cutting_batches' AND INDEX_NAME = 'idx_cutting_batches_concern'),
-  'SELECT 1',
-  'ALTER TABLE `cutting_batches` ADD INDEX `idx_cutting_batches_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'hsn_codes' AND INDEX_NAME = 'idx_hsn_code_search'),
-  'SELECT 1',
-  'ALTER TABLE `hsn_codes` ADD INDEX `idx_hsn_code_search` (`hsn_code`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'hsn_codes' AND INDEX_NAME = 'idx_gst_rate'),
-  'SELECT 1',
-  'ALTER TABLE `hsn_codes` ADD INDEX `idx_gst_rate` (`gst_rate`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND COLUMN_NAME = 'variant_code'),
-  'SELECT 1',
-  'ALTER TABLE `product_variants` ADD COLUMN `variant_code` varchar(20) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND COLUMN_NAME = 'production_unit_id'),
-  'SELECT 1',
-  'ALTER TABLE `product_variants` ADD COLUMN `production_unit_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND COLUMN_NAME = 'design_id'),
-  'SELECT 1',
-  'ALTER TABLE `product_variants` ADD COLUMN `design_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND COLUMN_NAME = 'attr_hash'),
-  'SELECT 1',
-  'ALTER TABLE `product_variants` ADD COLUMN `attr_hash` varchar(64) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND COLUMN_NAME = 'attributes'),
-  'SELECT 1',
-  'ALTER TABLE `product_variants` ADD COLUMN `attributes` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND INDEX_NAME = 'uk_variant_attr_hash'),
-  'SELECT 1',
-  IF(
-    EXISTS(SELECT 1 FROM `product_variants` WHERE `attr_hash` IS NOT NULL GROUP BY `attr_hash` HAVING COUNT(*) > 1),
-    'SELECT ''WARNING: skipped uk_variant_attr_hash because duplicate values exist'' AS schema_warning',
-    'ALTER TABLE `product_variants` ADD UNIQUE INDEX `uk_variant_attr_hash` (`attr_hash`)'
-  )
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_variants' AND INDEX_NAME = 'uk_variant_code'),
-  'SELECT 1',
-  IF(
-    EXISTS(SELECT 1 FROM `product_variants` WHERE `variant_code` IS NOT NULL GROUP BY `variant_code` HAVING COUNT(*) > 1),
-    'SELECT ''WARNING: skipped uk_variant_code because duplicate values exist'' AS schema_warning',
-    'ALTER TABLE `product_variants` ADD UNIQUE INDEX `uk_variant_code` (`variant_code`)'
-  )
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND COLUMN_NAME = 'production_bill_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD COLUMN `production_bill_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND INDEX_NAME = 'idx_production_batches_bill'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD INDEX `idx_production_batches_bill` (`production_bill_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND INDEX_NAME = 'idx_production_batches_packed_created'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD INDEX `idx_production_batches_packed_created` (`packed_date`,`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND INDEX_NAME = 'idx_production_batches_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD INDEX `idx_production_batches_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_batches' AND INDEX_NAME = 'idx_production_batches_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_batches` ADD INDEX `idx_production_batches_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bill_items' AND COLUMN_NAME = 'is_complementary'),
-  'SELECT 1',
-  'ALTER TABLE `production_bill_items` ADD COLUMN `is_complementary` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'production_unit_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `production_unit_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_unit'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_unit` (`production_unit_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'is_direct_bill'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `is_direct_bill` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'upi_payment_screenshot_url'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `upi_payment_screenshot_url` varchar(500) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'cash_given'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `cash_given` decimal(12,2) DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'change_returned'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `change_returned` decimal(12,2) DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'staff_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `staff_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND COLUMN_NAME = 'staff_name'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD COLUMN `staff_name` varchar(150) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_bills' AND INDEX_NAME = 'idx_production_bills_direct'),
-  'SELECT 1',
-  'ALTER TABLE `production_bills` ADD INDEX `idx_production_bills_direct` (`is_direct_bill`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'concerns' AND COLUMN_NAME = 'logo_url'),
-  'SELECT 1',
-  'ALTER TABLE `concerns` ADD COLUMN `logo_url` varchar(255) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_expenses' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_expenses` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_expenses' AND INDEX_NAME = 'idx_production_expenses_date'),
-  'SELECT 1',
-  'ALTER TABLE `production_expenses` ADD INDEX `idx_production_expenses_date` (`expense_date`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_expenses' AND INDEX_NAME = 'idx_production_expenses_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_expenses` ADD INDEX `idx_production_expenses_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_expenses' AND INDEX_NAME = 'idx_production_expenses_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_expenses` ADD INDEX `idx_production_expenses_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_outwards' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_outwards` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_outwards' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_outwards` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_outwards' AND INDEX_NAME = 'idx_production_outwards_dispatch_created'),
-  'SELECT 1',
-  'ALTER TABLE `production_outwards` ADD INDEX `idx_production_outwards_dispatch_created` (`dispatch_date`,`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_outwards' AND INDEX_NAME = 'idx_production_outwards_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_outwards` ADD INDEX `idx_production_outwards_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_outwards' AND INDEX_NAME = 'idx_production_outwards_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_outwards` ADD INDEX `idx_production_outwards_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_program_rolls' AND COLUMN_NAME = 'attributes'),
-  'SELECT 1',
-  'ALTER TABLE `production_program_rolls` ADD COLUMN `attributes` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_programs' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_programs` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_programs' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_programs` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_programs' AND INDEX_NAME = 'idx_production_programs_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_programs` ADD INDEX `idx_production_programs_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_programs' AND INDEX_NAME = 'idx_production_programs_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_programs` ADD INDEX `idx_production_programs_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_programs' AND INDEX_NAME = 'idx_production_programs_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_programs` ADD INDEX `idx_production_programs_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'product_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `product_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'third_party_product_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `third_party_product_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'variant_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `variant_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'product_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `product_code` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'vendor_sku'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `vendor_sku` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'inwarded_qty'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `inwarded_qty` decimal(12,3) NOT NULL DEFAULT 0.000'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mrp'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mrp` decimal(12,2) NOT NULL DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'selling_price'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'tax_treatment'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `tax_treatment` enum(''INCLUDED'',''EXCLUDED'') NOT NULL DEFAULT ''INCLUDED'''
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'size'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `size` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'start_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `start_code` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'end_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `end_code` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'qr_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `qr_code` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'hsn_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `hsn_code` varchar(20) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'is_inwarded'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `is_inwarded` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'inwarded_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `inwarded_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'inwarded_by'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `inwarded_by` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'is_mapped'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `is_mapped` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'is_complementary'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `is_complementary` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_category_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_category_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_subcategory_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_sub_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_sub_subcategory_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_third_party_category_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_third_party_category_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_third_party_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_third_party_subcategory_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_third_party_sub_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_attributes'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_attributes` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'mapped_by'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `mapped_by` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'qr_generation_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `qr_generation_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'qr_batch_code'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `qr_batch_code` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'grn_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `grn_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND COLUMN_NAME = 'grn_number'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD COLUMN `grn_number` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND INDEX_NAME = 'idx_ppi_variant_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD INDEX `idx_ppi_variant_id` (`variant_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND INDEX_NAME = 'idx_ppi_type_mapped_qrg'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD INDEX `idx_ppi_type_mapped_qrg` (`item_type`,`is_mapped`,`qr_generation_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND INDEX_NAME = 'idx_ppi_qr_generation'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD INDEX `idx_ppi_qr_generation` (`qr_generation_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchase_items' AND INDEX_NAME = 'idx_ppi_grn'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchase_items` ADD INDEX `idx_ppi_grn` (`grn_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'purchase_type'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `purchase_type` enum(''FABRIC_ROLL'',''RAW_MATERIAL'',''THIRD_PARTY'',''OWN_PRODUCT'',''MIXED'') NOT NULL DEFAULT ''FABRIC_ROLL'''
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'document_urls'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `document_urls` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'grn_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `grn_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'grn_number'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `grn_number` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'is_inwarded'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `is_inwarded` tinyint(1) DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'inwarded_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `inwarded_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND INDEX_NAME = 'idx_purchases_type_date'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD INDEX `idx_purchases_type_date` (`purchase_type`,`purchase_date`,`seller_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND INDEX_NAME = 'idx_pp_grn'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD INDEX `idx_pp_grn` (`grn_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND INDEX_NAME = 'idx_production_purchases_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD INDEX `idx_production_purchases_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND INDEX_NAME = 'idx_production_purchases_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD INDEX `idx_production_purchases_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_purchases' AND INDEX_NAME = 'idx_pp_concern_date'),
-  'SELECT 1',
-  'ALTER TABLE `production_purchases` ADD INDEX `idx_pp_concern_date` (`concern_id`,`purchase_date`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_returns' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_returns` ADD COLUMN `concern_id` int(11) DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_returns' AND INDEX_NAME = 'idx_production_returns_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_returns` ADD INDEX `idx_production_returns_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_request_items' AND COLUMN_NAME = 'dispatched_qty'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_request_items` ADD COLUMN `dispatched_qty` int(10) unsigned NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_request_items' AND COLUMN_NAME = 'received_qty'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_request_items` ADD COLUMN `received_qty` int(10) unsigned NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'from_module'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `from_module` varchar(100) NOT NULL DEFAULT ''Central Warehouse'''
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'to_module'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `to_module` varchar(100) NOT NULL DEFAULT ''Production Unit'''
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'from_unit_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `from_unit_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'to_unit_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `to_unit_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'dispatched_pieces'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `dispatched_pieces` int(10) unsigned NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'received_by_send_area_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `received_by_send_area_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'received_by_send_area_by'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `received_by_send_area_by` varchar(150) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'dispatched_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `dispatched_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'dispatched_by'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `dispatched_by` varchar(150) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'received_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `received_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'received_by'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `received_by` varchar(150) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND INDEX_NAME = 'idx_production_stock_requests_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD INDEX `idx_production_stock_requests_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_stock_requests' AND INDEX_NAME = 'idx_production_stock_requests_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_stock_requests` ADD INDEX `idx_production_stock_requests_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_units' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_units` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_units' AND COLUMN_NAME = 'logo_url'),
-  'SELECT 1',
-  'ALTER TABLE `production_units` ADD COLUMN `logo_url` varchar(255) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_units' AND INDEX_NAME = 'idx_production_units_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_units` ADD INDEX `idx_production_units_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'attributes'),
-  'SELECT 1',
-  'ALTER TABLE `products` ADD COLUMN `attributes` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_inward_items' AND COLUMN_NAME = 'production_purchase_item_id'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_inward_items` ADD COLUMN `production_purchase_item_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_inward_items' AND INDEX_NAME = 'idx_pii_production_purchase_item'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_inward_items` ADD INDEX `idx_pii_production_purchase_item` (`production_purchase_item_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_inwards' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_inwards` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_inwards' AND INDEX_NAME = 'idx_purchase_inwards_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_inwards` ADD INDEX `idx_purchase_inwards_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_items' AND COLUMN_NAME = 'hsn_code'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_items` ADD COLUMN `hsn_code` varchar(20) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_orders' AND COLUMN_NAME = 'production_purchase_id'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_orders` ADD COLUMN `production_purchase_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_orders' AND COLUMN_NAME = 'is_direct_purchase'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_orders` ADD COLUMN `is_direct_purchase` tinyint(1) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_orders' AND COLUMN_NAME = 'cash_tendered'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_orders` ADD COLUMN `cash_tendered` decimal(12,2) NOT NULL DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_orders' AND COLUMN_NAME = 'change_amount'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_orders` ADD COLUMN `change_amount` decimal(12,2) NOT NULL DEFAULT 0.00'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase_orders' AND INDEX_NAME = 'idx_po_production_purchase'),
-  'SELECT 1',
-  'ALTER TABLE `purchase_orders` ADD INDEX `idx_po_production_purchase` (`production_purchase_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND COLUMN_NAME = 'qr_generation_id'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD COLUMN `qr_generation_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND INDEX_NAME = 'idx_qc_batches_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD INDEX `idx_qc_batches_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND INDEX_NAME = 'idx_qc_batches_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD INDEX `idx_qc_batches_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND INDEX_NAME = 'idx_qc_batches_concern'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD INDEX `idx_qc_batches_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND INDEX_NAME = 'idx_qcb_stitching_status'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD INDEX `idx_qcb_stitching_status` (`stitching_batch_id`,`status`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_batches' AND INDEX_NAME = 'idx_qcb_qr_generation'),
-  'SELECT 1',
-  'ALTER TABLE `qc_batches` ADD INDEX `idx_qcb_qr_generation` (`qr_generation_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_items' AND COLUMN_NAME = 'total_qty'),
-  'SELECT 1',
-  'ALTER TABLE `qc_items` ADD COLUMN `total_qty` int(11) NOT NULL DEFAULT 0'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qc_items' AND INDEX_NAME = 'idx_qci_batch_passed'),
-  'SELECT 1',
-  'ALTER TABLE `qc_items` ADD INDEX `idx_qci_batch_passed` (`qc_batch_id`,`passed_qty`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roles' AND COLUMN_NAME = 'concern_scope'),
-  'SELECT 1',
-  'ALTER TABLE `roles` ADD COLUMN `concern_scope` varchar(20) NOT NULL DEFAULT ''ALL'''
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roles' AND COLUMN_NAME = 'applicable_concerns'),
-  'SELECT 1',
-  'ALTER TABLE `roles` ADD COLUMN `applicable_concerns` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roll_damages' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `roll_damages` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roll_damages' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `roll_damages` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roll_damages' AND INDEX_NAME = 'idx_roll_damages_qr_code'),
-  'SELECT 1',
-  'ALTER TABLE `roll_damages` ADD INDEX `idx_roll_damages_qr_code` (`qr_code`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roll_damages' AND INDEX_NAME = 'idx_roll_damages_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `roll_damages` ADD INDEX `idx_roll_damages_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `seller_rolls` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND COLUMN_NAME = 'hsn_code'),
-  'SELECT 1',
-  'ALTER TABLE `seller_rolls` ADD COLUMN `hsn_code` varchar(20) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND INDEX_NAME = 'idx_seller_rolls_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `seller_rolls` ADD INDEX `idx_seller_rolls_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `sellers` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND COLUMN_NAME = 'production_deleted_at'),
-  'SELECT 1',
-  'ALTER TABLE `sellers` ADD COLUMN `production_deleted_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shops' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `shops` ADD COLUMN `concern_id` int(11) DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shops' AND INDEX_NAME = 'idx_shops_concern'),
-  'SELECT 1',
-  'ALTER TABLE `shops` ADD INDEX `idx_shops_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND COLUMN_NAME = 'qr_generation_id'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD COLUMN `qr_generation_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND COLUMN_NAME = 'qr_batch_code'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD COLUMN `qr_batch_code` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND INDEX_NAME = 'idx_stitching_batches_created_at'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD INDEX `idx_stitching_batches_created_at` (`created_at`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND INDEX_NAME = 'idx_stitching_batches_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD INDEX `idx_stitching_batches_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND INDEX_NAME = 'idx_stitching_batches_concern'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD INDEX `idx_stitching_batches_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_batches' AND INDEX_NAME = 'idx_sb_qrg_concern_status'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_batches` ADD INDEX `idx_sb_qrg_concern_status` (`qr_generation_id`,`concern_id`,`status`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_wastage_sales' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_wastage_sales` ADD COLUMN `concern_id` int(11) DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_wastage_sales' AND INDEX_NAME = 'idx_stitching_wastage_sales_date'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_wastage_sales` ADD INDEX `idx_stitching_wastage_sales_date` (`sale_date`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stitching_wastage_sales' AND INDEX_NAME = 'idx_stitching_wastage_sales_concern'),
-  'SELECT 1',
-  'ALTER TABLE `stitching_wastage_sales` ADD INDEX `idx_stitching_wastage_sales_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_adjustments' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_adjustments` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_adjustments' AND INDEX_NAME = 'idx_stock_adjustments_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_adjustments` ADD INDEX `idx_stock_adjustments_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_balances' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_balances` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_balances' AND INDEX_NAME = 'idx_stock_balances_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_balances` ADD INDEX `idx_stock_balances_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_balances' AND INDEX_NAME = 'idx_stock_balances_concern'),
-  'SELECT 1',
-  'ALTER TABLE `stock_balances` ADD INDEX `idx_stock_balances_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'before_quantity'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `before_quantity` decimal(10,2) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'after_quantity'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `after_quantity` decimal(10,2) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'from_location_type'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `from_location_type` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'from_location_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `from_location_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'to_location_type'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `to_location_type` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'to_location_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `to_location_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND INDEX_NAME = 'idx_stock_transactions_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD INDEX `idx_stock_transactions_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stock_transactions' AND INDEX_NAME = 'idx_stock_transactions_concern'),
-  'SELECT 1',
-  'ALTER TABLE `stock_transactions` ADD INDEX `idx_stock_transactions_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'staff_role'),
-  'SELECT 1',
-  'ALTER TABLE `users` ADD COLUMN `staff_role` varchar(50) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'default_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `users` ADD COLUMN `default_concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'resolution_action'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `resolution_action` varchar(32) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'resolution_reason'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `resolution_reason` varchar(255) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'resolution_notes'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `resolution_notes` text DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'resolution_amount'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `resolution_amount` decimal(10,2) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'replacement_variant_id'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `replacement_variant_id` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'replacement_qr_code'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `replacement_qr_code` varchar(100) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'replacement_inwarded_at'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `replacement_inwarded_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'deleted_at'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `deleted_at` datetime DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouse_damages' AND COLUMN_NAME = 'deleted_by'),
-  'SELECT 1',
-  'ALTER TABLE `warehouse_damages` ADD COLUMN `deleted_by` int(10) unsigned DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouses' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `warehouses` ADD COLUMN `concern_id` int(11) DEFAULT NULL'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouses' AND INDEX_NAME = 'idx_warehouses_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `warehouses` ADD INDEX `idx_warehouses_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'warehouses' AND INDEX_NAME = 'idx_warehouses_concern'),
-  'SELECT 1',
-  'ALTER TABLE `warehouses` ADD INDEX `idx_warehouses_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wastage_sales' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `wastage_sales` ADD COLUMN `concern_id` int(11) DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wastage_sales' AND COLUMN_NAME = 'partition_id'),
-  'SELECT 1',
-  'ALTER TABLE `wastage_sales` ADD COLUMN `partition_id` int(10) unsigned DEFAULT 1'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wastage_sales' AND INDEX_NAME = 'idx_wastage_sales_date'),
-  'SELECT 1',
-  'ALTER TABLE `wastage_sales` ADD INDEX `idx_wastage_sales_date` (`sale_date`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wastage_sales' AND INDEX_NAME = 'idx_wastage_sales_concern'),
-  'SELECT 1',
-  'ALTER TABLE `wastage_sales` ADD INDEX `idx_wastage_sales_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
 
 
--- Additional dynamic safe alterations from incremental migrations
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_category_id'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_category_id` int(10) unsigned DEFAULT NULL AFTER `barcode`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_subcategory_id` int(10) unsigned DEFAULT NULL AFTER `third_party_category_id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'third_party_sub_subcategory_id'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `third_party_sub_subcategory_id` int(10) unsigned DEFAULT NULL AFTER `third_party_subcategory_id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'hsn_code'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `hsn_code` varchar(20) DEFAULT NULL AFTER `third_party_sub_subcategory_id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'qr_generation_id'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `qr_generation_id` int(10) unsigned DEFAULT NULL AFTER `hsn_code`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND COLUMN_NAME = 'qr_batch_code'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD COLUMN `qr_batch_code` varchar(100) DEFAULT NULL AFTER `qr_generation_id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_cat'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_cat` (`third_party_category_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_qr_generation_id'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_qr_generation_id` (`qr_generation_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_subcat'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_subcat` (`third_party_subcategory_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_third_party_sub_subcat'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_third_party_sub_subcat` (`third_party_sub_subcategory_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'third_party_product_variants' AND INDEX_NAME = 'idx_tppv_hsn_code'),
-  'SELECT 1',
-  'ALTER TABLE `third_party_product_variants` ADD INDEX `idx_tppv_hsn_code` (`hsn_code`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `sellers` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sellers' AND INDEX_NAME = 'idx_sellers_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `sellers` ADD INDEX `idx_sellers_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `seller_rolls` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_rolls' AND INDEX_NAME = 'idx_seller_rolls_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `seller_rolls` ADD INDEX `idx_seller_rolls_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assets' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `assets` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assets' AND INDEX_NAME = 'idx_assets_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `assets` ADD INDEX `idx_assets_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asset_maintenance_logs' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `asset_maintenance_logs` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asset_maintenance_logs' AND INDEX_NAME = 'idx_asset_maintenance_logs_concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `asset_maintenance_logs` ADD INDEX `idx_asset_maintenance_logs_concern_id` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_warehouse_reworks' AND COLUMN_NAME = 'concern_id'),
-  'SELECT 1',
-  'ALTER TABLE `production_warehouse_reworks` ADD COLUMN `concern_id` int(11) DEFAULT 1 AFTER `id`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_warehouse_reworks' AND INDEX_NAME = 'idx_prod_wh_reworks_concern'),
-  'SELECT 1',
-  'ALTER TABLE `production_warehouse_reworks` ADD INDEX `idx_prod_wh_reworks_concern` (`concern_id`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qr_generations' AND COLUMN_NAME = 'qr_source'),
-  'SELECT 1',
-  'ALTER TABLE `qr_generations` ADD COLUMN `qr_source` varchar(30) DEFAULT \'CATALOG\' AFTER `batch_number`'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-SET @schema_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'qr_generations' AND INDEX_NAME = 'idx_qr_generations_source'),
-  'SELECT 1',
-  'ALTER TABLE `qr_generations` ADD INDEX `idx_qr_generations_source` (`qr_source`)'
-);
-PREPARE schema_stmt FROM @schema_sql;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
--- Compatible data-preserving type expansions from later migrations.
-ALTER TABLE `cutting_items` MODIFY COLUMN `weight_per_piece` decimal(10,4) DEFAULT 0.0000;
-ALTER TABLE `stitching_items` MODIFY COLUMN `weight_per_piece` decimal(10,4) DEFAULT 0.0000;
-ALTER TABLE `hsn_codes` MODIFY COLUMN `description` text NOT NULL, MODIFY COLUMN `gst_rate` decimal(5,2) DEFAULT NULL;
-ALTER TABLE `production_purchase_items` MODIFY COLUMN `item_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','GENERAL_SUPPLY') NOT NULL DEFAULT 'FABRIC_ROLL';
-ALTER TABLE `production_stock_request_items` MODIFY COLUMN `status` enum('PENDING','RECEIVED_BY_SEND_AREA','PARTIAL','ALLOCATED','DISPATCHED','FULFILLED','REJECTED') NOT NULL DEFAULT 'PENDING';
-ALTER TABLE `production_stock_requests` MODIFY COLUMN `status` enum('PENDING','RECEIVED_BY_SEND_AREA','APPROVED','IN_PRODUCTION','READY_FOR_DISPATCH','DISPATCHED','FULFILLED','REJECTED') NOT NULL DEFAULT 'PENDING';
-ALTER TABLE `roll_damages` MODIFY COLUMN `status` enum('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED') NOT NULL DEFAULT 'LOGGED';
-ALTER TABLE `shop_damages` MODIFY COLUMN `status` enum('LOGGED','INSPECTED','SALVAGED','WRITTEN_OFF','REPAIRED','RETURN_TO_WH','REWORK','CANCELLED') DEFAULT 'LOGGED';
-ALTER TABLE `product_variants` MODIFY COLUMN `attr_hash` varchar(64) DEFAULT NULL;
-SET @return_refund_mode_sql = IF(
-  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_returns'),
-  IF(
-    EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'production_returns' AND COLUMN_NAME = 'refund_mode'),
-    'ALTER TABLE `production_returns` MODIFY COLUMN `refund_mode` enum(''CASH'',''UPI'',''CARD'',''ONLINE'',''BANK_TRANSFER'',''SPLIT'',''CREDIT_NOTE'',''STORE_CREDIT'',''NONE'') DEFAULT NULL',
-    'ALTER TABLE `production_returns` ADD COLUMN `refund_mode` enum(''CASH'',''UPI'',''CARD'',''ONLINE'',''BANK_TRANSFER'',''SPLIT'',''CREDIT_NOTE'',''STORE_CREDIT'',''NONE'') DEFAULT NULL'
-  ),
-  'SELECT 1'
-);
-PREPARE return_refund_mode_stmt FROM @return_refund_mode_sql;
-EXECUTE return_refund_mode_stmt;
-DEALLOCATE PREPARE return_refund_mode_stmt;
-ALTER TABLE `purchase_inwards` MODIFY COLUMN `purchase_order_id` int(10) unsigned DEFAULT NULL;
-ALTER TABLE `production_purchases` MODIFY COLUMN `purchase_type` enum('FABRIC_ROLL','RAW_MATERIAL','THIRD_PARTY','OWN_PRODUCT','MIXED') NOT NULL DEFAULT 'FABRIC_ROLL';
-
--- Backfill Legacy Data to Default Concern (Concern ID = 1)
-UPDATE `production_purchases` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `cutting_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `production_bills` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `production_programs` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `production_units` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `qc_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `roll_damages` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `stitching_batches` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `stock_balances` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `stock_transactions` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `warehouses` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `qr_generations` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `sellers` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `seller_rolls` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `assets` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `asset_maintenance_logs` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-UPDATE `production_warehouse_reworks` SET `concern_id` = 1 WHERE `concern_id` IS NULL;
-
--- Deactivate built-in starter categories
-UPDATE `categories`
-SET `is_active` = 0
-WHERE `is_active` = 1
-  AND (
-    (`code` = 'KW' AND `slug` = 'kids-wear')
-    OR (`code` = 'MW' AND `slug` = 'mens-wear')
-    OR (`code` = 'WW' AND `slug` = 'womens-wear')
-    OR (`code` = 'BW' AND `slug` = 'baby-wear')
-    OR (`code` = 'ACC' AND `slug` = 'accessories-other')
-  );
-
-
-CREATE TABLE IF NOT EXISTS `third_party_mapping_bills` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `concern_id` int(10) unsigned NOT NULL,
-  `seller_id` int(10) unsigned NOT NULL,
-  `invoice_number` varchar(100) NOT NULL,
-  `status` enum('DRAFT','READY','MOVED') NOT NULL DEFAULT 'DRAFT',
-  `purchase_id` int(10) unsigned DEFAULT NULL,
-  `created_by` int(10) unsigned DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_tpmb_supplier_invoice` (`concern_id`,`seller_id`,`invoice_number`),
-  KEY `idx_tpmb_match` (`concern_id`,`seller_id`,`status`),
-  KEY `idx_tpmb_purchase` (`purchase_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `third_party_mapping_items` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `mapping_bill_id` int(10) unsigned NOT NULL,
-  `purchase_item_id` int(10) unsigned DEFAULT NULL,
-  `product_id` int(10) unsigned NOT NULL,
-  `variant_id` int(10) unsigned NOT NULL,
-  `item_name` varchar(255) NOT NULL,
-  `product_code` varchar(100) DEFAULT NULL,
-  `vendor_sku` varchar(100) DEFAULT NULL,
-  `quantity` decimal(12,3) NOT NULL,
-  `unit` varchar(30) NOT NULL DEFAULT 'PCS',
-  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `mrp` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `selling_price` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `gst_rate` decimal(8,3) NOT NULL DEFAULT 0.000,
-  `hsn_code` varchar(20) NOT NULL,
-  `color` varchar(100) DEFAULT NULL,
-  `size` varchar(50) DEFAULT NULL,
-  `category_id` int(10) unsigned NOT NULL,
-  `subcategory_id` int(10) unsigned DEFAULT NULL,
-  `sub_subcategory_id` int(10) unsigned DEFAULT NULL,
-  `qr_generation_id` int(10) unsigned DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_tpmi_bill` (`mapping_bill_id`),
-  KEY `idx_tpmi_purchase_item` (`purchase_item_id`),
-  KEY `idx_tpmi_variant` (`variant_id`),
-  KEY `idx_tpmi_qr` (`qr_generation_id`),
-  CONSTRAINT `fk_tpmi_bill` FOREIGN KEY (`mapping_bill_id`) REFERENCES `third_party_mapping_bills` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Curated HSN seed from 2026_11_18_seed_garment_textile_maintenance_hsn.php
+INSERT INTO `hsn_codes` (`hsn_code`,`description`,`gst_rate`,`created_at`,`updated_at`) VALUES
+('5201','Raw Cotton / Cotton, Not Carded or Combed',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5202','Cotton Waste (Including Yarn Waste and Garnetted Stock)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5203','Cotton, Carded or Combed (Cotton Slivers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5204','Cotton Sewing Thread',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5205','Cotton Yarn (Combed/Carded Cotton Yarn >= 85% Cotton)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5206','Cotton Yarn (< 85% Cotton, Blended Cotton Yarn)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5207','Cotton Yarn Put Up for Retail Sale',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5004','Silk Yarn',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5007','Woven Fabrics of Silk or Silk Waste',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5105','Wool and Fine Animal Hair, Carded or Combed',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5106','Yarn of Carded Wool',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5107','Yarn of Combed Wool',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5111','Woven Fabrics of Carded Wool or Fine Animal Hair',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5112','Woven Fabrics of Combed Wool or Coarse Animal Hair',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5309','Woven Fabrics of Flax / Pure Linen Fabrics',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5310','Woven Fabrics of Jute or Bast Fibres',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5401','Sewing Thread of Synthetic or Artificial Filaments',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5402','Synthetic Filament Yarn (Polyester, Nylon / Polyamide Filament Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5403','Artificial Filament Yarn (Viscose Rayon Filament Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5508','Sewing Thread of Man-Made Staple Fibres',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5509','Yarn of Synthetic Staple Fibres (Polyester Spun Yarn, Acrylic Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5510','Yarn of Artificial Staple Fibres (Viscose Spun Yarn)',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5208','Woven Fabrics of Cotton (>= 85% Cotton, Weight <= 200 g/m² - Shirting, Poplin)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5209','Woven Fabrics of Cotton (>= 85% Cotton, Weight > 200 g/m² - Denim, Canvas, Twill)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5210','Woven Fabrics of Cotton Blended with Synthetic Fibres (Weight <= 200 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5211','Woven Fabrics of Cotton Blended with Synthetic Fibres (Weight > 200 g/m² - Twill, Suiting)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5212','Other Woven Fabrics of Cotton',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5407','Woven Fabrics of Synthetic Filament Yarn (Polyester, Nylon, Microfibre Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5408','Woven Fabrics of Artificial Filament Yarn (Rayon, Modal, Cupro Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5512','Woven Fabrics of Synthetic Staple Fibres (100% Polyester Woven Fabric)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5513','Woven Fabrics of Synthetic Fibres Mixed with Cotton (Weight <= 170 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5514','Woven Fabrics of Synthetic Fibres Mixed with Cotton (Weight > 170 g/m²)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5515','Other Woven Fabrics of Synthetic Staple Fibres (Poly-Viscose PV Suiting)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5516','Woven Fabrics of Artificial Staple Fibres (100% Viscose Woven Fabric)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5801','Woven Pile and Chenille Fabrics (Velvet, Corduroy)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5802','Terry Towelling and Similar Woven Terry Fabrics',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5806','Narrow Woven Fabrics (Elastic Webbing, Ribbons, Tapes, Bias Binding)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5810','Embroidery in the Piece, in Strips or in Motifs',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6001','Pile Fabrics, Long Pile & Terry Fabrics, Knitted or Crocheted (Velour, Fleece)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6002','Knitted or Crocheted Fabrics (Width <= 30 cm, with Elastane / Rubber Thread)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6004','Knitted Fabrics (Width > 30 cm, Containing >= 5% Elastane / Spandex / Lycra)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6005','Warp Knit Fabrics (Tricot, Raschel Knit Fabrics)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6006','Other Knitted Fabrics (Cotton Single Jersey, Interlock, Rib Knit, Pique, French Terry)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6101','Men''s or Boys'' Overcoats, Anoraks, Wind-cheaters, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6102','Women''s or Girls'' Overcoats, Anoraks, Wind-cheaters, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6103','Men''s or Boys'' Suits, Ensembles, Jackets, Blazers, Trousers, Shorts, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6104','Women''s or Girls'' Suits, Ensembles, Dresses, Skirts, Trousers, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6105','Men''s or Boys'' Shirts, Knitted or Crocheted (Polo Shirts, Collared T-Shirts)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6106','Women''s or Girls'' Blouses, Shirts and Tops, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6107','Men''s or Boys'' Underpants, Briefs, Nightshirts, Pyjamas, Bathrobes, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6108','Women''s or Girls'' Slips, Petticoats, Briefs, Panties, Nightdresses, Pyjamas, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6109','T-Shirts, Singlets, Tank Tops and Other Vests, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6110','Jerseys, Pullovers, Cardigans, Sweatshirts, Hoodies, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6111','Babies'' Garments and Clothing Accessories, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6112','Track Suits, Ski Suits and Swimwear, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6114','Other Garments, Knitted (Sports Tops, Gym Wear, Activewear, Uniforms)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6115','Pantyhose, Tights, Stockings, Socks and Other Hosiery, Knitted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6116','Gloves, Mittens and Mitts, Knitted or Crocheted',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6117','Other Made Up Clothing Accessories, Parts of Garments, Knitted (Collars, Ties, Shawls)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6201','Men''s or Boys'' Overcoats, Capes, Cloaks, Anoraks, Wind-jackets, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6202','Women''s or Girls'' Overcoats, Capes, Cloaks, Anoraks, Wind-jackets, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6203','Men''s or Boys'' Suits, Blazers, Formal Trousers, Denim Jeans, Shorts, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6204','Women''s or Girls'' Suits, Jackets, Blazers, Dresses, Skirts, Kurtis, Salwars, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6205','Men''s or Boys'' Shirts, Woven (Formal Shirts, Casual Cotton Shirts)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6206','Women''s or Girls'' Blouses, Shirts and Shirt-Blouses, Tops, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6207','Men''s or Boys'' Singlets, Vests, Underpants, Briefs, Nightshirts, Pyjamas, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6208','Women''s or Girls'' Singlets, Slips, Petticoats, Briefs, Nightdresses, Pyjamas, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6209','Babies'' Garments and Clothing Accessories, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6211','Track Suits, Swimwear, Uniforms, Aprons, Workwear, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6212','Brassieres, Girdles, Corsets, Braces, Suspenders and Similar Articles',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6214','Shawls, Scarves, Mufflers, Mantillas, Veils, Dupattas, Stoles, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6215','Ties, Bow Ties and Cravats, Woven',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6217','Other Made Up Clothing Accessories, Parts of Garments (Pockets, Cuffs, Collars)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6302','Bed Linen, Table Linen, Toilet Linen and Kitchen Linen (Towels, Bedsheets, Pillow Covers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6304','Other Furnishing Articles (Curtains, Drapes, Cushion Covers)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6305','Sacks and Bags Used for Packing of Goods (Cotton Packaging Bags, Jute Sacks)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('6307','Other Made Up Articles (Fabric Face Masks, Shopping Cloth Bags, Cleaning Rags)',5.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('9606','Buttons, Press-Fasteners, Snap-Fasteners, Studs, Button Blanks',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('9607','Slide Fasteners (Zippers / Zips, Sliders, Pullers, Chain)',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5807','Woven Labels, Printed Fabric Labels, Badges and Patches',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('4821','Paper & Paperboard Labels, Hang Tags, Price Tickets, Barcode Tags',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('3923','Plastic Packaging Bags, Self-Adhesive Poly Bags, Plastic Hangers',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('4819','Corrugated Cartons, Master Packing Boxes, Paperboard Packaging',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5607','Twine, Cordage, Ropes, Braided Drawstrings for Hoodies and Pants',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('5602','Non-Woven Interlining, Fusible Interlining Felt for Collars and Cuffs',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8452','Sewing Machines (Industrial Single Needle, Overlock, Flatlock) & Sewing Machine Needles',12.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8451','Machinery for Washing, Ironing, Steam Pressing, Fusing, Drying & Fabric Finishing',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8448','Auxiliary Machinery & Spares for Textile Machines (Spindles, Healds, Reeds, Creels)',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8208','Cutting Machine Knives, Rotary Blades, Straight Blades, Band Knife Blades',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8213','Scissors, Tailor Shears, Thread Trimmers, Snips and Blades',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('2710','Machine Lubricating Oil, Spindle Oil, White Mineral Oil for Sewing Machines',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8483','Transmission Shafts, Bearings, Gears, Pulleys, Belts and Machine Drives',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8421','Industrial Air Compressor Filters, Steam Iron Filters, Moisture Separators',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('7318','Screws, Bolts, Nuts, Rivets, Fasteners for Sewing & Textile Machinery',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+('8487','Machinery Spare Parts, Gaskets, Seals, Mechanical Spares',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+ON DUPLICATE KEY UPDATE `description` = VALUES(`description`), `gst_rate` = VALUES(`gst_rate`), `updated_at` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;
