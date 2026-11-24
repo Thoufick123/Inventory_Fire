@@ -369,20 +369,39 @@
                     <div class="row g-3">
                         <div class="col-12">
                             <div class="p-3 bg-light rounded-3 border">
+                                <!-- Scan Target Options Switcher: Both Roll and Variant -->
                                 <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-                                    <label for="damageRollQrScan" class="form-label fw-bold mb-0">
-                                        <i class="bi bi-upc-scan text-success me-1"></i>Scan Product Barcode / QR Tag
+                                    <label class="form-label fw-bold mb-0 text-dark">
+                                        <i class="bi bi-upc-scan text-primary me-1"></i>Scan Options:
                                     </label>
-                                    <small class="text-muted">Hardware barcode / QR scanner</small>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Scan QR Target Options">
+                                        <button type="button" class="btn btn-outline-primary active fw-semibold" id="btnDamageModeAuto" onclick="setDamageScanOption('AUTO')">
+                                            <i class="bi bi-magic me-1"></i>Auto Detect
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnDamageModeRoll" onclick="setDamageScanOption('ROLL')">
+                                            <i class="bi bi-layers-fill text-info me-1"></i>Fabric Roll QR
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnDamageModeVariant" onclick="setDamageScanOption('VARIANT')">
+                                            <i class="bi bi-tag-fill text-success me-1"></i>Product Variant QR
+                                        </button>
+                                    </div>
                                 </div>
+
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white text-success border-end-0">
-                                        <i class="bi bi-qr-code"></i>
+                                    <span class="input-group-text bg-white text-primary border-end-0" id="damageScanQrIconWrap">
+                                        <i class="bi bi-qr-code text-primary" id="damageScanQrIcon"></i>
                                     </span>
-                                    <input type="text" id="damageRollQrScan" class="form-control border-start-0" placeholder="Scan any QR code or barcode and press Enter..." autocomplete="off">
-                                    <button type="button" class="btn btn-success fw-semibold px-3" onclick="scanDamageRollQr()">
+                                    <input type="text" id="damageRollQrScan" class="form-control border-start-0" placeholder="Scan or enter Product Variant QR (e.g. V0013) or Fabric Roll QR (e.g. FB112601)..." autocomplete="off">
+                                    <button type="button" class="btn btn-primary fw-semibold px-3" onclick="scanDamageRollQr()">
                                         <i class="bi bi-plus-circle me-1"></i>Scan / Add
                                     </button>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between mt-1 text-muted small">
+                                    <span id="scanModeHelpText">
+                                        <i class="bi bi-info-circle me-1 text-primary"></i>Supports both <strong>Fabric Roll QRs</strong> (e.g. FB112601, ROLL #1) and <strong>Product Variant QRs</strong> (e.g. V0013, SKU).
+                                    </span>
+                                    <span class="badge bg-light text-secondary border">Hardware Scanner Ready</span>
                                 </div>
                             </div>
                             <div id="damageRollScanStatus" class="small mt-1" role="status" aria-live="polite"></div>
@@ -1140,6 +1159,38 @@ function renderDamageScannedLabels() {
     if (lossHelp) lossHelp.textContent = `Calculated: ${totalQty} pcs = ₹${totalLoss.toFixed(2)}`;
 }
 
+let currentDamageScanOption = 'AUTO';
+
+function setDamageScanOption(opt) {
+    currentDamageScanOption = opt;
+    const btnAuto = document.getElementById('btnDamageModeAuto');
+    const btnRoll = document.getElementById('btnDamageModeRoll');
+    const btnVar = document.getElementById('btnDamageModeVariant');
+    const input = document.getElementById('damageRollQrScan');
+    const help = document.getElementById('scanModeHelpText');
+    const icon = document.getElementById('damageScanQrIcon');
+
+    if (btnAuto) btnAuto.className = (opt === 'AUTO') ? 'btn btn-outline-primary active fw-semibold' : 'btn btn-outline-secondary fw-semibold';
+    if (btnRoll) btnRoll.className = (opt === 'ROLL') ? 'btn btn-outline-info active fw-semibold' : 'btn btn-outline-secondary fw-semibold';
+    if (btnVar) btnVar.className = (opt === 'VARIANT') ? 'btn btn-outline-success active fw-semibold' : 'btn btn-outline-secondary fw-semibold';
+
+    if (opt === 'ROLL') {
+        if (input) input.placeholder = 'Scan or enter Fabric Roll QR (e.g. FB112601, ROLL #1)...';
+        if (help) help.innerHTML = '<i class="bi bi-layers-fill text-info me-1"></i>Scanning <strong>Fabric Roll QR</strong>: Deducts weight & quantity from raw fabric inventory.';
+        if (icon) icon.className = 'bi bi-layers-fill text-info';
+    } else if (opt === 'VARIANT') {
+        if (input) input.placeholder = 'Scan or enter Product Variant QR (e.g. V0013, SKU tag)...';
+        if (help) help.innerHTML = '<i class="bi bi-tag-fill text-success me-1"></i>Scanning <strong>Product Variant QR</strong>: Deducts piece counts from finished goods stock.';
+        if (icon) icon.className = 'bi bi-tag-fill text-success';
+    } else {
+        if (input) input.placeholder = 'Scan or enter Product Variant QR (e.g. V0013) or Fabric Roll QR (e.g. FB112601)...';
+        if (help) help.innerHTML = '<i class="bi bi-info-circle me-1 text-primary"></i>Supports both <strong>Fabric Roll QRs</strong> (e.g. FB112601, ROLL #1) and <strong>Product Variant QRs</strong> (e.g. V0013, SKU).';
+        if (icon) icon.className = 'bi bi-qr-code text-primary';
+    }
+
+    if (input) input.focus();
+}
+
 function scanDamageRollQr() {
     const scanInput = document.getElementById('damageRollQrScan');
     const scannedCode = scanInput ? scanInput.value.trim() : '';
@@ -1159,7 +1210,7 @@ function scanDamageRollQr() {
 
     damageScanInProgress = true;
     setDamageRollScanStatus('Looking up item QR (roll, product, or variant)…');
-    fetch('<?= url('api/production/damages/scan-roll') ?>?code=' + encodeURIComponent(scannedCode))
+    fetch('<?= url('api/production/damages/scan-roll') ?>?code=' + encodeURIComponent(scannedCode) + '&scan_type=' + encodeURIComponent(currentDamageScanOption))
         .then(async response => {
             const data = await response.json();
             if (!response.ok || !data.success) {

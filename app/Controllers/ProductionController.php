@@ -7271,12 +7271,25 @@ class ProductionController {
      */
     private function damageItemMatchesActiveConcern(?int $concernId): bool {
         $activeCid = currentConcernId();
-        return $activeCid === null
-            || $concernId === $activeCid
-            || ($activeCid === 1 && $concernId === null);
+        if ($activeCid === null) return true;
+        // Global master catalog items (concern_id is null or 0) belong to all concerns
+        if ($concernId === null || (int)$concernId === 0) return true;
+        if ((int)$concernId === (int)$activeCid) return true;
+        // Main concern items (concern_id 1) are also accessible if active concern is a branch/warehouse
+        if ((int)$concernId === 1) return true;
+        return false;
     }
 
     private function universalDamageQrLookup(string $scanCode): ?array {
+        $cleanCode = strtoupper(trim($scanCode));
+        $codePrefix = explode('-', $cleanCode)[0];
+        $varIdFromCode = 0;
+        if (preg_match('/^V0*([1-9]\d*)$/i', $cleanCode, $m)) {
+            $varIdFromCode = (int)$m[1];
+        } elseif (preg_match('/^V0*([1-9]\d*)/i', $codePrefix, $m)) {
+            $varIdFromCode = (int)$m[1];
+        }
+
         // 1. Check qr_generation_items & qr_generations
         $qrg = Database::fetchOne("
             SELECT qri.id as qr_item_id, qri.qr_code, qri.status as qr_status,
@@ -7288,9 +7301,9 @@ class ProductionController {
             JOIN qr_generations qrg ON qri.generation_id = qrg.id
             LEFT JOIN products p ON qrg.product_id = p.id
             LEFT JOIN product_variants pv ON qrg.variant_id = pv.id
-            WHERE UPPER(TRIM(qri.qr_code)) = ?
+            WHERE UPPER(TRIM(qri.qr_code)) = ? OR UPPER(TRIM(qri.qr_code)) = ?
             LIMIT 1
-        ", [$scanCode]);
+        ", [$cleanCode, $codePrefix]);
 
         if ($qrg && $this->damageItemMatchesActiveConcern(
             isset($qrg['record_concern_id']) ? (int)$qrg['record_concern_id'] : null
@@ -7334,8 +7347,8 @@ class ProductionController {
             ];
         }
 
-        // 2. Check product_variants (by variant_code, qr_code, or SKU)
-        $variant = Database::fetchOne("
+        // 2. Check product_variants (by variant_code, qr_code, SKU, ID, or V-padded ID)
+        $variantSql = "
             SELECT pv.*, p.id as product_id, p.name as product_name, p.code as product_code,
                    p.concern_id as record_concern_id,
                    sz.name as size_name, cl.name as color_name
@@ -7343,19 +7356,40 @@ class ProductionController {
             JOIN products p ON p.id = pv.product_id
             LEFT JOIN sizes sz ON sz.id = pv.size_id
             LEFT JOIN colors cl ON cl.id = pv.color_id
-            WHERE UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ?
-            LIMIT 1
-        ", [$scanCode, $scanCode, $scanCode]);
+            WHERE UPPER(TRIM(pv.variant_code)) = ? 
+               OR UPPER(TRIM(pv.qr_code)) = ? 
+               OR UPPER(TRIM(pv.sku)) = ?
+               OR UPPER(TRIM(pv.variant_code)) = ?
+               OR UPPER(TRIM(pv.sku)) = ?
+        ";
+        $variantParams = [$cleanCode, $cleanCode, $cleanCode, $codePrefix, $codePrefix];
+        if ($varIdFromCode > 0) {
+            $variantSql .= " OR pv.id = ?";
+            $variantParams[] = $varIdFromCode;
+        }
+        $variantSql .= " LIMIT 1";
+
+        $variant = Database::fetchOne($variantSql, $variantParams);
 
         if ($variant && $this->damageItemMatchesActiveConcern(
             isset($variant['record_concern_id']) ? (int)$variant['record_concern_id'] : null
         )) {
-            $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+            $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
+            if ($availStock <= 0) {
+                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+            }
+            if ($availStock <= 0) {
+                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(received_qty), 0) FROM production_batch_items WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+            }
             $price = (float)(!empty($variant['selling_price']) && $variant['selling_price'] > 0
                 ? $variant['selling_price']
                 : (!empty($variant['mrp']) && $variant['mrp'] > 0 ? $variant['mrp'] : 500.00));
             $weight = (float)(!empty($variant['weight']) ? $variant['weight'] : 0.25);
             $prodName = $variant['product_name'] ?: 'Garment Product';
+
+            $varDisplayCode = !empty($variant['variant_code']) 
+                ? $variant['variant_code'] 
+                : ('V' . str_pad($variant['id'], 4, '0', STR_PAD_LEFT));
 
             return [
                 'item_type'       => 'PRODUCT',
@@ -7368,7 +7402,7 @@ class ProductionController {
                 'sku'             => $variant['sku'],
                 'size'            => $variant['size_name'] ?? '',
                 'color'           => $variant['color_name'] ?? '',
-                'seller_name'     => 'In-House Product Variant',
+                'seller_name'     => 'In-House Product Variant (' . $varDisplayCode . ')',
                 'roll_number'     => $prodName . (!empty($variant['size_name']) ? " ({$variant['size_name']})" : ''),
                 'price'           => $price,
                 'loss'            => $price,
@@ -7578,22 +7612,37 @@ class ProductionController {
         }
 
         // 6. Check production_batch_items
-        $batch = Database::fetchOne("
+        $batchSql = "
             SELECT pbi.*, p.id as product_id, p.name as product_name, p.concern_id as record_concern_id,
-                   pv.id as variant_id, pv.sku, pv.selling_price, pv.weight as variant_weight
+                   pv.id as variant_id, pv.sku, pv.selling_price, pv.mrp, pv.weight as variant_weight,
+                   sz.name as size_name, cl.name as color_name
             FROM production_batch_items pbi
             LEFT JOIN product_variants pv ON pv.id = pbi.variant_id
             LEFT JOIN products p ON p.id = pv.product_id
-            WHERE pbi.piece_tags LIKE ? OR pbi.received_qr_codes LIKE ?
-            LIMIT 1
-        ", ['%' . $scanCode . '%', '%' . $scanCode . '%']);
+            LEFT JOIN sizes sz ON sz.id = pv.size_id
+            LEFT JOIN colors cl ON cl.id = pv.color_id
+            WHERE pbi.piece_tags LIKE ? 
+               OR pbi.received_qr_codes LIKE ? 
+               OR UPPER(TRIM(pv.variant_code)) = ?
+        ";
+        $batchParams = ['%' . $cleanCode . '%', '%' . $cleanCode . '%', $cleanCode];
+        if ($varIdFromCode > 0) {
+            $batchSql .= " OR pv.id = ?";
+            $batchParams[] = $varIdFromCode;
+        }
+        $batchSql .= " ORDER BY pbi.id DESC LIMIT 1";
+
+        $batch = Database::fetchOne($batchSql, $batchParams);
 
         if ($batch && $this->damageItemMatchesActiveConcern(
             isset($batch['record_concern_id']) ? (int)$batch['record_concern_id'] : null
         )) {
-            $price = (float)(!empty($batch['selling_price']) && $batch['selling_price'] > 0 ? $batch['selling_price'] : 500.00);
+            $price = (float)(!empty($batch['selling_price']) && $batch['selling_price'] > 0 
+                ? $batch['selling_price'] 
+                : (!empty($batch['mrp']) && $batch['mrp'] > 0 ? $batch['mrp'] : 500.00));
             $weight = (float)(!empty($batch['variant_weight']) ? $batch['variant_weight'] : 0.25);
-            $prodName = $batch['product_name'] ?: 'Production Batch Piece';
+            $prodName = $batch['product_name'] ?: 'Production Batch Garment';
+            $avail = max(1, (int)($batch['received_qty'] ?: ($batch['dispatched_qty'] ?: 1)));
             return [
                 'item_type'       => 'PRODUCT',
                 'damage_kind'     => 'PRODUCT',
@@ -7603,16 +7652,16 @@ class ProductionController {
                 'seller_roll_id'  => null,
                 'product_name'    => $prodName,
                 'sku'             => $batch['sku'] ?: $scanCode,
-                'size'            => '',
-                'color'           => '',
+                'size'            => $batch['size_name'] ?? '',
+                'color'           => $batch['color_name'] ?? '',
                 'seller_name'     => 'Production Batch Line',
-                'roll_number'     => $prodName,
+                'roll_number'     => $prodName . (!empty($batch['size_name']) ? " ({$batch['size_name']})" : ''),
                 'price'           => $price,
                 'loss'            => $price,
                 'weight'          => $weight,
                 'piece_weight'    => $weight,
                 'piece_loss'      => $price,
-                'available_stock' => 1,
+                'available_stock' => $avail,
                 'quantity'        => 1,
                 'code'            => $scanCode,
                 'found_in'        => 'production_batch_items'
