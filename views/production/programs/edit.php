@@ -648,27 +648,7 @@ function addProgramRollRow(rollData = null) {
             <div><i class="bi bi-brush text-primary me-1"></i> <span id="roll_design_${idx}">-</span></div>
         </div>
 
-        <!-- Individual Piece QR Codes Area for THIS Roll -->
-        <div id="roll_pieces_section_${idx}" class="p-3 bg-white rounded-3 border mb-4 shadow-sm ${rollData ? '' : 'd-none'}">
-            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <span class="small fw-bold text-dark d-flex align-items-center gap-1.5">
-                    <i class="bi bi-qr-code text-primary fs-6"></i>
-                    <span>Individual Piece QR Codes</span>
-                    <span class="badge bg-primary-subtle text-primary border" id="roll_pieces_badge_${idx}">0 Selected</span>
-                </span>
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 11px;" onclick="selectAllRollPieces(${idx})">Select All</button>
-                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 fw-semibold" style="font-size: 11px;" onclick="clearRollPieces(${idx})">Clear</button>
-                </div>
-            </div>
-            <div class="d-flex flex-wrap gap-1.5 p-2.5 bg-light rounded-2 border align-items-center" id="roll_pieces_container_${idx}" style="max-height: 125px; overflow-y: auto;">
-                <span class="text-muted small fst-italic">Select a fabric roll to load piece QR codes...</span>
-            </div>
-            <input type="hidden" name="rolls[${idx}][allocated_qr_codes]" id="roll_allocated_qrs_${idx}" value="${escapeHtml(rollData?.allocated_qr_codes || '')}">
-            <div class="form-text text-muted small mt-1.5 d-flex align-items-center justify-content-between" style="font-size: 11px;">
-                <span><i class="bi bi-info-circle me-1"></i>Click piece QR tags to toggle selection. Selected QR tags are saved with this program.</span>
-            </div>
-        </div>
+        <input type="hidden" name="rolls[${idx}][allocated_qr_codes]" id="roll_allocated_qrs_${idx}" value="${escapeHtml(rollData?.allocated_qr_codes || '')}">
 
         <!-- 3-Tier Catalog Selection for THIS specific Roll -->
         <div class="p-3 p-md-4 bg-light-subtle rounded-3 border my-4 shadow-xs">
@@ -789,7 +769,6 @@ function handleRollQtyInput(counterId) {
         calculateTotalRollMetrics();
         return;
     }
-    const allocatedCodesInput = document.getElementById('roll_allocated_qrs_' + counterId);
     const qtyInput = document.getElementById('roll_qty_' + counterId);
 
     // Scan Fabric Roll Barcode / QR Tag time: Roll Qty (pcs) CANNOT be increased!
@@ -802,20 +781,12 @@ function handleRollQtyInput(counterId) {
         return;
     }
 
-    const rollObj = availableSellerRolls.find(r => String(r.id) === String(select.value));
-    if (rollObj && rollObj.pieces && rollObj.pieces.length > 0 && allocatedCodesInput) {
-        const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
-        const wantedQty = parseInt(qtyInput?.value || '1', 10) || 0;
-        const autoAllocated = [];
-        for (const p of rollObj.pieces) {
-            const pCode = String(p.code || '').toUpperCase();
-            if (p.status === 'AVAILABLE' && !codesInOtherRows.has(pCode)) {
-                autoAllocated.push(pCode);
-                if (autoAllocated.length >= wantedQty) break;
-            }
-        }
-        allocatedCodesInput.value = autoAllocated.join(',');
+    // Dropdown selection does not lock specific piece codes on client side
+    const allocatedCodesInput = document.getElementById('roll_allocated_qrs_' + counterId);
+    if (allocatedCodesInput) {
+        allocatedCodesInput.value = '';
     }
+
     syncRollStockAllocations();
     renderRollPieces(counterId);
 }
@@ -856,17 +827,15 @@ function getRollRowRemainingStock(counterId, rollObj) {
 
 function renderRollPieces(counterId) {
     const card = document.getElementById('program_roll_card_' + counterId);
-    const container = document.getElementById('roll_pieces_container_' + counterId);
-    const badge = document.getElementById('roll_pieces_badge_' + counterId);
-    const select = card?.querySelector('.roll-select');
+    if (!card) return;
+    const select = card.querySelector('.roll-select');
     const rollObj = select?.value
         ? availableSellerRolls.find(roll => String(roll.id) === String(select.value))
         : null;
 
-    if (!container) return;
     const selectedCodes = new Set(getSelectedRollPieceCodes(counterId));
     const quantityInput = document.getElementById('roll_qty_' + counterId);
-    const isScanned = card?.dataset?.isScanned === 'true';
+    const isScanned = card.dataset.isScanned === 'true';
 
     if (quantityInput) {
         if (isScanned) {
@@ -893,7 +862,6 @@ function renderRollPieces(counterId) {
             quantityInput.removeAttribute('title');
         }
     }
-    if (badge) badge.textContent = `${selectedCodes.size} Selected`;
 
     const scannedBadge = document.getElementById('roll_scanned_badge_' + counterId);
     const scannedLabel = document.getElementById('roll_scanned_code_label_' + counterId);
@@ -911,118 +879,19 @@ function renderRollPieces(counterId) {
         if (scannedBadge) scannedBadge.classList.add('d-none');
         if (scannedBanner) scannedBanner.classList.add('d-none');
     }
-
-    if (!rollObj) {
-        container.innerHTML = '<span class="text-muted small fst-italic">Select a fabric roll to load piece QR codes...</span>';
-        return;
-    }
-
-    const pieces = Array.isArray(rollObj.pieces) ? rollObj.pieces : [];
-    if (!pieces.length) {
-        container.innerHTML = '<span class="text-muted small fst-italic">No individual piece QR codes are available for this roll.</span>';
-        return;
-    }
-
-    const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
-    container.innerHTML = pieces.map(piece => {
-        const code = String(piece.code || '').toUpperCase();
-        const isSelected = selectedCodes.has(code);
-        const isAvailable = piece.status === 'AVAILABLE' && !codesInOtherRows.has(code);
-        const disabled = !isSelected && !isAvailable;
-        const statusText = isAvailable ? '' : (piece.meta || piece.status || 'Unavailable');
-        return `
-            <label class="btn btn-sm ${isSelected ? 'btn-primary text-white' : 'btn-outline-secondary'} d-inline-flex align-items-center gap-1" title="${escapeHtml(statusText)}">
-                <input type="checkbox" class="form-check-input m-0" data-piece-code="${escapeHtml(code)}" ${isSelected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-                <span>${escapeHtml(code)}</span>
-            </label>`;
-    }).join('');
-
-    container.querySelectorAll('input[data-piece-code]').forEach(input => {
-        input.addEventListener('change', () => {
-            updateRollPieceSelection(counterId, input.dataset.pieceCode, input.checked);
-        });
-    });
 }
 
 function updateRollPieceSelection(counterId, code, isSelected) {
-    const card = document.getElementById('program_roll_card_' + counterId);
-    const select = card?.querySelector('.roll-select');
-    const input = document.getElementById('roll_allocated_qrs_' + counterId);
-    const quantity = document.getElementById('roll_qty_' + counterId);
-    const rollObj = select?.value
-        ? availableSellerRolls.find(roll => String(roll.id) === String(select.value))
-        : null;
-    if (!rollObj || !input || !quantity) return false;
-
-    // Scanned roll item is restricted to 1 piece
-    if (card?.dataset?.isScanned === 'true' && isSelected && getSelectedRollPieceCodes(counterId).length >= 1) {
-        showScanFeedback('Scanned QR roll is restricted to 1 individual piece.', 'warning');
-        renderRollPieces(counterId);
-        return false;
-    }
-
-    const normalizedCode = String(code || '').trim().toUpperCase();
-    const selectedCodes = new Set(getSelectedRollPieceCodes(counterId));
-    const piece = (rollObj.pieces || []).find(item => String(item.code || '').toUpperCase() === normalizedCode);
-    if (isSelected) {
-        if (!piece || piece.status !== 'AVAILABLE') {
-            showScanFeedback(`QR label ${escapeHtml(normalizedCode)} is not available for this program.`, 'warning');
-            renderRollPieces(counterId);
-            return false;
-        }
-        if (getOtherRollPieceCodes(counterId, rollObj.id).has(normalizedCode)) {
-            showScanFeedback(`QR label ${escapeHtml(normalizedCode)} is already assigned to another roll row.`, 'warning');
-            renderRollPieces(counterId);
-            return false;
-        }
-        if (!selectedCodes.has(normalizedCode) && selectedCodes.size >= getRollRowRemainingStock(counterId, rollObj)) {
-            showScanFeedback('The selected QR count cannot exceed the remaining roll stock.', 'warning');
-            renderRollPieces(counterId);
-            return false;
-        }
-        selectedCodes.add(normalizedCode);
-    } else {
-        selectedCodes.delete(normalizedCode);
-    }
-
-    input.value = [...selectedCodes].join(',');
-    quantity.value = String(selectedCodes.size);
-    syncRollStockAllocations();
-    renderRollPieces(counterId);
     return true;
 }
 
 function selectAllRollPieces(counterId) {
-    const card = document.getElementById('program_roll_card_' + counterId);
-    if (card?.dataset?.isScanned === 'true') {
-        showScanFeedback('Cannot select all pieces on an individual scanned roll item.', 'warning');
-        return;
-    }
-    const select = card?.querySelector('.roll-select');
-    const input = document.getElementById('roll_allocated_qrs_' + counterId);
-    const quantity = document.getElementById('roll_qty_' + counterId);
-    const rollObj = select?.value
-        ? availableSellerRolls.find(roll => String(roll.id) === String(select.value))
-        : null;
-    if (!rollObj || !input || !quantity) return;
-
-    const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
-    const maxQuantity = getRollRowRemainingStock(counterId, rollObj);
-    const selectedCodes = (rollObj.pieces || [])
-        .filter(piece => piece.status === 'AVAILABLE' && !codesInOtherRows.has(String(piece.code || '').toUpperCase()))
-        .slice(0, maxQuantity)
-        .map(piece => String(piece.code).toUpperCase());
-    input.value = selectedCodes.join(',');
-    quantity.value = String(selectedCodes.length);
-    syncRollStockAllocations();
-    renderRollPieces(counterId);
+    return;
 }
 
 function clearRollPieces(counterId) {
     const input = document.getElementById('roll_allocated_qrs_' + counterId);
-    const quantity = document.getElementById('roll_qty_' + counterId);
     if (input) input.value = '';
-    if (quantity) quantity.value = '0';
     syncRollStockAllocations();
     renderRollPieces(counterId);
 }
@@ -1138,20 +1007,8 @@ function handleRollRowChange(selectElement, counterId, autoPopulate = true, isSc
         }
     }
 
-    if (allocatedCodesInput && !allocatedCodesInput.value.trim() && rollObj.pieces && rollObj.pieces.length > 0) {
-        const codesInOtherRows = getOtherRollPieceCodes(counterId, rollObj.id);
-        const wantedQty = parseInt(qtyInput?.value || '1', 10) || 1;
-        const autoAllocated = [];
-        for (const p of rollObj.pieces) {
-            const pCode = String(p.code || '').toUpperCase();
-            if (p.status === 'AVAILABLE' && !codesInOtherRows.has(pCode)) {
-                autoAllocated.push(pCode);
-                if (autoAllocated.length >= wantedQty) break;
-            }
-        }
-        if (autoAllocated.length > 0) {
-            allocatedCodesInput.value = autoAllocated.join(',');
-        }
+    if (!isScan && allocatedCodesInput) {
+        allocatedCodesInput.value = '';
     }
 
     syncRollStockAllocations();
@@ -1904,13 +1761,15 @@ function processScannedRollCode(rawCode) {
         let isAlreadyScanned = false;
         let alreadyScannedCardNum = '';
         document.querySelectorAll('.program-roll-card').forEach(c => {
-            const cId = c.id.match(/\d+$/)?.[0];
-            const allocInp = document.getElementById('roll_allocated_qrs_' + cId);
-            if (allocInp && allocInp.value) {
-                const codes = allocInp.value.split(',').map(s => s.trim().toUpperCase());
-                if (codes.includes(targetPieceCode)) {
-                    isAlreadyScanned = true;
-                    alreadyScannedCardNum = cId;
+            if (c.dataset.isScanned === 'true') {
+                const cId = c.id.match(/\d+$/)?.[0];
+                const allocInp = document.getElementById('roll_allocated_qrs_' + cId);
+                if (allocInp && allocInp.value) {
+                    const codes = allocInp.value.split(',').map(s => s.trim().toUpperCase());
+                    if (codes.includes(targetPieceCode)) {
+                        isAlreadyScanned = true;
+                        alreadyScannedCardNum = cId;
+                    }
                 }
             }
         });
@@ -1968,6 +1827,11 @@ function processScannedRollCode(rawCode) {
     // Mark card as scanned explicitly
     targetCard.dataset.isScanned = 'true';
 
+    const allocInput = document.getElementById('roll_allocated_qrs_' + counterId);
+    if (allocInput && targetPieceCode) {
+        allocInput.value = targetPieceCode;
+    }
+
     select.value = String(matchedRoll.id);
     handleRollRowChange(select, counterId, true, true);
 
@@ -1983,9 +1847,8 @@ function processScannedRollCode(rawCode) {
         quantity.title = 'Roll Qty is locked to 1 pc for individual scanned roll QR tag.';
     }
 
-    if (matchedPiece) {
-        const allocInput = document.getElementById('roll_allocated_qrs_' + counterId);
-        if (allocInput) allocInput.value = matchedPiece.code;
+    if (allocInput && targetPieceCode) {
+        allocInput.value = targetPieceCode;
     }
 
     // Render piece list and sync stock
