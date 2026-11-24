@@ -86,7 +86,7 @@
     </div>
 </div>
 
-<!-- Tabs for Normal Bills vs Direct Bills Separation -->
+<!-- Tabs for Bills Filtering (All, Customer, B2B Company, Direct) -->
 <ul class="nav nav-pills mb-3 gap-2" id="billingTypeTabs">
     <li class="nav-item">
         <a class="nav-link <?= ($activeTab ?? 'normal') === 'normal' ? 'active bg-primary' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=normal') ?>">
@@ -94,6 +94,24 @@
             <span>Standard Bills</span>
             <span class="badge <?= ($activeTab ?? 'normal') === 'normal' ? 'bg-white text-primary' : 'bg-primary-subtle text-primary' ?> rounded-pill">
                 <?= (int)($tabCounts['normal_count'] ?? 0) ?>
+            </span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab ?? '') === 'customer' ? 'active bg-info text-white' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=customer') ?>">
+            <i class="bi bi-person"></i>
+            <span>Customer Bills</span>
+            <span class="badge <?= ($activeTab ?? '') === 'customer' ? 'bg-white text-info' : 'bg-info-subtle text-info' ?> rounded-pill">
+                <?= (int)($tabCounts['customer_count'] ?? 0) ?>
+            </span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= ($activeTab ?? '') === 'company' ? 'active bg-primary text-white' : 'bg-white border text-dark' ?> fw-semibold py-2 px-3 d-flex align-items-center gap-2" href="<?= url('production/billing?tab=company') ?>">
+            <i class="bi bi-building"></i>
+            <span>Company Bills</span>
+            <span class="badge <?= ($activeTab ?? '') === 'company' ? 'bg-white text-primary' : 'bg-primary-subtle text-primary' ?> rounded-pill">
+                <?= (int)($tabCounts['company_count'] ?? 0) ?>
             </span>
         </a>
     </li>
@@ -165,7 +183,16 @@
                             </td>
                             <td><?= htmlspecialchars(date('d M Y', strtotime($bill['bill_date']))) ?></td>
                             <td>
-                                <span class="badge text-bg-light"><?= htmlspecialchars($bill['buyer_type'] ?? 'COMPANY') ?></span>
+                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
+                                    <span class="badge <?= ($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'text-bg-light' ?>">
+                                        <i class="bi <?= ($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' ? 'bi-building' : 'bi-person' ?> me-1"></i><?= htmlspecialchars($bill['buyer_type'] ?? 'COMPANY') ?>
+                                    </span>
+                                    <?php if (($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
+                                        <a href="<?= url('production/billing/move-to-batch/' . (int)$bill['id']) ?>" class="badge bg-success text-white text-decoration-none shadow-sm" title="Directly move to batch creation for this company bill">
+                                            <i class="bi bi-box-seam me-1"></i>Pack Batch
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="fw-semibold"><?= htmlspecialchars(($bill['buyer_type'] ?? 'COMPANY') === 'CUSTOMER' ? ($bill['customer_name'] ?? '') : ($bill['company_name'] ?? '')) ?></div>
                                 <small class="text-muted"><?= htmlspecialchars(($bill['buyer_type'] ?? 'COMPANY') === 'CUSTOMER' ? ($bill['customer_phone'] ?? '') : ($bill['company_phone'] ?? '')) ?></small>
                             </td>
@@ -189,11 +216,11 @@
                             </td>
                             <td class="text-end text-nowrap">
                                 <div class="action-btns-group justify-content-end">
-                                    <?php if (isAdmin() && ($bill['payment_status'] ?? '') === 'PAID' && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
-                                        <a class="btn btn-outline-success btn-action-icon" title="Move paid bill items to batch dispatch" href="<?= url('production/billing/move-to-batch/' . (int)$bill['id']) ?>"><i class="bi bi-box-seam"></i></a>
-                                    <?php elseif (isAdmin() && (int)($bill['preparing_batch_count'] ?? 0) > 0): ?>
+                                    <?php if ((int)($bill['linked_batch_count'] ?? 0) === 0): ?>
+                                        <a class="btn btn-outline-success btn-action-icon" title="Directly move to batch creation for this bill" href="<?= url('production/billing/move-to-batch/' . (int)$bill['id']) ?>"><i class="bi bi-box-seam"></i></a>
+                                    <?php elseif ((int)($bill['preparing_batch_count'] ?? 0) > 0): ?>
                                         <a class="btn btn-outline-warning btn-action-icon" title="Review linked production batches" href="<?= url('production/batches') ?>"><i class="bi bi-box-seam"></i></a>
-                                    <?php elseif (isAdmin() && (int)($bill['approved_batch_count'] ?? 0) > 0): ?>
+                                    <?php elseif ((int)($bill['approved_batch_count'] ?? 0) > 0): ?>
                                         <a class="btn btn-outline-primary btn-action-icon" title="Continue to outward dispatch" href="<?= url('production/outward') ?>"><i class="bi bi-truck"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'view')): ?>

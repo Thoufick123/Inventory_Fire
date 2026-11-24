@@ -16622,13 +16622,34 @@ class ProductionController {
             }
         }
 
+        $sourceConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+        if (!$sourceConcernId && $selectedQC && !empty($selectedQC['program_id'])) {
+            $prog = Database::fetchOne("SELECT concern_id, production_unit_id FROM production_programs WHERE id = ?", [(int)$selectedQC['program_id']]);
+            if (!empty($prog['concern_id'])) {
+                $sourceConcernId = (int)$prog['concern_id'];
+            } elseif (!empty($prog['production_unit_id'])) {
+                $pu = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [(int)$prog['production_unit_id']]);
+                if (!empty($pu['concern_id'])) {
+                    $sourceConcernId = (int)$pu['concern_id'];
+                }
+            }
+        }
+
+        $whWhere = "WHERE w.is_active = 1";
+        $whParams = [];
+        if ($sourceConcernId) {
+            // Only show other concerns as destination, never the same current concern
+            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
+            $whParams[] = $sourceConcernId;
+        }
+
         $warehouses = Database::fetchAll("
             SELECT w.*, c.name as concern_name, c.code as concern_code 
             FROM warehouses w 
             LEFT JOIN concerns c ON w.concern_id = c.id 
-            WHERE w.is_active = 1 
+            {$whWhere} 
             ORDER BY COALESCE(c.name, w.name) ASC
-        ");
+        ", $whParams);
 
         Response::view('production.batches.create', [
             'pageTitle'                 => 'Pack Production Batch',

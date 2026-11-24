@@ -38,9 +38,13 @@ class ProductionBillingController
             $whereConditions[] = ($cid === 1) ? "(pb.concern_id = 1 OR pb.concern_id IS NULL)" : "pb.concern_id = " . (int)$cid;
         }
 
-        $activeTab = trim((string)($_GET['tab'] ?? 'normal')); // 'normal', 'direct', or 'all'
+        $activeTab = trim((string)($_GET['tab'] ?? 'normal')); // 'normal', 'customer', 'company', 'direct', or 'all'
         if ($activeTab === 'normal') {
             $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 0";
+        } elseif ($activeTab === 'customer') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 0 AND pb.buyer_type = 'CUSTOMER'";
+        } elseif ($activeTab === 'company') {
+            $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 0 AND pb.buyer_type = 'COMPANY'";
         } elseif ($activeTab === 'direct') {
             $whereConditions[] = "COALESCE(pb.is_direct_bill, 0) = 1";
         }
@@ -69,6 +73,8 @@ class ProductionBillingController
             SELECT 
                 COUNT(*) AS total_count,
                 SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN 1 ELSE 0 END) AS normal_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 AND buyer_type = 'CUSTOMER' THEN 1 ELSE 0 END) AS customer_count,
+                SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 AND buyer_type = 'COMPANY' THEN 1 ELSE 0 END) AS company_count,
                 SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN 1 ELSE 0 END) AS direct_count,
                 COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 0 THEN total_amount ELSE 0 END), 0) AS normal_revenue,
                 COALESCE(SUM(CASE WHEN COALESCE(is_direct_bill, 0) = 1 THEN total_amount ELSE 0 END), 0) AS direct_revenue
@@ -164,8 +170,8 @@ class ProductionBillingController
 
     public function moveBillToBatchForm(string $id): void
     {
-        if (!isAdmin()) {
-            Response::error(403, 'Only an administrator can move a billed order to production batches.');
+        if (!isAdmin() && !hasPermission('batches', 'create') && !hasPermission('production_billing', 'create')) {
+            Response::error(403, 'You do not have permission to move a billed order to production batches.');
             return;
         }
         $bill = $this->findBill((int)$id);
@@ -184,7 +190,51 @@ class ProductionBillingController
         }
 
         $items = $this->loadBillItems((int)$bill['id']);
-        $warehouses = Database::fetchAll("SELECT id, name, code FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+
+        $sourceConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+        if (!$sourceConcernId && !empty($bill['production_unit_id'])) {
+            $pu = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [(int)$bill['production_unit_id']]);
+            if (!empty($pu['concern_id'])) {
+                $sourceConcernId = (int)$pu['concern_id'];
+            }
+        }
+
+        // Auto-provision warehouse records for all active concerns if missing
+        $activeConcerns = Database::fetchAll("SELECT id, name, code, address, phone, gst_number FROM concerns WHERE is_active = 1");
+        foreach ($activeConcerns as $ac) {
+            $existingWh = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ?", [(int)$ac['id']]);
+            if (!$existingWh) {
+                $whCode = 'WH-' . $ac['code'];
+                $suffix = 1;
+                while (Database::fetchOne("SELECT id FROM warehouses WHERE code = ?", [$whCode])) {
+                    $whCode = 'WH-' . $ac['code'] . '-' . (++$suffix);
+                }
+                try {
+                    Database::execute(
+                        "INSERT INTO warehouses (concern_id, name, code, address, phone, gst_number, is_active, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW())",
+                        [(int)$ac['id'], $ac['name'] . ' (Warehouse)', $whCode, $ac['address'] ?: null, $ac['phone'] ?: null, $ac['gst_number'] ?: null]
+                    );
+                } catch (\Throwable $e) {}
+            }
+        }
+
+        $whWhere = "WHERE w.is_active = 1";
+        $whParams = [];
+        if ($sourceConcernId) {
+            // Only show OTHER concerns, never the current / same concern
+            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
+            $whParams[] = $sourceConcernId;
+        }
+
+        $warehouses = Database::fetchAll("
+            SELECT w.*, c.name as concern_name, c.code as concern_code 
+            FROM warehouses w 
+            LEFT JOIN concerns c ON w.concern_id = c.id 
+            {$whWhere} 
+            ORDER BY COALESCE(c.name, w.name) ASC
+        ", $whParams);
+
         Response::view('production.billing.move_to_batch', [
             'pageTitle' => 'Move Bill to Batch',
             'activeModule' => 'production',
@@ -197,8 +247,8 @@ class ProductionBillingController
 
     public function createBillDispatchBatch(string $id): void
     {
-        if (!isAdmin()) {
-            Response::error(403, 'Only an administrator can move a billed order to production batches.');
+        if (!isAdmin() && !hasPermission('batches', 'create') && !hasPermission('production_billing', 'create')) {
+            Response::error(403, 'You do not have permission to move a billed order to production batches.');
             return;
         }
         if (!CSRF::validateRequest()) {
@@ -229,12 +279,13 @@ class ProductionBillingController
 
         $sourceRows = Database::fetchAll(
             "SELECT pbi.id AS bill_item_id, pbi.qc_item_id, pbi.variant_id, pbi.quantity,
-                    qi.qc_batch_id, qb.program_id
+                    COALESCE(qi.qc_batch_id, (SELECT qb2.id FROM qc_items qi2 JOIN qc_batches qb2 ON qi2.qc_batch_id = qb2.id WHERE qi2.variant_id = pbi.variant_id ORDER BY qb2.id DESC LIMIT 1), (SELECT id FROM qc_batches ORDER BY id DESC LIMIT 1)) AS qc_batch_id,
+                    COALESCE(qb.program_id, (SELECT pp2.id FROM qc_items qi2 JOIN qc_batches qb2 ON qi2.qc_batch_id = qb2.id JOIN production_programs pp2 ON qb2.program_id = pp2.id WHERE qi2.variant_id = pbi.variant_id ORDER BY qb2.id DESC LIMIT 1), (SELECT program_id FROM qc_batches ORDER BY id DESC LIMIT 1), 1) AS program_id
              FROM production_bill_items pbi
-             JOIN qc_items qi ON qi.id = pbi.qc_item_id
-             JOIN qc_batches qb ON qb.id = qi.qc_batch_id
+             LEFT JOIN qc_items qi ON qi.id = pbi.qc_item_id
+             LEFT JOIN qc_batches qb ON qb.id = qi.qc_batch_id
              WHERE pbi.bill_id = ?
-             ORDER BY qb.program_id, qb.id, pbi.id",
+             ORDER BY pbi.id",
             [(int)$bill['id']]
         );
         if (!$sourceRows) {

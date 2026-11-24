@@ -44,11 +44,22 @@ $totalPieces = array_sum(array_map(static fn(array $item): int => (int)($item['q
                 <div class="card-header bg-white fw-semibold">Dispatch Batch Setup</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label" for="destinationWarehouse">Destination warehouse</label>
+                        <label class="form-label fw-semibold" for="destinationWarehouse">Destination Concern / Warehouse <span class="text-danger">*</span></label>
                         <select class="form-select" name="destination_warehouse_id" id="destinationWarehouse" required>
-                            <option value="">Select warehouse</option>
+                            <option value="">-- Select Destination Concern / Warehouse --</option>
                             <?php foreach ($warehouses as $warehouse): ?>
-                                <option value="<?= (int)$warehouse['id'] ?>"><?= $escape($warehouse['name']) ?><?= !empty($warehouse['code']) ? ' (' . $escape($warehouse['code']) . ')' : '' ?></option>
+                                <?php
+                                    $label = '';
+                                    if (!empty($warehouse['concern_name'])) {
+                                        $label = $warehouse['concern_name'] . ' (' . ($warehouse['concern_code'] ?? '') . ')';
+                                        if (!empty($warehouse['name']) && stripos($warehouse['name'], $warehouse['concern_name']) === false) {
+                                            $label .= ' — ' . $warehouse['name'];
+                                        }
+                                    } else {
+                                        $label = $warehouse['name'] . ' (' . $warehouse['code'] . ')';
+                                    }
+                                ?>
+                                <option value="<?= (int)$warehouse['id'] ?>"><?= $escape($label) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
