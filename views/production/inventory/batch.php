@@ -159,11 +159,28 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0,0,0,0.08) !important;
 }
-.piece-qr-target img, .piece-qr-target canvas {
+.piece-qr-target {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.piece-qr-target canvas {
     display: block !important;
     margin: 0 auto;
     max-width: 100%;
     height: auto;
+}
+/* QRCode.js creates both a <canvas> and a fallback <img>. Hide <img> so it doesn't show 2 QRs in the same box! */
+.piece-qr-target img {
+    display: none !important;
+}
+.qr-sticker-card canvas {
+    display: block !important;
+    margin: 0 auto;
+}
+.qr-sticker-card img {
+    display: none !important;
 }
 .inventory-search-highlight {
     outline: 3px solid #f59e0b;
@@ -957,6 +974,7 @@ function buildInventoryPieceCards() {
 
         const qrBox = card.querySelector('#card_variant_qr_' + vIndex);
         if (qrBox && typeof QRCode !== 'undefined') {
+            qrBox.innerHTML = '';
             new QRCode(qrBox, {
                 text: String(vData.variantCode),
                 width: 76,
@@ -965,6 +983,9 @@ function buildInventoryPieceCards() {
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
             });
+            // Ensure QRCode.js duplicate fallback img is removed/hidden so only 1 QR displays
+            const imgs = qrBox.querySelectorAll('img');
+            imgs.forEach(im => im.style.setProperty('display', 'none', 'important'));
         }
 
         vIndex++;
@@ -1177,6 +1198,7 @@ function renderStickersToModal(pieces) {
 
         const qrTarget = col.querySelector('#print_qr_' + idx);
         if (qrTarget && typeof QRCode !== 'undefined') {
+            qrTarget.innerHTML = '';
             new QRCode(qrTarget, {
                 text: String(variantDisplayCode),
                 width: 90,
@@ -1185,6 +1207,8 @@ function renderStickersToModal(pieces) {
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
             });
+            const imgs = qrTarget.querySelectorAll('img');
+            imgs.forEach(im => im.style.setProperty('display', 'none', 'important'));
         }
     });
 
