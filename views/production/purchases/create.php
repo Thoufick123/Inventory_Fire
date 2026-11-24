@@ -117,8 +117,9 @@
                                         <td style="overflow: visible; position: relative;">
                                             <div class="dropdown hsn-dropdown w-100 position-relative">
                                                 <input type="hidden" class="quick-line-hsn" value="">
-                                                <button type="button" class="form-select form-select-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn font-monospace py-1 px-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="font-size: 0.8rem; height: 31px;">
+                                                <button type="button" class="form-control form-control-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn bg-white" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="cursor: pointer;">
                                                     <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
+                                                    <i class="bi bi-chevron-down text-muted ms-1" style="font-size: 0.75rem;"></i>
                                                 </button>
                                                 <div class="dropdown-menu dropdown-menu-end shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1060;">
                                                     <div class="input-group input-group-sm mb-2">
