@@ -479,11 +479,11 @@ $inventoryVariantCount = array_sum(array_map(
                             <?php endif; ?>
 
                             <?php if (!empty($batch['is_inward'])): ?>
-                                <a href="<?= url('production/inwards/view/' . ($batch['production_batch_id'] ?? $batch['qc_batch_id'])) ?>"
-                                   class="btn btn-outline-secondary btn-action-icon" title="View Inwarded Batch Breakdown & Pieces">
+                                <a href="<?= url('production/inventory/batch/INW-' . ($batch['production_batch_id'] ?? $batch['qc_batch_id'])) ?>"
+                                   class="btn btn-outline-secondary btn-action-icon" title="View Inwarded Batch Stock Ledger & Pieces">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="<?= url('production/inwards/view/' . ($batch['production_batch_id'] ?? $batch['qc_batch_id']) . '#qrSection') ?>"
+                                <a href="<?= url('production/inventory/batch/INW-' . ($batch['production_batch_id'] ?? $batch['qc_batch_id']) . '#qrSection') ?>"
                                    class="btn btn-outline-info btn-action-icon" title="View Inward Piece QR Codes">
                                     <i class="bi bi-qr-code"></i>
                                 </a>
@@ -612,7 +612,14 @@ $inventoryVariantCount = array_sum(array_map(
                 </div>
 
                 <div class="d-flex gap-1.5 batch-list-actions flex-wrap">
-                    <?php if (!empty($batch['is_supply'])): ?>
+                    <?php if (!empty($batch['is_inward'])): ?>
+                        <a href="<?= url('production/inventory/batch/INW-' . ($batch['production_batch_id'] ?? $batch['qc_batch_id'])) ?>" class="btn btn-outline-secondary btn-sm fw-semibold">
+                            <i class="bi bi-eye me-1"></i> View
+                        </a>
+                        <a href="<?= url('production/inventory/batch/INW-' . ($batch['production_batch_id'] ?? $batch['qc_batch_id']) . '#qrSection') ?>" class="btn btn-outline-info btn-sm fw-semibold">
+                            <i class="bi bi-qr-code me-1"></i> QR
+                        </a>
+                    <?php elseif (!empty($batch['is_supply'])): ?>
                         <a href="<?= url('production/inventory/supply/' . $batch['supply_item_id']) ?>" class="btn btn-outline-secondary btn-sm fw-semibold">
                             <i class="bi bi-eye me-1"></i> View
                         </a>

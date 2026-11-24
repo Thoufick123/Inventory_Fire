@@ -19682,7 +19682,7 @@ class ProductionController {
                 $price = (float)(($row['variant_selling_price'] ?? 0) > 0 ? $row['variant_selling_price'] : $mrp);
                 $costPrice = (float)(($row['production_cost'] ?? 0) > 0 ? $row['production_cost'] : ($row['purchase_price'] ?? 0));
 
-                // Check billed piece count for this item if any tags were billed in this concern
+                // Check billed piece count for this item if any tags were billed in THIS concern
                 $itemTags = [];
                 if (!empty($row['received_qr_codes'])) {
                     $itemTags = array_filter(array_map('trim', explode(',', $row['received_qr_codes'])));
@@ -19693,8 +19693,16 @@ class ProductionController {
                 $itemBilledQty = 0;
                 if (!empty($itemTags)) {
                     $inPlaceholders = implode(',', array_fill(0, count($itemTags), '?'));
-                    $billedCheckSql = "SELECT COUNT(*) as cnt FROM production_bill_item_tags WHERE tag_code IN ($inPlaceholders)";
-                    $bRow = Database::fetchOne($billedCheckSql, $itemTags);
+                    $billedParams = array_values($itemTags);
+                    $billedCheckSql = "SELECT COUNT(pbit.id) as cnt 
+                                       FROM production_bill_item_tags pbit
+                                       JOIN production_bills pb ON pbit.bill_id = pb.id
+                                       WHERE pbit.tag_code IN ($inPlaceholders)";
+                    if ($cid) {
+                        $billedCheckSql .= " AND pb.concern_id = ?";
+                        $billedParams[] = $cid;
+                    }
+                    $bRow = Database::fetchOne($billedCheckSql, $billedParams);
                     $itemBilledQty = (int)($bRow['cnt'] ?? 0);
                 }
                 $itemRemainingQty = max(0, $recQty - $itemBilledQty);
@@ -19838,7 +19846,12 @@ class ProductionController {
      * with real-time remaining stock calculation and full outward dispatch history.
      */
     public function productionInventoryBatch($id): void {
-        if (is_string($id) && (str_starts_with($id, 'SUP-') || !is_numeric($id))) {
+        if (is_string($id) && (str_starts_with($id, 'SUP-') || str_starts_with($id, 'INW-') || !is_numeric($id))) {
+            if (str_starts_with($id, 'INW-')) {
+                $pbId = (int)str_replace('INW-', '', $id);
+                $this->productionInventoryInwardBatch($pbId);
+                return;
+            }
             $itemId = (int)str_replace('SUP-', '', $id);
             $this->productionInventorySupplyBatch($itemId);
             return;
@@ -19886,6 +19899,12 @@ class ProductionController {
         $qcItems = Database::fetchAll($sql, [$id]);
 
         if (empty($qcItems)) {
+            // Check if this id belongs to a production_batch (inward batch)
+            $pbCheck = Database::fetchOne("SELECT id FROM production_batches WHERE id = ?", [$id]);
+            if ($pbCheck) {
+                $this->productionInventoryInwardBatch($id);
+                return;
+            }
             Response::redirect(url('production/inventory'), 'error', 'Batch not found or has no recorded QC outcome.');
             return;
         }
@@ -20186,15 +20205,55 @@ class ProductionController {
         $avgPiecePrice = $totalPieces > 0 ? ($totalValue / $totalPieces) : 0;
         $remainingValue = max(0.0, $remainingPieces * $avgPiecePrice);
 
+        $primarySku = $first['variant_sku'] ?: ($first['product_sku'] ?: 'SKU');
+        $locationCards = [
+            [
+                'name'          => $first['origin_facility'] ?? 'Production Plant',
+                'code'          => 'PLANT',
+                'is_active'     => true,
+                'available_qty' => $remainingPieces,
+                'total_qty'     => $totalPieces,
+                'status'        => 'AVAILABLE',
+            ]
+        ];
+        $combinedTotalPieces = $remainingPieces;
+        $soldPiecesList = [];
+        foreach ($pieceItems as $pi) {
+            if (!empty($pi['is_billed'])) {
+                $soldPiecesList[] = $pi;
+            }
+        }
+        $damagedPiecesList = [];
+        foreach ($qcOutcomeItems as $qo) {
+            $damagedPiecesList[] = [
+                'tag_code'      => $qo['variant_code'] ?? 'QC-DEFECT',
+                'variant_sku'   => $qo['variant_sku'] ?? '',
+                'size_name'     => $qo['size_name'] ?? 'Std',
+                'color_name'    => $qo['color_name'] ?? 'Std',
+                'defect_reason' => ($qo['defect_reason'] ?? '') ?: ($qo['action_taken'] ?? 'QC Defect'),
+                'created_at'    => $qo['batch_created_at'] ?? null,
+                'status'        => ((int)($qo['rework_qty'] ?? 0) > 0) ? 'REWORK_PENDING' : 'REJECTED',
+            ];
+        }
+
         Response::view('production.inventory.batch', [
             'pageTitle'           => 'QC Batch #' . $id . ' — Inventory Detail',
             'activeModule'        => 'production',
             'activeMenu'          => 'prod-inventory',
             'qcBatchId'           => $id,
+            'primarySku'          => $primarySku,
+            'isInward'            => false,
             'batchInfo'           => $first,
             'pieceItems'          => $pieceItems,
             'rawItems'            => $items,
             'qcOutcomeItems'      => $qcOutcomeItems,
+            'locationCards'       => $locationCards,
+            'activeWarehouse'     => $locationCards[0],
+            'combinedTotalPieces' => $combinedTotalPieces,
+            'damagedPiecesList'   => $damagedPiecesList,
+            'soldPiecesList'      => $soldPiecesList,
+            'returnPiecesList'    => [],
+            'movementLogs'        => $outwards,
             'totalReworkPieces'   => $totalReworkPieces,
             'totalRejectedPieces' => $totalRejectedPieces,
             'totalPieces'         => $totalPieces,
@@ -20205,9 +20264,311 @@ class ProductionController {
             'remainingValue'      => $remainingValue,
             'outwards'            => $outwards,
             'breadcrumb'          => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Inventory', 'url' => url('production/inventory')],
-                ['label' => 'QC Batch #' . $id],
+                ['label' => 'Home', 'url' => url('/')],
+                ['label' => 'Warehouse', 'url' => url('production/inventory')],
+                ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
+                ['label' => $primarySku],
+            ],
+        ]);
+    }
+
+    /**
+     * Show detailed stock ledger & piece-by-piece inventory for an inward finished goods batch.
+     */
+    public function productionInventoryInwardBatch($id): void {
+        self::ensureDatabaseSchema();
+        $pbId = (int)$id;
+
+        $batch = Database::fetchOne(
+            "SELECT pb.*,
+                    pp.program_number, pp.name AS program_name,
+                    w.id AS warehouse_id, w.name AS warehouse_name, w.code AS warehouse_code, w.concern_id AS warehouse_concern_id,
+                    c_orig.name AS origin_concern_name, c_orig.code AS origin_concern_code,
+                    c_dest.name AS dest_concern_name,
+                    u.full_name AS packed_by_name
+             FROM production_batches pb
+             LEFT JOIN production_programs pp ON pb.program_id = pp.id
+             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
+             LEFT JOIN concerns c_orig ON pb.concern_id = c_orig.id
+             LEFT JOIN concerns c_dest ON w.concern_id = c_dest.id
+             LEFT JOIN users u ON pb.created_by = u.id
+             WHERE pb.id = ?",
+            [$pbId]
+        );
+
+        if (!$batch) {
+            Response::redirect(url('production/inventory'), 'error', 'Inward finished batch not found.');
+            return;
+        }
+
+        $items = Database::fetchAll(
+            "SELECT pbi.*,
+                    pv.sku AS variant_sku, pv.variant_code, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                    pv.production_cost, pv.purchase_price,
+                    p.id AS product_id, p.name AS product_name, p.code AS product_sku, p.image_url AS product_image,
+                    cat.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name,
+                    s.name AS size_name, c.name AS color_name
+             FROM production_batch_items pbi
+             LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+             LEFT JOIN products p ON pv.product_id = p.id
+             LEFT JOIN categories cat ON p.category_id = cat.id
+             LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
+             LEFT JOIN sub_subcategories ssc ON p.sub_subcategory_id = ssc.id
+             LEFT JOIN sizes s ON pv.size_id = s.id
+             LEFT JOIN colors c ON pv.color_id = c.id
+             WHERE pbi.production_batch_id = ?
+             ORDER BY pbi.id ASC",
+            [$pbId]
+        );
+
+        if (empty($items)) {
+            Response::redirect(url('production/inventory'), 'error', 'Inward finished batch has no variant items.');
+            return;
+        }
+
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $firstItem = $items[0];
+
+        // Gather all piece tags
+        $allTags = [];
+        foreach ($items as $it) {
+            $tags = [];
+            if (!empty($it['received_qr_codes'])) {
+                $tags = array_filter(array_map('trim', explode(',', $it['received_qr_codes'])));
+            } elseif (!empty($it['piece_tags'])) {
+                $decoded = json_decode($it['piece_tags'], true);
+                $tags = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $it['piece_tags'])));
+            }
+            foreach ($tags as $t) {
+                if ($t !== '') {
+                    $allTags[strtoupper($t)] = $t;
+                }
+            }
+        }
+
+        // Billed tags map scoped to current concern (or all if no concern)
+        $billedTagsMap = [];
+        $soldPiecesList = [];
+        if (!empty($allTags)) {
+            $tagList = array_values($allTags);
+            $inPlaceholders = implode(',', array_fill(0, count($tagList), '?'));
+            $billedParams = $tagList;
+            $billedSql = "SELECT pbit.tag_code, pbit.price, pbit.discount, pbit.tax_percent, pbit.created_at as sale_date,
+                                 pb.id as bill_id, pb.bill_number, pb.bill_date, pb.payment_status, pb.payment_mode,
+                                 COALESCE(NULLIF(pb.customer_name, ''), pb.company_name, 'Customer') as buyer_name,
+                                 COALESCE(NULLIF(pb.customer_phone, ''), pb.company_phone, '') as buyer_phone
+                          FROM production_bill_item_tags pbit
+                          JOIN production_bills pb ON pbit.bill_id = pb.id
+                          WHERE pbit.tag_code IN ($inPlaceholders)";
+            if ($cid) {
+                $billedSql .= " AND pb.concern_id = ?";
+                $billedParams[] = $cid;
+            }
+            $billedRows = Database::fetchAll($billedSql, $billedParams);
+            foreach ($billedRows as $bRow) {
+                $uTag = strtoupper(trim((string)$bRow['tag_code']));
+                $billedTagsMap[$uTag] = $bRow;
+                $soldPiecesList[] = $bRow;
+            }
+        }
+
+        // Damaged piece tags
+        $damagedTagsMap = [];
+        $damagedPiecesList = [];
+        foreach ($items as $it) {
+            $dmgTags = [];
+            if (!empty($it['damaged_qr_codes'])) {
+                $decoded = json_decode($it['damaged_qr_codes'], true);
+                $dmgTags = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $it['damaged_qr_codes'])));
+            }
+            foreach ($dmgTags as $dt) {
+                $uDt = strtoupper(trim((string)$dt));
+                if ($uDt !== '') {
+                    $damagedTagsMap[$uDt] = true;
+                    $damagedPiecesList[] = [
+                        'tag_code'      => $dt,
+                        'variant_sku'   => $it['variant_sku'] ?? '',
+                        'size_name'     => $it['size_name'] ?? 'Std',
+                        'color_name'    => $it['color_name'] ?? 'Std',
+                        'defect_reason' => 'Damaged / Quarantined during Inward Verification',
+                        'created_at'    => $batch['updated_at'] ?? $batch['created_at'],
+                        'status'        => 'QUARANTINED',
+                    ];
+                }
+            }
+        }
+
+        // Build pieceItems
+        $pieceItems = [];
+        $totalPieces = 0;
+        $totalBilledPieces = 0;
+        $totalDamagedPieces = count($damagedPiecesList);
+        $totalValue = 0.0;
+        $pieceIndex = 1;
+
+        foreach ($items as $it) {
+            $recQty = (int)($it['received_qty'] > 0 ? $it['received_qty'] : $it['dispatched_qty']);
+            $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? $it['variant_mrp'] : 0);
+            $price = (float)(($it['variant_selling_price'] ?? 0) > 0 ? $it['variant_selling_price'] : $mrp);
+
+            $tags = [];
+            if (!empty($it['received_qr_codes'])) {
+                $tags = array_filter(array_map('trim', explode(',', $it['received_qr_codes'])));
+            } elseif (!empty($it['piece_tags'])) {
+                $decoded = json_decode($it['piece_tags'], true);
+                $tags = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $it['piece_tags'])));
+            }
+
+            $tagCount = count($tags);
+            for ($k = 0; $k < $recQty; $k++) {
+                $tagCode = $k < $tagCount ? $tags[$k] : ('V' . str_pad($it['variant_id'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($pieceIndex, 4, '0', STR_PAD_LEFT));
+                $uTag = strtoupper($tagCode);
+                $isBilled = isset($billedTagsMap[$uTag]);
+                $isDamaged = isset($damagedTagsMap[$uTag]);
+                $bInfo = $isBilled ? $billedTagsMap[$uTag] : null;
+
+                if ($isBilled) {
+                    $totalBilledPieces++;
+                }
+
+                $hParts = array_filter([
+                    $it['category_name'] ?? '',
+                    $it['subcategory_name'] ?? '',
+                    $it['sub_subcategory_name'] ?? ''
+                ]);
+                $catHierarchy = !empty($hParts) ? implode(' > ', $hParts) : ($it['category_name'] ?? 'Apparel');
+
+                $statusStr = 'Available';
+                if ($isBilled) {
+                    $statusStr = 'Sold';
+                } elseif ($isDamaged) {
+                    $statusStr = 'Quarantined';
+                }
+
+                $pieceItems[] = [
+                    'piece_no'        => $pieceIndex++,
+                    'piece_seq'       => $k + 1,
+                    'passed_in_group' => $recQty,
+                    'qc_item_id'      => $it['id'],
+                    'qc_batch_id'     => $batch['qc_batch_id'] ?: $pbId,
+                    'variant_id'      => (int)$it['variant_id'],
+                    'variant_code'    => $it['variant_code'] ?? null,
+                    'variant_sku'     => $it['variant_sku'] ?? '',
+                    'product_id'      => $it['product_id'],
+                    'product_name'    => $it['product_name'] ?: 'Inward Finished Product',
+                    'product_sku'     => $it['product_sku'] ?: ($it['variant_sku'] ?: 'SKU'),
+                    'sku'             => $it['product_sku'] ?: ($it['variant_sku'] ?: 'SKU'),
+                    'product_image'   => $it['product_image'] ?? null,
+                    'category_name'   => $catHierarchy,
+                    'size_name'       => $it['size_name'] ?? 'Std',
+                    'color_name'      => $it['color_name'] ?? 'Std',
+                    'tag_code'        => $tagCode,
+                    'base_price'      => $mrp,
+                    'discount_price'  => $price,
+                    'program_id'      => $batch['program_id'] ?? null,
+                    'program_number'  => $batch['program_number'] ?: $batch['batch_number'],
+                    'inspector_name'  => $batch['packed_by_name'] ?: 'Production Staff',
+                    'batch_created_at'=> $batch['created_at'],
+                    'is_billed'       => $isBilled,
+                    'bill_number'     => $bInfo['bill_number'] ?? null,
+                    'bill_id'         => $bInfo['bill_id'] ?? null,
+                    'buyer_name'      => $bInfo['buyer_name'] ?? null,
+                    'is_dispatched'   => false,
+                    'is_damaged'      => $isDamaged,
+                    'status'          => $statusStr,
+                    'can_delete'      => false,
+                    'outward_info'    => null,
+                ];
+
+                $totalPieces++;
+                $totalValue += $price;
+            }
+        }
+
+        $remainingPieces = max(0, $totalPieces - $totalBilledPieces - $totalDamagedPieces);
+        $remainingValue = $totalPieces > 0 ? ($remainingPieces * ($totalValue / $totalPieces)) : 0.0;
+
+        // Warehouse location cards
+        $warehouseName = $batch['warehouse_name'] ?: 'Warehouse';
+
+        $locationCards = [
+            [
+                'name'          => $warehouseName,
+                'code'          => $batch['warehouse_code'] ?: 'WH',
+                'is_active'     => true,
+                'available_qty' => $remainingPieces,
+                'total_qty'     => $totalPieces,
+                'status'        => 'AVAILABLE',
+            ]
+        ];
+
+        $combinedTotalPieces = $remainingPieces;
+
+        // Outward dispatches that fed this batch
+        $outwards = Database::fetchAll(
+            "SELECT po.*, pb.batch_number, pb.box_count as batch_box_count,
+                    COALESCE(po.total_quantity, po.quantity, pb.total_qty, 0) as outward_qty,
+                    COALESCE(po.total_boxes, pb.box_count, 0) as total_boxes,
+                    w.name as warehouse_name, w.code as warehouse_code,
+                    u.full_name as dispatched_by_name,
+                    pu.name as unit_name
+             FROM production_outwards po
+             JOIN production_batches pb ON po.production_batch_id = pb.id
+             LEFT JOIN warehouses w ON (po.warehouse_id = w.id OR pb.destination_warehouse_id = w.id)
+             LEFT JOIN production_units pu ON po.production_unit_id = pu.id
+             LEFT JOIN users u ON po.created_by = u.id
+             WHERE pb.id = ?
+             ORDER BY po.created_at DESC",
+            [$pbId]
+        );
+
+        $skuDisplay = $firstItem['variant_sku'] ?: ($firstItem['product_sku'] ?: 'SKU');
+
+        Response::view('production.inventory.batch', [
+            'pageTitle'           => 'Stock Ledger — ' . $skuDisplay,
+            'activeModule'        => 'warehouse',
+            'activeMenu'          => 'wh-stock',
+            'qcBatchId'           => 'INW-' . $pbId,
+            'batchId'             => $pbId,
+            'isInward'            => true,
+            'primarySku'          => $skuDisplay,
+            'batchInfo'           => array_merge($batch, [
+                'product_name'     => $firstItem['product_name'] ?: 'Inward Finished Product',
+                'program_number'   => $batch['program_number'] ?: $batch['batch_number'],
+                'batch_created_at' => $batch['created_at'],
+                'category_name'    => $firstItem['category_name'] ?? 'Apparel',
+                'subcategory_name' => $firstItem['subcategory_name'] ?? '',
+                'sub_subcategory_name' => $firstItem['sub_subcategory_name'] ?? '',
+                'product_image'    => $firstItem['product_image'] ?? null,
+                'variant_sku'      => $firstItem['variant_sku'] ?? '',
+                'variant_code'     => $firstItem['variant_code'] ?? '',
+                'size_name'        => $firstItem['size_name'] ?? '',
+                'color_name'       => $firstItem['color_name'] ?? '',
+            ]),
+            'pieceItems'          => $pieceItems,
+            'rawItems'            => $items,
+            'qcOutcomeItems'      => [],
+            'locationCards'       => $locationCards,
+            'activeWarehouse'     => $locationCards[0],
+            'combinedTotalPieces' => $combinedTotalPieces,
+            'damagedPiecesList'   => $damagedPiecesList,
+            'soldPiecesList'      => $soldPiecesList,
+            'returnPiecesList'    => [],
+            'movementLogs'        => $outwards,
+            'totalReworkPieces'   => 0,
+            'totalRejectedPieces' => $totalDamagedPieces,
+            'totalPieces'         => $totalPieces,
+            'totalValue'          => $totalValue,
+            'totalOutwardPieces'  => 0,
+            'totalBilledPieces'   => $totalBilledPieces,
+            'remainingPieces'     => $remainingPieces,
+            'remainingValue'      => $remainingValue,
+            'outwards'            => $outwards,
+            'breadcrumb'          => [
+                ['label' => 'Home', 'url' => url('/')],
+                ['label' => 'Warehouse', 'url' => url('production/inventory')],
+                ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
+                ['label' => $skuDisplay],
             ],
         ]);
     }
