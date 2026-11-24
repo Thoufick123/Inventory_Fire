@@ -123,8 +123,14 @@ class ProductionStockRequestController
      */
     public function create(): void
     {
+        $categories = Database::fetchAll("SELECT id, name, code FROM categories WHERE is_active = 1 ORDER BY name ASC");
+
         $products = Database::fetchAll(
-            "SELECT id, name, code, material, hsn_code FROM products WHERE is_active = 1 ORDER BY name ASC"
+            "SELECT p.id, p.name, p.code, p.category_id, c.name AS category_name, p.material, p.hsn_code 
+             FROM products p 
+             LEFT JOIN categories c ON p.category_id = c.id 
+             WHERE p.is_active = 1 
+             ORDER BY p.name ASC"
         );
 
         $variants = Database::fetchAll(
@@ -137,19 +143,194 @@ class ProductionStockRequestController
              ORDER BY pv.id ASC"
         );
 
-        $productionUnits = Database::fetchAll("SELECT id, name, code FROM production_units WHERE is_active = 1");
-        $warehouses = Database::fetchAll("SELECT id, name, code FROM warehouses WHERE is_active = 1");
+        $activeConcern = currentConcern();
+        $activeConcernId = currentConcernId() ?: 1;
+        if (!$activeConcern || empty($activeConcern['id'])) {
+            $activeConcern = Database::fetchOne("SELECT id, name, code, concern_type FROM concerns WHERE id = ?", [$activeConcernId]) ?: [
+                'id'           => 1,
+                'name'         => 'GRM Apparels',
+                'code'         => 'CN-01',
+                'concern_type' => 'HEAD_OFFICE'
+            ];
+        }
+
+        $allConcerns = Database::fetchAll("SELECT id, name, code, concern_type FROM concerns WHERE is_active = 1 ORDER BY name ASC");
+        $fulfillingConcerns = array_values(array_filter($allConcerns, function($c) use ($activeConcernId) {
+            return (int)$c['id'] !== (int)$activeConcernId;
+        }));
+
+        $productionUnits = Database::fetchAll("SELECT id, name, code, concern_id FROM production_units WHERE is_active = 1");
+        $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1");
 
         Response::view('production.stock_requests.create', [
-            'pageTitle'       => 'Create New Stock Requirement | Inter-Module Flow',
-            'activeModule'    => 'production',
-            'activeMenu'      => 'prod-stock-requests',
-            'products'        => $products,
-            'variants'        => $variants,
-            'productionUnits' => $productionUnits,
-            'warehouses'      => $warehouses,
-            'modulesList'     => self::AVAILABLE_MODULES,
+            'pageTitle'          => 'Create New Stock Requirement | Inter-Module Flow',
+            'activeModule'       => 'production',
+            'activeMenu'         => 'prod-stock-requests',
+            'categories'         => $categories,
+            'products'           => $products,
+            'variants'           => $variants,
+            'activeConcern'      => $activeConcern,
+            'activeConcernId'    => $activeConcernId,
+            'fulfillingConcerns' => $fulfillingConcerns,
+            'allConcerns'        => $allConcerns,
+            'productionUnits'    => $productionUnits,
+            'warehouses'         => $warehouses,
+            'modulesList'        => self::AVAILABLE_MODULES,
         ]);
+    }
+
+    /**
+     * AJAX endpoint to return live stock for a product or variant in both requester and fulfilling concerns
+     */
+    public function ajaxGetStock(): void
+    {
+        $variantId     = (int)($_GET['variant_id'] ?? 0);
+        $productId     = (int)($_GET['product_id'] ?? 0);
+        $fromConcernId = (int)($_GET['from_concern_id'] ?? 0);
+        $toConcernId   = (int)($_GET['to_concern_id'] ?? 0);
+
+        if (!$fromConcernId) {
+            $fromConcernId = currentConcernId() ?: 1;
+        }
+
+        $requesterStock = $this->calculateStockForConcern($productId, $variantId, $fromConcernId);
+        $fulfillingStock = $toConcernId > 0 ? $this->calculateStockForConcern($productId, $variantId, $toConcernId) : 0;
+
+        Response::json([
+            'success'          => true,
+            'requester_stock'  => $requesterStock,
+            'fulfilling_stock' => $fulfillingStock,
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to scan a Product QR, Variant tag, or SKU
+     */
+    public function ajaxScanProduct(): void
+    {
+        $code = strtoupper(trim((string)($_GET['code'] ?? '')));
+        $code = ltrim($code, '#');
+        $codePrefix = explode('-', $code)[0];
+        $varId = 0;
+        if (preg_match('/^V0*([1-9]\d*)/i', $code, $m)) {
+            $varId = (int)$m[1];
+        }
+
+        $sql = "
+            SELECT pv.id as variant_id, pv.product_id, pv.variant_code, pv.sku,
+                   p.name as product_name, p.code as product_code, p.category_id,
+                   c.name as category_name, s.name as size_name, cl.name as color_name
+            FROM product_variants pv
+            JOIN products p ON p.id = pv.product_id
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN sizes s ON pv.size_id = s.id
+            LEFT JOIN colors cl ON pv.color_id = cl.id
+            WHERE UPPER(TRIM(pv.variant_code)) = ? 
+               OR UPPER(TRIM(pv.sku)) = ? 
+               OR UPPER(TRIM(pv.qr_code)) = ?
+               OR UPPER(TRIM(pv.variant_code)) = ?
+        ";
+        $params = [$code, $code, $code, $codePrefix];
+        if ($varId > 0) {
+            $sql .= " OR pv.id = ?";
+            $params[] = $varId;
+        }
+        $sql .= " LIMIT 1";
+
+        $variant = Database::fetchOne($sql, $params);
+
+        if ($variant) {
+            Response::json([
+                'success'       => true,
+                'is_variant'    => true,
+                'variant_id'    => (int)$variant['variant_id'],
+                'product_id'    => (int)$variant['product_id'],
+                'variant_code'  => $variant['variant_code'] ?: ('V' . str_pad($variant['variant_id'], 4, '0', STR_PAD_LEFT)),
+                'sku'           => $variant['sku'],
+                'product_name'  => $variant['product_name'],
+                'product_code'  => $variant['product_code'],
+                'category_id'   => $variant['category_id'] ? (int)$variant['category_id'] : null,
+                'category_name' => $variant['category_name'] ?: 'Apparel',
+                'size_name'     => $variant['size_name'],
+                'color_name'    => $variant['color_name'],
+            ]);
+            return;
+        }
+
+        // Check by product code or name
+        $prod = Database::fetchOne("
+            SELECT p.id as product_id, p.name as product_name, p.code as product_code, p.category_id,
+                   c.name as category_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE UPPER(TRIM(p.code)) = ? OR UPPER(TRIM(p.name)) = ?
+            LIMIT 1
+        ", [$code, $code]);
+
+        if ($prod) {
+            Response::json([
+                'success'       => true,
+                'is_variant'    => false,
+                'product_id'    => (int)$prod['product_id'],
+                'variant_id'    => null,
+                'product_name'  => $prod['product_name'],
+                'product_code'  => $prod['product_code'],
+                'category_id'   => $prod['category_id'] ? (int)$prod['category_id'] : null,
+                'category_name' => $prod['category_name'] ?: 'Apparel',
+            ]);
+            return;
+        }
+
+        Response::json(['success' => false, 'message' => "Product or Variant QR '{$code}' was not found."], 404);
+    }
+
+    private function calculateStockForConcern(int $productId, int $variantId, int $concernId): float
+    {
+        $stock = 0.0;
+        if ($variantId > 0) {
+            $stock = (float)(Database::fetchColumn("
+                SELECT COALESCE(SUM(sb.quantity), 0)
+                FROM stock_balances sb
+                LEFT JOIN warehouses w ON sb.location_type = 'WAREHOUSE' AND sb.location_id = w.id
+                LEFT JOIN production_units pu ON sb.location_type = 'PRODUCTION_UNIT' AND sb.location_id = pu.id
+                WHERE sb.variant_id = ?
+                  AND sb.stock_state = 'AVAILABLE'
+                  AND (sb.concern_id = ? OR w.concern_id = ? OR pu.concern_id = ?)
+            ", [$variantId, $concernId, $concernId, $concernId]) ?? 0);
+
+            if ($stock <= 0) {
+                $stock = (float)(Database::fetchColumn("
+                    SELECT COALESCE(SUM(COALESCE(NULLIF(pbi.received_qty, 0), pbi.quantity)), 0)
+                    FROM production_batch_items pbi
+                    JOIN production_batches pb ON pb.id = pbi.batch_id
+                    WHERE pbi.variant_id = ? 
+                      AND (pb.concern_id = ? OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?))
+                ", [$variantId, $concernId, $concernId]) ?? 0);
+            }
+        } elseif ($productId > 0) {
+            $stock = (float)(Database::fetchColumn("
+                SELECT COALESCE(SUM(sb.quantity), 0)
+                FROM stock_balances sb
+                JOIN product_variants pv ON pv.id = sb.variant_id
+                LEFT JOIN warehouses w ON sb.location_type = 'WAREHOUSE' AND sb.location_id = w.id
+                LEFT JOIN production_units pu ON sb.location_type = 'PRODUCTION_UNIT' AND sb.location_id = pu.id
+                WHERE pv.product_id = ?
+                  AND sb.stock_state = 'AVAILABLE'
+                  AND (sb.concern_id = ? OR w.concern_id = ? OR pu.concern_id = ?)
+            ", [$productId, $concernId, $concernId, $concernId]) ?? 0);
+
+            if ($stock <= 0) {
+                $stock = (float)(Database::fetchColumn("
+                    SELECT COALESCE(SUM(COALESCE(NULLIF(pbi.received_qty, 0), pbi.quantity)), 0)
+                    FROM production_batch_items pbi
+                    JOIN production_batches pb ON pb.id = pbi.batch_id
+                    WHERE pbi.product_id = ? 
+                      AND (pb.concern_id = ? OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?))
+                ", [$productId, $concernId, $concernId]) ?? 0);
+            }
+        }
+
+        return max(0, $stock);
     }
 
     /**
@@ -157,15 +338,28 @@ class ProductionStockRequestController
      */
     public function store(): void
     {
-        $fromModule     = trim((string)($_POST['from_module'] ?? 'Central Warehouse (Main Logistics Hub)'));
-        $toModule       = trim((string)($_POST['to_module'] ?? 'Production Factory - Unit 1'));
+        $activeConcern = currentConcern();
+        $activeConcernId = currentConcernId() ?: 1;
+        $defaultFrom = ($activeConcern && !empty($activeConcern['name'])) ? $activeConcern['name'] : 'Main Business Concern';
+
+        $fromModule     = trim((string)($_POST['from_module'] ?? $defaultFrom));
+        if (empty($fromModule)) $fromModule = $defaultFrom;
+        $toModule       = trim((string)($_POST['to_module'] ?? ''));
+        $fromConcernId  = (int)($_POST['from_concern_id'] ?? $activeConcernId);
+        $toConcernId    = (int)($_POST['to_concern_id'] ?? 0);
         $requestedByName= trim((string)($_POST['requested_by_name'] ?? (Auth::user()['full_name'] ?? 'Staff Incharge')));
         $priority       = strtoupper(trim((string)($_POST['priority'] ?? 'NORMAL')));
         $requiredByDate = !empty($_POST['required_by_date']) ? $_POST['required_by_date'] : null;
         $notes          = trim((string)($_POST['notes'] ?? ''));
 
-        if ($fromModule === $toModule) {
-            Session::setFlash('error', 'Requesting module and Fulfilling Send Area cannot be the same. Please choose distinct departments.');
+        if (empty($toModule)) {
+            Session::setFlash('error', 'Please choose a fulfilling concern/send area to request stock from.');
+            Response::redirect(url('production/stock-requests/create'));
+            return;
+        }
+
+        if ($fromModule === $toModule || ($fromConcernId > 0 && $toConcernId > 0 && $fromConcernId === $toConcernId)) {
+            Session::setFlash('error', 'Requesting concern and Fulfilling Send Area concern cannot be the same. Please choose distinct concerns.');
             Response::redirect(url('production/stock-requests/create'));
             return;
         }
