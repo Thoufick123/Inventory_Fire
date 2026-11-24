@@ -1405,20 +1405,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 search.disabled = false;
                 search.focus();
                 if (!res.data || !res.data.items || !res.data.items.length) {
-                    showStockToast('Item not found', `No finished-goods inventory matching "<strong>${needle}</strong>".`);
+                    const msg = (res.data && res.data.message) ? res.data.message : `No finished-goods inventory matching "<strong>${needle}</strong>".`;
+                    showStockToast('Item not found', msg);
                     return;
                 }
                 const exactMatch = res.data.items.find(it => {
                     const available = Array.isArray(it.available_tags) ? it.available_tags : [];
                     const vCode = (it.variant_code || '').toUpperCase();
                     const vId = String(it.variant_id || '');
-                    const uNeedle = needle.toUpperCase();
+                    const uNeedle = needle.toUpperCase().trim();
+                    const cleanNeedle = uNeedle.replace(/^#/, '');
                     const cleanNum = uNeedle.replace(/^V0*|^#0*/i, '');
                     const cleanNeedleNum = parseInt(cleanNum, 10);
                     const itVIdNum = parseInt(vId, 10);
-                    return available.some(t => t.toUpperCase() === uNeedle)
-                        || (vCode !== '' && vCode === uNeedle)
-                        || (vId !== '0' && (vId === uNeedle || vId === uNeedle.replace('#', '') || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)));
+                    const formattedVCode = itVIdNum > 0 ? ('V' + String(itVIdNum).padStart(4, '0')) : '';
+                    const shortVCode = itVIdNum > 0 ? ('V' + itVIdNum) : '';
+                    const sku = (it.sku || '').toUpperCase();
+
+                    return available.some(t => t.toUpperCase() === uNeedle || t.toUpperCase().startsWith(uNeedle + '-') || t.toUpperCase().startsWith(uNeedle + '_'))
+                        || (vCode !== '' && (vCode === uNeedle || ('V' + vCode) === uNeedle || vCode === ('V' + uNeedle)))
+                        || (formattedVCode !== '' && formattedVCode === uNeedle)
+                        || (shortVCode !== '' && shortVCode === uNeedle)
+                        || (vId !== '0' && (vId === cleanNeedle || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)))
+                        || (sku !== '' && sku === uNeedle);
                 });
 
                 if (exactMatch) {

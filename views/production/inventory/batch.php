@@ -471,9 +471,10 @@ $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
                                     <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1" title="Product Variant ID: #<?= $pVariantId ?>">
                                         <i class="bi bi-tag-fill me-1 text-warning"></i>Variant ID: #<?= $pVariantId ?><?= $pVariantCode !== '' ? ' (' . e($pVariantCode) . ')' : '' ?>
                                     </span>
-                                    <?php else: ?>
-                                    <span class="badge bg-dark text-white font-monospace fs-7 px-2 py-1">
-                                        <i class="bi bi-qr-code-scan me-1 text-warning"></i><?= e($it['tag_code']) ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($it['tag_code'])): ?>
+                                    <span class="badge bg-secondary-subtle text-dark border font-monospace fs-7 px-2 py-1 <?= $pVariantId ? 'ms-1' : '' ?>" title="Piece QR / Barcode Tag">
+                                        <i class="bi bi-qr-code-scan me-1 text-primary"></i><?= e($it['tag_code']) ?>
                                     </span>
                                     <?php endif; ?>
                                     <div class="small text-muted mt-1">Garment #<?= $it['piece_seq'] ?> of <?= $it['passed_in_group'] ?></div>
