@@ -1400,8 +1400,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetUnitId = unitSelect.value || 0;
 
         fetch(`<?= url('api/production/billing/search') ?>?q=${encodeURIComponent(needle)}&bill_id=${billId}&production_unit_id=${targetUnitId}`)
-            .then(res => res.json())
+            .then(async res => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    let errMsg = `Server returned error (${res.status})`;
+                    try {
+                        const parsed = JSON.parse(text);
+                        if (parsed.message) errMsg = parsed.message;
+                    } catch(e) {}
+                    showStockToast('Server Error', errMsg);
+                    search.disabled = false;
+                    search.focus();
+                    return null;
+                }
+                return res.json();
+            })
             .then(res => {
+                if (!res) return;
                 search.disabled = false;
                 search.focus();
                 if (!res.data || !res.data.items || !res.data.items.length) {

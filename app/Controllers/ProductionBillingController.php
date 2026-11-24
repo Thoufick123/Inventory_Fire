@@ -534,6 +534,8 @@ class ProductionBillingController
         }
         // Helper to cross-check scanned QR price against active catalog prices and price revision logs
         $checkPriceForItems = static function(array &$itemList, string $scannedQuery) {
+            Database::ensureColumn('product_price_logs', 'dont_affect_old_qr', 'TINYINT(1) DEFAULT 0');
+
             foreach ($itemList as &$it) {
                 $tagCode = $it['matched_tag'] ?? $scannedQuery;
                 $vId = (int)($it['variant_id'] ?? 0);
@@ -549,7 +551,7 @@ class ProductionBillingController
                 $priceLog = null;
                 if ($vId > 0) {
                     $priceLog = Database::fetchOne(
-                        "SELECT old_selling_price, new_selling_price, old_mrp, new_mrp, dont_affect_old_qr, created_at 
+                        "SELECT * 
                          FROM product_price_logs 
                          WHERE variant_id = ? 
                          ORDER BY id DESC LIMIT 1",
