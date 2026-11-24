@@ -7758,36 +7758,76 @@ class ProductionController {
             return;
         }
 
-        // 1. Check if already permanently deleted
+        // Clean up any generic variant codes mistakenly saved in production_deleted_label_codes
+        if (preg_match('/^V0*([1-9]\d*)$/i', $scanCode)) {
+            Database::execute("DELETE FROM production_deleted_label_codes WHERE code = ?", [$scanCode]);
+        }
+
+        // 1. Universal QR Lookup first to determine item type and live inventory stock
+        $item = $this->universalDamageQrLookup($scanCode);
+
+        if ($item) {
+            // For PRODUCT variants/styles, allow repeated scanning as long as there is active inventory stock remaining!
+            if (($item['item_type'] ?? '') === 'PRODUCT') {
+                $availStock = (float)($item['available_stock'] ?? 0);
+                if ($availStock <= 0) {
+                    Response::json([
+                        'success'    => false,
+                        'is_damaged' => true,
+                        'message'    => "No available stock remaining in inventory for {$scanCode}. All stock has already been sold, damaged, or dispatched.",
+                    ], 409);
+                    return;
+                }
+
+                $item['success'] = true;
+                Response::json($item);
+                return;
+            }
+
+            // For FABRIC ROLLS, check if roll was already deleted or has 0 weight/quantity
+            $rollQty = (float)($item['quantity'] ?? 0);
+            $rollWeight = (float)($item['weight'] ?? 0);
+            if ($rollQty <= 0 && $rollWeight <= 0) {
+                Response::json([
+                    'success'    => false,
+                    'is_damaged' => true,
+                    'message'    => "Fabric roll {$scanCode} has no remaining stock or was already deleted as damaged.",
+                ], 409);
+                return;
+            }
+
+            $item['success'] = true;
+            Response::json($item);
+            return;
+        }
+
+        // 2. If not found in live inventory, check if already permanently deleted
         $isDeleted = Database::fetchOne(
             "SELECT code FROM production_deleted_label_codes WHERE code = ? LIMIT 1",
             [$scanCode]
         );
         if ($isDeleted) {
             Response::json([
-                'success' => false,
+                'success'    => false,
                 'is_damaged' => true,
-                'message' => "QR label {$scanCode} was already deleted as damaged.",
+                'message'    => "QR label {$scanCode} was already deleted as damaged and has no remaining inventory.",
             ], 409);
             return;
         }
 
-        // 2. Check if already recorded in Damage Management
+        // 3. Check if already recorded in Damage Management
         $existingDamage = Database::fetchOne(
             "SELECT damage_number, damage_reason, status FROM roll_damages WHERE qr_code = ? LIMIT 1",
             [$scanCode]
         );
         if ($existingDamage) {
             Response::json([
-                'success' => false,
+                'success'    => false,
                 'is_damaged' => true,
-                'message' => "QR label {$scanCode} is already recorded in damage report {$existingDamage['damage_number']} ({$existingDamage['damage_reason']}).",
+                'message'    => "QR label {$scanCode} is already recorded in damage report {$existingDamage['damage_number']} ({$existingDamage['damage_reason']}) and has no remaining inventory.",
             ], 409);
             return;
         }
-
-        // 3. Universal QR Lookup
-        $item = $this->universalDamageQrLookup($scanCode);
         if (!$item) {
             $msg = "QR code '{$scanCode}' was not found. Please scan a valid product QR, fabric roll QR, or variant tag.";
             if (preg_match('#^(\d{1,2})/(\d{4})$#', $scanCode, $dm)) {
@@ -9720,8 +9760,13 @@ class ProductionController {
                     Database::execute("UPDATE production_program_rolls SET allocated_qr_codes = ? WHERE id = ?", [$cleanAlloc, (int)$pr['id']]);
                 }
 
-                // G. Record permanently in production_deleted_label_codes
-                Database::execute("INSERT IGNORE INTO production_deleted_label_codes (code, created_by, created_at) VALUES (?, ?, NOW())", [$qrCode, $userId]);
+                // G. Record permanently in production_deleted_label_codes ONLY for unique individual piece tags (e.g. V0013-0001) or roll tags
+                $isGenericVariantCode = (bool)preg_match('/^V0*([1-9]\d*)$/i', $qrCode);
+                if (!$isGenericVariantCode && $item['item_type'] !== 'PRODUCT') {
+                    Database::execute("INSERT IGNORE INTO production_deleted_label_codes (code, created_by, created_at) VALUES (?, ?, NOW())", [$qrCode, $userId]);
+                } elseif (!$isGenericVariantCode && preg_match('/^[A-Z0-9]+-\d+$/', $qrCode)) {
+                    Database::execute("INSERT IGNORE INTO production_deleted_label_codes (code, created_by, created_at) VALUES (?, ?, NOW())", [$qrCode, $userId]);
+                }
 
                 // =========================================================================
                 // 3. DELETE FROM STOCK (stock_balances)
