@@ -1215,6 +1215,18 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         return 'GRM';
     }
 
+    function getDisplayVariantCode(tagCode, item = null) {
+        if (item && item.qr_code && String(item.qr_code).trim()) {
+            return String(item.qr_code).trim();
+        }
+        if (!tagCode) return '';
+        const str = String(tagCode).trim();
+        if (str.includes('-')) {
+            return str.split('-')[0];
+        }
+        return str;
+    }
+
     function getLabelCode(pieceIndex, item) {
         if (item) {
             // Priority 1: Match directly from piece_tags array from production QC / labels
@@ -1291,7 +1303,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         
         const typeLabelEl = document.getElementById('modalQrTypeLabel');
         if (typeLabelEl) {
-            typeLabelEl.innerHTML = `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(finalTag)}</div>`;
+            typeLabelEl.innerHTML = `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(getDisplayVariantCode(finalTag, item))}</div>`;
         }
         
         const exactQrEl = document.getElementById('modalExactQrText');
@@ -2554,7 +2566,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         const typeLabelEl = document.getElementById('modalQrTypeLabel');
         if (typeLabelEl) {
             typeLabelEl.innerHTML = nextPiece
-                ? `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(currentTagCode)}</div>`
+                ? `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(getDisplayVariantCode(currentTagCode, item))}</div>`
                 : '<div class="fw-semibold text-success mt-2">All pieces processed</div>';
         }
 
@@ -2712,7 +2724,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                  onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
                                                  title="${escapeHtml(pieceTagCode)}" 
                                                  style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(pieceTagCode)}
+                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
                                             </div>
                                         </div>
                                         <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
@@ -2763,7 +2775,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                  onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
                                                  title="${escapeHtml(pieceTagCode)}" 
                                                  style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(pieceTagCode)}
+                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
                                             </div>
                                         </div>
                                         <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
@@ -2817,7 +2829,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                  onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
                                                  title="${escapeHtml(pieceTagCode)}" 
                                                  style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(pieceTagCode)}
+                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
                                             </div>
                                         </div>
                                         <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
@@ -2868,7 +2880,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                  onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
                                                  title="${escapeHtml(pieceTagCode)}" 
                                                  style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                                ${escapeHtml(pieceTagCode)}
+                                                ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
                                             </div>
                                         </div>
                                         <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
@@ -2920,7 +2932,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                              onclick="previewSinglePieceTag(${variantId}, ${pieceNum}, '${escapeHtml(pieceTagCode)}');"
                                              title="${escapeHtml(pieceTagCode)}" 
                                              style="font-size: 0.60rem; letter-spacing: 0.2px; padding: 2px 2px !important; cursor: pointer;">
-                                            ${escapeHtml(pieceTagCode)}
+                                            ${escapeHtml(getDisplayVariantCode(pieceTagCode, item))}
                                         </div>
                                     </div>
                                     <div class="overflow-hidden flex-grow-1 min-w-0" style="line-height: 1.25;">
