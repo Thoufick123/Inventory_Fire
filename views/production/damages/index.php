@@ -905,21 +905,35 @@ function clearDamageRollSelection() {
 
 function updateDamageItemQty(index, newQty) {
     if (!damageScannedLabels[index]) return;
-    const val = Math.max(1, parseInt(newQty, 10) || 1);
+    const maxStock = Math.max(1, parseInt(damageScannedLabels[index].availableStock, 10) || 1);
+    let val = parseInt(newQty, 10);
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > maxStock) {
+        val = maxStock;
+        alert(`Damage quantity cannot exceed available inventory stock (${maxStock} pcs).`);
+    }
     damageScannedLabels[index].qty = val;
-    damageScannedLabels[index].weight = damageScannedLabels[index].unitWeight * val;
-    damageScannedLabels[index].loss = damageScannedLabels[index].unitLoss * val;
+    damageScannedLabels[index].weight = (damageScannedLabels[index].unitWeight || 0) * val;
+    damageScannedLabels[index].loss = (damageScannedLabels[index].unitLoss || 0) * val;
     renderDamageScannedLabels();
 }
 
 function incrementDamageQty(index) {
     if (!damageScannedLabels[index]) return;
-    updateDamageItemQty(index, (damageScannedLabels[index].qty || 1) + 1);
+    const maxStock = Math.max(1, parseInt(damageScannedLabels[index].availableStock, 10) || 1);
+    const curQty = damageScannedLabels[index].qty || 1;
+    if (curQty >= maxStock) {
+        alert(`Cannot increase: maximum available inventory stock is ${maxStock} pcs.`);
+        return;
+    }
+    updateDamageItemQty(index, curQty + 1);
 }
 
 function decrementDamageQty(index) {
     if (!damageScannedLabels[index]) return;
-    updateDamageItemQty(index, Math.max(1, (damageScannedLabels[index].qty || 1) - 1));
+    const curQty = damageScannedLabels[index].qty || 1;
+    if (curQty <= 1) return;
+    updateDamageItemQty(index, curQty - 1);
 }
 
 function renderDamageScannedLabels() {
@@ -945,7 +959,12 @@ function renderDamageScannedLabels() {
     }
 
     damageScannedLabels.forEach((item, index) => {
-        const itemQty = item.qty || 1;
+        const maxStock = Math.max(1, parseInt(item.availableStock, 10) || 1);
+        let itemQty = parseInt(item.qty, 10) || 1;
+        if (itemQty > maxStock) itemQty = maxStock;
+        if (itemQty < 1) itemQty = 1;
+        item.qty = itemQty;
+
         const itemWeight = (item.unitWeight || 0) * itemQty;
         const itemLoss = (item.unitLoss || 0) * itemQty;
 
@@ -973,7 +992,11 @@ function renderDamageScannedLabels() {
         typeBadge.className = `badge ${isSupply ? 'bg-info-subtle text-info' : (isProd ? 'bg-primary-subtle text-primary' : 'bg-secondary-subtle text-secondary')} border me-1`;
         typeBadge.textContent = isSupply ? 'Supply' : (isProd ? 'Product' : 'Roll');
 
-        metadata.append(typeBadge, document.createTextNode(
+        const stockBadge = document.createElement('span');
+        stockBadge.className = 'badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 me-1 fw-bold';
+        stockBadge.innerHTML = `<i class="bi bi-box-seam me-1"></i>Stock: ${maxStock} pcs`;
+
+        metadata.append(typeBadge, stockBadge, document.createTextNode(
             isSupply
                 ? `${item.sellerName} • ${item.rollNumber} • ₹${item.unitLoss.toFixed(2)}/pc • Subtotal: ₹${itemLoss.toFixed(2)}`
                 : `${item.sellerName} • ${item.rollNumber} • ${itemWeight.toFixed(2)} kg (${item.unitWeight.toFixed(2)} kg/pc) • ₹${itemLoss.toFixed(2)}`
@@ -991,23 +1014,43 @@ function renderDamageScannedLabels() {
         decBtn.type = 'button';
         decBtn.className = 'btn btn-sm btn-link text-decoration-none text-dark fw-bold px-2 py-0';
         decBtn.textContent = '−';
-        decBtn.title = 'Decrease quantity';
+        decBtn.title = itemQty <= 1 ? 'Minimum 1 pc' : 'Decrease quantity';
+        if (itemQty <= 1) {
+            decBtn.disabled = true;
+            decBtn.classList.add('text-muted');
+            decBtn.style.opacity = '0.35';
+            decBtn.style.cursor = 'not-allowed';
+        }
         decBtn.addEventListener('click', () => decrementDamageQty(index));
 
         const qtyInput = document.createElement('input');
         qtyInput.type = 'number';
         qtyInput.min = '1';
+        qtyInput.max = String(maxStock);
         qtyInput.step = '1';
         qtyInput.className = 'form-control form-control-sm text-center fw-bold border-0 bg-transparent px-1 py-0';
         qtyInput.style.width = '55px';
         qtyInput.value = itemQty;
+        qtyInput.title = `Available stock: ${maxStock} pcs`;
+        qtyInput.addEventListener('input', () => {
+            let v = parseInt(qtyInput.value, 10);
+            if (!isNaN(v) && v > maxStock) {
+                qtyInput.value = maxStock;
+            }
+        });
         qtyInput.addEventListener('change', () => updateDamageItemQty(index, qtyInput.value));
 
         const incBtn = document.createElement('button');
         incBtn.type = 'button';
         incBtn.className = 'btn btn-sm btn-link text-decoration-none text-dark fw-bold px-2 py-0';
         incBtn.textContent = '+';
-        incBtn.title = 'Increase quantity';
+        incBtn.title = itemQty >= maxStock ? `Max available stock reached (${maxStock} pcs)` : 'Increase quantity';
+        if (itemQty >= maxStock) {
+            incBtn.disabled = true;
+            incBtn.classList.add('text-muted');
+            incBtn.style.opacity = '0.35';
+            incBtn.style.cursor = 'not-allowed';
+        }
         incBtn.addEventListener('click', () => incrementDamageQty(index));
 
         qtyBox.append(decBtn, qtyInput, incBtn);
@@ -1199,8 +1242,17 @@ function scanDamageRollQr() {
     const normalizedCode = scannedCode.split('|', 1)[0].trim().toUpperCase().replace(/^#/, '');
     const existingIndex = damageScannedLabels.findIndex(item => item.code === normalizedCode);
     if (existingIndex !== -1) {
+        const itemMax = Math.max(1, parseInt(damageScannedLabels[existingIndex].availableStock, 10) || 1);
+        if (damageScannedLabels[existingIndex].qty >= itemMax) {
+            setDamageRollScanStatus(`Cannot add more: available inventory stock for ${normalizedCode} is reached (${itemMax} pcs).`, true);
+            if (scanInput) {
+                scanInput.value = '';
+                scanInput.focus();
+            }
+            return;
+        }
         incrementDamageQty(existingIndex);
-        setDamageRollScanStatus(`Scanned again: incremented count for ${normalizedCode} to ${damageScannedLabels[existingIndex].qty} pcs.`);
+        setDamageRollScanStatus(`Scanned again: incremented count for ${normalizedCode} to ${damageScannedLabels[existingIndex].qty} pcs (max available: ${itemMax} pcs).`);
         if (scanInput) {
             scanInput.value = '';
             scanInput.focus();
@@ -1250,11 +1302,21 @@ function addScannedDamageItem(data, scanInput) {
     const pieceWeight = parseFloat(data.piece_weight !== undefined ? data.piece_weight : data.weight) || 0;
     const loss = parseFloat(data.piece_loss !== undefined ? data.piece_loss : (data.loss !== undefined ? data.loss : data.price)) || 0;
     const normalizedCode = (data.code || '').trim().toUpperCase().replace(/^#/, '');
+    const availStock = Math.max(1, parseInt(data.available_stock, 10) || 1);
 
     const existingIndex = damageScannedLabels.findIndex(item => item.code === normalizedCode);
     if (existingIndex !== -1) {
+        const itemMax = Math.max(1, parseInt(damageScannedLabels[existingIndex].availableStock, 10) || 1);
+        if (damageScannedLabels[existingIndex].qty >= itemMax) {
+            setDamageRollScanStatus(`Cannot add more: available inventory stock for ${normalizedCode} is reached (${itemMax} pcs).`, true);
+            if (scanInput) {
+                scanInput.value = '';
+                scanInput.focus();
+            }
+            return;
+        }
         incrementDamageQty(existingIndex);
-        setDamageRollScanStatus(`Scanned again: incremented count for ${normalizedCode} to ${damageScannedLabels[existingIndex].qty} pcs.`);
+        setDamageRollScanStatus(`Scanned again: incremented count for ${normalizedCode} to ${damageScannedLabels[existingIndex].qty} pcs (max available: ${itemMax} pcs).`);
         if (scanInput) {
             scanInput.value = '';
             scanInput.focus();
@@ -1273,13 +1335,14 @@ function addScannedDamageItem(data, scanInput) {
         unitWeight: pieceWeight,
         unitLoss: loss,
         qty: 1,
+        availableStock: availStock,
         weight: pieceWeight,
         loss: loss,
         damageReason: ''
     });
     renderDamageScannedLabels();
     const badgeType = data.damage_kind === 'SUPPLY' ? 'Other Garment Supply' : (isProduct ? 'Finished Product' : 'Fabric Roll');
-    setDamageRollScanStatus(`Added [${badgeType}] ${data.code} — ${data.roll_number}. Qty: 1 pc. Scan another label or submit.`);
+    setDamageRollScanStatus(`Added [${badgeType}] ${data.code} — ${data.roll_number}. Qty: 1 pc (Stock: ${availStock} pcs). Scan another label or submit.`);
     if (scanInput) {
         scanInput.value = '';
         scanInput.focus();
@@ -2166,6 +2229,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
             for (const item of damageScannedLabels) {
+                const maxStock = Math.max(1, parseInt(item.availableStock, 10) || 1);
+                if (item.qty > maxStock) {
+                    alert(`Damage count for ${item.code} (${item.qty} pcs) cannot exceed available inventory stock (${maxStock} pcs). Random counts are not permitted.`);
+                    e.preventDefault();
+                    return false;
+                }
                 if (!item.damageReason || !item.damageReason.trim()) {
                     alert(`Please select a Damage / Defect Reason for QR label ${item.code}.`);
                     e.preventDefault();

@@ -7372,34 +7372,45 @@ class ProductionController {
         $variant = Database::fetchOne($variantSql, $variantParams);
 
         if ($variant) {
-            $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
-            $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
-
-            // Calculate active available stock scoped to this concern/warehouse
-            $availStock = 0.0;
-            if ($scopedWhId) {
-                $availStock = (float)(Database::fetchColumn(
-                    "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND location_type = 'WAREHOUSE' AND location_id = ? AND stock_state = 'AVAILABLE'",
-                    [(int)$variant['id'], (int)$scopedWhId]
-                ) ?? 0);
-            }
-            if ($availStock <= 0 && $activeCid) {
-                $availStock = (float)(Database::fetchColumn(
-                    "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND (concern_id = ? OR location_id IN (SELECT id FROM warehouses WHERE concern_id = ?))",
-                    [(int)$variant['id'], (int)$activeCid, (int)$activeCid]
-                ) ?? 0);
-            }
-            if ($availStock <= 0) {
-                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
-            }
-            if ($availStock <= 0) {
-                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
-            }
-            if ($availStock <= 0) {
-                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(COALESCE(NULLIF(received_qty, 0), quantity)), 0) FROM production_batch_items WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
-            }
-            if ($availStock <= 0) {
+            $isSpecificPieceTag = (bool)preg_match('/^[A-Z0-9]+-\d+$/', $cleanCode);
+            if ($isSpecificPieceTag) {
                 $availStock = 1.0;
+            } else {
+                $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+                if (!$scopedWhId && !empty($_SESSION['active_warehouse_id'])) {
+                    $scopedWhId = (int)$_SESSION['active_warehouse_id'];
+                }
+                if (!$scopedWhId && !empty($_SESSION['warehouse_id'])) {
+                    $scopedWhId = (int)$_SESSION['warehouse_id'];
+                }
+                $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+                // Calculate active available stock scoped to this concern/warehouse
+                $availStock = 0.0;
+                if ($scopedWhId) {
+                    $availStock = (float)(Database::fetchColumn(
+                        "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND location_type = 'WAREHOUSE' AND location_id = ? AND stock_state = 'AVAILABLE'",
+                        [(int)$variant['id'], (int)$scopedWhId]
+                    ) ?? 0);
+                }
+                if ($availStock <= 0 && $activeCid) {
+                    $availStock = (float)(Database::fetchColumn(
+                        "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND (concern_id = ? OR location_id IN (SELECT id FROM warehouses WHERE concern_id = ?))",
+                        [(int)$variant['id'], (int)$activeCid, (int)$activeCid]
+                    ) ?? 0);
+                }
+                if ($availStock <= 0) {
+                    $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
+                }
+                if ($availStock <= 0) {
+                    $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
+                }
+                if ($availStock <= 0) {
+                    $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(COALESCE(NULLIF(received_qty, 0), quantity)), 0) FROM production_batch_items WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+                }
+                if ($availStock <= 0) {
+                    $availStock = 1.0;
+                }
             }
 
             $price = (float)(!empty($variant['selling_price']) && $variant['selling_price'] > 0
@@ -9451,6 +9462,19 @@ class ProductionController {
         }
     }
 
+    private function resolveCurrentValidUserId(): ?int
+    {
+        $rawUid = Auth::id() ?? (Session::get('user_id') ?? (currentUser()['id'] ?? null));
+        if (!empty($rawUid)) {
+            $userCheck = Database::fetchOne("SELECT id FROM users WHERE id = ?", [(int)$rawUid]);
+            if ($userCheck) {
+                return (int)$userCheck['id'];
+            }
+        }
+        $firstUser = Database::fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+        return $firstUser ? (int)$firstUser['id'] : null;
+    }
+
     public function storeDamage(): void {
         if (!CSRF::validateRequest()) {
             Session::flash('error', 'Invalid security token. Please try again.');
@@ -9529,7 +9553,7 @@ class ProductionController {
             }
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
         $totalLossAmount = 0.0;
         $totalDamagedQty = 0;
         $savedCount = 0;
@@ -9558,6 +9582,11 @@ class ProductionController {
                         'weight'         => 0.25,
                         'sku'            => $qrCode
                     ];
+                }
+
+                $maxAvailStock = (int)($item['available_stock'] ?? 0);
+                if ($maxAvailStock > 0 && $qty > $maxAvailStock) {
+                    throw new \RuntimeException("Damaged quantity ({$qty} pcs) exceeds the available inventory stock ({$maxAvailStock} pcs) for '{$qrCode}'. Cannot enter random numbers.");
                 }
 
                 $unitLoss = (float)($item['loss'] ?? ($item['price'] ?? 0.00));
@@ -10026,7 +10055,7 @@ class ProductionController {
             return;
         }
 
-        $userId = max(0, (int)(Session::get('user_id') ?? 1));
+        $userId = $this->resolveCurrentValidUserId();
         $isReplacement = $resolutionType === 'SUPPLIER_REPLACEMENT' || $status === 'REPLACEMENT_RECEIVED';
 
         try {
@@ -21279,7 +21308,7 @@ class ProductionController {
             $photoUrl = CloudinaryService::upload($_FILES['photo'], 'grm_inventory/wastage', 'image');
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
 
         try {
             Database::beginTransaction();
@@ -21979,7 +22008,7 @@ class ProductionController {
             $photoUrl = CloudinaryService::upload($_FILES['photo'], 'grm_inventory/stitching_wastage', 'image');
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
 
         try {
             Database::beginTransaction();

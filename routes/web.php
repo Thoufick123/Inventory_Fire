@@ -350,6 +350,8 @@ class Router {
         $this->get('production/stock-requests', 'ProductionStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->get('production/stock-requests/create', 'ProductionStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
         $this->post('production/stock-requests/store', 'ProductionStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
+        $this->get('api/production/stock-requests/variant-stock', 'ProductionStockRequestController', 'ajaxGetStock', ['AuthMiddleware']);
+        $this->get('api/production/stock-requests/scan-product', 'ProductionStockRequestController', 'ajaxScanProduct', ['AuthMiddleware']);
         $this->get('production/stock-requests/view/{id}', 'ProductionStockRequestController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->post('production/stock-requests/receive/{id}', 'ProductionStockRequestController', 'receiveBySendArea', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
         $this->post('production/stock-requests/send-stocks/{id}', 'ProductionStockRequestController', 'sendStocks', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
