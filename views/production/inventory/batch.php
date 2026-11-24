@@ -323,17 +323,17 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
         <!-- View Mode Switch -->
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <span class="text-muted small">
-                Showing <strong id="visiblePieceCount"><?= $totalPcs ?></strong> piece cards
+                Showing <strong id="visiblePieceCount"><?= count($rawItems ?? []) ?></strong> variant card(s) &middot; <strong class="text-success"><?= $inStockPcs ?> available pcs</strong>
             </span>
             <div class="btn-group btn-group-sm" role="group">
                 <button type="button" class="btn btn-primary active fw-semibold" id="btnCardView" onclick="switchView('card')">
-                    <i class="bi bi-grid-3x3-gap me-1"></i> Cards
+                    <i class="bi bi-grid-3x3-gap me-1"></i> Variant Cards (<?= count($rawItems ?? []) ?>)
                 </button>
                 <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnPieceView" onclick="switchView('list')">
-                    <i class="bi bi-list-ul me-1"></i> List (<?= $totalPcs ?>)
+                    <i class="bi bi-list-ul me-1"></i> Piece Ledger (<?= $totalPcs ?>)
                 </button>
                 <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnGroupView" onclick="switchView('group')">
-                    <i class="bi bi-layers-fill me-1"></i> By Variant (<?= count($rawItems ?? []) ?>)
+                    <i class="bi bi-table me-1"></i> Table View
                 </button>
             </div>
         </div>
@@ -767,6 +767,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
 
 <script>
 window.inventoryPieceItems = <?= json_encode($pieceItems ?? []) ?>;
+window.inventoryRawItems = <?= json_encode($rawItems ?? []) ?>;
 const COMPANY_TITLE = <?= json_encode($activeWhName) ?>;
 let currentInventoryPage = 1;
 let inventoryPageSize = 12;
@@ -828,66 +829,119 @@ function buildInventoryPieceCards() {
     inventoryPieceCardsByNo.clear();
 
     const pieces = window.inventoryPieceItems || [];
-    const totalPcs = pieces.length;
+    
+    // Group pieces strictly by Variant: ONE VARIANT = EXACTLY ONE QR CODE CARD
+    const variantMap = new Map();
 
     pieces.forEach(p => {
-        // ONE QR PER VARIANT: Always derive and use the clean static variant code (e.g., 'V0013')
-        const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+        const vKey = String(p.variant_id || p.variant_code || (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+        if (!variantMap.has(vKey)) {
+            const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+            variantMap.set(vKey, {
+                variantKey: vKey,
+                variantCode: variantDisplayCode,
+                variantSku: p.variant_sku || p.product_sku || 'SKU',
+                productName: p.product_name || 'Finished Product',
+                categoryName: p.category_name || 'Apparel',
+                sizeName: p.size_name || 'Std',
+                colorName: p.color_name || 'Std',
+                basePrice: parseFloat(p.base_price || 0),
+                discountPrice: parseFloat(p.discount_price || p.base_price || 0),
+                totalQty: 0,
+                availableQty: 0,
+                soldQty: 0,
+                damagedQty: 0,
+                pieces: []
+            });
+        }
+        const vData = variantMap.get(vKey);
+        vData.totalQty++;
+        if (p.is_billed) {
+            vData.soldQty++;
+        } else if (p.is_damaged) {
+            vData.damagedQty++;
+        } else {
+            vData.availableQty++;
+        }
+        vData.pieces.push(p);
+    });
 
+    // Fallback if pieces array is empty but rawItems exist
+    if (variantMap.size === 0 && window.inventoryRawItems && window.inventoryRawItems.length > 0) {
+        window.inventoryRawItems.forEach(it => {
+            const vKey = String(it.variant_id || it.variant_code || 'V0001');
+            const vCode = it.variant_code || (it.variant_id ? ('V' + String(it.variant_id).padStart(4, '0')) : 'V0001');
+            const qty = parseInt(it.received_qty || it.dispatched_qty || it.quantity || 0, 10);
+            variantMap.set(vKey, {
+                variantKey: vKey,
+                variantCode: vCode,
+                variantSku: it.variant_sku || it.sku || 'SKU',
+                productName: it.product_name || 'Finished Product',
+                categoryName: it.category_name || 'Apparel',
+                sizeName: it.size_name || 'Std',
+                colorName: it.color_name || 'Std',
+                basePrice: parseFloat(it.variant_mrp || it.base_price || 0),
+                discountPrice: parseFloat(it.variant_selling_price || it.discount_price || it.base_price || 0),
+                totalQty: qty,
+                availableQty: qty,
+                soldQty: 0,
+                damagedQty: 0,
+                pieces: []
+            });
+        });
+    }
+
+    const totalVariants = variantMap.size;
+    let vIndex = 1;
+
+    variantMap.forEach((vData, vKey) => {
         const card = document.createElement('article');
         card.className = 'col inventory-piece-card';
-        card.dataset.pieceNo = p.piece_no;
-        card.dataset.variantCode = (variantDisplayCode || '').toUpperCase();
-        card.dataset.tag = (p.tag_code || '').toUpperCase();
-        card.dataset.sku = (p.variant_sku || p.product_sku || '').toUpperCase();
-        card.dataset.size = (p.size_name || '').toUpperCase();
-        card.dataset.color = (p.color_name || '').toUpperCase();
-        card.dataset.product = (p.product_name || '').toUpperCase();
+        card.dataset.variantKey = vKey;
+        card.dataset.variantCode = (vData.variantCode || '').toUpperCase();
+        card.dataset.sku = (vData.variantSku || '').toUpperCase();
+        card.dataset.size = (vData.sizeName || '').toUpperCase();
+        card.dataset.color = (vData.colorName || '').toUpperCase();
+        card.dataset.product = (vData.productName || '').toUpperCase();
 
-        const isBilled = Boolean(p.is_billed);
-        const isDamaged = Boolean(p.is_damaged);
-        const statusBadge = isBilled
-            ? `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-bag-check me-1"></i>Sold</span>`
-            : (isDamaged
-                ? `<span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-exclamation-triangle me-1"></i>Quarantined</span>`
-                : `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Available</span>`);
-
-        const hierarchy = p.category_name || 'Apparel';
-        const displaySku = p.variant_sku || p.product_sku || 'SKU';
-        const mrpHtml = (parseFloat(p.base_price) > parseFloat(p.discount_price))
-            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ₹${parseFloat(p.base_price).toFixed(2)}</span>`
+        const mrpHtml = (vData.basePrice > vData.discountPrice)
+            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ₹${vData.basePrice.toFixed(2)}</span>`
             : '';
-        const priceHtml = `<span class="fw-bold text-primary">₹${parseFloat(p.discount_price || p.base_price || 0).toFixed(2)}</span>`;
+        const priceHtml = `<span class="fw-bold text-primary">₹${vData.discountPrice.toFixed(2)}</span>`;
+
+        const statusBadge = vData.availableQty > 0
+            ? `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>${vData.availableQty} pcs Available</span>`
+            : `<span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-bag-check me-1"></i>All Sold</span>`;
 
         card.innerHTML = `
             <div class="card h-100 border border-light-subtle shadow-sm" style="border-radius: 12px; overflow: hidden; background: #fff;">
                 <div class="card-header bg-light py-2 px-3 border-bottom d-flex justify-content-between align-items-center">
-                    <span class="small fw-bold text-secondary">Piece #${p.piece_no} of ${totalPcs}</span>
+                    <span class="small fw-bold text-secondary">Variant #${vIndex} of ${totalVariants}</span>
                     ${statusBadge}
                 </div>
                 <div class="card-body p-3">
                     <div class="d-flex gap-3 align-items-center">
-                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_qr_${p.piece_no}" style="width: 86px; height: 86px;"></div>
+                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_variant_qr_${vIndex}" style="width: 86px; height: 86px;"></div>
                         <div class="flex-grow-1 min-w-0">
                             <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
                             <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
-                                <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(hierarchy)}
+                                <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(vData.categoryName)}
                             </div>
-                            <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(displaySku)}</div>
+                            <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(vData.variantSku)}</div>
                             <div class="small text-muted mb-1" style="font-size: 11.5px;">
-                                Size: <strong class="text-dark">${escapeHtml(p.size_name || 'Std')}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(p.color_name || 'Std')}</strong>
+                                Size: <strong class="text-dark">${escapeHtml(vData.sizeName)}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(vData.colorName)}</strong>
                             </div>
                             <div class="d-flex align-items-baseline gap-1 mb-1.5">
                                 ${mrpHtml}
                                 ${priceHtml}
                             </div>
                             <div class="d-flex align-items-center justify-content-between gap-1 pt-1 border-top">
-                                <span class="badge bg-dark text-warning font-monospace px-2 py-1 shadow-xs" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(variantDisplayCode)}</span>
+                                <span class="badge bg-dark text-warning font-monospace px-2 py-1 shadow-xs" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(vData.variantCode)}</span>
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(variantDisplayCode)}', this)" title="Copy Variant QR Code">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(vData.variantCode)}', this)" title="Copy Variant QR Code">
                                         <i class="bi bi-clipboard"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1.5" onclick="printSinglePieceLabel(${p.piece_no})" title="Print Label">
+                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1.5" onclick="printVariantGroupLabels('${escapeHtml(vData.sizeName)}', '${escapeHtml(vData.colorName)}')" title="Print Labels">
                                         <i class="bi bi-printer"></i>
                                     </button>
                                 </div>
@@ -899,12 +953,12 @@ function buildInventoryPieceCards() {
         `;
 
         grid.appendChild(card);
-        inventoryPieceCardsByNo.set(String(p.piece_no), card);
+        inventoryPieceCardsByNo.set(String(vKey), card);
 
-        const qrBox = card.querySelector('#card_qr_' + p.piece_no);
+        const qrBox = card.querySelector('#card_variant_qr_' + vIndex);
         if (qrBox && typeof QRCode !== 'undefined') {
             new QRCode(qrBox, {
-                text: String(variantDisplayCode),
+                text: String(vData.variantCode),
                 width: 76,
                 height: 76,
                 colorDark: "#111827",
@@ -912,6 +966,8 @@ function buildInventoryPieceCards() {
                 correctLevel: QRCode.CorrectLevel.M
             });
         }
+
+        vIndex++;
     });
 }
 
