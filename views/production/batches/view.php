@@ -37,6 +37,22 @@ if (!empty($bill['total_amount'])) {
         <a href="<?= url('production/batches') ?>" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to Batches
         </a>
+        <?php 
+            $canApproveBatch = hasPermission('batches', 'approve') || hasPermission('batches', 'create') || hasPermission('batches', 'edit') || hasPermission('production_billing', 'create') || isAdmin();
+            $canDispatchBatch = hasPermission('outward', 'create') || hasPermission('batches', 'create') || hasPermission('batches', 'approve') || isAdmin();
+        ?>
+        <?php if ($batch['status'] === 'PREPARING' && $canApproveBatch): ?>
+            <form method="POST" action="<?= url('production/batches/approve/' . $batch['id']) ?>" class="d-inline" onsubmit="return confirm('Approve Batch #<?= e($batch['batch_number']) ?> for outward dispatch?');">
+                <?= CSRF::field() ?>
+                <button type="submit" class="btn btn-success fw-semibold">
+                    <i class="bi bi-patch-check-fill me-1"></i> Approve Batch
+                </button>
+            </form>
+        <?php elseif ($batch['status'] === 'APPROVED' && $canDispatchBatch): ?>
+            <a href="<?= url('production/outward?batch_id=' . $batch['id']) ?>" class="btn btn-primary fw-semibold">
+                <i class="bi bi-truck me-1"></i> Dispatch to Warehouse &rarr;
+            </a>
+        <?php endif; ?>
         <a href="<?= url('production/batches/label/' . $batch['id']) ?>" target="_blank" class="btn btn-outline-dark">
             <i class="bi bi-qr-code me-1"></i> Carton QR Label
         </a>

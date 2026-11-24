@@ -34,6 +34,11 @@ class PermissionMiddleware {
                 return;
             }
 
+            // Allow batch approval if user has create/edit permission on batches, production billing, or is admin
+            if ($module === 'batches' && $action === 'approve' && (hasPermission('batches', 'create') || hasPermission('batches', 'edit') || hasPermission('production_billing', 'create') || isAdmin())) {
+                return;
+            }
+
             $readableModule = ucwords(str_replace('_', ' ', $module));
             $readableAction = strtolower($action);
 

@@ -189,32 +189,36 @@
                                         </a>
 
                                         <!-- 5. Dispatch / Approve Action -->
+                                        <?php 
+                                            $canApproveThis = hasPermission('batches', 'approve') || hasPermission('batches', 'create') || hasPermission('batches', 'edit') || hasPermission('production_billing', 'create') || isAdmin();
+                                            $canDispatchThis = hasPermission('outward', 'create') || hasPermission('batches', 'create') || hasPermission('batches', 'approve') || isAdmin();
+                                        ?>
                                         <?php if ($b['status'] === 'PREPARING'): ?>
-                                            <?php if (hasPermission('batches', 'approve')): ?>
-                                                <form method="POST" action="<?= url('production/batches/approve/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Approve this batch for outward dispatch?');">
+                                            <?php if ($canApproveThis): ?>
+                                                <form method="POST" action="<?= url('production/batches/approve/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Approve Batch #<?= e($b['batch_number']) ?> for outward dispatch?');">
                                                     <?= CSRF::field() ?>
-                                                    <button type="submit" class="btn btn-outline-success btn-action-icon" title="Approve Batch for Dispatch">
-                                                        <i class="bi bi-patch-check"></i>
+                                                    <button type="submit" class="btn btn-sm btn-success text-white fw-bold shadow-xs px-2 py-1" title="Approve Batch for Outward Dispatch">
+                                                        <i class="bi bi-patch-check-fill me-1"></i>Approve
                                                     </button>
                                                 </form>
                                             <?php else: ?>
                                                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle py-1 px-2" title="Preparing (Awaiting Approval)">
-                                                    <i class="bi bi-hourglass-split"></i>
+                                                    <i class="bi bi-hourglass-split me-1"></i>Awaiting Approval
                                                 </span>
                                             <?php endif; ?>
                                         <?php elseif ($b['status'] === 'APPROVED'): ?>
-                                            <?php if (hasPermission('outward', 'create')): ?>
-                                                <a href="<?= url('production/outward?batch_id=' . $b['id']) ?>" class="btn btn-primary btn-action-icon text-white shadow-xs" title="Dispatch Batch to Warehouse">
-                                                    <i class="bi bi-truck"></i>
+                                            <?php if ($canDispatchThis): ?>
+                                                <a href="<?= url('production/outward?batch_id=' . $b['id']) ?>" class="btn btn-sm btn-primary text-white fw-bold shadow-xs px-2 py-1" title="Dispatch Batch to Warehouse">
+                                                    <i class="bi bi-truck me-1"></i>Dispatch &rarr;
                                                 </a>
                                             <?php else: ?>
                                                 <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2" title="Approved (Ready to Dispatch)">
-                                                    <i class="bi bi-check2"></i>
+                                                    <i class="bi bi-check2 me-1"></i>Approved
                                                 </span>
                                             <?php endif; ?>
                                         <?php else: ?>
-                                            <button type="button" class="btn btn-outline-secondary btn-action-icon" onclick="viewBatchDispatchDetails(<?= $b['id'] ?>)" title="Outward Dispatched Details">
-                                                <i class="bi bi-truck-flatbed"></i>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="viewBatchDispatchDetails(<?= $b['id'] ?>)" title="Outward Dispatched Details">
+                                                <i class="bi bi-truck-flatbed me-1"></i>Dispatched
                                             </button>
                                         <?php endif; ?>
 
