@@ -831,9 +831,13 @@ function buildInventoryPieceCards() {
     const totalPcs = pieces.length;
 
     pieces.forEach(p => {
+        // ONE QR PER VARIANT: Always derive and use the clean static variant code (e.g., 'V0013')
+        const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+
         const card = document.createElement('article');
         card.className = 'col inventory-piece-card';
         card.dataset.pieceNo = p.piece_no;
+        card.dataset.variantCode = (variantDisplayCode || '').toUpperCase();
         card.dataset.tag = (p.tag_code || '').toUpperCase();
         card.dataset.sku = (p.variant_sku || p.product_sku || '').toUpperCase();
         card.dataset.size = (p.size_name || '').toUpperCase();
@@ -863,7 +867,7 @@ function buildInventoryPieceCards() {
                 </div>
                 <div class="card-body p-3">
                     <div class="d-flex gap-3 align-items-center">
-                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded" id="card_qr_${p.piece_no}" style="width: 86px; height: 86px;"></div>
+                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_qr_${p.piece_no}" style="width: 86px; height: 86px;"></div>
                         <div class="flex-grow-1 min-w-0">
                             <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
                             <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
@@ -878,9 +882,9 @@ function buildInventoryPieceCards() {
                                 ${priceHtml}
                             </div>
                             <div class="d-flex align-items-center justify-content-between gap-1 pt-1 border-top">
-                                <span class="badge bg-dark font-monospace px-2 py-1" style="font-size: 10px; letter-spacing: 0.5px;">${escapeHtml(p.tag_code)}</span>
+                                <span class="badge bg-dark text-warning font-monospace px-2 py-1 shadow-xs" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(variantDisplayCode)}</span>
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(p.tag_code)}', this)" title="Copy Code">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(variantDisplayCode)}', this)" title="Copy Variant QR Code">
                                         <i class="bi bi-clipboard"></i>
                                     </button>
                                     <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1.5" onclick="printSinglePieceLabel(${p.piece_no})" title="Print Label">
@@ -900,7 +904,7 @@ function buildInventoryPieceCards() {
         const qrBox = card.querySelector('#card_qr_' + p.piece_no);
         if (qrBox && typeof QRCode !== 'undefined') {
             new QRCode(qrBox, {
-                text: p.tag_code,
+                text: String(variantDisplayCode),
                 width: 76,
                 height: 76,
                 colorDark: "#111827",
@@ -918,9 +922,11 @@ function buildInventoryPieceList() {
 
     const pieces = window.inventoryPieceItems || [];
     pieces.forEach(p => {
+        const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
         const item = document.createElement('article');
         item.className = 'list-group-item inventory-piece-list-item d-flex flex-wrap align-items-center justify-content-between gap-3 p-3';
         item.dataset.pieceNo = p.piece_no;
+        item.dataset.variantCode = (variantDisplayCode || '').toUpperCase();
         item.dataset.tag = (p.tag_code || '').toUpperCase();
         item.dataset.sku = (p.variant_sku || p.product_sku || '').toUpperCase();
         item.dataset.size = (p.size_name || '').toUpperCase();
@@ -935,7 +941,7 @@ function buildInventoryPieceList() {
         item.innerHTML = `
             <div class="d-flex align-items-center gap-3">
                 <span class="badge bg-secondary-subtle text-secondary">#${p.piece_no}</span>
-                <span class="badge bg-dark font-monospace">${escapeHtml(p.tag_code)}</span>
+                <span class="badge bg-dark text-warning font-monospace">${escapeHtml(variantDisplayCode)}</span>
                 <div>
                     <span class="fw-bold text-dark font-monospace">${escapeHtml(p.variant_sku || p.product_sku || 'SKU')}</span>
                     <span class="text-muted small ms-2">${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}</span>
@@ -960,16 +966,17 @@ function filterInventoryPieces() {
     matchingPieceElements = [];
 
     cards.forEach(card => {
+        const vcode = card.dataset.variantCode || '';
         const tag = card.dataset.tag || '';
         const sku = card.dataset.sku || '';
         const size = card.dataset.size || '';
         const color = card.dataset.color || '';
         const prod = card.dataset.product || '';
 
-        const matched = !rawVal || tag.includes(rawVal) || sku.includes(rawVal) || prod.includes(rawVal) || (size.includes(rawVal) && color.includes(rawVal));
+        const matched = !rawVal || vcode.includes(rawVal) || tag.includes(rawVal) || sku.includes(rawVal) || prod.includes(rawVal) || (size.includes(rawVal) && color.includes(rawVal));
         if (matched) {
             matchingPieceElements.push(card);
-            card.classList.toggle('inventory-search-highlight', Boolean(rawVal) && tag === rawVal);
+            card.classList.toggle('inventory-search-highlight', Boolean(rawVal) && (tag === rawVal || vcode === rawVal));
         }
     });
 
@@ -1094,6 +1101,7 @@ function renderStickersToModal(pieces) {
     if (countEl) countEl.textContent = pieces.length;
 
     pieces.forEach((p, idx) => {
+        const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
         const col = document.createElement('div');
         col.className = 'col qr-sticker-card-col';
         col.innerHTML = `
@@ -1106,7 +1114,7 @@ function renderStickersToModal(pieces) {
                     ${parseFloat(p.base_price) > parseFloat(p.discount_price) ? `<span class="text-muted text-decoration-line-through">₹${parseFloat(p.base_price).toFixed(2)}</span>` : ''}
                     <span class="fw-bold text-dark">₹${parseFloat(p.discount_price || p.base_price || 0).toFixed(2)}</span>
                 </div>
-                <div class="badge bg-dark font-monospace mt-1" style="font-size: 10px;">${escapeHtml(p.tag_code)}</div>
+                <div class="badge bg-dark text-warning font-monospace mt-1" style="font-size: 11px;">${escapeHtml(variantDisplayCode)}</div>
             </div>
         `;
         grid.appendChild(col);
@@ -1114,7 +1122,7 @@ function renderStickersToModal(pieces) {
         const qrTarget = col.querySelector('#print_qr_' + idx);
         if (qrTarget && typeof QRCode !== 'undefined') {
             new QRCode(qrTarget, {
-                text: p.tag_code,
+                text: String(variantDisplayCode),
                 width: 90,
                 height: 90,
                 colorDark: "#000000",

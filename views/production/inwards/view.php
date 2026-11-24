@@ -2679,12 +2679,12 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                         <div class="card-body p-3">
                             <div class="row g-3 align-items-center">
                                 <div class="col-md-7 d-flex align-items-center gap-3">
-                                    <div class="text-center flex-shrink-0" style="width: 105px;">
-                                        <div class="bg-white p-2 rounded-2 border shadow-xs d-flex align-items-center justify-content-center"
-                                             id="modalVariantSingleQr"
-                                             style="width: 100px; height: 100px;">
+                                    <div class="text-center flex-shrink-0" style="width: 80px;">
+                                        <div class="p-2 bg-light rounded-3 border text-center shadow-xs d-flex align-items-center justify-content-center"
+                                             style="width: 76px; height: 76px;">
+                                            <i class="bi bi-box-seam-fill fs-2 text-primary"></i>
                                         </div>
-                                        <div class="badge bg-dark text-warning font-monospace mt-1 px-2 py-1 w-100 text-truncate shadow-xs" style="font-size: 0.75rem;">
+                                        <div class="badge bg-dark text-warning font-monospace mt-1 px-1.5 py-0.5 w-100 text-truncate shadow-xs" style="font-size: 0.75rem;">
                                             ${escapeHtml(variantDisplayCode)}
                                         </div>
                                     </div>
@@ -2750,22 +2750,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                 </div>
             `;
             piecesGrid.innerHTML = gridHtml;
-            // Render the single variant QR thumbnail (ONE QR PER VARIANT)
-            const thumbQrEl = document.getElementById('modalVariantSingleQr');
-            if (thumbQrEl && typeof QRCode !== 'undefined') {
-                try {
-                    new QRCode(thumbQrEl, {
-                        text: String(variantDisplayCode),
-                        width: 84,
-                        height: 84,
-                        colorDark: "#0f172a",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-                } catch(e) {
-                    console.warn("Variant thumb QR note:", e);
-                }
-            }
         }
     }
 
