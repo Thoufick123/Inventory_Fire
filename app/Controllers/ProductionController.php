@@ -9681,19 +9681,35 @@ class ProductionController {
                 // D. Delete from qc_items
                 Database::execute("DELETE FROM qc_items WHERE UPPER(TRIM(tag_code)) = ?", [$qrCode]);
 
-                // E. Remove from production_batch_items
-                $batchRows = Database::fetchAll(
-                    "SELECT id, piece_tags, received_qr_codes, damaged_qr_codes FROM production_batch_items WHERE piece_tags LIKE ? OR received_qr_codes LIKE ?",
-                    ['%' . $qrCode . '%', '%' . $qrCode . '%']
-                );
+                // E. Remove from production_batch_items and record damaged quantity
+                $batchRows = [];
+                if ($varId > 0) {
+                    $batchRows = Database::fetchAll(
+                        "SELECT id, variant_id, received_qty, damaged_qty, piece_tags, received_qr_codes, damaged_qr_codes 
+                         FROM production_batch_items 
+                         WHERE variant_id = ? 
+                            OR piece_tags LIKE ? 
+                            OR received_qr_codes LIKE ?",
+                        [$varId, '%' . $qrCode . '%', '%' . $qrCode . '%']
+                    );
+                } else {
+                    $batchRows = Database::fetchAll(
+                        "SELECT id, variant_id, received_qty, damaged_qty, piece_tags, received_qr_codes, damaged_qr_codes 
+                         FROM production_batch_items 
+                         WHERE piece_tags LIKE ? 
+                            OR received_qr_codes LIKE ?",
+                        ['%' . $qrCode . '%', '%' . $qrCode . '%']
+                    );
+                }
                 foreach ($batchRows as $br) {
-                    $cleanPieceTags = trim(preg_replace('/\b' . preg_quote($qrCode, '/') . '\b[, ]*/i', '', (string)$br['piece_tags']), ', ');
-                    $cleanRecQrs = trim(preg_replace('/\b' . preg_quote($qrCode, '/') . '\b[, ]*/i', '', (string)$br['received_qr_codes']), ', ');
+                    $cleanPieceTags = trim(preg_replace('/\b' . preg_quote($qrCode, '/') . '(-[0-9]+)?\b[, ]*/i', '', (string)$br['piece_tags']), ', ');
+                    $cleanRecQrs = trim(preg_replace('/\b' . preg_quote($qrCode, '/') . '(-[0-9]+)?\b[, ]*/i', '', (string)$br['received_qr_codes']), ', ');
                     $curDmg = trim((string)$br['damaged_qr_codes']);
                     $newDmg = $curDmg !== '' ? ($curDmg . ', ' . $qrCode) : $qrCode;
+                    $newDmgQty = (int)($br['damaged_qty'] ?? 0) + $qty;
                     Database::execute(
-                        "UPDATE production_batch_items SET piece_tags = ?, received_qr_codes = ?, damaged_qr_codes = ? WHERE id = ?",
-                        [$cleanPieceTags, $cleanRecQrs, $newDmg, (int)$br['id']]
+                        "UPDATE production_batch_items SET damaged_qty = ?, piece_tags = ?, received_qr_codes = ?, damaged_qr_codes = ? WHERE id = ?",
+                        [$newDmgQty, $cleanPieceTags, $cleanRecQrs, $newDmg, (int)$br['id']]
                     );
                 }
 
@@ -20485,29 +20501,103 @@ class ProductionController {
             }
         }
 
-        // Damaged piece tags
+        // Damaged piece tracking from roll_damages and production_batch_items
+        $variantIds = array_filter(array_unique(array_map(fn($it) => (int)($it['variant_id'] ?? 0), $items)));
+        $productIds = array_filter(array_unique(array_map(fn($it) => (int)($it['product_id'] ?? 0), $items)));
+
         $damagedTagsMap = [];
         $damagedPiecesList = [];
+        $variantDamagedQtyMap = [];
+
+        // 1. Check roll_damages table for any damages recorded for these variants, products, or tags
+        if (!empty($variantIds) || !empty($productIds) || !empty($allTags)) {
+            $rdWhere = [];
+            $rdParams = [];
+            if (!empty($variantIds)) {
+                $vPlaceholders = implode(',', array_fill(0, count($variantIds), '?'));
+                $rdWhere[] = "rd.variant_id IN ($vPlaceholders)";
+                $rdParams = array_merge($rdParams, $variantIds);
+            }
+            if (!empty($productIds)) {
+                $pPlaceholders = implode(',', array_fill(0, count($productIds), '?'));
+                $rdWhere[] = "rd.product_id IN ($pPlaceholders)";
+                $rdParams = array_merge($rdParams, $productIds);
+            }
+            if (!empty($allTags)) {
+                $tPlaceholders = implode(',', array_fill(0, count($allTags), '?'));
+                $rdWhere[] = "UPPER(TRIM(rd.qr_code)) IN ($tPlaceholders)";
+                $rdParams = array_merge($rdParams, array_keys($allTags));
+            }
+            $rdSql = "SELECT rd.*, u.full_name as reported_by_name
+                      FROM roll_damages rd
+                      LEFT JOIN users u ON rd.reported_by = u.id
+                      WHERE (" . implode(' OR ', $rdWhere) . ")";
+            if ($cid) {
+                $rdSql .= " AND (rd.concern_id = ? OR rd.concern_id IS NULL)";
+                $rdParams[] = $cid;
+            }
+            $rdSql .= " ORDER BY rd.id DESC";
+            $dbDamages = Database::fetchAll($rdSql, $rdParams);
+
+            foreach ($dbDamages as $rd) {
+                $rdCode = strtoupper(trim((string)$rd['qr_code']));
+                $rdQty = max(1, (int)($rd['damaged_quantity'] ?? 1));
+                if ($rdCode !== '') {
+                    $damagedTagsMap[$rdCode] = true;
+                }
+                $vId = (int)($rd['variant_id'] ?? 0);
+                if ($vId > 0) {
+                    $variantDamagedQtyMap[$vId] = ($variantDamagedQtyMap[$vId] ?? 0) + $rdQty;
+                }
+                for ($d = 0; $d < $rdQty; $d++) {
+                    $damagedPiecesList[] = [
+                        'tag_code'      => $rdCode . ($rdQty > 1 ? (' #' . ($d + 1)) : ''),
+                        'variant_sku'   => $rd['variant_info'] ?? '',
+                        'size_name'     => 'Std',
+                        'color_name'    => 'Std',
+                        'defect_reason' => ($rd['damage_reason'] ?: 'Defect') . (!empty($rd['defect_notes']) ? ' - ' . $rd['defect_notes'] : ''),
+                        'loss_amount'   => (float)($rd['loss_amount'] ?? 0),
+                        'photo_url'     => $rd['photo_url'] ?? null,
+                        'created_at'    => $rd['created_at'],
+                        'status'        => 'QUARANTINED',
+                        'reported_by'   => $rd['reported_by_name'] ?? 'Staff',
+                    ];
+                }
+            }
+        }
+
+        // 2. Also check damaged_qr_codes & damaged_qty from production_batch_items
         foreach ($items as $it) {
+            $vId = (int)($it['variant_id'] ?? 0);
             $dmgTags = [];
             if (!empty($it['damaged_qr_codes'])) {
                 $decoded = json_decode($it['damaged_qr_codes'], true);
                 $dmgTags = is_array($decoded) ? $decoded : array_filter(array_map('trim', explode(',', $it['damaged_qr_codes'])));
             }
+            $rawDmgQty = (int)($it['damaged_qty'] ?? 0);
             foreach ($dmgTags as $dt) {
                 $uDt = strtoupper(trim((string)$dt));
                 if ($uDt !== '') {
-                    $damagedTagsMap[$uDt] = true;
-                    $damagedPiecesList[] = [
-                        'tag_code'      => $dt,
-                        'variant_sku'   => $it['variant_sku'] ?? '',
-                        'size_name'     => $it['size_name'] ?? 'Std',
-                        'color_name'    => $it['color_name'] ?? 'Std',
-                        'defect_reason' => 'Damaged / Quarantined during Inward Verification',
-                        'created_at'    => $batch['updated_at'] ?? $batch['created_at'],
-                        'status'        => 'QUARANTINED',
-                    ];
+                    if (!isset($damagedTagsMap[$uDt])) {
+                        $damagedTagsMap[$uDt] = true;
+                        $variantDamagedQtyMap[$vId] = ($variantDamagedQtyMap[$vId] ?? 0) + 1;
+                        $damagedPiecesList[] = [
+                            'tag_code'      => $dt,
+                            'variant_sku'   => $it['variant_sku'] ?? '',
+                            'size_name'     => $it['size_name'] ?? 'Std',
+                            'color_name'    => $it['color_name'] ?? 'Std',
+                            'defect_reason' => 'Damaged / Quarantined during Inward Verification',
+                            'loss_amount'   => (float)($it['variant_selling_price'] ?? 0),
+                            'photo_url'     => null,
+                            'created_at'    => $batch['updated_at'] ?? $batch['created_at'],
+                            'status'        => 'QUARANTINED',
+                            'reported_by'   => 'Warehouse Incharge',
+                        ];
+                    }
                 }
+            }
+            if ($rawDmgQty > 0 && ($variantDamagedQtyMap[$vId] ?? 0) < $rawDmgQty) {
+                $variantDamagedQtyMap[$vId] = $rawDmgQty;
             }
         }
 
@@ -20515,11 +20605,14 @@ class ProductionController {
         $pieceItems = [];
         $totalPieces = 0;
         $totalBilledPieces = 0;
-        $totalDamagedPieces = count($damagedPiecesList);
         $totalValue = 0.0;
         $pieceIndex = 1;
 
         foreach ($items as $it) {
+            $vId = (int)$it['variant_id'];
+            $vPrefix = 'V' . str_pad($vId, 4, '0', STR_PAD_LEFT);
+            $totalDmgForVar = (int)($variantDamagedQtyMap[$vId] ?? 0);
+
             $recQty = (int)($it['received_qty'] > 0 ? $it['received_qty'] : $it['dispatched_qty']);
             $mrp = (float)(($it['variant_mrp'] ?? 0) > 0 ? $it['variant_mrp'] : 0);
             $price = (float)(($it['variant_selling_price'] ?? 0) > 0 ? $it['variant_selling_price'] : $mrp);
@@ -20533,12 +20626,44 @@ class ProductionController {
             }
 
             $tagCount = count($tags);
+            $piecesForThisItem = [];
+            $varDmgAssigned = 0;
+
             for ($k = 0; $k < $recQty; $k++) {
-                $tagCode = $k < $tagCount ? $tags[$k] : ('V' . str_pad($it['variant_id'], 4, '0', STR_PAD_LEFT) . '-' . str_pad($pieceIndex, 4, '0', STR_PAD_LEFT));
+                $tagCode = $k < $tagCount ? $tags[$k] : ($vPrefix . '-' . str_pad($pieceIndex, 4, '0', STR_PAD_LEFT));
                 $uTag = strtoupper($tagCode);
                 $isBilled = isset($billedTagsMap[$uTag]);
-                $isDamaged = isset($damagedTagsMap[$uTag]);
-                $bInfo = $isBilled ? $billedTagsMap[$uTag] : null;
+                $isExplicitDamaged = isset($damagedTagsMap[$uTag]);
+                if ($isExplicitDamaged && !$isBilled) {
+                    $varDmgAssigned++;
+                }
+
+                $piecesForThisItem[] = [
+                    'k'         => $k,
+                    'tagCode'   => $tagCode,
+                    'uTag'      => $uTag,
+                    'isBilled'  => $isBilled,
+                    'isDamaged' => $isExplicitDamaged,
+                ];
+            }
+
+            // If variant-level damage count exceeds explicitly matched piece tags, allocate remaining damage to unbilled pieces from end
+            if ($totalDmgForVar > $varDmgAssigned) {
+                $needed = $totalDmgForVar - $varDmgAssigned;
+                for ($idx = count($piecesForThisItem) - 1; $idx >= 0 && $needed > 0; $idx--) {
+                    if (!$piecesForThisItem[$idx]['isBilled'] && !$piecesForThisItem[$idx]['isDamaged']) {
+                        $piecesForThisItem[$idx]['isDamaged'] = true;
+                        $needed--;
+                    }
+                }
+            }
+
+            foreach ($piecesForThisItem as $pData) {
+                $tagCode = $pData['tagCode'];
+                $uTag = $pData['uTag'];
+                $isBilled = $pData['isBilled'];
+                $isDamaged = $pData['isDamaged'];
+                $bInfo = $isBilled ? ($billedTagsMap[$uTag] ?? null) : null;
 
                 if ($isBilled) {
                     $totalBilledPieces++;
@@ -20560,7 +20685,7 @@ class ProductionController {
 
                 $pieceItems[] = [
                     'piece_no'        => $pieceIndex++,
-                    'piece_seq'       => $k + 1,
+                    'piece_seq'       => $pData['k'] + 1,
                     'passed_in_group' => $recQty,
                     'qc_item_id'      => $it['id'],
                     'qc_batch_id'     => $batch['qc_batch_id'] ?: $pbId,
@@ -20598,6 +20723,10 @@ class ProductionController {
             }
         }
 
+        $totalDamagedPieces = count(array_filter($pieceItems, fn($p) => !empty($p['is_damaged'])));
+        if ($totalDamagedPieces <= 0) {
+            $totalDamagedPieces = count($damagedPiecesList);
+        }
         $remainingPieces = max(0, $totalPieces - $totalBilledPieces - $totalDamagedPieces);
         $remainingValue = $totalPieces > 0 ? ($remainingPieces * ($totalValue / $totalPieces)) : 0.0;
 

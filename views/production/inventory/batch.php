@@ -247,7 +247,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
         <button class="nav-link active fw-bold d-flex align-items-center gap-2 tab-pill-green" id="pill-warehouse-tab" data-bs-toggle="pill" data-bs-target="#pill-warehouse" type="button" role="tab" aria-selected="true">
             <i class="bi bi-qr-code-scan"></i>
             <span>Warehouse Pieces &amp; QR Labels</span>
-            <span class="badge rounded-pill bg-white text-success px-2 ms-1"><?= $totalPcs ?></span>
+            <span class="badge rounded-pill bg-white text-success px-2 ms-1"><?= $inStockPcs ?></span>
         </button>
     </li>
     <li class="nav-item" role="presentation">
