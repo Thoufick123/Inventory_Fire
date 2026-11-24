@@ -9462,6 +9462,19 @@ class ProductionController {
         }
     }
 
+    private function resolveCurrentValidUserId(): ?int
+    {
+        $rawUid = Auth::id() ?? (Session::get('user_id') ?? (currentUser()['id'] ?? null));
+        if (!empty($rawUid)) {
+            $userCheck = Database::fetchOne("SELECT id FROM users WHERE id = ?", [(int)$rawUid]);
+            if ($userCheck) {
+                return (int)$userCheck['id'];
+            }
+        }
+        $firstUser = Database::fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+        return $firstUser ? (int)$firstUser['id'] : null;
+    }
+
     public function storeDamage(): void {
         if (!CSRF::validateRequest()) {
             Session::flash('error', 'Invalid security token. Please try again.');
@@ -9540,7 +9553,7 @@ class ProductionController {
             }
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
         $totalLossAmount = 0.0;
         $totalDamagedQty = 0;
         $savedCount = 0;
@@ -10042,7 +10055,7 @@ class ProductionController {
             return;
         }
 
-        $userId = max(0, (int)(Session::get('user_id') ?? 1));
+        $userId = $this->resolveCurrentValidUserId();
         $isReplacement = $resolutionType === 'SUPPLIER_REPLACEMENT' || $status === 'REPLACEMENT_RECEIVED';
 
         try {
@@ -21295,7 +21308,7 @@ class ProductionController {
             $photoUrl = CloudinaryService::upload($_FILES['photo'], 'grm_inventory/wastage', 'image');
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
 
         try {
             Database::beginTransaction();
@@ -21995,7 +22008,7 @@ class ProductionController {
             $photoUrl = CloudinaryService::upload($_FILES['photo'], 'grm_inventory/stitching_wastage', 'image');
         }
 
-        $userId = (int)(Session::get('user_id') ?? 1);
+        $userId = $this->resolveCurrentValidUserId();
 
         try {
             Database::beginTransaction();
