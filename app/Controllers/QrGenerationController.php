@@ -67,7 +67,7 @@ class QrGenerationController {
         }
         $totalQrs = (int)Database::fetchOne($totalSql, $totalParams)['c'];
 
-        Response::view('production.qr_generation.index', [
+        Response::view('allmodules.qr_generation.index', [
             'pageTitle'    => 'QR Code Generation | GRM Inventory',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-qr-generation',
@@ -112,7 +112,7 @@ class QrGenerationController {
         $designs = Design::allActive();
         $sizes = Database::fetchAll("SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
 
-        Response::view('production.qr_generation.create', [
+        Response::view('allmodules.qr_generation.create', [
             'pageTitle'        => 'Generate QR Labels | GRM Inventory',
             'activeModule'     => 'production',
             'activeMenu'       => 'prod-qr-generation',
@@ -546,7 +546,7 @@ class QrGenerationController {
             return;
         }
 
-        Response::view('production.qr_generation.view', [
+        Response::view('allmodules.qr_generation.view', [
             'pageTitle'    => 'QR Batch ' . $batch['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-qr-generation',
@@ -571,7 +571,7 @@ class QrGenerationController {
             return;
         }
 
-        Response::viewOnly('production.qr_generation.print', [
+        Response::viewOnly('allmodules.qr_generation.print', [
             'batch' => $batch,
         ]);
     }
@@ -596,7 +596,7 @@ class QrGenerationController {
 
         $activeTab = QrGenerationService::normalizeTab($_GET['tab'] ?? $batch['qr_source'] ?? null);
 
-        Response::view('production.qr_generation.edit', [
+        Response::view('allmodules.qr_generation.edit', [
             'pageTitle'    => 'Edit QR Batch: ' . $batch['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-qr-generation',

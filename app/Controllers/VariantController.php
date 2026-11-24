@@ -46,7 +46,7 @@ class VariantController {
             'unique_catalogs'  => count(array_unique(array_column($variants, 'product_id'))),
         ];
 
-        Response::view('production.variants.index', [
+        Response::view('allmodules.variants.index', [
             'pageTitle'     => 'Product Variants & QR Management',
             'activeModule'  => 'production',
             'activeMenu'    => 'prod-variants',
@@ -79,7 +79,7 @@ class VariantController {
 
         $suggestedVariantCode = VariantService::generateNextVariantCode();
 
-        Response::view('production.variants.create', [
+        Response::view('allmodules.variants.create', [
             'pageTitle'            => 'Add Product Variants | GRM Inventory',
             'activeModule'         => 'production',
             'activeMenu'           => 'prod-variants',
@@ -139,7 +139,7 @@ class VariantController {
         $stock = VariantService::getVariantStock((int)$id);
         $hasHistory = ProductVariant::hasHistory((int)$id);
 
-        Response::view('production.variants.view', [
+        Response::view('allmodules.variants.view', [
             'pageTitle'    => 'Variant ' . ($variant['variant_code'] ?? $variant['sku']),
             'activeModule' => 'production',
             'activeMenu'   => 'prod-variants',
@@ -169,7 +169,7 @@ class VariantController {
         $sizes = Database::fetchAll("SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
         $hasHistory = ProductVariant::hasHistory((int)$id);
 
-        Response::view('production.variants.edit', [
+        Response::view('allmodules.variants.edit', [
             'pageTitle'    => 'Edit Variant ' . ($variant['variant_code'] ?? $variant['sku']),
             'activeModule' => 'production',
             'activeMenu'   => 'prod-variants',
@@ -249,7 +249,7 @@ class VariantController {
             return;
         }
 
-        Response::viewOnly('production.variants.label_single', [
+        Response::viewOnly('allmodules.variants.label_single', [
             'variant' => $variant,
         ]);
     }
@@ -267,7 +267,7 @@ class VariantController {
             return;
         }
 
-        Response::viewOnly('production.variants.label_batch', [
+        Response::viewOnly('allmodules.variants.label_batch', [
             'variant'  => $variant,
             'quantity' => $qty,
         ]);
@@ -587,7 +587,7 @@ class VariantController {
             LIMIT 50
         ");
 
-        Response::view('production.variants.reports', [
+        Response::view('allmodules.variants.reports', [
             'pageTitle'         => 'Variant Stock & Sales Reports',
             'activeModule'      => 'production',
             'activeMenu'        => 'prod-variants',

@@ -14,11 +14,20 @@ class Response {
         
         // Capture the content
         ob_start();
-        $viewPath = __DIR__ . '/../../views/' . str_replace('.', '/', $template) . '.php';
+        $normalizedTemplate = $template;
+        if (str_starts_with($normalizedTemplate, 'production.')) {
+            $normalizedTemplate = 'allmodules.' . substr($normalizedTemplate, 11);
+        }
+        $viewPath = __DIR__ . '/../../views/' . str_replace('.', '/', $normalizedTemplate) . '.php';
         if (!file_exists($viewPath)) {
-            ob_end_clean();
-            self::error(404, "View not found: $template");
-            return;
+            $fallbackPath = __DIR__ . '/../../views/' . str_replace('.', '/', $template) . '.php';
+            if (file_exists($fallbackPath)) {
+                $viewPath = $fallbackPath;
+            } else {
+                ob_end_clean();
+                self::error(404, "View not found: $template");
+                return;
+            }
         }
         require $viewPath;
         $content = ob_get_clean();
@@ -88,6 +97,9 @@ class Response {
     public static function redirect(string $url, ?string $flashType = null, ?string $flashMessage = null): void {
         if ($flashType && $flashMessage) {
             Session::flash($flashType, $flashMessage);
+        }
+        if (str_starts_with($url, 'production/')) {
+            $url = 'allmodules/' . substr($url, 11);
         }
         $targetUrl = (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) ? $url : url($url);
         header("Location: $targetUrl");
@@ -173,6 +185,11 @@ function url(string $path = ''): string {
         $baseUrl = !empty($configuredUrl) ? rtrim($configuredUrl, '/') : 'http://localhost';
     }
     $cleanPath = ltrim($path, '/');
+    if (str_starts_with($cleanPath, 'production/')) {
+        $cleanPath = 'allmodules/' . substr($cleanPath, 11);
+    } elseif (str_starts_with($cleanPath, 'api/production/')) {
+        $cleanPath = 'api/allmodules/' . substr($cleanPath, 15);
+    }
     if (str_starts_with($cleanPath, 'uploads/')) {
         $cleanPath = 'public/' . $cleanPath;
     }

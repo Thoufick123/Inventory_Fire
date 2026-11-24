@@ -120,7 +120,7 @@ class CashFlowController {
             $params
         );
 
-        Response::view('production.cash_flow.index', [
+        Response::view('allmodules.cash_flow.index', [
             'pageTitle' => 'Cash Management',
             'activeModule' => 'production',
             'activeMenu' => 'cash-flow',

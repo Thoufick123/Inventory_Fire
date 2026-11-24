@@ -4,7 +4,7 @@ require_once BASE_PATH . '/app/Services/StockService.php';
 require_once BASE_PATH . '/app/Services/VariantService.php';
 require_once BASE_PATH . '/app/Services/CloudinaryService.php';
 
-class ProductionBillingController
+class AllmodulesBillingController
 {
     private static function ensureSchema(): void
     {
@@ -111,7 +111,7 @@ class ProductionBillingController
         }
         $stats['unique_customers'] = count($customerSet);
 
-        Response::view('production.billing.index', [
+        Response::view('allmodules.billing.index', [
             'pageTitle' => 'Production Billing',
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
@@ -235,7 +235,7 @@ class ProductionBillingController
             ORDER BY COALESCE(c.name, w.name) ASC
         ", $whParams);
 
-        Response::view('production.billing.move_to_batch', [
+        Response::view('allmodules.billing.move_to_batch', [
             'pageTitle' => 'Move Bill to Batch',
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
@@ -412,7 +412,7 @@ class ProductionBillingController
             return;
         }
 
-        Response::view('production.billing.view', [
+        Response::view('allmodules.billing.view', [
             'pageTitle' => 'Production Bill ' . $bill['bill_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
@@ -430,7 +430,7 @@ class ProductionBillingController
             return;
         }
 
-        Response::viewOnly('production.billing.print', [
+        Response::viewOnly('allmodules.billing.print', [
             'bill' => $bill,
             'billItems' => $this->loadBillItems((int)$bill['id']),
             'sellerCompany' => SettingsService::getGroup('company'),
@@ -1227,7 +1227,7 @@ class ProductionBillingController
              ORDER BY pb.id DESC"
         );
 
-        Response::view('production.billing.form', [
+        Response::view('allmodules.billing.form', [
             'pageTitle'               => $bill ? 'Edit Production Bill' : 'Create Production Bill',
             'activeModule'            => 'production',
             'activeMenu'              => 'prod-billing',
@@ -2450,4 +2450,8 @@ class ProductionBillingController
             Response::redirect((!$isNewBill && $billId) ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', $message);
         }
     }
+}
+
+if (!class_exists('ProductionBillingController', false)) {
+    class_alias('AllmodulesBillingController', 'ProductionBillingController');
 }
