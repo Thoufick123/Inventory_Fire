@@ -287,7 +287,7 @@ class WarehouseService {
                 throw new Exception("Destination warehouse #$warehouseId not found.");
             }
 
-            $cid = $batch['concern_id'] ?? (function_exists('currentConcernId') ? currentConcernId() : null);
+            $cid = !empty($warehouse['concern_id']) ? (int)$warehouse['concern_id'] : (function_exists('currentConcernId') ? currentConcernId() : ($batch['concern_id'] ?? null));
 
             $totalAccepted = 0;
             $totalDamaged = 0;
@@ -442,6 +442,18 @@ class WarehouseService {
                  SET received_qty = ?, damaged_qty = ?, missing_qty = ?, status = 'RECEIVED' 
                  WHERE id = ?",
                 [(int)$totalAccepted, (int)$totalDamaged, (int)$totalMissing, $batchId]
+            );
+
+            // Update linked outward dispatch records to RECEIVED
+            if (!empty($batch['production_outward_id'])) {
+                Database::execute(
+                    "UPDATE production_outwards SET status = 'RECEIVED', updated_at = NOW() WHERE id = ?",
+                    [(int)$batch['production_outward_id']]
+                );
+            }
+            Database::execute(
+                "UPDATE production_outwards SET status = 'RECEIVED', updated_at = NOW() WHERE production_batch_id = ?",
+                [$batchId]
             );
 
             // Audit log

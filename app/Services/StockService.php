@@ -602,7 +602,17 @@ class StockService {
      * Insert or update a stock balance record.
      */
     private static function upsertBalance(int $variantId, string $locationType, int $locationId, string $stockState, float $quantity): void {
-        $cid = currentConcernId();
+        $cid = null;
+        if ($locationType === 'WAREHOUSE') {
+            $whRow = Database::fetchOne("SELECT concern_id FROM warehouses WHERE id = ?", [$locationId]);
+            $cid = !empty($whRow['concern_id']) ? (int)$whRow['concern_id'] : null;
+        } elseif ($locationType === 'PRODUCTION_UNIT') {
+            $puRow = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [$locationId]);
+            $cid = !empty($puRow['concern_id']) ? (int)$puRow['concern_id'] : null;
+        }
+        if (!$cid && function_exists('currentConcernId')) {
+            $cid = currentConcernId();
+        }
         Database::execute(
             "INSERT INTO stock_balances (concern_id, variant_id, location_type, location_id, stock_state, quantity, last_updated, created_at)
              VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())

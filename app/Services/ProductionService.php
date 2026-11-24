@@ -949,16 +949,66 @@ class ProductionService {
 
             // Record each batch in production_outward_batches and update batch status to DISPATCHED
             foreach ($batches as $b) {
+                $bId = (int)$b['id'];
                 $bQty = (int)($b['total_qty'] ?: ($b['quantity'] ?: 0));
                 $bBoxes = max(1, (int)($b['box_count'] ?: 1));
                 Database::execute(
                     "INSERT INTO production_outward_batches (production_outward_id, production_batch_id, total_qty, box_count) VALUES (?, ?, ?, ?)",
-                    [$outwardId, (int)$b['id'], $bQty, $bBoxes]
+                    [$outwardId, $bId, $bQty, $bBoxes]
                 );
                 Database::execute(
                     "UPDATE production_batches SET status = 'DISPATCHED', production_outward_id = ?, updated_at = NOW() WHERE id = ?",
-                    [$outwardId, (int)$b['id']]
+                    [$outwardId, $bId]
                 );
+
+                // Move finished stock out of production unit upon outward dispatch
+                $bItems = ProductionBatch::getItems($bId);
+                $pUnitId = $productionUnitId ?: (!empty($b['production_unit_id']) ? (int)$b['production_unit_id'] : 0);
+                if ($pUnitId <= 0 && !empty($b['program_id'])) {
+                    $progRow = Database::fetchOne("SELECT production_unit_id FROM production_programs WHERE id = ?", [(int)$b['program_id']]);
+                    $pUnitId = (int)($progRow['production_unit_id'] ?? 0);
+                }
+                if ($pUnitId <= 0) {
+                    $pUnitId = (int)(Database::fetchOne("SELECT id FROM production_units WHERE is_active = 1 LIMIT 1")['id'] ?? 1);
+                }
+
+                foreach ($bItems as $it) {
+                    $vId = (int)($it['variant_id'] ?? 0);
+                    $qty = (float)($it['quantity'] ?? 0);
+                    if ($vId > 0 && $qty > 0 && $pUnitId > 0) {
+                        try {
+                            $curBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $pUnitId, 'AVAILABLE');
+                            if ($curBal < $qty) {
+                                StockService::increase(
+                                    $vId,
+                                    'PRODUCTION_UNIT',
+                                    $pUnitId,
+                                    'AVAILABLE',
+                                    ($qty - $curBal),
+                                    'QC_INSPECTION_PASSED',
+                                    'production_batches',
+                                    $bId,
+                                    $userId,
+                                    "Stock adjustment prior to outward dispatch for Batch #{$b['batch_number']}"
+                                );
+                            }
+                            StockService::decrease(
+                                $vId,
+                                'PRODUCTION_UNIT',
+                                $pUnitId,
+                                'AVAILABLE',
+                                $qty,
+                                'PRODUCTION_OUTWARD',
+                                'production_outwards',
+                                $outwardId,
+                                $userId,
+                                "Dispatched under Outward #{$outwardData['outward_number']} for Batch #{$b['batch_number']}"
+                            );
+                        } catch (Throwable $stEx) {
+                            error_log("StockService production outward note: " . $stEx->getMessage());
+                        }
+                    }
+                }
             }
 
             AuditService::log('production', 'create', 'production_outward', $outwardId, null, [

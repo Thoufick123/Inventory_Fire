@@ -384,6 +384,7 @@ class ProductionBillingController
                 }, $group['items']);
                 ProductionService::createProductionBatch([
                     'production_bill_id' => (int)$bill['id'],
+                    'concern_id' => currentConcernId(),
                     'program_id' => (int)$group['program_id'],
                     'qc_batch_id' => $primaryQcId,
                     'additional_qc_batch_ids' => $qcIds,
@@ -395,7 +396,7 @@ class ProductionBillingController
                 ], $batchItems, $userId);
             }
             Database::commit();
-            Response::redirect('production/batches', 'success', 'Bill QR items are packed into linked batches. Approve the batches to continue to outward dispatch.');
+            Response::redirect('production/batches', 'success', 'Bill items packed into Batch (Status: PREPARING). Please approve and dispatch to move stock.');
         } catch (Throwable $e) {
             Database::rollback();
             error_log('ProductionBillingController::createBillDispatchBatch failed: ' . $e->getMessage());
@@ -2302,40 +2303,44 @@ class ProductionBillingController
                 }
 
                 // Inventory integration: Deduct stock from stock_balances using StockService
-                $vId = (int)($stock['variant_id'] ?? 0);
-                if ($vId > 0 && $productionUnitId > 0) {
-                    try {
-                        $currentBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
-                        $billQty = (float)$item['quantity'];
-                        if ($currentBal < $billQty) {
-                            // Ensure the manufactured finished goods balance exists in stock ledger
-                            StockService::increase(
+                // Only immediately deduct stock at POS counter for walk-in retail CUSTOMER bills or direct sales.
+                // For B2B COMPANY bills, stock remains in production until packed into a batch and OUTWARD DISPATCHED.
+                if ($buyerType === 'CUSTOMER' || $isDirectBill) {
+                    $vId = (int)($stock['variant_id'] ?? 0);
+                    if ($vId > 0 && $productionUnitId > 0) {
+                        try {
+                            $currentBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
+                            $billQty = (float)$item['quantity'];
+                            if ($currentBal < $billQty) {
+                                // Ensure the manufactured finished goods balance exists in stock ledger
+                                StockService::increase(
+                                    $vId,
+                                    'PRODUCTION_UNIT',
+                                    $productionUnitId,
+                                    'AVAILABLE',
+                                    ($billQty - $currentBal),
+                                    'QC_INSPECTION_PASSED',
+                                    'qc_items',
+                                    (int)$stock['qc_item_id'],
+                                    (int)(Auth::id() ?? 0) ?: null,
+                                    "Pre-bill sync for manufactured stock (Bill #{$billNumber})"
+                                );
+                            }
+                            StockService::decrease(
                                 $vId,
                                 'PRODUCTION_UNIT',
                                 $productionUnitId,
                                 'AVAILABLE',
-                                ($billQty - $currentBal),
-                                'QC_INSPECTION_PASSED',
-                                'qc_items',
-                                (int)$stock['qc_item_id'],
+                                $billQty,
+                                'PRODUCTION_SALE',
+                                'production_bills',
+                                $billId,
                                 (int)(Auth::id() ?? 0) ?: null,
-                                "Pre-bill sync for manufactured stock (Bill #{$billNumber})"
+                                "Billed in Production Bill #{$billNumber}"
                             );
+                        } catch (Throwable $se) {
+                            error_log("StockService production sync note: " . $se->getMessage());
                         }
-                        StockService::decrease(
-                            $vId,
-                            'PRODUCTION_UNIT',
-                            $productionUnitId,
-                            'AVAILABLE',
-                            $billQty,
-                            'PRODUCTION_SALE',
-                            'production_bills',
-                            $billId,
-                            (int)(Auth::id() ?? 0) ?: null,
-                            "Billed in Production Bill #{$billNumber}"
-                        );
-                    } catch (Throwable $se) {
-                        error_log("StockService production sync note: " . $se->getMessage());
                     }
                 }
             }

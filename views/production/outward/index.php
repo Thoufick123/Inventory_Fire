@@ -564,6 +564,16 @@ function updateModalBatchSummary(batchId) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Auto-open modal if batch_id is in query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectBatchId = urlParams.get('batch_id');
+    if (preselectBatchId && window.approvedBatchesData) {
+        const found = window.approvedBatchesData.find(b => b.id == preselectBatchId);
+        if (found) {
+            openDispatchModal(found);
+        }
+    }
+
     const form = document.getElementById('outwardDispatchForm');
     if (form) {
         form.addEventListener('submit', function(e) {

@@ -188,18 +188,30 @@
                                             <i class="bi bi-receipt"></i>
                                         </a>
 
-                                        <!-- 5. Dispatch / Approve Action (Current unchanged) -->
-                                        <?php if ($b['status'] === 'PREPARING' && hasPermission('batches', 'approve')): ?>
-                                            <form method="POST" action="<?= url('production/batches/approve/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Approve this batch for outward dispatch?');">
-                                                <?= CSRF::field() ?>
-                                                <button type="submit" class="btn btn-outline-success btn-action-icon" title="Approve Batch for Dispatch">
-                                                    <i class="bi bi-patch-check"></i>
-                                                </button>
-                                            </form>
-                                        <?php elseif ($b['status'] === 'APPROVED' && hasPermission('outward', 'create')): ?>
-                                            <a href="<?= url('production/outward') ?>" class="btn btn-outline-success btn-action-icon" title="Dispatch Outward">
-                                                <i class="bi bi-truck"></i>
-                                            </a>
+                                        <!-- 5. Dispatch / Approve Action -->
+                                        <?php if ($b['status'] === 'PREPARING'): ?>
+                                            <?php if (hasPermission('batches', 'approve')): ?>
+                                                <form method="POST" action="<?= url('production/batches/approve/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Approve this batch for outward dispatch?');">
+                                                    <?= CSRF::field() ?>
+                                                    <button type="submit" class="btn btn-outline-success btn-action-icon" title="Approve Batch for Dispatch">
+                                                        <i class="bi bi-patch-check"></i>
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle py-1 px-2" title="Preparing (Awaiting Approval)">
+                                                    <i class="bi bi-hourglass-split"></i>
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php elseif ($b['status'] === 'APPROVED'): ?>
+                                            <?php if (hasPermission('outward', 'create')): ?>
+                                                <a href="<?= url('production/outward?batch_id=' . $b['id']) ?>" class="btn btn-primary btn-action-icon text-white shadow-xs" title="Dispatch Batch to Warehouse">
+                                                    <i class="bi bi-truck"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2" title="Approved (Ready to Dispatch)">
+                                                    <i class="bi bi-check2"></i>
+                                                </span>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                             <button type="button" class="btn btn-outline-secondary btn-action-icon" onclick="viewBatchDispatchDetails(<?= $b['id'] ?>)" title="Outward Dispatched Details">
                                                 <i class="bi bi-truck-flatbed"></i>

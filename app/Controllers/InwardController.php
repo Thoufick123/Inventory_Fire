@@ -28,11 +28,18 @@ class InwardController {
         }
 
         $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
-        $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
 
+        // If the user's scoped warehouse does not belong to the active concern, do not force it
+        if ($scopedWarehouseId && $cid) {
+            $whRow = Database::fetchOne("SELECT concern_id FROM warehouses WHERE id = ?", [$scopedWarehouseId]);
+            if ($whRow && !empty($whRow['concern_id']) && (int)$whRow['concern_id'] !== $cid) {
+                $scopedWarehouseId = null;
+            }
+        }
+
         $warehouseId = $scopedWarehouseId ? (string)$scopedWarehouseId : ($_GET['warehouse_id'] ?? '');
-        $unitId = $scopedUnitId ? (string)$scopedUnitId : ($_GET['production_unit_id'] ?? $_GET['unit_id'] ?? '');
+        $unitId = trim($_GET['production_unit_id'] ?? $_GET['unit_id'] ?? '');
         $status = $_GET['status'] ?? '';
         $search = trim($_GET['search'] ?? '');
 
@@ -49,8 +56,8 @@ class InwardController {
                        COALESCE(pu_out.address, pu_prog.address, '') as production_unit_address,
                        u_prep.full_name as prepared_by_name
                 FROM production_batches pb
-                JOIN production_programs pp ON pb.program_id = pp.id
-                JOIN products p ON pp.product_id = p.id
+                LEFT JOIN production_programs pp ON pb.program_id = pp.id
+                LEFT JOIN products p ON pp.product_id = p.id
                 JOIN warehouses w ON pb.destination_warehouse_id = w.id
                 LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                 LEFT JOIN production_units pu_prog ON pp.production_unit_id = pu_prog.id
@@ -59,32 +66,18 @@ class InwardController {
                 WHERE pb.status IN ('DISPATCHED', 'RECEIVED')";
         $params = [];
 
-        // Multi-concern isolation: Allow batches created by this concern OR dispatched to this concern's warehouse
+        // Multi-concern isolation: Allow batches whose destination warehouse belongs to this concern, OR created by this concern, OR outwarded by this concern
         if ($cid !== null) {
-            if ($cid === 1) {
-                $sql .= " AND (pb.concern_id = ? OR pb.concern_id IS NULL OR pp.concern_id = ? OR pp.concern_id IS NULL OR w.concern_id = ? OR w.concern_id IS NULL)";
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-            } else {
-                if ($scopedWarehouseId) {
-                    $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                    $params[] = $cid;
-                    $params[] = (int)$scopedWarehouseId;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                } else {
-                    $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                    $params[] = $cid;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                    $params[] = $cid;
-                }
-            }
+            $sql .= " AND (
+                w.concern_id = ? 
+                OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?) 
+                OR pb.concern_id = ? 
+                OR po.concern_id = ?
+            )";
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
         }
 
         if (!empty($warehouseId)) {
@@ -237,7 +230,7 @@ class InwardController {
      * Check if a production batch can be accessed / inwarded under the active concern context.
      */
     private function canAccessBatch(array $batch, ?int $cid): bool {
-        if ($cid === null || $cid === 1) {
+        if ($cid === null) {
             return true;
         }
 
@@ -247,11 +240,6 @@ class InwardController {
         }
 
         $destWhId = !empty($batch['destination_warehouse_id']) ? (int)$batch['destination_warehouse_id'] : 0;
-        $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
-        if ($scopedWhId && $destWhId === $scopedWhId) {
-            return true;
-        }
-
         if ($destWhId > 0) {
             $wh = Warehouse::find($destWhId);
             if ($wh) {
@@ -272,11 +260,19 @@ class InwardController {
             }
         }
 
-        // Check if outward dispatch belongs to this concern
+        // Check if outward dispatch belongs to this concern or destination warehouse belongs to this concern
         if (!empty($batch['id'])) {
             $outward = ProductionOutward::findByBatchId((int)$batch['id']);
-            if ($outward && !empty($outward['concern_id']) && (int)$outward['concern_id'] === $cid) {
-                return true;
+            if ($outward) {
+                if (!empty($outward['concern_id']) && (int)$outward['concern_id'] === $cid) {
+                    return true;
+                }
+                if (!empty($outward['warehouse_id'])) {
+                    $outWh = Warehouse::find((int)$outward['warehouse_id']);
+                    if ($outWh && ((int)($outWh['concern_id'] ?? 0) === $cid || empty($outWh['concern_id']))) {
+                        return true;
+                    }
+                }
             }
         }
 
@@ -565,31 +561,19 @@ class InwardController {
                        w.name as warehouse_name, w.code as warehouse_code,
                        po.outward_number, po.dispatch_date, po.vehicle_number
                 FROM production_batches pb
-                JOIN production_programs pp ON pb.program_id = pp.id
+                LEFT JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 JOIN warehouses w ON pb.destination_warehouse_id = w.id
                 LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                 WHERE (pb.batch_number = ? OR po.outward_number = ?)";
         $params = [$code, $code];
 
-        if ($cid !== null && $cid !== 1) {
-            $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
-            if ($scopedWarehouseId) {
-                $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                $params[] = $cid;
-                $params[] = (int)$scopedWarehouseId;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-            } else {
-                $sql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-            }
+        if ($cid !== null) {
+            $sql .= " AND (w.concern_id = ? OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?) OR pb.concern_id = ? OR po.concern_id = ?)";
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
         }
 
         $batch = Database::fetchOne($sql, $params);
@@ -649,8 +633,8 @@ class InwardController {
         // Search for matching batch
         $batchSql = "SELECT pb.*, pp.program_number, p.name as product_name, w.name as warehouse_name, w.code as warehouse_code
                      FROM production_batches pb
-                     JOIN production_programs pp ON pb.program_id = pp.id
-                     JOIN products p ON pp.product_id = p.id
+                     LEFT JOIN production_programs pp ON pb.program_id = pp.id
+                     LEFT JOIN products p ON pp.product_id = p.id
                      JOIN warehouses w ON pb.destination_warehouse_id = w.id
                      LEFT JOIN production_outwards po ON (po.id = pb.production_outward_id OR po.production_batch_id = pb.id)
                      LEFT JOIN production_batch_items pbi ON pbi.production_batch_id = pb.id
@@ -665,24 +649,12 @@ class InwardController {
                      )";
         $params = [$code, $code, $parsedCode, $parsedCode, $parsedCode, $parsedCode];
 
-        if ($cid !== null && $cid !== 1) {
-            $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
-            if ($scopedWarehouseId) {
-                $batchSql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR pb.destination_warehouse_id = ? OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                $params[] = $cid;
-                $params[] = (int)$scopedWarehouseId;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-            } else {
-                $batchSql .= " AND (w.concern_id = ? OR w.concern_id IS NULL OR w.id IN (SELECT DISTINCT u2.warehouse_id FROM users u2 WHERE (u2.default_concern_id = ? OR u2.id IN (SELECT uc2.user_id FROM user_concerns uc2 WHERE uc2.concern_id = ?)) AND u2.warehouse_id IS NOT NULL) OR pb.concern_id = ? OR pp.concern_id = ? OR po.concern_id = ?)";
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-                $params[] = $cid;
-            }
+        if ($cid !== null) {
+            $batchSql .= " AND (w.concern_id = ? OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?) OR pb.concern_id = ? OR po.concern_id = ?)";
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
+            $params[] = $cid;
         }
 
         $batchSql .= " ORDER BY pb.id DESC LIMIT 1";

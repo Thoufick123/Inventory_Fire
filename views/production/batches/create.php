@@ -467,7 +467,7 @@
                                 </button>
                             <?php endif; ?>
                             <button type="submit" class="btn btn-primary px-4 fw-semibold shadow-sm" id="btnSavePackedBatch">
-                                <i class="bi bi-check2-circle me-1"></i> Save Packed Batch &amp; Generate Bill / Invoice
+                                <i class="bi bi-check2-circle me-1"></i> Save Packed Batch
                             </button>
                         </div>
                     <?php endif; ?>
