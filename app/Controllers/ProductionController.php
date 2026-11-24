@@ -20358,7 +20358,7 @@ class ProductionController {
                                  COALESCE(pbi.discount_amount, 0) as discount, 
                                  COALESCE(pbi.gst_percentage, 0) as tax_percent, 
                                  pbit.created_at as sale_date,
-                                 pb.id as bill_id, pb.bill_number, pb.bill_date, pb.payment_status, pb.payment_mode,
+                                 pb.id as bill_id, pb.bill_number, pb.bill_date, pb.payment_status, COALESCE(pb.payment_method, 'CASH') as payment_mode,
                                  COALESCE(NULLIF(pb.customer_name, ''), pb.company_name, 'Customer') as buyer_name,
                                  COALESCE(NULLIF(pb.customer_phone, ''), pb.company_phone, '') as buyer_phone
                           FROM production_bill_item_tags pbit
