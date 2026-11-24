@@ -1287,12 +1287,13 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         if (isNaN(cost)) cost = 0;
 
         const finalTag = (tagCode || getLabelCode(item.startSeq + pieceNum - 1, item)).toUpperCase();
+        const variantQrText = getDisplayVariantCode(finalTag, item);
 
         const qrContainer = document.getElementById('modalQrCanvas');
         if (qrContainer && typeof QRCode !== 'undefined') {
             qrContainer.innerHTML = '';
             new QRCode(qrContainer, {
-                text: finalTag,
+                text: variantQrText,
                 width: 150,
                 height: 150,
                 colorDark: "#0f172a",
@@ -1303,13 +1304,13 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         
         const typeLabelEl = document.getElementById('modalQrTypeLabel');
         if (typeLabelEl) {
-            typeLabelEl.innerHTML = `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(getDisplayVariantCode(finalTag, item))}</div>`;
+            typeLabelEl.innerHTML = `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(variantQrText)}</div>`;
         }
         
         const exactQrEl = document.getElementById('modalExactQrText');
         if (exactQrEl) {
-            exactQrEl.textContent = finalTag;
-            exactQrEl.dataset.qrValue = finalTag;
+            exactQrEl.textContent = variantQrText;
+            exactQrEl.dataset.qrValue = variantQrText;
         }
 
         const tagNumBadge = document.getElementById('modalPieceTagNumBadge');
@@ -1750,18 +1751,22 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         let matchedItem = null;
         let identifiedTag = '';
 
-        // Strategy 0: Match Exact Product Variant QR Code (e.g. pv.qr_code, Exact QR tag)
+        // Strategy 0: Match Exact Product Variant QR Code (e.g. V0013, pv.qr_code, Exact QR tag)
         ITEMS.forEach(item => {
             if (matched) return;
+            const vCode = getDisplayVariantCode('', item).toLowerCase();
             const vQr = (item.qr_code || '').trim().toLowerCase();
             const exactQr = getExactProductQR(item).toLowerCase();
+            const vIdStr = 'v' + String(item.variant_id).padStart(4, '0').toLowerCase();
             if (
+                (vCode && (vCode === cleanCode || (extractedTag && vCode === extractedTag) || cleanCode.includes(vCode))) ||
                 (vQr && (vQr === cleanCode || (extractedTag && vQr === extractedTag) || (extractedVariantDesc && vQr === extractedVariantDesc) || cleanCode.includes(vQr))) ||
-                (exactQr && (exactQr === cleanCode || (extractedTag && exactQr === extractedTag) || (extractedVariantDesc && exactQr === extractedVariantDesc) || cleanCode.includes(exactQr)))
+                (exactQr && (exactQr === cleanCode || (extractedTag && exactQr === extractedTag) || (extractedVariantDesc && exactQr === extractedVariantDesc) || cleanCode.includes(exactQr))) ||
+                (vIdStr && (vIdStr === cleanCode || (extractedTag && vIdStr === extractedTag) || cleanCode.includes(vIdStr)))
             ) {
                 matched = true;
                 matchedItem = item;
-                identifiedTag = (vQr || exactQr).toUpperCase();
+                identifiedTag = (vCode || vQr || exactQr).toUpperCase();
             }
         });
 
@@ -2541,42 +2546,41 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         document.getElementById('modalMissingQty').textContent = missing;
 
         // Update Piece Tag Text Box & Badge in simple Product Exact QR format
+        const variantQrText = getDisplayVariantCode('', item);
         const exactQrEl = document.getElementById('modalExactQrText');
         if (exactQrEl) {
-            exactQrEl.textContent = currentTagCode;
-            exactQrEl.dataset.qrValue = currentTagCode;
+            exactQrEl.textContent = variantQrText;
+            exactQrEl.dataset.qrValue = variantQrText;
         }
 
         const tagNumBadge = document.getElementById('modalPieceTagNumBadge');
         if (tagNumBadge) {
-            tagNumBadge.textContent = nextPiece ? `Piece #${pieceNum}` : 'Completed';
+            tagNumBadge.textContent = `Variant ${variantQrText}`;
         }
 
         const nextTagEl = document.getElementById('modalNextPieceTagText');
         if (nextTagEl) {
-            nextTagEl.textContent = nextPiece ? `${currentTagCode} (Piece #${pieceNum})` : 'All pieces processed';
+            nextTagEl.textContent = `${variantQrText} (${scanned} intact / ${expected} expected)`;
         }
 
         const typeLabelEl = document.getElementById('modalQrTypeLabel');
         if (typeLabelEl) {
-            typeLabelEl.innerHTML = nextPiece
-                ? `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(getDisplayVariantCode(currentTagCode, item))}</div>`
-                : '<div class="fw-semibold text-success mt-2">All pieces processed</div>';
+            typeLabelEl.innerHTML = `<div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">${escapeHtml(variantQrText)}</div>`;
         }
 
         const scanTargetSku = document.getElementById('modalScanTargetSku');
         if (scanTargetSku) {
-            scanTargetSku.textContent = currentTagCode;
+            scanTargetSku.textContent = variantQrText;
         }
 
-        // Render QR Code on Canvas (Matching clean format of First QR Type)
+        // Render QR Code on Canvas - ONE QR FOR ONE VARIANT (Stable QR Formation)
         const qrContainer = document.getElementById('modalQrCanvas');
         if (qrContainer) {
             qrContainer.innerHTML = '';
-            if (nextPiece && typeof QRCode !== 'undefined') {
+            if (typeof QRCode !== 'undefined' && variantQrText) {
                 try {
                     new QRCode(qrContainer, {
-                        text: String(currentTagCode),
+                        text: String(variantQrText),
                         width: 150,
                         height: 150,
                         colorDark: "#0f172a",
@@ -2746,12 +2750,12 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                 </div>
             `;
             piecesGrid.innerHTML = gridHtml;
-            // Render the single variant QR thumbnail
+            // Render the single variant QR thumbnail (ONE QR PER VARIANT)
             const thumbQrEl = document.getElementById('modalVariantSingleQr');
             if (thumbQrEl && typeof QRCode !== 'undefined') {
                 try {
                     new QRCode(thumbQrEl, {
-                        text: String(currentTagCode),
+                        text: String(variantDisplayCode),
                         width: 84,
                         height: 84,
                         colorDark: "#0f172a",
