@@ -18,18 +18,107 @@ class ProductionStockRequestController
     ];
 
     /**
-     * Display all Stock Requirements and Requisitions
+     * Retrieve all identity names associated with a concern (concern name, warehouses, production units)
+     */
+    private function getConcernIdentityNames(?int $concernId): array
+    {
+        if (!$concernId) return [];
+        $names = [];
+        $c = Database::fetchOne("SELECT name FROM concerns WHERE id = ?", [$concernId]);
+        if ($c && !empty($c['name'])) {
+            $names[] = trim($c['name']);
+        }
+        $whs = Database::fetchAll("SELECT name FROM warehouses WHERE concern_id = ?", [$concernId]);
+        foreach ($whs as $w) {
+            if (!empty($w['name'])) $names[] = trim($w['name']);
+        }
+        $pus = Database::fetchAll("SELECT name FROM production_units WHERE concern_id = ?", [$concernId]);
+        foreach ($pus as $p) {
+            if (!empty($p['name'])) $names[] = trim($p['name']);
+        }
+        return array_values(array_unique(array_filter($names)));
+    }
+
+    /**
+     * Display all Stock Requirements and Requisitions (Separated by Requests Sent vs Requests Received)
      */
     public function index(): void
     {
+        $activeTab   = strtolower(trim((string)($_GET['tab'] ?? 'sent')));
+        if ($activeTab !== 'received') {
+            $activeTab = 'sent';
+        }
+
         $status      = trim((string)($_GET['status'] ?? ''));
         $priority    = trim((string)($_GET['priority'] ?? ''));
         $fromModule  = trim((string)($_GET['from_module'] ?? ''));
         $toModule    = trim((string)($_GET['to_module'] ?? ''));
         $search      = trim((string)($_GET['search'] ?? ''));
 
-        $where = ['1=1'];
-        $params = [];
+        $cid = currentConcernId();
+        $identityNames = $this->getConcernIdentityNames($cid);
+
+        // Build Sent Base Condition & Params (where active concern is Requester / Who is Asking)
+        $sentCond = '1=1';
+        $sentParams = [];
+        if ($cid) {
+            $sentParts = ['psr.concern_id = ?', 'psr.from_unit_id = ?'];
+            $sentParams[] = $cid;
+            $sentParams[] = $cid;
+            if ($cid === 1) {
+                $sentParts[] = 'psr.concern_id IS NULL';
+            }
+            if (!empty($identityNames)) {
+                $placeholders = implode(',', array_fill(0, count($identityNames), '?'));
+                $sentParts[] = "psr.from_module IN ($placeholders)";
+                $sentParams = array_merge($sentParams, $identityNames);
+            }
+            $sentCond = '(' . implode(' OR ', $sentParts) . ')';
+        }
+
+        // Build Received Base Condition & Params (where active concern is Fulfill / Send Area Being Asked)
+        $receivedCond = '1=1';
+        $receivedParams = [];
+        if ($cid) {
+            $recParts = ['psr.to_unit_id = ?'];
+            $receivedParams[] = $cid;
+            if (!empty($identityNames)) {
+                $placeholders = implode(',', array_fill(0, count($identityNames), '?'));
+                $recParts[] = "psr.to_module IN ($placeholders)";
+                $recParts[] = "psr.warehouse_name IN ($placeholders)";
+                $receivedParams = array_merge($receivedParams, $identityNames, $identityNames);
+            }
+            $receivedCond = '(' . implode(' OR ', $recParts) . ')';
+        }
+
+        // Compute Counts for Tab Badges
+        $sentCount = (int)(Database::fetchOne(
+            "SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE $sentCond",
+            $sentParams
+        )['c'] ?? 0);
+
+        $receivedCount = (int)(Database::fetchOne(
+            "SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE $receivedCond",
+            $receivedParams
+        )['c'] ?? 0);
+
+        // Pending received requests count (useful for action notifications)
+        $pendingReceivedCount = (int)(Database::fetchOne(
+            "SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE psr.status = 'PENDING' AND $receivedCond",
+            $receivedParams
+        )['c'] ?? 0);
+
+        // Select the active base condition & params based on $activeTab
+        if ($activeTab === 'received') {
+            $baseCond = $receivedCond;
+            $baseParams = $receivedParams;
+        } else {
+            $baseCond = $sentCond;
+            $baseParams = $sentParams;
+        }
+
+        $where = [$baseCond];
+        $params = $baseParams;
 
         if ($status !== '') {
             $where[] = 'psr.status = ?';
@@ -57,16 +146,6 @@ class ProductionStockRequestController
             $params = array_merge($params, [$wild, $wild, $wild, $wild, $wild]);
         }
 
-        $cid = currentConcernId();
-        if ($cid) {
-            if ($cid === 1) {
-                $where[] = '(psr.concern_id = ? OR psr.concern_id IS NULL)';
-            } else {
-                $where[] = 'psr.concern_id = ?';
-            }
-            $params[] = $cid;
-        }
-
         $requests = Database::fetchAll(
             "SELECT psr.*,
                     (SELECT COUNT(*) FROM production_stock_request_items WHERE request_id = psr.id) AS item_count
@@ -85,36 +164,33 @@ class ProductionStockRequestController
             $params
         );
 
-        $statWhere = "";
-        $statParams = [];
-        if ($cid) {
-            $statWhere = ($cid === 1) ? " WHERE (concern_id = ? OR concern_id IS NULL)" : " WHERE concern_id = ?";
-            $statParams = [$cid];
-        }
-
         $stats = [
-            'total_requests'          => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests" . $statWhere, $statParams)['c'] ?? 0),
-            'pending_receipt_count'   => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests WHERE status = 'PENDING'" . ($cid ? (($cid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?") : ""), $cid ? [$cid] : [])['c'] ?? 0),
-            'received_send_area_count'=> (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests WHERE status = 'RECEIVED_BY_SEND_AREA'" . ($cid ? (($cid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?") : ""), $cid ? [$cid] : [])['c'] ?? 0),
-            'dispatched_count'        => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests WHERE status = 'DISPATCHED'" . ($cid ? (($cid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?") : ""), $cid ? [$cid] : [])['c'] ?? 0),
-            'fulfilled_count'         => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests WHERE status = 'FULFILLED'" . ($cid ? (($cid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?") : ""), $cid ? [$cid] : [])['c'] ?? 0),
-            'total_requested_pieces'  => (int)(Database::fetchOne("SELECT COALESCE(SUM(total_requested_pieces), 0) AS s FROM production_stock_requests" . $statWhere, $statParams)['s'] ?? 0),
-            'total_dispatched_pieces' => (int)(Database::fetchOne("SELECT COALESCE(SUM(dispatched_pieces), 0) AS s FROM production_stock_requests" . $statWhere, $statParams)['s'] ?? 0),
-            'total_fulfilled_pieces'  => (int)(Database::fetchOne("SELECT COALESCE(SUM(fulfilled_pieces), 0) AS s FROM production_stock_requests" . $statWhere, $statParams)['s'] ?? 0),
+            'total_requests'          => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE $baseCond", $baseParams)['c'] ?? 0),
+            'pending_receipt_count'   => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE psr.status = 'PENDING' AND $baseCond", $baseParams)['c'] ?? 0),
+            'received_send_area_count'=> (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE psr.status = 'RECEIVED_BY_SEND_AREA' AND $baseCond", $baseParams)['c'] ?? 0),
+            'dispatched_count'        => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE psr.status = 'DISPATCHED' AND $baseCond", $baseParams)['c'] ?? 0),
+            'fulfilled_count'         => (int)(Database::fetchOne("SELECT COUNT(*) AS c FROM production_stock_requests psr WHERE psr.status = 'FULFILLED' AND $baseCond", $baseParams)['c'] ?? 0),
+            'total_requested_pieces'  => (int)(Database::fetchOne("SELECT COALESCE(SUM(psr.total_requested_pieces), 0) AS s FROM production_stock_requests psr WHERE $baseCond", $baseParams)['s'] ?? 0),
+            'total_dispatched_pieces' => (int)(Database::fetchOne("SELECT COALESCE(SUM(psr.dispatched_pieces), 0) AS s FROM production_stock_requests psr WHERE $baseCond", $baseParams)['s'] ?? 0),
+            'total_fulfilled_pieces'  => (int)(Database::fetchOne("SELECT COALESCE(SUM(psr.fulfilled_pieces), 0) AS s FROM production_stock_requests psr WHERE $baseCond", $baseParams)['s'] ?? 0),
         ];
 
         Response::view('production.stock_requests.index', [
-            'pageTitle'    => 'Stock Requirements & Inter-Module Requests | Production Unit',
-            'activeModule' => 'production',
-            'activeMenu'   => 'prod-stock-requests',
-            'requests'     => $requests,
-            'stats'        => $stats,
-            'status'       => $status,
-            'priority'     => $priority,
-            'fromModule'   => $fromModule,
-            'toModule'     => $toModule,
-            'search'       => $search,
-            'modulesList'  => self::AVAILABLE_MODULES,
+            'pageTitle'            => 'Stock Requirements & Inter-Module Requests | Production Unit',
+            'activeModule'         => 'production',
+            'activeMenu'           => 'prod-stock-requests',
+            'activeTab'            => $activeTab,
+            'sentCount'            => $sentCount,
+            'receivedCount'        => $receivedCount,
+            'pendingReceivedCount' => $pendingReceivedCount,
+            'requests'             => $requests,
+            'stats'                => $stats,
+            'status'               => $status,
+            'priority'             => $priority,
+            'fromModule'           => $fromModule,
+            'toModule'             => $toModule,
+            'search'               => $search,
+            'modulesList'          => self::AVAILABLE_MODULES,
         ]);
     }
 
@@ -432,13 +508,30 @@ class ProductionStockRequestController
 
             $cid = currentConcernId();
 
+            if ($toConcernId <= 0 && !empty($toModule)) {
+                $cFound = Database::fetchOne("SELECT id FROM concerns WHERE name = ? LIMIT 1", [$toModule]);
+                if ($cFound) {
+                    $toConcernId = (int)$cFound['id'];
+                } else {
+                    $wFound = Database::fetchOne("SELECT concern_id FROM warehouses WHERE name = ? LIMIT 1", [$toModule]);
+                    if ($wFound && !empty($wFound['concern_id'])) {
+                        $toConcernId = (int)$wFound['concern_id'];
+                    } else {
+                        $pFound = Database::fetchOne("SELECT concern_id FROM production_units WHERE name = ? LIMIT 1", [$toModule]);
+                        if ($pFound && !empty($pFound['concern_id'])) {
+                            $toConcernId = (int)$pFound['concern_id'];
+                        }
+                    }
+                }
+            }
+
             Database::execute(
                 "INSERT INTO production_stock_requests
                  (concern_id, request_number, from_module, to_module, warehouse_name, requested_by_name, priority, required_by_date,
-                  total_requested_pieces, fulfilled_pieces, dispatched_pieces, status, notes, created_by, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'PENDING', ?, ?, NOW())",
+                  total_requested_pieces, fulfilled_pieces, dispatched_pieces, status, notes, created_by, created_at, to_unit_id, from_unit_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'PENDING', ?, ?, NOW(), ?, ?)",
                 [
-                    $cid,
+                    $fromConcernId ?: $cid,
                     $reqNumber,
                     $fromModule,
                     $toModule,
@@ -449,6 +542,8 @@ class ProductionStockRequestController
                     $totalPieces,
                     $notes,
                     (int)(Auth::id() ?? 0) ?: null,
+                    $toConcernId > 0 ? $toConcernId : null,
+                    $fromConcernId > 0 ? $fromConcernId : ($cid ?: 1),
                 ]
             );
             $reqId = (int)Database::lastInsertId();
