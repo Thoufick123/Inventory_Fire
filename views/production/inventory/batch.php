@@ -377,6 +377,11 @@ $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-7 px-2" id="headerCountBadge">
                     <?= $remainingPieces ?> In Stock / <?= count($pieceItems) ?> Total Pieces
                 </span>
+                <?php if (!empty($totalBilledPieces)): ?>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fs-7 px-2">
+                    <i class="bi bi-receipt me-1"></i><?= $totalBilledPieces ?> Billed / Sold
+                </span>
+                <?php endif; ?>
             </h5>
             <span class="text-muted small">
                 <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
@@ -520,7 +525,12 @@ $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
                                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 d-block mb-1">
                                         <i class="bi bi-patch-check me-1"></i>QC PASSED
                                     </span>
-                                    <?php if (!empty($it['is_dispatched'])): ?>
+                                    <?php if (!empty($it['is_billed'])): ?>
+                                        <span class="badge bg-primary text-white border border-primary px-2 py-1 d-block mb-1">
+                                            <i class="bi bi-receipt me-1"></i>BILLED / SOLD
+                                        </span>
+                                        <small class="text-primary font-monospace d-block" style="font-size: 11px;">#<?= e($it['bill_number']) ?></small>
+                                    <?php elseif (!empty($it['is_dispatched'])): ?>
                                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 d-block mb-1">
                                             <i class="bi bi-truck me-1"></i>DISPATCHED
                                         </span>
@@ -539,7 +549,7 @@ $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
                                                 Actions
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                                                <?php if (empty($it['is_dispatched'])): ?>
+                                                <?php if (empty($it['is_dispatched']) && empty($it['is_billed'])): ?>
                                                 <li>
                                                     <a class="dropdown-item text-success" href="<?= url('production/batches/create?qc_batch_id=' . $it['qc_batch_id']) ?>">
                                                         <i class="bi bi-box-seam me-2"></i>Pack into Box Batch

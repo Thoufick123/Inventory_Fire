@@ -16282,7 +16282,7 @@ class ProductionController {
     public function createBatch(): void {
         $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
         $qcBatchId = $_GET['qc_batch_id'] ?? null;
-        $unitClause = $scopedUnitId ? " AND pp.production_unit_id = $scopedUnitId" : "";
+        $unitClause = $scopedUnitId ? " AND (pp.production_unit_id = $scopedUnitId OR pp.production_unit_id IS NULL OR pp.production_unit_id = 0)" : "";
         
         $rawQcBatches = Database::fetchAll(
             "SELECT qb.*, pp.program_number, pp.product_id as program_product_id, COALESCE(p.name, pp.name, 'General Apparel') as product_name,
@@ -16602,7 +16602,33 @@ class ProductionController {
             }
         }
 
-        $warehouses = Database::fetchAll("SELECT * FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+        // Auto-provision warehouse records for all active concerns if missing
+        $activeConcerns = Database::fetchAll("SELECT id, name, code, address, phone, gst_number FROM concerns WHERE is_active = 1");
+        foreach ($activeConcerns as $ac) {
+            $existingWh = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ?", [(int)$ac['id']]);
+            if (!$existingWh) {
+                $whCode = 'WH-' . $ac['code'];
+                $suffix = 1;
+                while (Database::fetchOne("SELECT id FROM warehouses WHERE code = ?", [$whCode])) {
+                    $whCode = 'WH-' . $ac['code'] . '-' . (++$suffix);
+                }
+                try {
+                    Database::execute(
+                        "INSERT INTO warehouses (concern_id, name, code, address, phone, gst_number, is_active, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW())",
+                        [(int)$ac['id'], $ac['name'] . ' (Warehouse)', $whCode, $ac['address'] ?: null, $ac['phone'] ?: null, $ac['gst_number'] ?: null]
+                    );
+                } catch (\Throwable $e) {}
+            }
+        }
+
+        $warehouses = Database::fetchAll("
+            SELECT w.*, c.name as concern_name, c.code as concern_code 
+            FROM warehouses w 
+            LEFT JOIN concerns c ON w.concern_id = c.id 
+            WHERE w.is_active = 1 
+            ORDER BY COALESCE(c.name, w.name) ASC
+        ");
 
         Response::view('production.batches.create', [
             'pageTitle'                 => 'Pack Production Batch',
@@ -18936,6 +18962,32 @@ class ProductionController {
             }
         }
 
+        // Fetch all billed piece tags from POS billing to deduct from in-stock inventory
+        $billedCountsSql = "
+            SELECT COALESCE(qi.qc_batch_id, 0) as qc_batch_id,
+                   COALESCE(pbi.variant_id, qi.variant_id, 0) as variant_id,
+                   COUNT(pbit.id) as billed_qty
+            FROM production_bill_item_tags pbit
+            JOIN production_bill_items pbi ON pbit.bill_item_id = pbi.id
+            LEFT JOIN qc_items qi ON pbit.qc_item_id = qi.id
+            JOIN production_bills pb ON pbit.bill_id = pb.id
+            GROUP BY qi.qc_batch_id, COALESCE(pbi.variant_id, qi.variant_id, 0)
+        ";
+        $allBilledCounts = Database::fetchAll($billedCountsSql);
+        $billedByQC = [];
+        $billedByVariant = [];
+        foreach ($allBilledCounts as $bbc) {
+            $qbId = (int)$bbc['qc_batch_id'];
+            $vId = (int)$bbc['variant_id'];
+            $bQty = (int)$bbc['billed_qty'];
+            if ($qbId > 0) {
+                $billedByQC[$qbId] = ($billedByQC[$qbId] ?? 0) + $bQty;
+            }
+            if ($vId > 0) {
+                $billedByVariant[$vId] = ($billedByVariant[$vId] ?? 0) + $bQty;
+            }
+        }
+
         // Group items by QC batch (Production Stitching Stock)
         $batches = [];
         foreach ($items as $it) {
@@ -19062,14 +19114,17 @@ class ProductionController {
                 $totalOutwardQty += (int)$ow['outward_qty'];
             }
 
+            $totalBilledQty = (int)($billedByQC[$bId] ?? 0);
             $passedPcs = (int)$batch['total_pieces'];
             $outwardPcs = min($passedPcs, $totalOutwardQty);
-            $remainingPcs = max(0, $passedPcs - $outwardPcs);
+            $billedPcs = min(max(0, $passedPcs - $outwardPcs), $totalBilledQty);
+            $remainingPcs = max(0, $passedPcs - $outwardPcs - $billedPcs);
             
             $unitAvgPrice = $passedPcs > 0 ? ($batch['total_value'] / $passedPcs) : 0;
             $remainingVal = max(0.0, $remainingPcs * $unitAvgPrice);
 
             $batch['total_outward_pieces'] = $outwardPcs;
+            $batch['total_billed_pieces']  = $billedPcs;
             $batch['remaining_pieces']       = $remainingPcs;
             $batch['remaining_value']        = $remainingVal;
             $batch['total_passed_value']     = $batch['total_value'];
@@ -19094,8 +19149,13 @@ class ProductionController {
                 $variants[$variantPiece['variant_index']]['outward_qty'] += $outwardForItem;
                 $remainingOutwardQty -= $outwardForItem;
             }
+            $remainingBilledQty = $billedPcs;
             foreach ($variants as &$variant) {
-                $variant['remaining_qty'] = (int)$variant['passed_qty'] - $variant['outward_qty'];
+                $remAfterOutward = max(0, (int)$variant['passed_qty'] - (int)$variant['outward_qty']);
+                $varBilled = min($remAfterOutward, $remainingBilledQty);
+                $variant['billed_qty'] = $varBilled;
+                $variant['remaining_qty'] = max(0, $remAfterOutward - $varBilled);
+                $remainingBilledQty -= $varBilled;
                 $variant['valuation'] = (float)$variant['remaining_qty'] * (float)$variant['selling_price'];
                 unset($variant['qc_items']);
             }
@@ -19106,8 +19166,8 @@ class ProductionController {
             if ($passedPcs === 0) {
                 $batch['stock_status'] = 'NO_PASSED_STOCK';
             } elseif ($remainingPcs === 0) {
-                $batch['stock_status'] = 'FULLY_OUTWARDED';
-            } elseif ($outwardPcs > 0 && $remainingPcs > 0) {
+                $batch['stock_status'] = ($billedPcs > 0 && $outwardPcs === 0) ? 'FULLY_BILLED' : 'FULLY_OUTWARDED';
+            } elseif (($outwardPcs > 0 || $billedPcs > 0) && $remainingPcs > 0) {
                 $batch['stock_status'] = 'PARTIALLY_OUTWARDED';
             } else {
                 $batch['stock_status'] = 'IN_STOCK';
@@ -19588,6 +19648,21 @@ class ProductionController {
             $totalOutwardPieces += (int)$ow['outward_qty'];
         }
 
+        // Fetch all billed pieces from POS billing
+        $billedTagRows = Database::fetchAll(
+            "SELECT pbit.tag_code, pbit.qc_item_id, pb.bill_number, pb.id as bill_id, pb.bill_date,
+                    COALESCE(NULLIF(pb.customer_name, ''), pb.company_name, 'Customer') as buyer_name
+             FROM production_bill_item_tags pbit
+             JOIN production_bills pb ON pbit.bill_id = pb.id"
+        );
+        $billedTagsMap = [];
+        foreach ($billedTagRows as $btr) {
+            $tCode = strtoupper(trim((string)$btr['tag_code']));
+            if ($tCode !== '') {
+                $billedTagsMap[$tCode] = $btr;
+            }
+        }
+
         $getPieceCatalogAbbr = function($it, $first) {
             if (!empty($it['qr_code_prefix']) && strlen(trim($it['qr_code_prefix'])) <= 5) {
                 return strtoupper(trim($it['qr_code_prefix']));
@@ -19732,6 +19807,7 @@ class ProductionController {
         $batchPieceSeq = 1;
         $totalPieces = 0;
         $totalValue  = 0.0;
+        $totalBilledPieces = 0;
 
         foreach ($items as $it) {
             $passedQty = (int)$it['passed_qty'];
@@ -19769,9 +19845,16 @@ class ProductionController {
                     continue;
                 }
 
+                $uTag = strtoupper($pieceTagCode);
+                $isBilled = isset($billedTagsMap[$uTag]);
+                $billedInfo = $isBilled ? $billedTagsMap[$uTag] : null;
+                if ($isBilled) {
+                    $totalBilledPieces++;
+                }
+
                 $totalPieces++;
                 $totalValue += $price;
-                $isDispatched = ($pieceNo <= $totalOutwardPieces);
+                $isDispatched = !$isBilled && ($pieceNo <= $totalOutwardPieces);
                 $pieceOutwardInfo = null;
                 if ($isDispatched && !empty($outwards)) {
                     $pieceOutwardInfo = $outwards[0]['outward_number'] ?? 'OUTWARDED';
@@ -19801,15 +19884,19 @@ class ProductionController {
                     'program_number'  => $it['program_number'] ?? 'N/A',
                     'inspector_name'  => $it['inspector_name'] ?? 'Inspector',
                     'batch_created_at'=> $it['batch_created_at'] ?? null,
+                    'is_billed'       => $isBilled,
+                    'bill_number'     => $billedInfo['bill_number'] ?? null,
+                    'bill_id'         => $billedInfo['bill_id'] ?? null,
+                    'buyer_name'      => $billedInfo['buyer_name'] ?? null,
                     'is_dispatched'   => $isDispatched,
-                    'can_delete'      => !$isDispatched && isset($availableCodesByItem[(int)$it['id']][strtoupper($pieceTagCode)]),
+                    'can_delete'      => !$isBilled && !$isDispatched && isset($availableCodesByItem[(int)$it['id']][strtoupper($pieceTagCode)]),
                     'outward_info'    => $pieceOutwardInfo,
                 ];
             }
         }
 
         $effectiveOutwardPieces = min($totalPieces, $totalOutwardPieces);
-        $remainingPieces = max(0, $totalPieces - $effectiveOutwardPieces);
+        $remainingPieces = max(0, $totalPieces - $effectiveOutwardPieces - $totalBilledPieces);
         $avgPiecePrice = $totalPieces > 0 ? ($totalValue / $totalPieces) : 0;
         $remainingValue = max(0.0, $remainingPieces * $avgPiecePrice);
 
@@ -19827,6 +19914,7 @@ class ProductionController {
             'totalPieces'         => $totalPieces,
             'totalValue'          => $totalValue,
             'totalOutwardPieces'  => $effectiveOutwardPieces,
+            'totalBilledPieces'   => $totalBilledPieces,
             'remainingPieces'     => $remainingPieces,
             'remainingValue'      => $remainingValue,
             'outwards'            => $outwards,

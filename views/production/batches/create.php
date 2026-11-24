@@ -176,11 +176,22 @@
                     <?php endif; ?>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold required">Destination Warehouse <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold required">Destination Concern / Warehouse <span class="text-danger">*</span></label>
                         <select name="destination_warehouse_id" id="destination_warehouse_id" class="form-select" required>
-                            <option value="">-- Select Warehouse --</option>
+                            <option value="">-- Select Destination Concern / Warehouse --</option>
                             <?php foreach ($warehouses as $w): ?>
-                                <option value="<?= $w['id'] ?>"><?= e($w['name']) ?> (<?= e($w['code']) ?>)</option>
+                                <?php
+                                    $label = '';
+                                    if (!empty($w['concern_name'])) {
+                                        $label = $w['concern_name'] . ' (' . ($w['concern_code'] ?? '') . ')';
+                                        if (!empty($w['name']) && stripos($w['name'], $w['concern_name']) === false) {
+                                            $label .= ' — ' . $w['name'];
+                                        }
+                                    } else {
+                                        $label = $w['name'] . ' (' . $w['code'] . ')';
+                                    }
+                                ?>
+                                <option value="<?= $w['id'] ?>" <?= (!empty($batch['destination_warehouse_id']) && $batch['destination_warehouse_id'] == $w['id']) ? 'selected' : '' ?>><?= e($label) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>

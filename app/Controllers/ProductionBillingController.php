@@ -386,6 +386,40 @@ class ProductionBillingController
         ]);
     }
 
+    public function getBatchItemsJson(): void
+    {
+        $batchId = (int)($_GET['batch_id'] ?? 0);
+        if ($batchId <= 0) {
+            Response::json(['success' => false, 'message' => 'Invalid batch ID']);
+            return;
+        }
+        $items = $this->loadBatchItemsForBilling($batchId);
+        $batch = Database::fetchOne(
+            "SELECT pb.*, 
+                    COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
+                    w.name AS warehouse_name,
+                    w.code AS warehouse_code,
+                    c.name AS concern_name,
+                    c.code AS concern_code,
+                    c.address AS concern_address,
+                    c.phone AS concern_phone,
+                    c.email AS concern_email,
+                    c.gst_number AS concern_gst
+             FROM production_batches pb
+             JOIN production_programs pp ON pb.program_id = pp.id
+             LEFT JOIN products p ON pp.product_id = p.id
+             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
+             LEFT JOIN concerns c ON pb.concern_id = c.id OR w.concern_id = c.id
+             WHERE pb.id = ?",
+            [$batchId]
+        );
+        Response::json([
+            'success' => true,
+            'batch'   => $batch,
+            'items'   => $items,
+        ]);
+    }
+
     public function searchInventory(): void
     {
         if (!hasPermission('production_billing', 'create') && !hasPermission('production_billing', 'edit')) {
@@ -1124,17 +1158,35 @@ class ProductionBillingController
 
         $staffUsers = Database::fetchAll("SELECT id, full_name, username, phone, department, staff_role FROM users WHERE is_active = 1 ORDER BY full_name ASC");
 
+        $availablePackingBatches = Database::fetchAll(
+            "SELECT pb.*, 
+                    COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
+                    w.name AS warehouse_name,
+                    w.code AS warehouse_code,
+                    c.name AS concern_name,
+                    c.code AS concern_code
+             FROM production_batches pb
+             JOIN production_programs pp ON pb.program_id = pp.id
+             LEFT JOIN products p ON pp.product_id = p.id
+             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
+             LEFT JOIN concerns c ON pb.concern_id = c.id OR w.concern_id = c.id
+             WHERE pb.production_bill_id IS NULL
+               AND pb.status IN ('PREPARING', 'APPROVED')
+             ORDER BY pb.id DESC"
+        );
+
         Response::view('production.billing.form', [
-            'pageTitle'       => $bill ? 'Edit Production Bill' : 'Create Production Bill',
-            'activeModule'    => 'production',
-            'activeMenu'      => 'prod-billing',
-            'bill'            => $bill,
-            'billItems'       => $billItems,
-            'prodUnit'        => $prodUnit,
-            'productionUnits' => $productionUnits,
-            'activeConcern'   => $activeConcern,
-            'staffUsers'      => $staffUsers,
-            'currentUserId'   => Auth::id(),
+            'pageTitle'               => $bill ? 'Edit Production Bill' : 'Create Production Bill',
+            'activeModule'            => 'production',
+            'activeMenu'              => 'prod-billing',
+            'bill'                    => $bill,
+            'billItems'               => $billItems,
+            'prodUnit'                => $prodUnit,
+            'productionUnits'         => $productionUnits,
+            'activeConcern'           => $activeConcern,
+            'staffUsers'              => $staffUsers,
+            'availablePackingBatches' => $availablePackingBatches,
+            'currentUserId'           => Auth::id(),
         ]);
     }
 
@@ -2236,6 +2288,13 @@ class ProductionBillingController
                     }
                 }
             }
+
+            // Link packing batch to this bill if billed from a packing batch
+            $batchIdParam = (int)($_POST['production_batch_id'] ?? 0);
+            if ($batchIdParam > 0) {
+                Database::execute("UPDATE production_batches SET production_bill_id = ? WHERE id = ?", [$billId, $batchIdParam]);
+            }
+
             Database::commit();
             Response::redirect('production/billing/view/' . $billId, 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
         } catch (Throwable $e) {
