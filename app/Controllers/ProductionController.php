@@ -7371,16 +7371,37 @@ class ProductionController {
 
         $variant = Database::fetchOne($variantSql, $variantParams);
 
-        if ($variant && $this->damageItemMatchesActiveConcern(
-            isset($variant['record_concern_id']) ? (int)$variant['record_concern_id'] : null
-        )) {
-            $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
-            if ($availStock <= 0) {
-                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+        if ($variant) {
+            $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+            $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+            // Calculate active available stock scoped to this concern/warehouse
+            $availStock = 0.0;
+            if ($scopedWhId) {
+                $availStock = (float)(Database::fetchColumn(
+                    "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND location_type = 'WAREHOUSE' AND location_id = ? AND stock_state = 'AVAILABLE'",
+                    [(int)$variant['id'], (int)$scopedWhId]
+                ) ?? 0);
+            }
+            if ($availStock <= 0 && $activeCid) {
+                $availStock = (float)(Database::fetchColumn(
+                    "SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND (concern_id = ? OR location_id IN (SELECT id FROM warehouses WHERE concern_id = ?))",
+                    [(int)$variant['id'], (int)$activeCid, (int)$activeCid]
+                ) ?? 0);
             }
             if ($availStock <= 0) {
-                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(received_qty), 0) FROM production_batch_items WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
             }
+            if ($availStock <= 0) {
+                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(quantity), 0) FROM stock WHERE variant_id = ? AND stock_state = 'AVAILABLE'", [(int)$variant['id']]) ?? 0);
+            }
+            if ($availStock <= 0) {
+                $availStock = (float)(Database::fetchColumn("SELECT COALESCE(SUM(COALESCE(NULLIF(received_qty, 0), quantity)), 0) FROM production_batch_items WHERE variant_id = ?", [(int)$variant['id']]) ?? 0);
+            }
+            if ($availStock <= 0) {
+                $availStock = 1.0;
+            }
+
             $price = (float)(!empty($variant['selling_price']) && $variant['selling_price'] > 0
                 ? $variant['selling_price']
                 : (!empty($variant['mrp']) && $variant['mrp'] > 0 ? $variant['mrp'] : 500.00));
@@ -7402,7 +7423,7 @@ class ProductionController {
                 'sku'             => $variant['sku'],
                 'size'            => $variant['size_name'] ?? '',
                 'color'           => $variant['color_name'] ?? '',
-                'seller_name'     => 'In-House Product Variant (' . $varDisplayCode . ')',
+                'seller_name'     => 'Warehouse Stock (' . $varDisplayCode . ')',
                 'roll_number'     => $prodName . (!empty($variant['size_name']) ? " ({$variant['size_name']})" : ''),
                 'price'           => $price,
                 'loss'            => $price,
@@ -7634,9 +7655,7 @@ class ProductionController {
 
         $batch = Database::fetchOne($batchSql, $batchParams);
 
-        if ($batch && $this->damageItemMatchesActiveConcern(
-            isset($batch['record_concern_id']) ? (int)$batch['record_concern_id'] : null
-        )) {
+        if ($batch) {
             $price = (float)(!empty($batch['selling_price']) && $batch['selling_price'] > 0 
                 ? $batch['selling_price'] 
                 : (!empty($batch['mrp']) && $batch['mrp'] > 0 ? $batch['mrp'] : 500.00));
@@ -9664,11 +9683,22 @@ class ProductionController {
                 // =========================================================================
                 $varId = !empty($item['variant_id']) ? (int)$item['variant_id'] : 0;
                 if ($varId > 0) {
+                    $scopedWhId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
+                    $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+
+                    $stockOrder = "CASE WHEN stock_state = 'AVAILABLE' THEN 1 ELSE 2 END";
+                    if ($scopedWhId) {
+                        $stockOrder .= ", CASE WHEN location_type = 'WAREHOUSE' AND location_id = " . (int)$scopedWhId . " THEN 1 ELSE 2 END";
+                    } elseif ($activeCid) {
+                        $stockOrder .= ", CASE WHEN concern_id = " . (int)$activeCid . " THEN 1 ELSE 2 END";
+                    }
+                    $stockOrder .= ", quantity DESC";
+
                     $stocks = Database::fetchAll(
                         "SELECT id, location_type, location_id, stock_state, quantity 
                          FROM stock_balances 
                          WHERE variant_id = ? AND quantity > 0 
-                         ORDER BY CASE WHEN stock_state = 'AVAILABLE' THEN 1 ELSE 2 END, quantity DESC",
+                         ORDER BY $stockOrder",
                         [$varId]
                     );
                     $qtyRemaining = (float)$qty;
