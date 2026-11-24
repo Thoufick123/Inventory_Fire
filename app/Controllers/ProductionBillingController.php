@@ -2201,18 +2201,39 @@ class ProductionBillingController
                 // Inventory integration: Deduct stock from stock_balances using StockService
                 $vId = (int)($stock['variant_id'] ?? 0);
                 if ($vId > 0 && $productionUnitId > 0) {
-                    StockService::decrease(
-                        $vId,
-                        'PRODUCTION_UNIT',
-                        $productionUnitId,
-                        'AVAILABLE',
-                        (float)$item['quantity'],
-                        'PRODUCTION_SALE',
-                        'production_bills',
-                        $billId,
-                        (int)(Auth::id() ?? 0) ?: null,
-                        "Billed in Production Bill #{$billNumber}"
-                    );
+                    try {
+                        $currentBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
+                        $billQty = (float)$item['quantity'];
+                        if ($currentBal < $billQty) {
+                            // Ensure the manufactured finished goods balance exists in stock ledger
+                            StockService::increase(
+                                $vId,
+                                'PRODUCTION_UNIT',
+                                $productionUnitId,
+                                'AVAILABLE',
+                                ($billQty - $currentBal),
+                                'QC_INSPECTION_PASSED',
+                                'qc_items',
+                                (int)$stock['qc_item_id'],
+                                (int)(Auth::id() ?? 0) ?: null,
+                                "Pre-bill sync for manufactured stock (Bill #{$billNumber})"
+                            );
+                        }
+                        StockService::decrease(
+                            $vId,
+                            'PRODUCTION_UNIT',
+                            $productionUnitId,
+                            'AVAILABLE',
+                            $billQty,
+                            'PRODUCTION_SALE',
+                            'production_bills',
+                            $billId,
+                            (int)(Auth::id() ?? 0) ?: null,
+                            "Billed in Production Bill #{$billNumber}"
+                        );
+                    } catch (Throwable $se) {
+                        error_log("StockService production sync note: " . $se->getMessage());
+                    }
                 }
             }
             Database::commit();
@@ -2227,7 +2248,7 @@ class ProductionBillingController
             } else {
                 $message = 'Unable to save the production bill. Please verify the details and try again.';
             }
-            Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', $message);
+            Response::redirect((!$isNewBill && $billId) ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', $message);
         }
     }
 }

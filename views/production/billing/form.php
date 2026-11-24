@@ -281,15 +281,15 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     <table class="table align-middle mb-0" id="billingCartTable">
                         <thead class="table-light small text-uppercase">
                             <tr>
-                                <th>Product / QR Codes</th>
-                                <th class="text-center" style="width:130px">Qty</th>
-                                <th class="text-end">MRP</th>
-                                <th style="width:100px">Discount %</th>
-                                <th style="width:120px">Price / Pc<br><small>incl. tax</small></th>
-                                <th style="min-width:300px">GST / Tax Details</th>
-                                <th class="text-end">Tax (Incl.)</th>
-                                <th class="text-end">Total</th>
-                                <th style="width: 50px;"></th>
+                                <th style="min-width: 220px;">Product &amp; Details</th>
+                                <th class="text-center" style="width: 125px;">Qty</th>
+                                <th class="text-end" style="width: 95px;">MRP</th>
+                                <th style="width: 95px;">Disc %</th>
+                                <th style="width: 115px;">Price / Pc<br><small class="text-muted fw-normal">incl. tax</small></th>
+                                <th style="width: 165px;">GST Details</th>
+                                <th class="text-end" style="width: 90px;">Tax</th>
+                                <th class="text-end" style="width: 105px;">Total</th>
+                                <th style="width: 45px;"></th>
                             </tr>
                         </thead>
                         <tbody id="billCart">
@@ -957,6 +957,102 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateRowQuantity(itemKey, requestedQty) {
+        const item = cart.get(itemKey);
+        if (!item) return;
+        const allAvailable = selectableTags(item);
+        const maxStock = allAvailable.length;
+
+        let qty = parseInt(requestedQty, 10);
+        if (isNaN(qty) || qty < 1) {
+            qty = 1;
+        }
+        if (qty > maxStock) {
+            qty = maxStock;
+            const qInput = cartBody.querySelector(`[data-qty-input-for="${itemKey}"]`);
+            if (qInput) qInput.value = String(maxStock);
+            showInventoryLimit(
+                'Available stock limit reached',
+                `Only ${maxStock} piece(s) are available in stock for ${item.product_name}.`,
+                qInput
+            );
+        }
+
+        item.tags = allAvailable.slice(0, qty);
+
+        const row = cartBody.querySelector(`tr[data-row-key="${itemKey}"]`);
+        if (row) {
+            const rowIndex = row.dataset.rowIndex;
+            // Update tag badges in productCell
+            const tagsWrap = row.querySelector('.item-tags-wrap');
+            if (tagsWrap) {
+                tagsWrap.innerHTML = '';
+                const maxBadges = 4;
+                const shownTags = item.tags.slice(0, maxBadges);
+                shownTags.forEach(tag => {
+                    const badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'badge border-0 bg-light text-dark font-monospace shadow-xs';
+                    badge.title = 'Remove QR piece from bill';
+                    badge.textContent = `${tag} ×`;
+                    badge.addEventListener('click', () => {
+                        item.tags = item.tags.filter(existing => existing !== tag);
+                        if (!item.tags.length) {
+                            cart.delete(itemKey);
+                            renderCart();
+                        } else {
+                            updateRowQuantity(itemKey, item.tags.length);
+                        }
+                    });
+                    tagsWrap.append(badge);
+                });
+                if (item.tags.length > maxBadges) {
+                    const moreBadge = document.createElement('span');
+                    moreBadge.className = 'badge bg-primary-subtle text-primary border font-monospace shadow-xs';
+                    moreBadge.textContent = `+${item.tags.length - maxBadges} more`;
+                    moreBadge.title = item.tags.slice(maxBadges).join(', ');
+                    tagsWrap.append(moreBadge);
+                }
+            }
+
+            // Update hidden tags inputs in quantityCell
+            const hiddenTagsContainer = row.querySelector('.hidden-tags-container');
+            if (hiddenTagsContainer) {
+                hiddenTagsContainer.innerHTML = '';
+                item.tags.forEach(tag => {
+                    const hiddenTag = document.createElement('input');
+                    hiddenTag.type = 'hidden';
+                    hiddenTag.name = `items[${rowIndex}][tags][]`;
+                    hiddenTag.value = tag;
+                    hiddenTagsContainer.append(hiddenTag);
+                });
+            }
+
+            // Update qty input display if not currently focused
+            const qInput = row.querySelector(`[data-qty-input-for="${itemKey}"]`);
+            if (qInput && !qInput.matches(':focus')) {
+                qInput.value = String(qty);
+            }
+
+            // Update line total and tax
+            const price = Number(item.unit_price || 0);
+            const netLine = price * qty;
+            const gstRate = Number(item.gst_percentage || 0);
+            let taxable = netLine;
+            let lineTax = 0;
+            if (gstRate > 0) {
+                taxable = netLine / (1 + gstRate / 100);
+                lineTax = netLine - taxable;
+            }
+            const lineTotalCell = row.querySelector(`[data-total-for="${itemKey}"]`);
+            const taxCell = row.querySelector(`[data-tax-for="${itemKey}"]`);
+            if (lineTotalCell) lineTotalCell.textContent = money(netLine);
+            if (taxCell) taxCell.textContent = money(lineTax);
+        }
+
+        updateTotals();
+    }
+
     function renderCart() {
         cartBody.innerHTML = '';
         if (!cart.size) {
@@ -969,6 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cart.forEach((item, itemKey) => {
             const row = cartBody.insertRow();
             row.dataset.rowKey = itemKey;
+            row.dataset.rowIndex = String(index);
             const currentQty = item.tags.length;
             const allAvailable = selectableTags(item);
             const maxStock = allAvailable.length;
@@ -976,13 +1073,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Product details & HSN
             const productCell = row.insertCell();
             const productTitle = document.createElement('strong');
-            productTitle.className = 'text-dark';
+            productTitle.className = 'text-dark d-block';
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
 
             if (item.price_edited) {
                 const priceBadge = document.createElement('span');
-                priceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning ms-1';
+                priceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning my-1';
                 priceBadge.title = item.price_alert || 'Price was recently revised';
                 priceBadge.innerHTML = '<i class="bi bi-tag-fill me-1"></i>Price Checked';
                 productCell.append(priceBadge);
@@ -1005,52 +1102,33 @@ document.addEventListener('DOMContentLoaded', () => {
             hiddenVar.value = item.variant_id || 0;
             productCell.append(hiddenVar);
 
-            const hsnLabel = document.createElement('label');
-            hsnLabel.className = 'form-label small fw-semibold text-muted mb-1 mt-2';
-            hsnLabel.textContent = 'HSN Code';
-
-            const hsnGroup = document.createElement('div');
-            hsnGroup.className = 'input-group input-group-sm';
-
+            // Compact HSN edit line
+            const hsnRow = document.createElement('div');
+            hsnRow.className = 'd-inline-flex align-items-center gap-1 mt-1';
+            hsnRow.innerHTML = `<span class="badge bg-light text-secondary border font-monospace px-1">HSN:</span>`;
             const hsnInput = document.createElement('input');
             hsnInput.type = 'text';
             hsnInput.id = `billing-hsn-${index}`;
-            hsnInput.maxLength = 20;
+            hsnInput.maxLength = 10;
             hsnInput.required = true;
-            hsnInput.readOnly = true;
             hsnInput.inputMode = 'numeric';
-            hsnInput.className = 'form-control';
-            hsnInput.placeholder = '4, 6 or 8 digits';
+            hsnInput.className = 'form-control form-control-sm font-monospace py-0 px-1 border-0 bg-light';
+            hsnInput.style.maxWidth = '75px';
+            hsnInput.style.height = '22px';
+            hsnInput.style.fontSize = '12px';
+            hsnInput.placeholder = 'HSN';
             hsnInput.name = `items[${index}][hsn_code]`;
             hsnInput.value = item.hsn_code || '6109';
             hsnInput.addEventListener('input', () => { item.hsn_code = hsnInput.value.trim(); });
-            hsnLabel.htmlFor = hsnInput.id;
-
-            const hsnEditButton = document.createElement('button');
-            hsnEditButton.type = 'button';
-            hsnEditButton.className = 'btn btn-outline-secondary';
-            hsnEditButton.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Edit';
-            hsnEditButton.setAttribute('aria-label', 'Edit HSN code');
-            hsnEditButton.addEventListener('click', () => {
-                const startEditing = hsnInput.readOnly;
-                hsnInput.readOnly = !startEditing;
-                hsnEditButton.innerHTML = startEditing
-                    ? '<i class="bi bi-check-lg me-1"></i>Done'
-                    : '<i class="bi bi-pencil-square me-1"></i>Edit';
-                hsnEditButton.setAttribute('aria-label', startEditing ? 'Finish editing HSN code' : 'Edit HSN code');
-                if (startEditing) {
-                    hsnInput.focus();
-                    hsnInput.select();
-                }
-            });
-
-            hsnGroup.append(hsnInput, hsnEditButton);
-            productCell.append(hsnLabel, hsnGroup);
+            hsnRow.append(hsnInput);
+            productCell.append(hsnRow);
 
             // Tags badges
             const tagsWrap = document.createElement('div');
-            tagsWrap.className = 'd-flex flex-wrap gap-1 mt-1';
-            item.tags.forEach(tag => {
+            tagsWrap.className = 'item-tags-wrap d-flex flex-wrap gap-1 mt-1';
+            const maxBadges = 4;
+            const shownTags = item.tags.slice(0, maxBadges);
+            shownTags.forEach(tag => {
                 const badge = document.createElement('button');
                 badge.type = 'button';
                 badge.className = 'badge border-0 bg-light text-dark font-monospace shadow-xs';
@@ -1060,11 +1138,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.tags = item.tags.filter(existing => existing !== tag);
                     if (!item.tags.length) {
                         cart.delete(itemKey);
+                        renderCart();
+                    } else {
+                        updateRowQuantity(itemKey, item.tags.length);
                     }
-                    renderCart();
                 });
                 tagsWrap.append(badge);
             });
+            if (item.tags.length > maxBadges) {
+                const moreBadge = document.createElement('span');
+                moreBadge.className = 'badge bg-primary-subtle text-primary border font-monospace shadow-xs';
+                moreBadge.textContent = `+${item.tags.length - maxBadges} more`;
+                moreBadge.title = item.tags.slice(maxBadges).join(', ');
+                tagsWrap.append(moreBadge);
+            }
             productCell.append(tagsWrap);
 
             // 2. Quantity cell
@@ -1081,8 +1168,9 @@ document.addEventListener('DOMContentLoaded', () => {
             minusBtn.innerHTML = '<i class="bi bi-dash"></i>';
             minusBtn.addEventListener('click', () => {
                 if (item.tags.length > 1) {
-                    item.tags.pop();
-                    renderCart();
+                    const newQty = item.tags.length - 1;
+                    quantityInput.value = String(newQty);
+                    updateRowQuantity(itemKey, newQty);
                 } else {
                     showStockToast('Minimum quantity is 1', 'To remove this product completely, click the trash button on the right.');
                 }
@@ -1095,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             quantityInput.max = String(maxStock);
             quantityInput.value = String(currentQty);
             quantityInput.className = 'form-control form-control-sm text-center fw-bold px-1';
+            quantityInput.dataset.qtyInputFor = itemKey;
 
             const plusBtn = document.createElement('button');
             plusBtn.type = 'button';
@@ -1102,13 +1191,10 @@ document.addEventListener('DOMContentLoaded', () => {
             plusBtn.innerHTML = '<i class="bi bi-plus"></i>';
             plusBtn.addEventListener('click', () => {
                 if (item.tags.length < maxStock) {
-                    const assignedUpper = item.tags.map(t => t.toUpperCase());
-                    const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()));
-                    if (nextTag) {
-                        item.tags.push(nextTag);
-                        renderCart();
-                        showSuccessToast();
-                    }
+                    const newQty = item.tags.length + 1;
+                    quantityInput.value = String(newQty);
+                    updateRowQuantity(itemKey, newQty);
+                    showSuccessToast();
                 } else {
                     showInventoryLimit(
                         'Available stock limit reached',
@@ -1118,28 +1204,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // INSTANT calculation on input keystroke
+            quantityInput.addEventListener('input', () => {
+                const rawVal = quantityInput.value.trim();
+                if (rawVal === '') return;
+                const requestedQuantity = parseInt(rawVal, 10);
+                if (requestedQuantity > 0) {
+                    updateRowQuantity(itemKey, requestedQuantity);
+                }
+            });
+
             quantityInput.addEventListener('change', () => {
                 const requestedQuantity = parseInt(quantityInput.value, 10);
                 if (isNaN(requestedQuantity) || requestedQuantity < 1) {
                     quantityInput.value = '1';
-                    item.tags = allAvailable.slice(0, 1);
-                    showInventoryLimit('Invalid quantity', 'Enter a whole-number quantity of at least 1.', quantityInput);
-                    renderCart();
-                    return;
-                }
-                if (requestedQuantity > maxStock) {
+                    updateRowQuantity(itemKey, 1);
+                } else if (requestedQuantity > maxStock) {
                     quantityInput.value = String(maxStock);
-                    item.tags = allAvailable.slice(0, maxStock);
-                    showInventoryLimit(
-                        'Available stock limit reached',
-                        `Only ${maxStock} piece(s) are available in stock for ${item.product_name}. Cannot enter ${requestedQuantity}.`,
-                        quantityInput
-                    );
-                    renderCart();
-                    return;
+                    updateRowQuantity(itemKey, maxStock);
+                } else {
+                    updateRowQuantity(itemKey, requestedQuantity);
                 }
-                item.tags = allAvailable.slice(0, requestedQuantity);
-                renderCart();
             });
 
             qtyGroup.append(minusBtn, quantityInput, plusBtn);
@@ -1150,14 +1235,17 @@ document.addEventListener('DOMContentLoaded', () => {
             limitHelper.innerHTML = `Stock: <strong class="text-dark">${maxStock}</strong> pcs`;
             quantityCell.append(limitHelper);
 
-            // Hidden tags
+            // Hidden tags container
+            const hiddenTagsContainer = document.createElement('div');
+            hiddenTagsContainer.className = 'hidden-tags-container';
             item.tags.forEach(tag => {
                 const hiddenTag = document.createElement('input');
                 hiddenTag.type = 'hidden';
                 hiddenTag.name = `items[${index}][tags][]`;
                 hiddenTag.value = tag;
-                quantityCell.append(hiddenTag);
+                hiddenTagsContainer.append(hiddenTag);
             });
+            quantityCell.append(hiddenTagsContainer);
 
             // 3. MRP cell
             const mrpCell = row.insertCell();
@@ -1179,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.discount_percentage = discount;
                 item.unit_price = Number(item.mrp || 0) * (1 - discount / 100);
                 priceInput.value = item.unit_price.toFixed(2);
-                updateTotals();
+                updateRowQuantity(itemKey, item.tags.length);
             });
             discountCell.append(discountInput);
 
@@ -1196,30 +1284,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.unit_price = Math.max(0, Number(priceInput.value || 0));
                 item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
                 discountInput.value = item.discount_percentage.toFixed(2);
-                updateTotals();
+                updateRowQuantity(itemKey, item.tags.length);
             });
             priceCell.append(priceInput);
 
-            // 6. GST details cell
+            // 6. GST details cell (compact stacked layout)
             const gstCell = row.insertCell();
             const taxGroup = document.createElement('div');
-            taxGroup.className = 'd-flex gap-2 align-items-center flex-wrap';
+            taxGroup.className = 'd-flex flex-column gap-1';
 
             const taxModeSelect = document.createElement('select');
-            taxModeSelect.className = 'form-select form-select-sm';
+            taxModeSelect.className = 'form-select form-select-sm py-1';
+            taxModeSelect.style.fontSize = '12px';
             taxModeSelect.name = `items[${index}][gst_type]`;
             taxModeSelect.innerHTML = '<option value="BOTH">CGST + SGST</option><option value="IGST">IGST only</option><option value="EXEMPTED">Exempted (0%)</option>';
             taxModeSelect.value = item.gst_type || 'BOTH';
+
+            const taxRateGroup = document.createElement('div');
+            taxRateGroup.className = 'input-group input-group-sm';
 
             const taxRateInput = document.createElement('input');
             taxRateInput.type = 'number';
             taxRateInput.step = '0.01';
             taxRateInput.min = '0';
             taxRateInput.max = '40';
-            taxRateInput.className = 'form-control form-control-sm text-end font-monospace';
-            taxRateInput.style.maxWidth = '85px';
+            taxRateInput.className = 'form-control form-control-sm text-end font-monospace py-0 px-1';
+            taxRateInput.style.fontSize = '12px';
             taxRateInput.name = `items[${index}][gst_percentage]`;
             taxRateInput.value = Number(item.gst_percentage || 0).toFixed(2);
+
+            const taxRateAddon = document.createElement('span');
+            taxRateAddon.className = 'input-group-text py-0 px-1 small text-muted';
+            taxRateAddon.textContent = '%';
+            taxRateGroup.append(taxRateInput, taxRateAddon);
 
             taxModeSelect.addEventListener('change', () => {
                 item.gst_type = taxModeSelect.value;
@@ -1230,15 +1327,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     taxRateInput.value = '5.00';
                     item.gst_percentage = 5;
                 }
-                updateTotals();
+                updateRowQuantity(itemKey, item.tags.length);
             });
 
             taxRateInput.addEventListener('input', () => {
                 item.gst_percentage = Math.max(0, Number(taxRateInput.value || 0));
-                updateTotals();
+                updateRowQuantity(itemKey, item.tags.length);
             });
 
-            taxGroup.append(taxModeSelect, taxRateInput);
+            taxGroup.append(taxModeSelect, taxRateGroup);
             gstCell.append(taxGroup);
 
             // 7. Tax amount cell
@@ -1339,7 +1436,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const upperSelected = selectedTag.toUpperCase();
                 const alreadyInThisItem = cartItem.tags.some(t => t.toUpperCase() === upperSelected);
                 if (alreadyInThisItem) {
-                    showStockToast('Piece already in cart', `Tag <strong>${selectedTag}</strong> is already added.`);
+                    // Item/Variant scanned again: allocate next available unassigned piece
+                    const assignedUpper = cartItem.tags.map(t => t.toUpperCase());
+                    const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()) && !assigned.includes(t.toUpperCase()));
+                    if (nextTag) {
+                        cartItem.tags.push(nextTag);
+                        updateRowQuantity(key, cartItem.tags.length);
+                        showSuccessToast();
+                        if (item.price_edited && item.price_alert) {
+                            showStockToast('Price Cross-Check', item.price_alert);
+                        }
+                        return;
+                    }
+                    showStockToast('All available pieces in cart', `All ${maxAllowed} piece(s) for <strong>${cartItem.product_name}</strong> are already in this bill.`);
                     return;
                 }
                 const alreadyInOther = assigned.some(t => t.toUpperCase() === upperSelected);
@@ -1348,7 +1457,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 cartItem.tags.push(selectedTag);
+                updateRowQuantity(key, cartItem.tags.length);
                 showSuccessToast();
+                if (item.price_edited && item.price_alert) {
+                    showStockToast('Price Cross-Check', item.price_alert);
+                }
+                return;
             } else {
                 if (currentCount >= maxAllowed) {
                     showInventoryLimit(
@@ -1358,10 +1472,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 const assignedUpper = cartItem.tags.map(t => t.toUpperCase());
-                const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()));
+                const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()) && !assigned.includes(t.toUpperCase()));
                 if (nextTag) {
                     cartItem.tags.push(nextTag);
+                    updateRowQuantity(key, cartItem.tags.length);
                     showSuccessToast();
+                    if (item.price_edited && item.price_alert) {
+                        showStockToast('Price Cross-Check', item.price_alert);
+                    }
+                    return;
                 }
             }
         } else {
@@ -1381,10 +1500,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 entry.tags = [allAvailable[0]];
             }
             cart.set(key, entry);
+            renderCart();
             showSuccessToast();
         }
-
-        renderCart();
 
         if (item.price_edited && item.price_alert) {
             showStockToast('Price Cross-Check', item.price_alert);
