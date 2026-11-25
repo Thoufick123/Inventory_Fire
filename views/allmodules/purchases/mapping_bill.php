@@ -568,8 +568,8 @@ tr.table-danger, tr.table-danger > td {
         ));
 
         $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId): void {
-            $vSize = !empty($v['size']) ? $v['size'] : ($activeItem['size'] ?: 'Free Size');
-            $vColor = !empty($v['color']) ? $v['color'] : ($activeItem['color'] ?: 'Default');
+            $vSize = !empty($v['size']) ? trim((string)$v['size']) : trim((string)($activeItem['size'] ?? ''));
+            $vColor = !empty($v['color']) ? trim((string)$v['color']) : trim((string)($activeItem['color'] ?? ''));
             $vSku = !empty($v['sku']) ? $v['sku'] : ($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']));
             $vQty = isset($v['allocated_qty']) ? (float)$v['allocated_qty'] : (isset($v['quantity']) ? (float)$v['quantity'] : (float)$activeItem['quantity']);
             $vRate = isset($v['purchase_rate']) ? (float)$v['purchase_rate'] : (isset($v['unit_price']) ? (float)$v['unit_price'] : $unitPrice);
@@ -681,6 +681,11 @@ tr.table-danger, tr.table-danger > td {
                     <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
                         <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
                     </button>
+                    <?php if (!empty($activeItem['is_mapped'])): ?>
+                        <button type="button" class="btn btn-sm btn-warning fw-semibold" id="btnUnlockMappingEdit" title="Unlock product details for editing">
+                            <i class="bi bi-pencil-square me-1"></i>Edit
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
             <!-- Overall Batch Apply Bar: Category Hierarchy First + Size + Color -->
@@ -799,11 +804,15 @@ tr.table-danger, tr.table-danger > td {
     <!-- ========================================================================= -->
     <?php 
     $pendingQrCount = 0;
+    $unstockedQrIds = [];
     foreach ($savedVariants as $sv) {
         if (empty($sv['qr_generation_id'])) {
             $pendingQrCount++;
+        } elseif (empty($sv['stock_added'])) {
+            $unstockedQrIds[(int)$sv['qr_generation_id']] = true;
         }
     }
+    $unstockedQrIds = array_keys($unstockedQrIds);
     ?>
     <div class="card border shadow-sm mb-4" id="sectionSavedVariantsQr">
         <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -811,12 +820,33 @@ tr.table-danger, tr.table-danger > td {
                 <span class="badge bg-success text-white rounded-pill px-2.5 py-1"><i class="bi bi-qr-code"></i></span>
                 <h5 class="mb-0 fw-bold text-dark">Saved Product Variants &amp; QR Generations</h5>
             </div>
-            <span class="badge bg-secondary"><?= count($savedVariants) ?> variant<?= count($savedVariants) === 1 ? '' : 's' ?></span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <?php if (!empty($unstockedQrIds)): ?>
+                    <div class="input-group input-group-sm" style="width: auto; min-width: 240px;">
+                        <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Concern / WH</span>
+                        <select class="form-select" id="bulkInwardWarehouseSelect">
+                            <?php foreach (($warehouses ?? []) as $wh): ?>
+                                <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?><?= !empty($wh['concern_name']) ? ' (' . e($wh['concern_name']) . ')' : '' ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="btnInwardSelectedQr" disabled>
+                        <i class="bi bi-box-arrow-in-down me-1"></i>Add Selected to Stock (<span id="selectedQrCount">0</span>)
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success fw-semibold" id="btnInwardAllQr">
+                        <i class="bi bi-box-seam me-1"></i>Add All Generated to Stock (<?= count($unstockedQrIds) ?>)
+                    </button>
+                <?php endif; ?>
+                <span class="badge bg-secondary"><?= count($savedVariants) ?> variant<?= count($savedVariants) === 1 ? '' : 's' ?></span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light small text-uppercase text-muted">
                     <tr>
+                        <th style="width: 38px;" class="text-center">
+                            <input type="checkbox" class="form-check-input" id="chkSelectAllQr" title="Select all generated unstocked QRs" <?= empty($unstockedQrIds) ? 'disabled' : '' ?>>
+                        </th>
                         <th>Product / Variant</th>
                         <th>Category</th>
                         <th>HSN</th>
@@ -830,12 +860,19 @@ tr.table-danger, tr.table-danger > td {
                 <tbody>
                     <?php if (empty($savedVariants)): ?>
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="9" class="text-center text-muted py-4">
                                 <i class="bi bi-info-circle me-1"></i>No variants saved yet. Save mapping above to record variants and enable QR generation.
                             </td>
                         </tr>
-                    <?php else: foreach ($savedVariants as $itemVar): ?>
+                    <?php else: foreach ($savedVariants as $itemVar):
+                        $canInwardRow = !empty($itemVar['qr_generation_id']) && empty($itemVar['stock_added']);
+                    ?>
                         <tr>
+                            <td class="text-center">
+                                <?php if ($canInwardRow): ?>
+                                    <input type="checkbox" class="form-check-input chk-qr-inward" value="<?= (int)$itemVar['qr_generation_id'] ?>" title="Select to inward to stock">
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <strong><?= e($activeItem['item_name']) ?></strong>
                                 <div class="small text-muted">
@@ -895,9 +932,9 @@ tr.table-danger, tr.table-danger > td {
                 <i class="bi bi-info-circle me-1"></i>Purchase bill <strong><?= e($purchase['purchase_number']) ?></strong> is already entered in Purchases. Generate QR labels and print directly from this panel.
             </div>
             <?php if (!empty($savedVariants) && $pendingQrCount > 0): ?>
-                <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all pending variants?')">
+                <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" id="formGenerateAllVariantQr">
                     <?= CSRF::field() ?>
-                    <button class="btn btn-sm btn-outline-info fw-semibold" type="submit">
+                    <button class="btn btn-sm btn-outline-info fw-semibold" type="button" id="btnGenerateAllVariantQr">
                         <i class="bi bi-qr-code me-1"></i>Generate QR for All Pending Variants (<?= $pendingQrCount ?>)
                     </button>
                 </form>
@@ -2422,6 +2459,173 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     window.addEventListener('scroll', hideHsnDropdown, true);
+
+    // 13. Lock Product Details After Save + Top-Right Edit Unlock Toggle
+    const isItemAlreadyMapped = <?= json_encode(!empty($activeItem['is_mapped'])) ?>;
+    const btnUnlockMappingEdit = document.getElementById('btnUnlockMappingEdit');
+    const formMapForLock = document.getElementById('formMapProductBill');
+
+    function setMappingFormLocked(locked) {
+        if (!formMapForLock) return;
+        formMapForLock.querySelectorAll('input, select, button').forEach(el => {
+            if (el.id === 'btnUnlockMappingEdit') return;
+            if (el.getAttribute('onclick') && el.getAttribute('onclick').includes('unmapActiveItem')) return;
+            if (el.type === 'hidden') return;
+            if (el.classList.contains('btn-outline-secondary') && el.tagName === 'A') return;
+            el.disabled = locked;
+        });
+        if (btnUnlockMappingEdit) {
+            btnUnlockMappingEdit.classList.toggle('d-none', !locked);
+        }
+    }
+
+    if (isItemAlreadyMapped && formMapForLock) {
+        setMappingFormLocked(true);
+        if (btnUnlockMappingEdit) {
+            btnUnlockMappingEdit.addEventListener('click', function () {
+                setMappingFormLocked(false);
+            });
+        }
+    }
+
+    // 14. Single Modern UI Confirm for Generate All Variant QR (no double native alert)
+    const btnGenAllQr = document.getElementById('btnGenerateAllVariantQr');
+    const formGenAllQr = document.getElementById('formGenerateAllVariantQr');
+    if (btnGenAllQr && formGenAllQr) {
+        btnGenAllQr.addEventListener('click', function () {
+            if (typeof window.showModernConfirm === 'function') {
+                window.showModernConfirm({
+                    title: 'Generate Variant QR',
+                    message: 'Generate QR batches for all pending variants?',
+                    confirmText: 'Confirm',
+                    btnClass: 'btn-primary',
+                    iconClass: 'bi bi-qr-code text-primary',
+                    onConfirm: function () {
+                        formGenAllQr.submit();
+                    }
+                });
+            } else {
+                formGenAllQr.submit();
+            }
+        });
+    }
+
+    // 15. Multi-Select & Bulk Inward Generated QRs to Concern Inventory Stock
+    const chkSelectAllQr = document.getElementById('chkSelectAllQr');
+    const btnInwardSelectedQr = document.getElementById('btnInwardSelectedQr');
+    const btnInwardAllQr = document.getElementById('btnInwardAllQr');
+    const selectedQrCountEl = document.getElementById('selectedQrCount');
+    const bulkInwardWhSelect = document.getElementById('bulkInwardWarehouseSelect');
+    const allUnstockedQrIds = <?= json_encode($unstockedQrIds ?? []) ?>;
+
+    function getSelectedUniqueQrIds() {
+        const set = new Set();
+        document.querySelectorAll('.chk-qr-inward:checked').forEach(cb => {
+            if (cb.value) set.add(cb.value);
+        });
+        return Array.from(set);
+    }
+
+    function updateBulkInwardSelectionUI() {
+        const selected = getSelectedUniqueQrIds();
+        if (selectedQrCountEl) selectedQrCountEl.textContent = String(selected.length);
+        if (btnInwardSelectedQr) btnInwardSelectedQr.disabled = selected.length === 0;
+        if (chkSelectAllQr) {
+            const allCbs = document.querySelectorAll('.chk-qr-inward');
+            chkSelectAllQr.checked = allCbs.length > 0 && Array.from(allCbs).every(cb => cb.checked);
+        }
+    }
+
+    if (chkSelectAllQr) {
+        chkSelectAllQr.addEventListener('change', function () {
+            document.querySelectorAll('.chk-qr-inward').forEach(cb => {
+                cb.checked = chkSelectAllQr.checked;
+            });
+            updateBulkInwardSelectionUI();
+        });
+    }
+
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('chk-qr-inward')) {
+            updateBulkInwardSelectionUI();
+        }
+    });
+
+    function executeBulkInwardToStock(genIds, triggerBtn) {
+        if (!genIds || genIds.length === 0) return;
+        const whId = bulkInwardWhSelect ? bulkInwardWhSelect.value : '';
+        const origHtml = triggerBtn ? triggerBtn.innerHTML : '';
+        if (triggerBtn) {
+            triggerBtn.disabled = true;
+            triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding to Stock...';
+        }
+        const fd = new FormData();
+        fd.append('generation_ids', genIds.join(','));
+        fd.append('warehouse_id', whId);
+        fd.append('csrf_token', '<?= CSRF::token() ?>');
+
+        fetch('<?= url("api/purchases/mapping/add-to-stock") ?>', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: fd
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                if (triggerBtn) {
+                    triggerBtn.disabled = false;
+                    triggerBtn.innerHTML = origHtml;
+                }
+                alert('Error: ' + (data.message || 'Could not add selected QRs to stock.'));
+            }
+        })
+        .catch(err => {
+            if (triggerBtn) {
+                triggerBtn.disabled = false;
+                triggerBtn.innerHTML = origHtml;
+            }
+            alert('Server error: ' + err.message);
+        });
+    }
+
+    if (btnInwardSelectedQr) {
+        btnInwardSelectedQr.addEventListener('click', function () {
+            const ids = getSelectedUniqueQrIds();
+            if (!ids.length) return;
+            if (typeof window.showModernConfirm === 'function') {
+                window.showModernConfirm({
+                    title: 'Add Selected QRs to Stock',
+                    message: `Inward ${ids.length} selected QR batch(es) into the chosen warehouse / concern inventory?`,
+                    confirmText: 'Add to Stock',
+                    btnClass: 'btn-success',
+                    iconClass: 'bi bi-box-seam text-success',
+                    onConfirm: () => executeBulkInwardToStock(ids, btnInwardSelectedQr)
+                });
+            } else {
+                executeBulkInwardToStock(ids, btnInwardSelectedQr);
+            }
+        });
+    }
+
+    if (btnInwardAllQr) {
+        btnInwardAllQr.addEventListener('click', function () {
+            if (!allUnstockedQrIds.length) return;
+            if (typeof window.showModernConfirm === 'function') {
+                window.showModernConfirm({
+                    title: 'Add All Generated QRs to Stock',
+                    message: `Inward all ${allUnstockedQrIds.length} generated QR batch(es) into the chosen warehouse / concern inventory?`,
+                    confirmText: 'Add All to Stock',
+                    btnClass: 'btn-success',
+                    iconClass: 'bi bi-box-seam text-success',
+                    onConfirm: () => executeBulkInwardToStock(allUnstockedQrIds, btnInwardAllQr)
+                });
+            } else {
+                executeBulkInwardToStock(allUnstockedQrIds, btnInwardAllQr);
+            }
+        });
+    }
 
     // Initial allocation check
     updateAllocationStatus();
