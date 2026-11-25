@@ -749,20 +749,6 @@ class Role {
         }
 
         $modules = [
-            'dashboard' => [
-                'title'      => 'Dashboard',
-                'icon'       => 'bi-speedometer2',
-                'badge'      => 'bg-primary-subtle text-primary border-primary',
-                'department' => 'ALL',
-                'submodules' => [
-                    'dashboard' => [
-                        'name'       => 'Dashboard',
-                        'icon'       => 'bi-speedometer2',
-                        'desc'       => 'High-level KPI metrics, operational graphs, and summary statistics',
-                        'department' => 'ALL',
-                    ],
-                ]
-            ],
             'production' => [
                 'title'      => 'Production',
                 'icon'       => 'bi-gear-wide-connected',
