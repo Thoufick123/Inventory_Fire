@@ -891,7 +891,7 @@ class ConcernController {
             $db->prepare("DELETE FROM concerns WHERE id = ?")->execute([$concernId]);
             $db->commit();
 
-            if (method_exists('Session', 'getActiveConcernId') && Session::getActiveConcernId() === $concernId) {
+            if (function_exists('currentConcernId') && currentConcernId() === $concernId) {
                 Session::set('active_concern_id', null);
             }
 

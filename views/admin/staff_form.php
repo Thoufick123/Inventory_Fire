@@ -142,6 +142,8 @@ foreach ($hierarchicalModules as $m) {
                                             <option value="<?= $r['id'] ?>" 
                                                     data-primary-dept="<?= e($rDept) ?>"
                                                     data-departments='<?= $rDeptsJson ?>'
+                                                    data-concern-scope="<?= e($r['concern_scope'] ?? 'ALL') ?>"
+                                                    data-applicable-concerns='<?= e($r['applicable_concerns'] ?? '[]') ?>'
                                                     data-name="<?= e($r['name']) ?>"
                                                     <?= (string)($staff['role_id'] ?? '') === (string)$r['id'] ? 'selected' : '' ?>>
                                                 <?= e($r['name']) ?> [<?= $badgeLabel ?>]
@@ -744,10 +746,38 @@ document.addEventListener('DOMContentLoaded', function () {
         updateActiveCounterAndSwitches();
     }
 
-    // When role changes -> auto sync department AND auto load role's permissions!
+    function applyRoleConcerns(roleOption) {
+        if (!roleOption || !roleOption.value) return;
+        const scope = (roleOption.getAttribute('data-concern-scope') || 'ALL').toUpperCase();
+        let applicableIds = [];
+        try {
+            const parsed = JSON.parse(roleOption.getAttribute('data-applicable-concerns') || '[]');
+            if (Array.isArray(parsed)) {
+                applicableIds = parsed.map(id => String(id));
+            }
+        } catch (e) {}
+
+        const checkboxes = document.querySelectorAll('.concern-checkbox');
+        if (scope === 'SPECIFIC' && applicableIds.length > 0) {
+            checkboxes.forEach(cb => {
+                cb.checked = applicableIds.includes(String(cb.value));
+            });
+        } else if (scope === 'ALL') {
+            checkboxes.forEach(cb => {
+                cb.checked = true;
+            });
+        }
+        if (typeof window.syncDefaultConcernOptions === 'function') {
+            window.syncDefaultConcernOptions();
+        }
+    }
+
+    // When role changes -> auto sync department, auto load role's concerns, AND auto load role's permissions!
     roleSelect?.addEventListener('change', function () {
         syncRoleAndDepartment(true);
         const selectedRoleId = this.value;
+        const roleOption = this.options[this.selectedIndex];
+        applyRoleConcerns(roleOption);
         applyRolePermissions(selectedRoleId, false);
     });
 
@@ -755,9 +785,10 @@ document.addEventListener('DOMContentLoaded', function () {
     btnResetToRole?.addEventListener('click', function () {
         const selectedRoleId = roleSelect ? roleSelect.value : '';
         if (!selectedRoleId) {
-            alert('Please select a system role first.');
             return;
         }
+        const roleOption = roleSelect.options[roleSelect.selectedIndex];
+        applyRoleConcerns(roleOption);
         applyRolePermissions(selectedRoleId, false);
     });
 
