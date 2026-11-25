@@ -1555,8 +1555,10 @@ class AllmodulesBillingController
     private function loadBillItems(int $billId): array
     {
         $items = Database::fetchAll(
-            "SELECT pbi.*
+            "SELECT pbi.*,
+                    COALESCE(NULLIF(pv.variant_code, ''), IF(pbi.variant_id > 0, CONCAT('V', LPAD(pbi.variant_id, 4, '0')), '')) AS variant_code
              FROM production_bill_items pbi
+             LEFT JOIN product_variants pv ON pv.id = pbi.variant_id
              WHERE pbi.bill_id = ?
              ORDER BY pbi.id",
             [$billId]
@@ -1578,6 +1580,9 @@ class AllmodulesBillingController
         foreach ($items as &$item) {
             $item['tags'] = $tagsByItem[(int)$item['id']] ?? [];
             $item['is_complementary'] = (int)($item['is_complementary'] ?? 0);
+            if (empty($item['variant_code']) && !empty($item['tags'][0]) && preg_match('/^([A-Z0-9]+)-\d+$/i', (string)$item['tags'][0], $m)) {
+                $item['variant_code'] = strtoupper($m[1]);
+            }
         }
         unset($item);
         return $items;
@@ -1807,6 +1812,9 @@ class AllmodulesBillingController
             if (!$tags) {
                 continue;
             }
+            $tags = array_values(array_unique($tags));
+            natcasesort($tags);
+            $tags = array_values($tags);
 
             $mrp = (float)($row['variant_mrp'] ?? 0);
             if ($mrp <= 0) {
@@ -1893,6 +1901,9 @@ class AllmodulesBillingController
                     if (empty($availTags)) {
                         continue;
                     }
+                    $availTags = array_values(array_unique($availTags));
+                    natcasesort($availTags);
+                    $availTags = array_values($availTags);
 
                     $mrp = (float)($iRow['variant_mrp'] ?? 0);
                     $price = (float)($iRow['selling_price'] ?? 0);
@@ -2079,6 +2090,9 @@ class AllmodulesBillingController
             if (!$tags) {
                 continue;
             }
+            $tags = array_values(array_unique($tags));
+            natcasesort($tags);
+            $tags = array_values($tags);
 
             if ($qcItemId === 0 && $variantId > 0) {
                 $varRow = Database::fetchOne(
