@@ -1430,6 +1430,36 @@ class AdminController {
     }
 
     /**
+     * View role details and assigned permissions (read-only).
+     */
+    public function viewRole(string $id): void {
+        if (!hasPermission('roles', 'view')) {
+            Response::error(403, 'Access denied: You do not have permission to view roles.');
+            return;
+        }
+
+        $role = Role::findById((int)$id);
+        if (!$role) {
+            Response::redirect(url('admin/roles'), 'error', 'Role not found.');
+            return;
+        }
+
+        $assignedUsers = Database::fetchAll(
+            "SELECT id, full_name, username, is_active FROM users WHERE role_id = ? ORDER BY full_name ASC",
+            [(int)$id]
+        );
+
+        Response::view('admin.role_view', [
+            'pageTitle'           => 'View Role: ' . $role['name'],
+            'activeMenu'          => 'roles',
+            'role'                => $role,
+            'rolePermissions'     => Role::getPermissionIds((int)$id),
+            'hierarchicalModules' => Role::getHierarchicalPermissions(),
+            'assignedUsers'       => $assignedUsers,
+        ]);
+    }
+
+    /**
      * Edit role form.
      */
     public function editRole(string $id): void {

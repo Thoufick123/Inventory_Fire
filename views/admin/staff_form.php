@@ -29,7 +29,7 @@ foreach ($hierarchicalModules as $m) {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1 fw-bold"><?= $isEdit ? 'Edit Staff Member' : 'Create New Staff Member' ?></h1>
-            <p class="text-muted mb-0"><?= $isEdit ? 'Update account details, role assignment, and View, Create, Verify, Edit, or Delete access.' : 'Add a team member and assign View, Create, Verify, Edit, or Delete access.' ?></p>
+            <p class="text-muted mb-0"><?= $isEdit ? 'Update account details, role assignment, and View, Create, Edit, or Delete access.' : 'Add a team member and assign View, Create, Edit, or Delete access.' ?></p>
         </div>
         <div>
             <a href="<?= url('admin/staff') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
@@ -354,26 +354,6 @@ foreach ($hierarchicalModules as $m) {
                                 <input type="text" id="permModuleFilter" class="form-control bg-light border-start-0 ps-0" placeholder="Filter modules..." autocomplete="off">
                             </div>
 
-                            <!-- Column Tools Dropdown -->
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" id="colToolsDropdown" data-bs-toggle="dropdown">
-                                    <i class="bi bi-sliders"></i> Column Tools
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2">
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllView"><i class="bi bi-eye text-primary me-2"></i>Select All View</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllCreate"><i class="bi bi-plus-circle text-success me-2"></i>Select All Create</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllVerify"><i class="bi bi-check2-circle text-info me-2"></i>Select All Verify</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllEdit"><i class="bi bi-pencil-square text-warning me-2"></i>Select All Edit</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllDelete"><i class="bi bi-trash text-danger me-2"></i>Select All Delete</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllView"><i class="bi bi-eye-slash text-muted me-2"></i>Clear All View</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllCreate"><i class="bi bi-dash-circle text-muted me-2"></i>Clear All Create</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllVerify"><i class="bi bi-x-circle text-muted me-2"></i>Clear All Verify</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllEdit"><i class="bi bi-dash-square text-muted me-2"></i>Clear All Edit</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllDelete"><i class="bi bi-trash-fill text-muted me-2"></i>Clear All Delete</a></li>
-                                </ul>
-                            </div>
-
                             <!-- Global Select / Deselect -->
                             <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectAll">
                                 <i class="bi bi-check-all me-1"></i>Select All
@@ -432,14 +412,12 @@ foreach ($hierarchicalModules as $m) {
                                         <table class="table table-hover align-middle mb-0 permissions-table">
                                             <thead class="table-light">
                                                 <tr class="text-uppercase small text-muted" style="font-size: 11px;">
-                                                    <th class="ps-3 py-2" style="width: 30%;">Submodule</th>
-                                                    <th class="text-center py-2" style="width: 10%;">View</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Create</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Verify</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Edit</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Delete</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Adjust</th>
-                                                    <th class="text-center pe-3 py-2" style="width: 10%;">Row All</th>
+                                                    <th class="ps-3 py-2" style="width: 38%;">Submodule</th>
+                                                    <th class="text-center py-2" style="width: 12%;">View</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Create</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Edit</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Delete</th>
+                                                    <th class="text-center pe-3 py-2" style="width: 14%;">Row All</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -452,9 +430,6 @@ foreach ($hierarchicalModules as $m) {
                                                     $subDept    = $sub['department'] ?? $module['department'] ?? 'ALL';
 
                                                     $crudColumns = Role::getCrudPermissionsByAction($subPerms);
-                                                    $shopAdjustPermissions = $subKey === 'shop_stock'
-                                                        ? array_values(array_filter($subPerms, static fn(array $permission): bool => ($permission['action'] ?? '') === 'adjust'))
-                                                        : [];
                                                     ?>
                                                     <tr class="perm-submodule-row" data-submodule-key="<?= e($subKey) ?>" data-dept="<?= e($subDept) ?>">
                                                         <td class="ps-3 py-2">
@@ -469,7 +444,7 @@ foreach ($hierarchicalModules as $m) {
                                                             </div>
                                                         </td>
 
-                                                        <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
+                                                        <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
                                                             <td class="text-center">
                                                                 <?php $columnPermissions = $crudColumns[$crudAction]; ?>
                                                                 <?php if (!empty($columnPermissions)): ?>
@@ -495,26 +470,6 @@ foreach ($hierarchicalModules as $m) {
                                                                 <?php endif; ?>
                                                             </td>
                                                         <?php endforeach; ?>
-
-                                                        <td class="text-center">
-                                                            <?php if ($shopAdjustPermissions): ?>
-                                                                <?php foreach ($shopAdjustPermissions as $permission): ?>
-                                                                    <label class="form-check-label d-inline-flex align-items-center justify-content-center gap-1 small" title="<?= e($permission['description'] ?? 'Adjust shop stock') ?>">
-                                                                        <input class="form-check-input perm-checkbox perm-adjust"
-                                                                               type="checkbox"
-                                                                               name="permissions[]"
-                                                                               value="<?= (int)$permission['id'] ?>"
-                                                                               data-action="adjust"
-                                                                               data-module="<?= e($modKey) ?>"
-                                                                               data-submodule="<?= e($subKey) ?>"
-                                                                               <?= in_array((int)$permission['id'], $staffPermissions) ? 'checked' : '' ?>>
-                                                                        <span>Adjust</span>
-                                                                    </label>
-                                                                <?php endforeach; ?>
-                                                            <?php else: ?>
-                                                                <span class="text-muted opacity-25">&mdash;</span>
-                                                            <?php endif; ?>
-                                                        </td>
 
                                                         <!-- Row All -->
                                                         <td class="text-center pe-3">
@@ -932,27 +887,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-
-    // Column Tools
-    function toggleColumn(actionType, checkState) {
-        document.querySelectorAll(`.perm-checkbox.perm-${actionType}:not(:disabled)`).forEach(cb => cb.checked = checkState);
-        updateActiveCounterAndSwitches();
-        if (permSyncBadge) {
-            permSyncBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1';
-            permSyncBadge.innerHTML = `<i class="bi bi-pencil-square me-1"></i>Customized (Batch Column)`;
-        }
-    }
-
-    document.getElementById('btnSelectAllView')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('view', true); });
-    document.getElementById('btnSelectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('create', true); });
-    document.getElementById('btnSelectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('verify', true); });
-    document.getElementById('btnSelectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('edit', true); });
-    document.getElementById('btnSelectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('delete', true); });
-    document.getElementById('btnDeselectAllView')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('view', false); });
-    document.getElementById('btnDeselectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('create', false); });
-    document.getElementById('btnDeselectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('verify', false); });
-    document.getElementById('btnDeselectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('edit', false); });
-    document.getElementById('btnDeselectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('delete', false); });
 
     // Global Select All / Clear All
     document.getElementById('btnSelectAll')?.addEventListener('click', function () {

@@ -157,6 +157,7 @@ class Router {
         $this->post('admin/staff/toggle/{id}', 'AdminController', 'toggleStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'edit']]);
         $this->post('admin/staff/delete/{id}', 'AdminController', 'deleteStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'delete']]);
         $this->get('admin/roles', 'AdminController', 'roles', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'view']]);
+        $this->get('admin/roles/view/{id}', 'AdminController', 'viewRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'view']]);
         $this->get('admin/roles/create', 'AdminController', 'createRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'create']]);
         $this->post('admin/roles/store', 'AdminController', 'storeRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'create']]);
         $this->get('admin/roles/edit/{id}', 'AdminController', 'editRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'edit']]);

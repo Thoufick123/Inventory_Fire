@@ -174,24 +174,6 @@ foreach ($hierarchicalModules as $m) {
                         <input type="text" id="moduleFilter" class="form-control bg-light border-start-0 ps-0" placeholder="Search modules..." autocomplete="off">
                     </div>
 
-                    <!-- Column Batch Tools -->
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" id="batchDropdown" data-bs-toggle="dropdown">
-                            <i class="bi bi-sliders"></i> Column Tools
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2">
-                            <li><a class="dropdown-item py-1" href="#" id="btnSelectAllView"><i class="bi bi-eye text-primary me-2"></i>Select All View</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnSelectAllCreate"><i class="bi bi-plus-circle text-success me-2"></i>Select All Create</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnSelectAllEdit"><i class="bi bi-pencil-square text-warning me-2"></i>Select All Edit</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnSelectAllDelete"><i class="bi bi-trash text-danger me-2"></i>Select All Delete</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllView"><i class="bi bi-eye-slash text-muted me-2"></i>Clear All View</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllCreate"><i class="bi bi-dash-circle text-muted me-2"></i>Clear All Create</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllEdit"><i class="bi bi-dash-square text-muted me-2"></i>Clear All Edit</a></li>
-                            <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllDelete"><i class="bi bi-trash-fill text-muted me-2"></i>Clear All Delete</a></li>
-                        </ul>
-                    </div>
-
                     <!-- Global Select / Deselect -->
                     <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectAll">
                         <i class="bi bi-check-all me-1"></i>Select All
@@ -418,20 +400,6 @@ document.addEventListener('DOMContentLoaded', function () {
         permBoxes.forEach(cb => cb.checked = false);
         syncState();
     });
-
-    // Column batch tools
-    function setColState(selector, state) {
-        document.querySelectorAll(selector).forEach(cb => cb.checked = state);
-        syncState();
-    }
-    document.getElementById('btnSelectAllView')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-view', true); });
-    document.getElementById('btnDeselectAllView')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-view', false); });
-    document.getElementById('btnSelectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-create', true); });
-    document.getElementById('btnDeselectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-create', false); });
-    document.getElementById('btnSelectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-edit', true); });
-    document.getElementById('btnDeselectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-edit', false); });
-    document.getElementById('btnSelectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-delete', true); });
-    document.getElementById('btnDeselectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); setColState('.perm-delete', false); });
 
     // Live search filter
     if (moduleFilter) {
