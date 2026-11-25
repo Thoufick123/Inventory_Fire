@@ -220,16 +220,14 @@ class AdminController {
             $concernParams[] = $concernId;
         }
 
-        // Production Units with rich metrics
-        $productionUnits = ProductionUnit::getWithMetrics();
+        // Production Units & Staff KPI counts
+        $productionUnits = ProductionUnit::getAll();
         $managerFilters  = ['is_active' => 1];
         if ($concernId !== null) {
             $managerFilters['concern_id'] = $concernId;
         }
         $managersList = User::getAll($managerFilters);
 
-        $data['productionUnits']      = $productionUnits;
-        $data['managersList']         = $managersList;
         $data['totalProductionUnits'] = count($productionUnits);
         $data['totalStaff']           = count($managersList);
 
