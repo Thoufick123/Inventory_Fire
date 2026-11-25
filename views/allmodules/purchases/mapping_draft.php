@@ -501,7 +501,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 </div>
                                 <?php endif; ?>
                                 <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
-                                    <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this product and its unposted QR batch? This cannot be undone.');">
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline js-draft-confirm-form" data-confirm-title="Delete Saved Product" data-confirm-msg="Delete this product and its unposted QR batch? This cannot be undone." data-confirm-btn="Yes, Delete" data-confirm-class="btn-danger">
                                         <?= CSRF::field() ?>
                                         <button class="btn btn-xs btn-outline-danger" type="submit" title="Delete product from mapping invoice">
                                             <i class="bi bi-trash"></i>
@@ -516,6 +516,81 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         </table>
     </div>
 </div>
+<!-- Modern UI Alert Modal (replaces native browser showDraftModernAlert()) -->
+<div class="modal fade" id="draftModernAlertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-body p-4 text-center">
+                <div id="draftModernAlertIconWrap" class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle" style="width: 56px; height: 56px; background: #fef3c7; color: #d97706;">
+                    <i id="draftModernAlertIcon" class="bi bi-exclamation-triangle-fill fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2" id="draftModernAlertTitle">Notice</h5>
+                <p class="text-secondary small mb-3" id="draftModernAlertMsg"></p>
+                <button type="button" class="btn btn-primary px-4 rounded-pill fw-semibold" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+window.showDraftModernAlert = function (message, title = 'Notice', type = 'warning') {
+    const modalEl = document.getElementById('draftModernAlertModal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+    const msgStr = String(message ?? '');
+    if (type === 'warning' && msgStr.startsWith('Success:')) type = 'success';
+    else if (type === 'warning' && (msgStr.startsWith('Error:') || msgStr.startsWith('Server error:'))) type = 'danger';
+    const styles = {
+        success: { bg: '#dcfce7', color: '#16a34a', icon: 'bi bi-check-circle-fill fs-3', title: 'Success' },
+        danger:  { bg: '#fee2e2', color: '#dc2626', icon: 'bi bi-x-circle-fill fs-3', title: 'Error' },
+        warning: { bg: '#fef3c7', color: '#d97706', icon: 'bi bi-exclamation-triangle-fill fs-3', title: title },
+    };
+    const st = styles[type] || styles.warning;
+    const iconWrap = document.getElementById('draftModernAlertIconWrap');
+    const iconEl = document.getElementById('draftModernAlertIcon');
+    const titleEl = document.getElementById('draftModernAlertTitle');
+    const msgEl = document.getElementById('draftModernAlertMsg');
+    if (iconWrap) { iconWrap.style.background = st.bg; iconWrap.style.color = st.color; }
+    if (iconEl) iconEl.className = st.icon;
+    if (titleEl) titleEl.textContent = st.title;
+    if (msgEl) msgEl.textContent = msgStr;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+};
+
+window.showDraftModernConfirm = function (title, message, onConfirm, confirmText = 'Confirm', btnClass = 'btn-primary') {
+    if (typeof window.showModernConfirm === 'function') {
+        window.showModernConfirm({
+            title: title,
+            message: message,
+            confirmText: confirmText,
+            btnClass: btnClass,
+            iconClass: btnClass === 'btn-danger' ? 'bi bi-trash3-fill text-danger' : 'bi bi-question-circle-fill text-primary',
+            onConfirm: onConfirm
+        });
+    } else {
+        onConfirm();
+    }
+};
+
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form.classList || !form.classList.contains('js-draft-confirm-form')) return;
+    if (form.dataset.confirmed === '1') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    window.showDraftModernConfirm(
+        form.dataset.confirmTitle || 'Please Confirm',
+        form.dataset.confirmMsg || 'Are you sure?',
+        function () {
+            form.dataset.confirmed = '1';
+            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+            else form.submit();
+        },
+        form.dataset.confirmBtn || 'Confirm',
+        form.dataset.confirmClass || 'btn-primary'
+    );
+}, true);
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('savedVariantSearch');
@@ -578,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-check-circle-fill me-1"></i>Moved to Purchase <?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?>
                         </div>
                     <?php else: ?>
-                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" onsubmit="return confirm('Move this mapping invoice to Purchases? It will create or link the purchase order for the purchase team to fill GST & HSN.')" class="m-0">
+                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0 js-draft-confirm-form" data-confirm-title="Move to Purchases" data-confirm-msg="Move this mapping invoice to Purchases? It will create or link the purchase order for the purchase team to fill GST & HSN." data-confirm-btn="Move to Purchase" data-confirm-class="btn-success">
                             <?= CSRF::field() ?>
                             <button class="btn btn-success w-100 py-2 fw-semibold" type="submit" <?= !$items ? 'disabled' : '' ?>>
                                 <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
@@ -601,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </p>
                     </div>
                     <div class="d-flex flex-column gap-2">
-                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all saved variants that do not already have QR codes?')" class="m-0">
+                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" class="m-0 js-draft-confirm-form" data-confirm-title="Generate All Variant QRs" data-confirm-msg="Generate QR batches for all saved variants that do not already have QR codes?" data-confirm-btn="Generate QRs" data-confirm-class="btn-primary">
                             <?= CSRF::field() ?>
                             <button class="btn btn-outline-info w-100 py-2 fw-semibold" type="submit" <?= $pendingQrCount === 0 ? 'disabled' : '' ?>>
                                 <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
@@ -894,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cards = container.querySelectorAll('.tp-product-card');
         if (cards.length === 0) {
-            alert('Please add at least one product.');
+            showDraftModernAlert('Please add at least one product.');
             return;
         }
 
@@ -902,14 +977,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = cards[p];
             const pName = card.querySelector('.tp-product-name-input')?.value?.trim();
             if (!pName) {
-                alert('Validation Error: Please enter a Product Name for Product #' + (p + 1) + '.');
+                showDraftModernAlert('Validation Error: Please enter a Product Name for Product #' + (p + 1) + '.');
                 card.querySelector('.tp-product-name-input')?.focus();
                 return;
             }
 
             const variantRows = card.querySelectorAll('.tp-variant-rows tr');
             if (variantRows.length === 0) {
-                alert('Validation Error: Please add at least one variant for Product #' + (p + 1) + ' (' + pName + ').');
+                showDraftModernAlert('Validation Error: Please add at least one variant for Product #' + (p + 1) + ' (' + pName + ').');
                 return;
             }
 
@@ -917,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const vRow = variantRows[i];
                 const catVal = vRow.querySelector('.mapping-category')?.value;
                 if (!catVal) {
-                    alert('Validation Error: Please select a Category for Product #' + (p + 1) + ' (' + pName + ') on variant row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please select a Category for Product #' + (p + 1) + ' (' + pName + ') on variant row #' + (i + 1) + '.');
                     vRow.querySelector('.mapping-category')?.focus();
                     return;
                 }
@@ -928,27 +1003,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 const gstVal = parseFloat(vRow.querySelector('.map-gst')?.value || '0') || 0;
 
                 if (qVal <= 0) {
-                    alert('Validation Error: Please enter a valid quantity for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter a valid quantity for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
                     vRow.querySelector('.map-qty')?.focus();
                     return;
                 }
                 if (mrpVal <= 0) {
-                    alert('Validation Error: Please enter a valid MRP for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter a valid MRP for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
                     vRow.querySelector('.map-mrp')?.focus();
                     return;
                 }
                 if (spVal <= 0) {
-                    alert('Validation Error: Please enter a valid Selling Price for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter a valid Selling Price for Product #' + (p + 1) + ' (' + pName + ') on row #' + (i + 1) + '.');
                     vRow.querySelector('.map-sp')?.focus();
                     return;
                 }
                 if (mrpVal < spVal) {
-                    alert('Validation Error: MRP (₹' + mrpVal.toFixed(2) + ') cannot be lower than Selling Price (₹' + spVal.toFixed(2) + ') for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: MRP (₹' + mrpVal.toFixed(2) + ') cannot be lower than Selling Price (₹' + spVal.toFixed(2) + ') for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
                     vRow.querySelector('.map-mrp')?.focus();
                     return;
                 }
                 if (gstVal < 0 || gstVal > 100) {
-                    alert('Validation Error: GST rate must be between 0 and 100% for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: GST rate must be between 0 and 100% for Product #' + (p + 1) + ' on row #' + (i + 1) + '.');
                     vRow.querySelector('.map-gst')?.focus();
                     return;
                 }
@@ -973,14 +1048,14 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (data.success) {
-                alert('Success: ' + data.message);
+                showDraftModernAlert('Success: ' + data.message);
                 window.location.reload();
             } else {
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
                 }
-                alert('Error: ' + (data.message || 'Failed to save products.'));
+                showDraftModernAlert('Error: ' + (data.message || 'Failed to save products.'));
             }
         })
         .catch(function (err) {
@@ -988,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
             }
-            alert('Server error: ' + err.message);
+            showDraftModernAlert('Server error: ' + err.message);
         });
     });
 
@@ -1208,17 +1283,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.querySelectorAll('.qr-status-badge-' + genId).forEach(function(el) {
                     el.innerHTML = '<span class="badge bg-success">Stocked</span>';
                 });
-                alert('Success: ' + (data.message || 'Stock added to inventory!'));
+                showDraftModernAlert('Success: ' + (data.message || 'Stock added to inventory!'));
             } else {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
-                alert('Error: ' + (data.message || 'Could not add stock.'));
+                showDraftModernAlert('Error: ' + (data.message || 'Could not add stock.'));
             }
         })
         .catch(function(err) {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
-            alert('Server error: ' + err.message);
+            showDraftModernAlert('Server error: ' + err.message);
         });
     });
 
@@ -1338,14 +1413,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const fabricNameInput = draftRollsForm.querySelector('[name="fabric_name"]');
             const fabricName = (fabricNameInput?.value || '').trim();
             if (!fabricName) {
-                alert('Validation Error: Please enter Fabric / Material Name.');
+                showDraftModernAlert('Validation Error: Please enter Fabric / Material Name.');
                 fabricNameInput?.focus();
                 return;
             }
 
             const rRows = draftRollsForm.querySelectorAll('#mappingRollRows tr');
             if (rRows.length === 0) {
-                alert('Validation Error: Please add at least one fabric roll.');
+                showDraftModernAlert('Validation Error: Please add at least one fabric roll.');
                 return;
             }
 
@@ -1362,22 +1437,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 const gstVal = parseFloat(gstInput?.value || '0') || 0;
 
                 if (!colorVal) {
-                    alert('Validation Error: Please enter Color / Shade for roll #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter Color / Shade for roll #' + (i + 1) + '.');
                     colorInput?.focus();
                     return;
                 }
                 if (weightVal <= 0) {
-                    alert('Validation Error: Please enter a valid Weight (kg) for roll #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter a valid Weight (kg) for roll #' + (i + 1) + '.');
                     weightInput?.focus();
                     return;
                 }
                 if (rateVal <= 0) {
-                    alert('Validation Error: Please enter a valid Rate (₹/kg) for roll #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: Please enter a valid Rate (₹/kg) for roll #' + (i + 1) + '.');
                     rateInput?.focus();
                     return;
                 }
                 if (gstVal < 0 || gstVal > 100) {
-                    alert('Validation Error: GST rate must be between 0 and 100% on roll #' + (i + 1) + '.');
+                    showDraftModernAlert('Validation Error: GST rate must be between 0 and 100% on roll #' + (i + 1) + '.');
                     gstInput?.focus();
                     return;
                 }
@@ -1400,14 +1475,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success) {
-                    alert('Success: ' + data.message);
+                    showDraftModernAlert('Success: ' + data.message);
                     window.location.reload();
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
                     }
-                    alert('Error: ' + (data.message || 'Failed to save rolls.'));
+                    showDraftModernAlert('Error: ' + (data.message || 'Failed to save rolls.'));
                 }
             })
             .catch(function(err) {
@@ -1415,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
                 }
-                alert('Server error: ' + err.message);
+                showDraftModernAlert('Server error: ' + err.message);
             });
         });
     }
@@ -1424,7 +1499,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('form[action$="/move"]').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (!confirm('Move this mapping invoice to Purchases?')) return;
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
@@ -1442,14 +1516,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success) {
-                    alert('Success: ' + data.message);
+                    showDraftModernAlert('Success: ' + data.message);
                     window.location.href = data.redirect_url || '<?= url("purchases") ?>';
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase';
                     }
-                    alert('Error: ' + (data.message || 'Failed to move to purchases.'));
+                    showDraftModernAlert('Error: ' + (data.message || 'Failed to move to purchases.'));
                 }
             })
             .catch(function(err) {
@@ -1457,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase';
                 }
-                alert('Server error: ' + err.message);
+                showDraftModernAlert('Server error: ' + err.message);
             });
         });
     });
@@ -1466,7 +1540,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('form[action$="/generate-all-qr"]').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (!confirm('Generate QR batches for all saved variants?')) return;
             const submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
@@ -1484,14 +1557,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success) {
-                    alert('Success: ' + data.message);
+                    showDraftModernAlert('Success: ' + data.message);
                     window.location.reload();
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="bi bi-qr-code me-1"></i>Generate QR';
                     }
-                    alert('Error: ' + (data.message || 'QR generation failed.'));
+                    showDraftModernAlert('Error: ' + (data.message || 'QR generation failed.'));
                 }
             })
             .catch(function(err) {
@@ -1499,7 +1572,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-qr-code me-1"></i>Generate QR';
                 }
-                alert('Server error: ' + err.message);
+                showDraftModernAlert('Server error: ' + err.message);
             });
         });
     });
@@ -1723,7 +1796,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const pIndex = card.getAttribute('data-product-index') || '0';
         const pName = (card.querySelector('.tp-product-name-input')?.value || '').trim();
         if (!pName) {
-            alert('Please enter Product / Style Name first.');
+            showDraftModernAlert('Please enter Product / Style Name first.');
             card.querySelector('.tp-product-name-input')?.focus();
             return;
         }
@@ -1736,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const subVal = card.querySelector('.gen-subcategory')?.value || '';
         const ssVal = card.querySelector('.gen-subsubcategory')?.value || '';
         if (!catVal) {
-            alert('Please select a Category first.');
+            showDraftModernAlert('Please select a Category first.');
             card.querySelector('.gen-category')?.focus();
             return;
         }
@@ -1752,14 +1825,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const mrpNum = parseFloat(mrpVal || '0') || 0;
         const spNum = parseFloat(spVal || '0') || 0;
         if (mrpNum <= 0 || spNum <= 0) {
-            alert('Please enter valid MRP and Selling Price greater than 0.');
+            showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0.');
             (mrpNum <= 0 ? mrpInpGen : spInpGen)?.focus();
             return;
         }
         if (spNum > mrpNum) {
             mrpInpGen?.classList.add('is-invalid');
             spInpGen?.classList.add('is-invalid');
-            alert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
+            showDraftModernAlert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
             spInpGen?.focus();
             return;
         }
@@ -1778,7 +1851,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const comboKey = `${pName.toLowerCase()}|${sz.toLowerCase()}|${col.toLowerCase()}|${catVal}`;
                 if (batchComboKeys.has(comboKey)) continue;
                 if (savedExistingVariantKeys.has(comboKey)) {
-                    alert(`Duplicate Variant: "${pName}" (${sz || 'Std'} / ${col || 'Std'}) is already in Saved Product Variants.`);
+                    showDraftModernAlert(`Duplicate Variant: "${pName}" (${sz || 'Std'} / ${col || 'Std'}) is already in Saved Product Variants.`);
                     return;
                 }
                 batchComboKeys.add(comboKey);

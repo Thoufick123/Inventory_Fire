@@ -3895,7 +3895,20 @@ class AllmodulesController {
             }
         }
 
-        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        $warehouses = [];
+        if ($cid !== null) {
+            $warehouses = Database::fetchAll(
+                "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                 FROM warehouses w
+                 LEFT JOIN concerns c ON c.id = w.concern_id
+                 WHERE w.is_active = 1 AND w.concern_id = ?
+                 ORDER BY w.name ASC",
+                [$cid]
+            );
+        }
+        if (empty($warehouses)) {
+            $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        }
         $existingRollProducts = Database::fetchAll("
             SELECT DISTINCT p.name, p.code, p.hsn_code, p.gst_percentage
             FROM products p
@@ -6087,7 +6100,20 @@ class AllmodulesController {
             error_log('categoryAttributesMap build failed: ' . $e->getMessage());
         }
 
-        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        $warehouses = [];
+        if ($cid !== null) {
+            $warehouses = Database::fetchAll(
+                "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                 FROM warehouses w
+                 LEFT JOIN concerns c ON c.id = w.concern_id
+                 WHERE w.is_active = 1 AND w.concern_id = ?
+                 ORDER BY w.name ASC",
+                [$cid]
+            );
+        }
+        if (empty($warehouses)) {
+            $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        }
 
         Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
