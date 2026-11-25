@@ -59,6 +59,16 @@ spl_autoload_register(function (string $className) {
         $preferred = BASE_PATH . '/app/Middleware/' . $cleanClass . '.php';
     }
 
+    // Legacy Production class mapping to Allmodules
+    if (($preferred === null || !file_exists($preferred)) && str_starts_with($cleanClass, 'Production')) {
+        $allmodulesClass = 'Allmodules' . substr($cleanClass, 10);
+        if (str_ends_with($cleanClass, 'Controller')) {
+            $preferred = BASE_PATH . '/app/Controllers/' . $allmodulesClass . '.php';
+        } elseif (str_ends_with($cleanClass, 'Service')) {
+            $preferred = BASE_PATH . '/app/Services/' . $allmodulesClass . '.php';
+        }
+    }
+
     if ($preferred !== null && file_exists($preferred)) {
         require_once $preferred;
         $resolved[$cleanClass] = true;

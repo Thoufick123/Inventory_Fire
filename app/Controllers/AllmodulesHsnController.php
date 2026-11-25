@@ -15,7 +15,7 @@ require_once BASE_PATH . '/app/Helpers/Session.php';
 require_once BASE_PATH . '/app/Helpers/CSRF.php';
 require_once BASE_PATH . '/app/Services/AuditService.php';
 
-class ProductionHsnController {
+class AllmodulesHsnController {
 
     private static bool $schemaEnsured = false;
 
@@ -58,7 +58,7 @@ class ProductionHsnController {
         $items = Database::fetchAll(
             "SELECT * FROM production_hsn_config ORDER BY created_at DESC"
         );
-        Response::view('production.hsn_config.index', [
+        Response::view('allmodules.hsn_config.index', [
             'items'        => $items,
             'activeModule' => 'production',
             'activeMenu'   => 'production-hsn-config',
@@ -74,7 +74,7 @@ class ProductionHsnController {
             return;
         }
 
-        Response::view('production.hsn_config.create', [
+        Response::view('allmodules.hsn_config.create', [
             'activeModule' => 'production',
             'activeMenu'   => 'production-hsn-config',
         ]);
@@ -170,7 +170,7 @@ class ProductionHsnController {
             Response::redirect(url('production/hsn-config'));
             return;
         }
-        Response::view('production.hsn_config.view', [
+        Response::view('allmodules.hsn_config.view', [
             'record'       => $record,
             'activeModule' => 'production',
             'activeMenu'   => 'production-hsn-config',
@@ -196,7 +196,7 @@ class ProductionHsnController {
             Response::redirect(url('production/hsn-config'));
             return;
         }
-        Response::view('production.hsn_config.edit', [
+        Response::view('allmodules.hsn_config.edit', [
             'record'       => $record,
             'activeModule' => 'production',
             'activeMenu'   => 'production-hsn-config',
@@ -321,4 +321,8 @@ class ProductionHsnController {
         Session::flash('success', 'HSN Code "' . htmlspecialchars($record['hsn_code']) . '" deleted successfully.');
         Response::redirect(url('production/hsn-config'));
     }
+}
+
+if (!class_exists('ProductionHsnController', false)) {
+    class_alias('AllmodulesHsnController', 'ProductionHsnController');
 }

@@ -66,7 +66,7 @@ $activeMeta = $tabs[$activeTab] ?? reset($tabs);
         <?php
             $sourceKey = 'production_product';
             $sourceMeta = $tabs['production_product'];
-            require __DIR__ . '/_production_product_form.php';
+            require __DIR__ . '/_allmodules_product_form.php';
         ?>
     </div>
     <?php endif; ?>

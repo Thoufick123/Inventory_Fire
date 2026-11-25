@@ -18,7 +18,7 @@ require_once BASE_PATH . '/app/Models/ProductionBatchItem.php';
 require_once BASE_PATH . '/app/Models/ProductionOutward.php';
 require_once BASE_PATH . '/app/Services/AuditService.php';
 
-class ProductionService {
+class AllmodulesService {
 
     /**
      * Generate unique sequential number with prefix.
@@ -1528,4 +1528,8 @@ class ProductionService {
 
         return (int)Database::lastInsertId();
     }
+}
+
+if (!class_exists('ProductionService', false)) {
+    class_alias('AllmodulesService', 'ProductionService');
 }

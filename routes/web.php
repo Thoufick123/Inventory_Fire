@@ -48,6 +48,13 @@ class Router {
             $url = '';
         }
 
+        // Backward compatibility: seamlessly route legacy production/ to allmodules/
+        if (str_starts_with($url, 'allmodules/')) {
+            $url = 'allmodules/' . substr($url, 11);
+        } elseif (str_starts_with($url, 'api/allmodules/')) {
+            $url = 'api/allmodules/' . substr($url, 15);
+        }
+
         foreach ($this->routes as $route) {
             if ($route['method'] !== $method) continue;
 
@@ -158,223 +165,223 @@ class Router {
         // ==========================================
         // MASTER DATA / CATALOG AJAX ROUTES
         // ==========================================
-        $this->get('api/categories', 'ProductionController', 'ajaxCategories', ['AuthMiddleware']);
-        $this->post('api/categories/quick-add', 'ProductionController', 'ajaxQuickAddCategory', ['AuthMiddleware']);
-        $this->post('api/categories/update/{id}', 'ProductionController', 'ajaxUpdateCategory', ['AuthMiddleware']);
-        $this->post('api/categories/delete/{id}', 'ProductionController', 'ajaxDeleteCategory', ['AuthMiddleware']);
-        $this->get('api/subcategories/{category_id}', 'ProductionController', 'ajaxSubcategories', ['AuthMiddleware']);
-        $this->post('api/subcategories/quick-add', 'ProductionController', 'ajaxQuickAddSubcategory', ['AuthMiddleware']);
-        $this->post('api/subcategories/update/{id}', 'ProductionController', 'ajaxUpdateSubcategory', ['AuthMiddleware']);
-        $this->post('api/subcategories/delete/{id}', 'ProductionController', 'ajaxDeleteSubcategory', ['AuthMiddleware']);
-        $this->get('api/sub-subcategories/{subcategory_id}', 'ProductionController', 'ajaxSubSubcategories', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/quick-add', 'ProductionController', 'ajaxQuickAddSubSubcategory', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/update/{id}', 'ProductionController', 'ajaxUpdateSubSubcategory', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/delete/{id}', 'ProductionController', 'ajaxDeleteSubSubcategory', ['AuthMiddleware']);
-        $this->get('api/categories/attributes/{category_id}', 'ProductionController', 'ajaxGetCategoryAttributes', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/quick-add', 'ProductionController', 'ajaxQuickAddCategoryAttribute', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/add-option', 'ProductionController', 'ajaxAddCategoryAttributeOption', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/delete-option', 'ProductionController', 'ajaxDeleteCategoryAttributeOption', ['AuthMiddleware']);
+        $this->get('api/categories', 'AllmodulesController', 'ajaxCategories', ['AuthMiddleware']);
+        $this->post('api/categories/quick-add', 'AllmodulesController', 'ajaxQuickAddCategory', ['AuthMiddleware']);
+        $this->post('api/categories/update/{id}', 'AllmodulesController', 'ajaxUpdateCategory', ['AuthMiddleware']);
+        $this->post('api/categories/delete/{id}', 'AllmodulesController', 'ajaxDeleteCategory', ['AuthMiddleware']);
+        $this->get('api/subcategories/{category_id}', 'AllmodulesController', 'ajaxSubcategories', ['AuthMiddleware']);
+        $this->post('api/subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubcategory', ['AuthMiddleware']);
+        $this->post('api/subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubcategory', ['AuthMiddleware']);
+        $this->post('api/subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubcategory', ['AuthMiddleware']);
+        $this->get('api/sub-subcategories/{subcategory_id}', 'AllmodulesController', 'ajaxSubSubcategories', ['AuthMiddleware']);
+        $this->post('api/sub-subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubSubcategory', ['AuthMiddleware']);
+        $this->post('api/sub-subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubSubcategory', ['AuthMiddleware']);
+        $this->post('api/sub-subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubSubcategory', ['AuthMiddleware']);
+        $this->get('api/categories/attributes/{category_id}', 'AllmodulesController', 'ajaxGetCategoryAttributes', ['AuthMiddleware']);
+        $this->post('api/categories/attributes/quick-add', 'AllmodulesController', 'ajaxQuickAddCategoryAttribute', ['AuthMiddleware']);
+        $this->post('api/categories/attributes/add-option', 'AllmodulesController', 'ajaxAddCategoryAttributeOption', ['AuthMiddleware']);
+        $this->post('api/categories/attributes/delete-option', 'AllmodulesController', 'ajaxDeleteCategoryAttributeOption', ['AuthMiddleware']);
 
-        $this->post('api/brands/quick-add', 'ProductionController', 'ajaxQuickAddBrand', ['AuthMiddleware']);
-        $this->post('api/sizes/quick-add', 'ProductionController', 'ajaxQuickAddSize', ['AuthMiddleware']);
-        $this->post('api/sizes/delete/{id}', 'ProductionController', 'ajaxDeleteSize', ['AuthMiddleware']);
-        $this->post('api/colors/quick-add', 'ProductionController', 'ajaxQuickAddColor', ['AuthMiddleware']);
-        $this->post('api/colors/delete/{id}', 'ProductionController', 'ajaxDeleteColor', ['AuthMiddleware']);
-        $this->get('api/products/search', 'ProductionController', 'searchProducts', ['AuthMiddleware']);
-        $this->get('api/variants/search', 'ProductionController', 'searchVariants', ['AuthMiddleware']);
-        $this->get('api/stock/check/{variant_id}', 'ProductionController', 'checkStock', ['AuthMiddleware']);
-        $this->get('api/programs/{id}/details', 'ProductionController', 'ajaxProgramDetails', ['AuthMiddleware']);
-        $this->get('api/cutting/{id}/details', 'ProductionController', 'ajaxCuttingDetails', ['AuthMiddleware']);
-        $this->get('api/catalog/variants', 'ProductionController', 'ajaxCatalogVariants', ['AuthMiddleware']);
-        $this->get('api/catalog/check-qr-code', 'ProductionController', 'ajaxCheckQRCode', ['AuthMiddleware']);
-        $this->get('api/hsn-codes', 'ProductionController', 'ajaxHsnCodesList', ['AuthMiddleware']);
-        $this->post('api/hsn-codes/store', 'ProductionController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
-        $this->post('production/hsn/store-ajax', 'ProductionController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
-        $this->post('api/operators/quick-add', 'ProductionController', 'ajaxQuickAddOperator', ['AuthMiddleware']);
-        $this->post('api/tailors/quick-add', 'ProductionController', 'ajaxQuickAddTailor', ['AuthMiddleware']);
+        $this->post('api/brands/quick-add', 'AllmodulesController', 'ajaxQuickAddBrand', ['AuthMiddleware']);
+        $this->post('api/sizes/quick-add', 'AllmodulesController', 'ajaxQuickAddSize', ['AuthMiddleware']);
+        $this->post('api/sizes/delete/{id}', 'AllmodulesController', 'ajaxDeleteSize', ['AuthMiddleware']);
+        $this->post('api/colors/quick-add', 'AllmodulesController', 'ajaxQuickAddColor', ['AuthMiddleware']);
+        $this->post('api/colors/delete/{id}', 'AllmodulesController', 'ajaxDeleteColor', ['AuthMiddleware']);
+        $this->get('api/products/search', 'AllmodulesController', 'searchProducts', ['AuthMiddleware']);
+        $this->get('api/variants/search', 'AllmodulesController', 'searchVariants', ['AuthMiddleware']);
+        $this->get('api/stock/check/{variant_id}', 'AllmodulesController', 'checkStock', ['AuthMiddleware']);
+        $this->get('api/programs/{id}/details', 'AllmodulesController', 'ajaxProgramDetails', ['AuthMiddleware']);
+        $this->get('api/cutting/{id}/details', 'AllmodulesController', 'ajaxCuttingDetails', ['AuthMiddleware']);
+        $this->get('api/catalog/variants', 'AllmodulesController', 'ajaxCatalogVariants', ['AuthMiddleware']);
+        $this->get('api/catalog/check-qr-code', 'AllmodulesController', 'ajaxCheckQRCode', ['AuthMiddleware']);
+        $this->get('api/hsn-codes', 'AllmodulesController', 'ajaxHsnCodesList', ['AuthMiddleware']);
+        $this->post('api/hsn-codes/store', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
+        $this->post('allmodules/hsn/store-ajax', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
+        $this->post('api/operators/quick-add', 'AllmodulesController', 'ajaxQuickAddOperator', ['AuthMiddleware']);
+        $this->post('api/tailors/quick-add', 'AllmodulesController', 'ajaxQuickAddTailor', ['AuthMiddleware']);
 
         // PRODUCTION ROUTES
         // ==========================================
-        $this->get('production/dashboard', 'ProductionController', 'dashboard', ['AuthMiddleware']);
+        $this->get('allmodules/dashboard', 'AllmodulesController', 'dashboard', ['AuthMiddleware']);
         
         // Production Sellers
-        $this->get('production/sellers', 'ProductionController', 'sellerList', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('production/sellers/create', 'ProductionController', 'createSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'create']]);
-        $this->post('production/sellers/store', 'ProductionController', 'storeSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'create']]);
-        $this->get('production/sellers/view/{id}', 'ProductionController', 'viewSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('production/sellers/edit/{id}', 'ProductionController', 'editSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
-        $this->post('production/sellers/update/{id}', 'ProductionController', 'updateSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
-        $this->get('production/sellers/delete/{id}', 'ProductionController', 'confirmDeleteSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
-        $this->post('production/sellers/delete/{id}', 'ProductionController', 'deleteSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
-        $this->post('production/sellers/delete-roll/{id}', 'ProductionController', 'deleteSellerRoll', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
-        $this->get('production/sellers/download-bill/{id}', 'ProductionController', 'downloadBill', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('production/sellers/download-roll-photo/{id}', 'ProductionController', 'downloadRollPhoto', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('production/sellers/{id}/labels', 'ProductionController', 'printSellerLabels', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('production/sellers/roll-labels/{id}', 'ProductionController', 'printSellerRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->post('production/sellers/add-extra-label/{id}', 'ProductionController', 'addExtraRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
-        $this->post('production/sellers/delete-extra-label/{id}', 'ProductionController', 'deleteExtraRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
-        $this->get('production/sellers/export-replaced', 'ProductionController', 'exportReplacedRolls', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('api/sellers/{id}/roll-labels-ajax', 'ProductionController', 'ajaxSellerRollLabels', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('api/sellers/next-roll-codes', 'ProductionController', 'ajaxNextFabricRollCodes', ['AuthMiddleware']);
-        $this->get('api/sellers/{id}/rolls', 'ProductionController', 'ajaxSellerRolls', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
-        $this->get('api/production/sellers/check-duplicate', 'ProductionController', 'ajaxCheckSupplierDuplicate', ['AuthMiddleware']);
-        $this->get('api/production/sellers/check-deletable', 'ProductionController', 'ajaxCheckSupplierDeletable', ['AuthMiddleware']);
+        $this->get('allmodules/sellers', 'AllmodulesController', 'sellerList', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('allmodules/sellers/create', 'AllmodulesController', 'createSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'create']]);
+        $this->post('allmodules/sellers/store', 'AllmodulesController', 'storeSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'create']]);
+        $this->get('allmodules/sellers/view/{id}', 'AllmodulesController', 'viewSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('allmodules/sellers/edit/{id}', 'AllmodulesController', 'editSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
+        $this->post('allmodules/sellers/update/{id}', 'AllmodulesController', 'updateSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
+        $this->get('allmodules/sellers/delete/{id}', 'AllmodulesController', 'confirmDeleteSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
+        $this->post('allmodules/sellers/delete/{id}', 'AllmodulesController', 'deleteSeller', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
+        $this->post('allmodules/sellers/delete-roll/{id}', 'AllmodulesController', 'deleteSellerRoll', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
+        $this->get('allmodules/sellers/download-bill/{id}', 'AllmodulesController', 'downloadBill', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('allmodules/sellers/download-roll-photo/{id}', 'AllmodulesController', 'downloadRollPhoto', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('allmodules/sellers/{id}/labels', 'AllmodulesController', 'printSellerLabels', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('allmodules/sellers/roll-labels/{id}', 'AllmodulesController', 'printSellerRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->post('allmodules/sellers/add-extra-label/{id}', 'AllmodulesController', 'addExtraRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'edit']]);
+        $this->post('allmodules/sellers/delete-extra-label/{id}', 'AllmodulesController', 'deleteExtraRollLabel', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'delete']]);
+        $this->get('allmodules/sellers/export-replaced', 'AllmodulesController', 'exportReplacedRolls', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('api/sellers/{id}/roll-labels-ajax', 'AllmodulesController', 'ajaxSellerRollLabels', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('api/sellers/next-roll-codes', 'AllmodulesController', 'ajaxNextFabricRollCodes', ['AuthMiddleware']);
+        $this->get('api/sellers/{id}/rolls', 'AllmodulesController', 'ajaxSellerRolls', ['AuthMiddleware', ['PermissionMiddleware', 'sellers', 'view']]);
+        $this->get('api/allmodules/sellers/check-duplicate', 'AllmodulesController', 'ajaxCheckSupplierDuplicate', ['AuthMiddleware']);
+        $this->get('api/allmodules/sellers/check-deletable', 'AllmodulesController', 'ajaxCheckSupplierDeletable', ['AuthMiddleware']);
 
         // Unified Common Purchases (Fabric Rolls, Third-Party Products & Own Production Products)
-        $this->get('production/purchases', 'ProductionController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('production/purchases/create', 'ProductionController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
-        $this->post('production/purchases/store', 'ProductionController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
-        $this->get('production/purchases/view/{id}', 'ProductionController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('production/purchases/edit/{id}', 'ProductionController', 'editProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
-        $this->post('production/purchases/update/{id}', 'ProductionController', 'updateProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
-        $this->post('production/purchases/delete/{id}', 'ProductionController', 'deleteProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'delete']]);
-        $this->get('production/purchases/print/{id}', 'ProductionController', 'printProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('production/purchases/roll-qr/{id}', 'ProductionController', 'productionPurchaseRollQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('production/purchases/supply-qr/{id}', 'ProductionController', 'productionPurchaseSupplyQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->post('production/purchases/supply-inward/{id}', 'ProductionController', 'productionPurchaseSupplyInward', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases', 'AllmodulesController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases/create', 'AllmodulesController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
+        $this->post('allmodules/purchases/store', 'AllmodulesController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
+        $this->get('allmodules/purchases/view/{id}', 'AllmodulesController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases/edit/{id}', 'AllmodulesController', 'editProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
+        $this->post('allmodules/purchases/update/{id}', 'AllmodulesController', 'updateProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
+        $this->post('allmodules/purchases/delete/{id}', 'AllmodulesController', 'deleteProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'delete']]);
+        $this->get('allmodules/purchases/print/{id}', 'AllmodulesController', 'printProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases/roll-qr/{id}', 'AllmodulesController', 'productionPurchaseRollQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases/supply-qr/{id}', 'AllmodulesController', 'productionPurchaseSupplyQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->post('allmodules/purchases/supply-inward/{id}', 'AllmodulesController', 'productionPurchaseSupplyInward', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
 
         // Third-Party Product Mapping Module
-        $this->get('production/purchases/mapping', 'ProductionController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->get('production/purchases/mapping/create', 'ProductionController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('production/purchases/mapping/create', 'ProductionController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->get('production/purchases/mapping/draft/{id}', 'ProductionController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('production/purchases/mapping/draft/{id}/view', 'ProductionController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->post('production/purchases/mapping/draft/{id}/add-product', 'ProductionController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('production/purchases/mapping/draft/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('production/purchases/mapping/draft/item/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('production/purchases/mapping/draft/{id}/move', 'ProductionController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/draft/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/draft/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('api/purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
-        $this->post('purchases/mapping/add-to-stock', 'ProductionController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+        $this->get('allmodules/purchases/mapping', 'AllmodulesController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->get('allmodules/purchases/mapping/create', 'AllmodulesController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('allmodules/purchases/mapping/create', 'AllmodulesController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->get('allmodules/purchases/mapping/draft/{id}', 'AllmodulesController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('allmodules/purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->post('allmodules/purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('allmodules/purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/draft/{id}/move', 'AllmodulesController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/draft/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/draft/{id}/generate-all-qr', 'AllmodulesController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('api/purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+        $this->post('purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
 
         // Shop & Production Cash & Cash Flow Management
-        $this->get('production/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
+        $this->get('allmodules/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
         $this->get('shop/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
-        $this->post('production/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
-        $this->post('production/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
-        $this->post('production/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
-        $this->post('production/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
-        $this->post('production/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'delete']]);
-        $this->get('production/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
-        $this->get('production/purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/bill/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('production/purchases/mapping/edit/{id}', 'ProductionController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/save', 'ProductionController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/edit-roll', 'ProductionController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/add-product', 'ProductionController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('production/purchases/mapping/delete-product/{id}', 'ProductionController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('production/purchases/mapping/unmap/{id}', 'ProductionController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('production/purchases/mapping/unmap-bill/{id}', 'ProductionController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->get('api/purchases/mapping/item/{id}', 'ProductionController', 'ajaxGetThirdPartyItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('production/purchases/mapping/catalog', 'ProductionController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->get('production/purchases/mapping/catalog/create', 'ProductionController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('production/purchases/mapping/catalog/store', 'ProductionController', 'storeThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->get('production/purchases/mapping/catalog/edit/{id}', 'ProductionController', 'editThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/catalog/update/{id}', 'ProductionController', 'updateThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('production/purchases/mapping/catalog/delete/{id}', 'ProductionController', 'deleteThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/cash-flow/open-shift', 'CashFlowController', 'openShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('allmodules/cash-flow/top-up', 'CashFlowController', 'topUp', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('allmodules/cash-flow/expense', 'CashFlowController', 'recordExpense', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('allmodules/cash-flow/bank-drop', 'CashFlowController', 'bankDrop', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'create']]);
+        $this->post('allmodules/cash-flow/close-shift', 'CashFlowController', 'closeShift', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'delete']]);
+        $this->get('allmodules/cash-flow/export-csv', 'CashFlowController', 'exportCsv', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
+        $this->get('allmodules/purchases/mapping/bill/{id}', 'AllmodulesController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/bill/variant/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/bill/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/bill/{id}/generate-all-qr', 'AllmodulesController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('allmodules/purchases/mapping/edit/{id}', 'AllmodulesController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/save', 'AllmodulesController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/edit-roll', 'AllmodulesController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/add-product', 'AllmodulesController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('allmodules/purchases/mapping/delete-product/{id}', 'AllmodulesController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/unmap/{id}', 'AllmodulesController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/unmap-bill/{id}', 'AllmodulesController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->get('api/purchases/mapping/item/{id}', 'AllmodulesController', 'ajaxGetThirdPartyItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('allmodules/purchases/mapping/catalog', 'AllmodulesController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->get('allmodules/purchases/mapping/catalog/create', 'AllmodulesController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('allmodules/purchases/mapping/catalog/store', 'AllmodulesController', 'storeThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->get('allmodules/purchases/mapping/catalog/edit/{id}', 'AllmodulesController', 'editThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/catalog/update/{id}', 'AllmodulesController', 'updateThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/catalog/delete/{id}', 'AllmodulesController', 'deleteThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
 
         // Purchased Stock Sub-Module (Fabric Rolls, Raw Materials, Third-Party)
-        $this->get('production/purchased-stock', 'ProductionController', 'purchasedStockIndex', ['AuthMiddleware']);
-        $this->get('production/purchased-stock/view/{id}', 'ProductionController', 'purchasedStockView', ['AuthMiddleware']);
-        $this->get('production/purchased-stock/edit/{id}', 'ProductionController', 'purchasedStockEdit', ['AuthMiddleware']);
-        $this->post('production/purchased-stock/edit/{id}', 'ProductionController', 'purchasedStockUpdate', ['AuthMiddleware']);
-        $this->get('production/purchased-stock/details/{id}', 'ProductionController', 'ajaxPurchasedStockDetails', ['AuthMiddleware']);
-        $this->post('production/purchased-stock/update/{id}', 'ProductionController', 'ajaxPurchasedStockUpdate', ['AuthMiddleware']);
-        $this->post('production/purchased-stock/delete/{id}', 'ProductionController', 'ajaxPurchasedStockDelete', ['AuthMiddleware']);
+        $this->get('allmodules/purchased-stock', 'AllmodulesController', 'purchasedStockIndex', ['AuthMiddleware']);
+        $this->get('allmodules/purchased-stock/view/{id}', 'AllmodulesController', 'purchasedStockView', ['AuthMiddleware']);
+        $this->get('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockEdit', ['AuthMiddleware']);
+        $this->post('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockUpdate', ['AuthMiddleware']);
+        $this->get('allmodules/purchased-stock/details/{id}', 'AllmodulesController', 'ajaxPurchasedStockDetails', ['AuthMiddleware']);
+        $this->post('allmodules/purchased-stock/update/{id}', 'AllmodulesController', 'ajaxPurchasedStockUpdate', ['AuthMiddleware']);
+        $this->post('allmodules/purchased-stock/delete/{id}', 'AllmodulesController', 'ajaxPurchasedStockDelete', ['AuthMiddleware']);
 
         // Common Purchases Clean Aliases
-        $this->get('purchases', 'ProductionController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('purchases/create', 'ProductionController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
-        $this->post('purchases/store', 'ProductionController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
-        $this->get('purchases/view/{id}', 'ProductionController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
-        $this->get('purchases/mapping', 'ProductionController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->get('purchases/mapping/create', 'ProductionController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('purchases/mapping/create', 'ProductionController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->get('purchases/mapping/draft/{id}', 'ProductionController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('purchases/mapping/draft/{id}/view', 'ProductionController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->post('purchases/mapping/draft/{id}/add-product', 'ProductionController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('purchases/mapping/draft/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('purchases/mapping/draft/item/{id}/delete', 'ProductionController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('purchases/mapping/draft/{id}/move', 'ProductionController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/draft/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/draft/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('purchases/mapping/bill/{id}', 'ProductionController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/bill/variant/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/bill/item/{id}/generate-qr', 'ProductionController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/bill/{id}/generate-all-qr', 'ProductionController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->get('purchases/mapping/edit/{id}', 'ProductionController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/save', 'ProductionController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/edit-roll', 'ProductionController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/add-product', 'ProductionController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('purchases/mapping/delete-product/{id}', 'ProductionController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('purchases/mapping/unmap/{id}', 'ProductionController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->post('purchases/mapping/unmap-bill/{id}', 'ProductionController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
-        $this->get('purchases/mapping/catalog', 'ProductionController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
-        $this->get('purchases/mapping/catalog/create', 'ProductionController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->post('purchases/mapping/catalog/store', 'ProductionController', 'storeThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
-        $this->get('purchases/mapping/catalog/edit/{id}', 'ProductionController', 'editThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/catalog/update/{id}', 'ProductionController', 'updateThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('purchases/mapping/catalog/delete/{id}', 'ProductionController', 'deleteThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->get('purchases', 'AllmodulesController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('purchases/create', 'AllmodulesController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
+        $this->post('purchases/store', 'AllmodulesController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
+        $this->get('purchases/view/{id}', 'AllmodulesController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('purchases/mapping', 'AllmodulesController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->get('purchases/mapping/create', 'AllmodulesController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/create', 'AllmodulesController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->get('purchases/mapping/draft/{id}', 'AllmodulesController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->post('purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/draft/{id}/move', 'AllmodulesController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/draft/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/draft/{id}/generate-all-qr', 'AllmodulesController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('purchases/mapping/bill/{id}', 'AllmodulesController', 'thirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/variant/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyBillVariantQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyBillItemQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/bill/{id}/generate-all-qr', 'AllmodulesController', 'generateAllThirdPartyBillVariantsQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->get('purchases/mapping/edit/{id}', 'AllmodulesController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/save', 'AllmodulesController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/edit-roll', 'AllmodulesController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/add-product', 'AllmodulesController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/delete-product/{id}', 'AllmodulesController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/unmap/{id}', 'AllmodulesController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/unmap-bill/{id}', 'AllmodulesController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->get('purchases/mapping/catalog', 'AllmodulesController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
+        $this->get('purchases/mapping/catalog/create', 'AllmodulesController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/catalog/store', 'AllmodulesController', 'storeThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->get('purchases/mapping/catalog/edit/{id}', 'AllmodulesController', 'editThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/catalog/update/{id}', 'AllmodulesController', 'updateThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/catalog/delete/{id}', 'AllmodulesController', 'deleteThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
 
         // Production Billing
-        $this->get('production/billing', 'ProductionBillingController', 'billList', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-        $this->get('production/billing/move-to-batch/{id}', 'ProductionBillingController', 'moveBillToBatchForm', ['AuthMiddleware']);
-        $this->post('production/billing/move-to-batch/{id}', 'ProductionBillingController', 'createBillDispatchBatch', ['AuthMiddleware']);
-        $this->get('production/billing/create', 'ProductionBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
-        $this->post('production/billing/create', 'ProductionBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
-        $this->post('production/billing/store', 'ProductionBillingController', 'storeBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
-        $this->get('production/billing/view/{id}', 'ProductionBillingController', 'viewBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-        $this->get('production/billing/edit/{id}', 'ProductionBillingController', 'editBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
-        $this->post('production/billing/update/{id}', 'ProductionBillingController', 'updateBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
-        $this->post('production/billing/delete/{id}', 'ProductionBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
-        $this->get('production/billing/print/{id}', 'ProductionBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-                $this->get('api/production/billing/search', 'ProductionBillingController', 'searchInventory', ['AuthMiddleware']);
-        $this->get('api/production/billing/batch-items', 'ProductionBillingController', 'getBatchItemsJson', ['AuthMiddleware']);
-        $this->get('api/production/billing/customer-search', 'ProductionBillingController', 'searchCustomer', ['AuthMiddleware']);
-        $this->get('api/production/billing/customer-history', 'ProductionBillingController', 'customerHistory', ['AuthMiddleware']);
+        $this->get('allmodules/billing', 'AllmodulesBillingController', 'billList', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'moveBillToBatchForm', ['AuthMiddleware']);
+        $this->post('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'createBillDispatchBatch', ['AuthMiddleware']);
+        $this->get('allmodules/billing/create', 'AllmodulesBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
+        $this->post('allmodules/billing/create', 'AllmodulesBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
+        $this->post('allmodules/billing/store', 'AllmodulesBillingController', 'storeBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
+        $this->get('allmodules/billing/view/{id}', 'AllmodulesBillingController', 'viewBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('allmodules/billing/edit/{id}', 'AllmodulesBillingController', 'editBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
+        $this->post('allmodules/billing/update/{id}', 'AllmodulesBillingController', 'updateBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
+        $this->post('allmodules/billing/delete/{id}', 'AllmodulesBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
+        $this->get('allmodules/billing/print/{id}', 'AllmodulesBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+                $this->get('api/allmodules/billing/search', 'AllmodulesBillingController', 'searchInventory', ['AuthMiddleware']);
+        $this->get('api/allmodules/billing/batch-items', 'AllmodulesBillingController', 'getBatchItemsJson', ['AuthMiddleware']);
+        $this->get('api/allmodules/billing/customer-search', 'AllmodulesBillingController', 'searchCustomer', ['AuthMiddleware']);
+        $this->get('api/allmodules/billing/customer-history', 'AllmodulesBillingController', 'customerHistory', ['AuthMiddleware']);
 
         // Production Customer Returns & Exchanges
-        $this->get('production/returns', 'ProductionReturnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
-        $this->get('production/returns/create', 'ProductionReturnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
-        $this->get('production/returns/lookup', 'ProductionReturnController', 'ajaxLookupBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
-        $this->post('production/returns/store', 'ProductionReturnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
-        $this->post('production/returns/triage-item', 'ProductionReturnController', 'triageItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
-        $this->post('production/returns/bulk-triage', 'ProductionReturnController', 'bulkTriage', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
-        $this->get('production/returns/view/{id}', 'ProductionReturnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
-        $this->get('production/returns/print/{id}', 'ProductionReturnController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
+        $this->get('allmodules/returns', 'AllmodulesReturnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
+        $this->get('allmodules/returns/create', 'AllmodulesReturnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->get('allmodules/returns/lookup', 'AllmodulesReturnController', 'ajaxLookupBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
+        $this->post('allmodules/returns/store', 'AllmodulesReturnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->post('allmodules/returns/triage-item', 'AllmodulesReturnController', 'triageItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->post('allmodules/returns/bulk-triage', 'AllmodulesReturnController', 'bulkTriage', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'create']]);
+        $this->get('allmodules/returns/view/{id}', 'AllmodulesReturnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
+        $this->get('allmodules/returns/print/{id}', 'AllmodulesReturnController', 'print', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
 
         // Inter-Module Stock Requirements & Requisitions Flow
-        $this->get('production/stock-requests', 'ProductionStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
-        $this->get('production/stock-requests/create', 'ProductionStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
-        $this->post('production/stock-requests/store', 'ProductionStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
-        $this->get('api/production/stock-requests/variant-stock', 'ProductionStockRequestController', 'ajaxGetStock', ['AuthMiddleware']);
-        $this->get('api/production/stock-requests/scan-product', 'ProductionStockRequestController', 'ajaxScanProduct', ['AuthMiddleware']);
-        $this->get('production/stock-requests/view/{id}', 'ProductionStockRequestController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
-        $this->post('production/stock-requests/receive/{id}', 'ProductionStockRequestController', 'receiveBySendArea', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
-        $this->post('production/stock-requests/send-stocks/{id}', 'ProductionStockRequestController', 'sendStocks', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
-        $this->post('production/stock-requests/confirm-received/{id}', 'ProductionStockRequestController', 'confirmReceived', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
-        $this->post('production/stock-requests/update-status/{id}', 'ProductionStockRequestController', 'updateStatus', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
+        $this->get('allmodules/stock-requests', 'AllmodulesStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
+        $this->get('allmodules/stock-requests/create', 'AllmodulesStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
+        $this->post('allmodules/stock-requests/store', 'AllmodulesStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
+        $this->get('api/allmodules/stock-requests/variant-stock', 'AllmodulesStockRequestController', 'ajaxGetStock', ['AuthMiddleware']);
+        $this->get('api/allmodules/stock-requests/scan-product', 'AllmodulesStockRequestController', 'ajaxScanProduct', ['AuthMiddleware']);
+        $this->get('allmodules/stock-requests/view/{id}', 'AllmodulesStockRequestController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
+        $this->post('allmodules/stock-requests/receive/{id}', 'AllmodulesStockRequestController', 'receiveBySendArea', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
+        $this->post('allmodules/stock-requests/send-stocks/{id}', 'AllmodulesStockRequestController', 'sendStocks', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
+        $this->post('allmodules/stock-requests/confirm-received/{id}', 'AllmodulesStockRequestController', 'confirmReceived', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
+        $this->post('allmodules/stock-requests/update-status/{id}', 'AllmodulesStockRequestController', 'updateStatus', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
 
         // Stock Requirements Aliases
-        $this->get('production/stock-requirements', 'ProductionStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
-        $this->get('production/stock-requirements/create', 'ProductionStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
-        $this->post('production/stock-requirements/store', 'ProductionStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
+        $this->get('allmodules/stock-requirements', 'AllmodulesStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
+        $this->get('allmodules/stock-requirements/create', 'AllmodulesStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
+        $this->post('allmodules/stock-requirements/store', 'AllmodulesStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
         // ==========================================
         // GOODS INWARD (GRN) & PRODUCTION INWARD WORKSTATION
         // ==========================================
-        $this->get('production/inwards', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('production/inwards/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
-        $this->post('production/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
-        $this->get('production/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->post('production/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
-        $this->get('production/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('production/inwards/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('allmodules/inwards', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('allmodules/inwards/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
+        $this->post('allmodules/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('allmodules/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->post('allmodules/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('allmodules/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('allmodules/inwards/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
         // Warehouse Inward scheme compatibility aliases
-        $this->get('warehouse/dashboard', 'ProductionController', 'dashboard', ['AuthMiddleware']);
+        $this->get('warehouse/dashboard', 'AllmodulesController', 'dashboard', ['AuthMiddleware']);
         $this->get('warehouse/inward', 'InwardController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('warehouse/inward/create', 'InwardController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'create']]);
         $this->post('warehouse/inward/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
@@ -390,60 +397,60 @@ class Router {
         $this->get('api/warehouse/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
         // Production Inward API aliases
-        $this->post('api/production/inward/scan', 'InwardController', 'ajaxScanInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
-        $this->post('api/production/inward/crosscheck-scan', 'InwardController', 'ajaxCrossCheckScan', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
-        $this->get('api/production/inward/lookup/{code}', 'InwardController', 'ajaxLookupBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
-        $this->get('api/production/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->post('api/allmodules/inward/scan', 'InwardController', 'ajaxScanInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->post('api/allmodules/inward/crosscheck-scan', 'InwardController', 'ajaxCrossCheckScan', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->get('api/allmodules/inward/lookup/{code}', 'InwardController', 'ajaxLookupBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
+        $this->get('api/allmodules/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
         // Production Reports & CSV / Excel Export (Legacy forward to ExportController)
-        $this->get('production/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
-        $this->post('production/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
+        $this->get('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
+        $this->post('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
 
         // Production Fabric & Roll Damages
-        $this->get('production/damages', 'ProductionController', 'damageList', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
-        $this->get('api/production/damages/scan-roll', 'ProductionController', 'ajaxLookupDamageRoll', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
-        $this->get('api/production/damages/scan-roll-edit', 'ProductionController', 'ajaxLookupEditDamageRoll', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
-        $this->post('production/damages/reasons/store', 'ProductionController', 'storeDamageReason', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
-        $this->post('production/damages/store', 'ProductionController', 'storeDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
-        $this->get('production/damages/view/{id}', 'ProductionController', 'viewDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
-        $this->post('production/damages/update/{id}', 'ProductionController', 'updateDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
-        $this->post('production/damages/resolve/{id}', 'ProductionController', 'resolveDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
-        $this->post('production/damages/delete/{id}', 'ProductionController', 'deleteDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'delete']]);
+        $this->get('allmodules/damages', 'AllmodulesController', 'damageList', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
+        $this->get('api/allmodules/damages/scan-roll', 'AllmodulesController', 'ajaxLookupDamageRoll', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
+        $this->get('api/allmodules/damages/scan-roll-edit', 'AllmodulesController', 'ajaxLookupEditDamageRoll', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
+        $this->post('allmodules/damages/reasons/store', 'AllmodulesController', 'storeDamageReason', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
+        $this->post('allmodules/damages/store', 'AllmodulesController', 'storeDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
+        $this->get('allmodules/damages/view/{id}', 'AllmodulesController', 'viewDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
+        $this->post('allmodules/damages/update/{id}', 'AllmodulesController', 'updateDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
+        $this->post('allmodules/damages/resolve/{id}', 'AllmodulesController', 'resolveDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
+        $this->post('allmodules/damages/delete/{id}', 'AllmodulesController', 'deleteDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'delete']]);
 
         // Production Catalog
-        $this->get('production/catalog', 'ProductionController', 'catalogList', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
-        $this->get('production/catalog/create', 'ProductionController', 'createCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'create']]);
-        $this->post('production/catalog/store', 'ProductionController', 'storeCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'create']]);
-        $this->get('production/catalog/view/{id}', 'ProductionController', 'viewCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
-        $this->get('production/catalog/edit/{id}', 'ProductionController', 'editCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'edit']]);
-        $this->post('production/catalog/update/{id}', 'ProductionController', 'updateCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'edit']]);
-        $this->post('production/catalog/delete/{id}', 'ProductionController', 'deleteCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'delete']]);
+        $this->get('allmodules/catalog', 'AllmodulesController', 'catalogList', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
+        $this->get('allmodules/catalog/create', 'AllmodulesController', 'createCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'create']]);
+        $this->post('allmodules/catalog/store', 'AllmodulesController', 'storeCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'create']]);
+        $this->get('allmodules/catalog/view/{id}', 'AllmodulesController', 'viewCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
+        $this->get('allmodules/catalog/edit/{id}', 'AllmodulesController', 'editCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'edit']]);
+        $this->post('allmodules/catalog/update/{id}', 'AllmodulesController', 'updateCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'edit']]);
+        $this->post('allmodules/catalog/delete/{id}', 'AllmodulesController', 'deleteCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'delete']]);
 
         // Product Variants & QR Management
-        $this->get('production/variants', 'VariantController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
-        $this->get('production/variants/reports', 'VariantController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
-        $this->get('production/variants/create', 'VariantController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'create']]);
-        $this->post('production/variants/store', 'VariantController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'create']]);
-        $this->get('production/variants/view/{id}', 'VariantController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
-        $this->get('production/variants/edit/{id}', 'VariantController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
-        $this->post('production/variants/update/{id}', 'VariantController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
-        $this->post('production/variants/toggle/{id}', 'VariantController', 'toggle', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
-        $this->get('production/variants/qr-label/{id}', 'VariantController', 'printQrLabel', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
-        $this->post('production/variants/print-labels', 'VariantController', 'printBatchQrLabels', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
+        $this->get('allmodules/variants', 'VariantController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
+        $this->get('allmodules/variants/reports', 'VariantController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
+        $this->get('allmodules/variants/create', 'VariantController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'create']]);
+        $this->post('allmodules/variants/store', 'VariantController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'create']]);
+        $this->get('allmodules/variants/view/{id}', 'VariantController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
+        $this->get('allmodules/variants/edit/{id}', 'VariantController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
+        $this->post('allmodules/variants/update/{id}', 'VariantController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
+        $this->post('allmodules/variants/toggle/{id}', 'VariantController', 'toggle', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
+        $this->get('allmodules/variants/qr-label/{id}', 'VariantController', 'printQrLabel', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
+        $this->post('allmodules/variants/print-labels', 'VariantController', 'printBatchQrLabels', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
 
         // QR Code Generation Module (Manual & Catalog/Variant Modes)
-        $this->get('production/qr-generations', 'QrGenerationController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->get('production/qr-generations/create', 'QrGenerationController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/store-manual', 'QrGenerationController', 'storeManual', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/store-catalog', 'QrGenerationController', 'storeCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/store-purchase', 'QrGenerationController', 'storePurchaseBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/store-stitching', 'QrGenerationController', 'storeStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/add-to-stock/{id}', 'QrGenerationController', 'addToStock', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->get('production/qr-generations/view/{id}', 'QrGenerationController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->get('production/qr-generations/edit/{id}', 'QrGenerationController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('production/qr-generations/edit/{id}', 'QrGenerationController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->get('production/qr-generations/print/{id}', 'QrGenerationController', 'printLabels', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->post('production/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
+        $this->get('allmodules/qr-generations', 'QrGenerationController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
+        $this->get('allmodules/qr-generations/create', 'QrGenerationController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/store-manual', 'QrGenerationController', 'storeManual', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/store-catalog', 'QrGenerationController', 'storeCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/store-purchase', 'QrGenerationController', 'storePurchaseBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/store-stitching', 'QrGenerationController', 'storeStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/add-to-stock/{id}', 'QrGenerationController', 'addToStock', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->get('allmodules/qr-generations/view/{id}', 'QrGenerationController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
+        $this->get('allmodules/qr-generations/edit/{id}', 'QrGenerationController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->post('allmodules/qr-generations/edit/{id}', 'QrGenerationController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
+        $this->get('allmodules/qr-generations/print/{id}', 'QrGenerationController', 'printLabels', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
+        $this->post('allmodules/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
 
         // Variant & Design AJAX APIs
         $this->get('api/variants/catalogs', 'VariantController', 'ajaxCatalogs', ['AuthMiddleware']);
@@ -455,130 +462,130 @@ class Router {
         $this->post('api/designs/quick-add', 'VariantController', 'ajaxQuickAddDesign', ['AuthMiddleware']);
 
         // Production Programs
-        $this->get('production/programs', 'ProductionController', 'programList', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'view']]);
-        $this->get('production/programs/create', 'ProductionController', 'createProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'create']]);
-        $this->post('production/programs/store', 'ProductionController', 'storeProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'create']]);
-        $this->get('production/programs/edit/{id}', 'ProductionController', 'editProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
-        $this->post('production/programs/update/{id}', 'ProductionController', 'updateProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
-        $this->get('production/programs/view/{id}', 'ProductionController', 'viewProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'view']]);
-        $this->post('production/programs/approve/{id}', 'ProductionController', 'approveProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'approve']]);
-        $this->post('production/programs/status/{id}', 'ProductionController', 'updateProgramStatus', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
-        $this->post('production/programs/delete/{id}', 'ProductionController', 'deleteProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'delete']]);
+        $this->get('allmodules/programs', 'AllmodulesController', 'programList', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'view']]);
+        $this->get('allmodules/programs/create', 'AllmodulesController', 'createProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'create']]);
+        $this->post('allmodules/programs/store', 'AllmodulesController', 'storeProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'create']]);
+        $this->get('allmodules/programs/edit/{id}', 'AllmodulesController', 'editProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
+        $this->post('allmodules/programs/update/{id}', 'AllmodulesController', 'updateProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
+        $this->get('allmodules/programs/view/{id}', 'AllmodulesController', 'viewProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'view']]);
+        $this->post('allmodules/programs/approve/{id}', 'AllmodulesController', 'approveProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'approve']]);
+        $this->post('allmodules/programs/status/{id}', 'AllmodulesController', 'updateProgramStatus', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'edit']]);
+        $this->post('allmodules/programs/delete/{id}', 'AllmodulesController', 'deleteProgram', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'delete']]);
 
         // Cutting
-        $this->get('production/cutting', 'ProductionController', 'cuttingList', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
-        $this->get('production/cutting/view/{id}', 'ProductionController', 'viewCuttingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
-        $this->get('production/cutting/create', 'ProductionController', 'createCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
-        $this->post('production/cutting/store', 'ProductionController', 'storeCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
-        $this->get('production/cutting/edit/{id}', 'ProductionController', 'editCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
-        $this->post('production/cutting/update/{id}', 'ProductionController', 'updateCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
-        $this->post('production/cutting/delete/{id}', 'ProductionController', 'deleteCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'delete']]);
-        $this->get('api/programs/{id}/details', 'ProductionController', 'ajaxProgramDetails', ['AuthMiddleware']);
+        $this->get('allmodules/cutting', 'AllmodulesController', 'cuttingList', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
+        $this->get('allmodules/cutting/view/{id}', 'AllmodulesController', 'viewCuttingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
+        $this->get('allmodules/cutting/create', 'AllmodulesController', 'createCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
+        $this->post('allmodules/cutting/store', 'AllmodulesController', 'storeCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
+        $this->get('allmodules/cutting/edit/{id}', 'AllmodulesController', 'editCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
+        $this->post('allmodules/cutting/update/{id}', 'AllmodulesController', 'updateCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
+        $this->post('allmodules/cutting/delete/{id}', 'AllmodulesController', 'deleteCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'delete']]);
+        $this->get('api/programs/{id}/details', 'AllmodulesController', 'ajaxProgramDetails', ['AuthMiddleware']);
 
         // Wastage Selling
-        $this->get('production/wastage', 'ProductionController', 'wastageList', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'view']]);
-        $this->post('production/wastage/store', 'ProductionController', 'storeWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'create']]);
-        $this->post('production/wastage/update/{id}', 'ProductionController', 'updateWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'edit']]);
-        $this->post('production/wastage/delete/{id}', 'ProductionController', 'deleteWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'delete']]);
-        $this->get('production/wastage/receipt/{id}', 'ProductionController', 'wastageReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'view']]);
+        $this->get('allmodules/wastage', 'AllmodulesController', 'wastageList', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'view']]);
+        $this->post('allmodules/wastage/store', 'AllmodulesController', 'storeWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'create']]);
+        $this->post('allmodules/wastage/update/{id}', 'AllmodulesController', 'updateWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'edit']]);
+        $this->post('allmodules/wastage/delete/{id}', 'AllmodulesController', 'deleteWastage', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'delete']]);
+        $this->get('allmodules/wastage/receipt/{id}', 'AllmodulesController', 'wastageReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'wastage', 'view']]);
 
         // Stitching
-        $this->get('production/stitching', 'ProductionController', 'stitchingList', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
-        $this->get('production/stitching/view/{id}', 'ProductionController', 'viewStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
-        $this->get('production/stitching/create', 'ProductionController', 'createStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
-        $this->post('production/stitching/store', 'ProductionController', 'storeStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
-        $this->get('production/stitching/edit/{id}', 'ProductionController', 'editStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
-        $this->post('production/stitching/update/{id}', 'ProductionController', 'updateStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
-        $this->post('production/stitching/delete/{id}', 'ProductionController', 'deleteStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'delete']]);
+        $this->get('allmodules/stitching', 'AllmodulesController', 'stitchingList', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
+        $this->get('allmodules/stitching/view/{id}', 'AllmodulesController', 'viewStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
+        $this->get('allmodules/stitching/create', 'AllmodulesController', 'createStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
+        $this->post('allmodules/stitching/store', 'AllmodulesController', 'storeStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
+        $this->get('allmodules/stitching/edit/{id}', 'AllmodulesController', 'editStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
+        $this->post('allmodules/stitching/update/{id}', 'AllmodulesController', 'updateStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
+        $this->post('allmodules/stitching/delete/{id}', 'AllmodulesController', 'deleteStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'delete']]);
 
         // Stitching Wastage Selling
-        $this->get('production/stitching-wastage', 'ProductionController', 'stitchingWastageList', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'view']]);
-        $this->post('production/stitching-wastage/store', 'ProductionController', 'storeStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'create']]);
-        $this->post('production/stitching-wastage/update/{id}', 'ProductionController', 'updateStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'edit']]);
-        $this->post('production/stitching-wastage/delete/{id}', 'ProductionController', 'deleteStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'delete']]);
-        $this->get('production/stitching-wastage/receipt/{id}', 'ProductionController', 'stitchingWastageReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'view']]);
+        $this->get('allmodules/stitching-wastage', 'AllmodulesController', 'stitchingWastageList', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'view']]);
+        $this->post('allmodules/stitching-wastage/store', 'AllmodulesController', 'storeStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'create']]);
+        $this->post('allmodules/stitching-wastage/update/{id}', 'AllmodulesController', 'updateStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'edit']]);
+        $this->post('allmodules/stitching-wastage/delete/{id}', 'AllmodulesController', 'deleteStitchingWastage', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'delete']]);
+        $this->get('allmodules/stitching-wastage/receipt/{id}', 'AllmodulesController', 'stitchingWastageReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'stitching_wastage', 'view']]);
 
         // Production Expenses Management (Unit 1 & Unit 2)
-        $this->get('production/expenses', 'ProductionController', 'expensesList', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
-        $this->get('production/expenses/view/{id}', 'ProductionController', 'viewExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
-        $this->post('production/expenses/store', 'ProductionController', 'storeExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'create']]);
-        $this->post('production/expenses/update/{id}', 'ProductionController', 'updateExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'edit']]);
-        $this->post('production/expenses/delete/{id}', 'ProductionController', 'deleteExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'delete']]);
-        $this->get('production/expenses/receipt/{id}', 'ProductionController', 'expenseReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
-        $this->post('api/production/expenses/quick-add-item', 'ProductionController', 'ajaxQuickAddExpenseItem', ['AuthMiddleware']);
-        $this->post('api/production/expenses/quick-add-category', 'ProductionController', 'ajaxQuickAddExpenseCategory', ['AuthMiddleware']);
-        $this->post('api/production/expenses/quick-add-unit', 'ProductionController', 'ajaxQuickAddUnit', ['AuthMiddleware']);
-        $this->get('api/production/expenses/items', 'ProductionController', 'ajaxGetExpenseItems', ['AuthMiddleware']);
+        $this->get('allmodules/expenses', 'AllmodulesController', 'expensesList', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
+        $this->get('allmodules/expenses/view/{id}', 'AllmodulesController', 'viewExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
+        $this->post('allmodules/expenses/store', 'AllmodulesController', 'storeExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'create']]);
+        $this->post('allmodules/expenses/update/{id}', 'AllmodulesController', 'updateExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'edit']]);
+        $this->post('allmodules/expenses/delete/{id}', 'AllmodulesController', 'deleteExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'delete']]);
+        $this->get('allmodules/expenses/receipt/{id}', 'AllmodulesController', 'expenseReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
+        $this->post('api/allmodules/expenses/quick-add-item', 'AllmodulesController', 'ajaxQuickAddExpenseItem', ['AuthMiddleware']);
+        $this->post('api/allmodules/expenses/quick-add-category', 'AllmodulesController', 'ajaxQuickAddExpenseCategory', ['AuthMiddleware']);
+        $this->post('api/allmodules/expenses/quick-add-unit', 'AllmodulesController', 'ajaxQuickAddUnit', ['AuthMiddleware']);
+        $this->get('api/allmodules/expenses/items', 'AllmodulesController', 'ajaxGetExpenseItems', ['AuthMiddleware']);
 
         // QC
-        $this->get('production/qc', 'ProductionController', 'qcList', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
-        $this->get('production/qc/view/{id}', 'ProductionController', 'viewQCBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
-        $this->get('production/qc/create', 'ProductionController', 'createQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
-        $this->post('production/qc/store', 'ProductionController', 'storeQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
-        $this->post('production/qc/ajax-add-inspector', 'ProductionController', 'ajaxAddQcInspector', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
-        $this->get('production/qc/inspect/{id}', 'ProductionController', 'inspectQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
-        $this->post('production/qc/update/{id}', 'ProductionController', 'updateQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
-        $this->post('production/qc/save-ajax/{id}', 'ProductionController', 'saveQCAjax', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
-        $this->post('production/qc/delete/{id}', 'ProductionController', 'deleteQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'delete']]);
+        $this->get('allmodules/qc', 'AllmodulesController', 'qcList', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
+        $this->get('allmodules/qc/view/{id}', 'AllmodulesController', 'viewQCBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
+        $this->get('allmodules/qc/create', 'AllmodulesController', 'createQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
+        $this->post('allmodules/qc/store', 'AllmodulesController', 'storeQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
+        $this->post('allmodules/qc/ajax-add-inspector', 'AllmodulesController', 'ajaxAddQcInspector', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
+        $this->get('allmodules/qc/inspect/{id}', 'AllmodulesController', 'inspectQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
+        $this->post('allmodules/qc/update/{id}', 'AllmodulesController', 'updateQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
+        $this->post('allmodules/qc/save-ajax/{id}', 'AllmodulesController', 'saveQCAjax', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);
+        $this->post('allmodules/qc/delete/{id}', 'AllmodulesController', 'deleteQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'delete']]);
 
         // Production Inventory (Post-QC Passed Inventory)
-        $this->get('production/inventory', 'ProductionController', 'productionInventory', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
-        $this->post('production/inventory/update-price', 'ProductionController', 'updateProductPrice', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
-        $this->post('api/production/inventory/update-price', 'ProductionController', 'updateProductPrice', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
-        $this->get('production/inventory/batch/{id}', 'ProductionController', 'productionInventoryBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
-        $this->get('production/inventory/supply/{id}', 'ProductionController', 'productionInventorySupplyBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
-        $this->post('production/inventory/delete-piece', 'ProductionController', 'deleteProductionInventoryPiece', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
-        $this->post('production/inventory/supply/update-stock', 'ProductionController', 'updateProductionInventorySupplyStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
-        $this->post('production/inventory/supply/delete', 'ProductionController', 'deleteProductionInventorySupplyStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
-        $this->post('production/inventory/qc/update-stock', 'ProductionController', 'updateProductionInventoryQcStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
-        $this->post('production/inventory/qc/delete', 'ProductionController', 'deleteProductionInventoryQcStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
+        $this->get('allmodules/inventory', 'AllmodulesController', 'productionInventory', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
+        $this->post('allmodules/inventory/update-price', 'AllmodulesController', 'updateProductPrice', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
+        $this->post('api/allmodules/inventory/update-price', 'AllmodulesController', 'updateProductPrice', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
+        $this->get('allmodules/inventory/batch/{id}', 'AllmodulesController', 'productionInventoryBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
+        $this->get('allmodules/inventory/supply/{id}', 'AllmodulesController', 'productionInventorySupplyBatch', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'view']]);
+        $this->post('allmodules/inventory/delete-piece', 'AllmodulesController', 'deleteProductionInventoryPiece', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
+        $this->post('allmodules/inventory/supply/update-stock', 'AllmodulesController', 'updateProductionInventorySupplyStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
+        $this->post('allmodules/inventory/supply/delete', 'AllmodulesController', 'deleteProductionInventorySupplyStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
+        $this->post('allmodules/inventory/qc/update-stock', 'AllmodulesController', 'updateProductionInventoryQcStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'edit']]);
+        $this->post('allmodules/inventory/qc/delete', 'AllmodulesController', 'deleteProductionInventoryQcStock', ['AuthMiddleware', ['PermissionMiddleware', 'inventory', 'delete']]);
 
         // Batch & Outward
-        $this->get('production/batches', 'ProductionController', 'batchList', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
-        $this->get('production/batches/create', 'ProductionController', 'createBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'create']]);
-        $this->post('production/batches/store', 'ProductionController', 'storeBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'create']]);
-        $this->get('production/batches/view/{id}', 'ProductionController', 'viewBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
-        $this->get('production/batches/bill/{id}', 'ProductionController', 'printBatchBill', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
-        $this->get('production/batches/invoice/{id}', 'ProductionController', 'printBatchInvoice', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
-        $this->post('production/batches/approve/{id}', 'ProductionController', 'approveBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'approve']]);
-        $this->get('production/batches/label/{id}', 'ProductionController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'print']]);
-        $this->get('production/batches/view-ajax/{id}', 'ProductionController', 'batchDetailsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
-        $this->post('production/batches/update/{id}', 'ProductionController', 'updateBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'edit']]);
-        $this->post('production/batches/delete/{id}', 'ProductionController', 'deleteBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'delete']]);
-        $this->get('production/outward', 'ProductionController', 'outwardList', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'view']]);
-        $this->post('production/outward/store', 'ProductionController', 'storeOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'create']]);
-        $this->post('production/outward/dispatch/{id}', 'ProductionController', 'dispatchOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'create']]);
-        $this->get('production/outward/view-ajax/{id}', 'ProductionController', 'outwardDetailsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'view']]);
-        $this->post('production/outward/update/{id}', 'ProductionController', 'updateOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'edit']]);
-        $this->post('production/outward/delete/{id}', 'ProductionController', 'deleteOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'delete']]);
+        $this->get('allmodules/batches', 'AllmodulesController', 'batchList', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
+        $this->get('allmodules/batches/create', 'AllmodulesController', 'createBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'create']]);
+        $this->post('allmodules/batches/store', 'AllmodulesController', 'storeBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'create']]);
+        $this->get('allmodules/batches/view/{id}', 'AllmodulesController', 'viewBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
+        $this->get('allmodules/batches/bill/{id}', 'AllmodulesController', 'printBatchBill', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
+        $this->get('allmodules/batches/invoice/{id}', 'AllmodulesController', 'printBatchInvoice', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
+        $this->post('allmodules/batches/approve/{id}', 'AllmodulesController', 'approveBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'approve']]);
+        $this->get('allmodules/batches/label/{id}', 'AllmodulesController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'print']]);
+        $this->get('allmodules/batches/view-ajax/{id}', 'AllmodulesController', 'batchDetailsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'view']]);
+        $this->post('allmodules/batches/update/{id}', 'AllmodulesController', 'updateBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'edit']]);
+        $this->post('allmodules/batches/delete/{id}', 'AllmodulesController', 'deleteBatch', ['AuthMiddleware', ['PermissionMiddleware', 'batches', 'delete']]);
+        $this->get('allmodules/outward', 'AllmodulesController', 'outwardList', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'view']]);
+        $this->post('allmodules/outward/store', 'AllmodulesController', 'storeOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'create']]);
+        $this->post('allmodules/outward/dispatch/{id}', 'AllmodulesController', 'dispatchOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'create']]);
+        $this->get('allmodules/outward/view-ajax/{id}', 'AllmodulesController', 'outwardDetailsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'view']]);
+        $this->post('allmodules/outward/update/{id}', 'AllmodulesController', 'updateOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'edit']]);
+        $this->post('allmodules/outward/delete/{id}', 'AllmodulesController', 'deleteOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'delete']]);
 
         // Rework from Warehouse
-        $this->get('production/warehouse-rework', 'ProductionController', 'warehouseReworkList', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
-        $this->post('production/warehouse-rework/store', 'ProductionController', 'storeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'create']]);
-        $this->post('production/warehouse-rework/status/{id}', 'ProductionController', 'updateWarehouseReworkStatus', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
-        $this->post('production/warehouse-rework/complete/{id}', 'ProductionController', 'completeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
-        $this->post('production/warehouse-rework/redispatch/{id}', 'ProductionController', 'redispatchWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'dispatch']]);
-        $this->get('production/warehouse-rework/view-ajax/{id}', 'ProductionController', 'viewWarehouseReworkAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
-        $this->post('production/warehouse-rework/delete/{id}', 'ProductionController', 'deleteWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'delete']]);
-        $this->get('production/warehouse-rework/lookup-batch/{batchId}', 'ProductionController', 'lookupBatchVariantsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
+        $this->get('allmodules/warehouse-rework', 'AllmodulesController', 'warehouseReworkList', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
+        $this->post('allmodules/warehouse-rework/store', 'AllmodulesController', 'storeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'create']]);
+        $this->post('allmodules/warehouse-rework/status/{id}', 'AllmodulesController', 'updateWarehouseReworkStatus', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
+        $this->post('allmodules/warehouse-rework/complete/{id}', 'AllmodulesController', 'completeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
+        $this->post('allmodules/warehouse-rework/redispatch/{id}', 'AllmodulesController', 'redispatchWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'dispatch']]);
+        $this->get('allmodules/warehouse-rework/view-ajax/{id}', 'AllmodulesController', 'viewWarehouseReworkAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
+        $this->post('allmodules/warehouse-rework/delete/{id}', 'AllmodulesController', 'deleteWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'delete']]);
+        $this->get('allmodules/warehouse-rework/lookup-batch/{batchId}', 'AllmodulesController', 'lookupBatchVariantsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
 
 
 
 
         // Production Reports
-        $this->get('production/reports', 'ProductionController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
-        $this->get('production/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->get('allmodules/reports', 'AllmodulesController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->get('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
 
         // ==========================================
         // PRODUCTION HSN CONFIG MODULE
         // ==========================================
-        $this->get('production/hsn-config', 'ProductionHsnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
-        $this->get('production/hsn-config/create', 'ProductionHsnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
-        $this->post('production/hsn-config/store', 'ProductionHsnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
-        $this->get('production/hsn-config/view/{id}', 'ProductionHsnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
-        $this->get('production/hsn-config/edit/{id}', 'ProductionHsnController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
-        $this->post('production/hsn-config/update/{id}', 'ProductionHsnController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
-        $this->post('production/hsn-config/delete/{id}', 'ProductionHsnController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'delete']]);
+        $this->get('allmodules/hsn-config', 'AllmodulesHsnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
+        $this->get('allmodules/hsn-config/create', 'AllmodulesHsnController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
+        $this->post('allmodules/hsn-config/store', 'AllmodulesHsnController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
+        $this->get('allmodules/hsn-config/view/{id}', 'AllmodulesHsnController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'view']]);
+        $this->get('allmodules/hsn-config/edit/{id}', 'AllmodulesHsnController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
+        $this->post('allmodules/hsn-config/update/{id}', 'AllmodulesHsnController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
+        $this->post('allmodules/hsn-config/delete/{id}', 'AllmodulesHsnController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'delete']]);
 
 
         // ==========================================

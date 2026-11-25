@@ -904,7 +904,6 @@ function handleRollRowChange(selectElement, counterId, autoPopulate = true, isSc
     const priceInput = document.getElementById('roll_price_' + counterId);
     const allocatedCodesInput = document.getElementById('roll_allocated_qrs_' + counterId);
     const specsDiv = document.getElementById('roll_specs_' + counterId);
-    const piecesSection = document.getElementById('roll_pieces_section_' + counterId);
     const warningDiv = document.getElementById('roll_qty_warning_' + counterId);
     const catSelect = document.getElementById('roll_cat_' + counterId);
     const previousRollId = selectElement.dataset.previousRollId;
@@ -916,7 +915,6 @@ function handleRollRowChange(selectElement, counterId, autoPopulate = true, isSc
 
     if (!selectElement.value) {
         if (specsDiv) specsDiv.classList.add('d-none');
-        if (piecesSection) piecesSection.classList.add('d-none');
         if (warningDiv) {
             warningDiv.innerHTML = '';
             warningDiv.classList.add('d-none');

@@ -1,6 +1,6 @@
 <?php
 
-class ProductionStockRequestController
+class AllmodulesStockRequestController
 {
     /**
      * Standard module and facility roster for inter-module requirements
@@ -175,7 +175,7 @@ class ProductionStockRequestController
             'total_fulfilled_pieces'  => (int)(Database::fetchOne("SELECT COALESCE(SUM(psr.fulfilled_pieces), 0) AS s FROM production_stock_requests psr WHERE $baseCond", $baseParams)['s'] ?? 0),
         ];
 
-        Response::view('production.stock_requests.index', [
+        Response::view('allmodules.stock_requests.index', [
             'pageTitle'            => 'Stock Requirements & Inter-Module Requests | Production Unit',
             'activeModule'         => 'production',
             'activeMenu'           => 'prod-stock-requests',
@@ -238,7 +238,7 @@ class ProductionStockRequestController
         $productionUnits = Database::fetchAll("SELECT id, name, code, concern_id FROM production_units WHERE is_active = 1");
         $warehouses = Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1");
 
-        Response::view('production.stock_requests.create', [
+        Response::view('allmodules.stock_requests.create', [
             'pageTitle'          => 'Create New Stock Requirement | Inter-Module Flow',
             'activeModule'       => 'production',
             'activeMenu'         => 'prod-stock-requests',
@@ -650,7 +650,7 @@ class ProductionStockRequestController
             $workflowStep = 4;
         }
 
-        Response::view('production.stock_requests.view', [
+        Response::view('allmodules.stock_requests.view', [
             'pageTitle'    => 'Requirement #' . $req['request_number'] . ' | ' . e($req['from_module']) . ' -> ' . e($req['to_module']),
             'activeModule' => 'production',
             'activeMenu'   => 'prod-stock-requests',
@@ -942,4 +942,8 @@ class ProductionStockRequestController
         Session::setFlash('success', "Stock requirement status updated to {$newStatus}.");
         Response::redirect(url('production/stock-requests/view/' . $reqId));
     }
+}
+
+if (!class_exists('ProductionStockRequestController', false)) {
+    class_alias('AllmodulesStockRequestController', 'ProductionStockRequestController');
 }

@@ -332,7 +332,7 @@ class ExportController {
         $data = ExportService::getReportData($startDate, $endDate, $selectedModules, null, $selectedWarehouseIds, $selectedConcernIds);
 
         if ($format === 'PRINT') {
-            $printView = file_exists(BASE_PATH . '/views/export/print.php') ? 'export.print' : 'production.reports.print';
+            $printView = file_exists(BASE_PATH . '/views/export/print.php') ? 'export.print' : 'allmodules.reports.print';
             Response::viewOnly($printView, [
                 'periodLabel'          => $periodLabel,
                 'startDate'            => $startDate,

@@ -5,7 +5,7 @@ require_once BASE_PATH . '/app/Models/WarehouseDamage.php';
 require_once BASE_PATH . '/app/Models/ProductionUnit.php';
 require_once BASE_PATH . '/app/Services/SettingsService.php';
 
-class ProductionReturnController
+class AllmodulesReturnController
 {
     public function index(): void
     {
@@ -100,7 +100,7 @@ class ProductionReturnController
 
         $allStats = array_merge($allStats, $triageStats);
 
-        Response::view('production.returns.index', [
+        Response::view('allmodules.returns.index', [
             'pageTitle'    => 'Customer Returns & Exchanges | Production Unit',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-returns',
@@ -116,7 +116,7 @@ class ProductionReturnController
 
     public function create(): void
     {
-        Response::view('production.returns.create', [
+        Response::view('allmodules.returns.create', [
             'pageTitle'    => 'Record Return & Exchange | Production Unit',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-returns',
@@ -1063,7 +1063,7 @@ class ProductionReturnController
             }
         }
 
-        Response::view('production.returns.view', [
+        Response::view('allmodules.returns.view', [
             'pageTitle'      => 'Return ' . $return['return_number'],
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-returns',
@@ -1089,7 +1089,7 @@ class ProductionReturnController
         $items = Database::fetchAll("SELECT * FROM production_return_items WHERE return_id = ? ORDER BY id", [$returnId]);
         $bill = $return['bill_id'] ? Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [$return['bill_id']]) : null;
 
-        Response::viewOnly('production.returns.print', [
+        Response::viewOnly('allmodules.returns.print', [
             'return'        => $return,
             'items'         => $items,
             'bill'          => $bill,
@@ -1097,4 +1097,8 @@ class ProductionReturnController
             'prodUnit'      => ProductionUnit::getActiveFacility($return['production_unit_id'] ?? null),
         ]);
     }
+}
+
+if (!class_exists('ProductionReturnController', false)) {
+    class_alias('AllmodulesReturnController', 'ProductionReturnController');
 }

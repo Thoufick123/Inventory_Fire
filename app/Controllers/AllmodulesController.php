@@ -9,7 +9,7 @@ if (!defined('BASE_PATH')) {
     define('BASE_PATH', dirname(__DIR__, 2));
 }
 
-require_once BASE_PATH . '/app/Services/ProductionService.php';
+require_once BASE_PATH . '/app/Services/AllmodulesService.php';
 require_once BASE_PATH . '/app/Services/AuditService.php';
 require_once BASE_PATH . '/app/Services/CloudinaryService.php';
 require_once BASE_PATH . '/app/Services/SettingsService.php';
@@ -17,7 +17,7 @@ require_once BASE_PATH . '/app/Services/PurchaseMappingFulfillmentService.php';
 require_once BASE_PATH . '/app/Models/QCBatch.php';
 require_once BASE_PATH . '/app/Models/QCItem.php';
 
-class ProductionController {
+class AllmodulesController {
 
     private static bool $schemaEnsured = false;
     private static bool $programRollAttributesSchemaEnsured = false;
@@ -629,7 +629,7 @@ class ProductionController {
         }
         $cities = Database::fetchAll("SELECT DISTINCT city FROM sellers $cityWhere ORDER BY city ASC", $cityParams);
 
-        Response::view('production.sellers.index', [
+        Response::view('allmodules.sellers.index', [
             'pageTitle'      => 'Suppliers',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-sellers',
@@ -648,7 +648,7 @@ class ProductionController {
 
     public function createSeller(): void {
         self::ensureDatabaseSchema();
-        Response::view('production.sellers.profile_create', [
+        Response::view('allmodules.sellers.profile_create', [
             'pageTitle'    => 'Add Material Supplier',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
@@ -1106,7 +1106,7 @@ class ProductionController {
             return strtotime($b['datetime']) <=> strtotime($a['datetime']);
         });
 
-        Response::view('production.sellers.profile_view', [
+        Response::view('allmodules.sellers.profile_view', [
             'pageTitle'                 => 'Supplier Details — ' . $seller['name'],
             'activeModule'              => 'production',
             'activeMenu'                => 'prod-sellers',
@@ -1164,7 +1164,7 @@ class ProductionController {
             return;
         }
 
-        Response::view('production.sellers.profile_edit', [
+        Response::view('allmodules.sellers.profile_edit', [
             'pageTitle'    => 'Edit Material Supplier',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
@@ -1331,7 +1331,7 @@ class ProductionController {
 
         $connections = self::getSupplierConnectedRecords((int)$id);
 
-        Response::view('production.sellers.delete_confirm', [
+        Response::view('allmodules.sellers.delete_confirm', [
             'pageTitle'    => 'Confirm Supplier Deletion — ' . $seller['name'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
@@ -1552,7 +1552,7 @@ class ProductionController {
         );
         $totalPurchaseValue = (float)($metrics['total_value'] ?? 0);
 
-        Response::view('production.purchases.index', [
+        Response::view('allmodules.purchases.index', [
             'pageTitle' => 'Purchases & Procurement',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-all',
@@ -1674,7 +1674,7 @@ class ProductionController {
         }
 
         $company = SettingsService::getAllGrouped()['company'] ?? [];
-        Response::viewOnly('production.purchases.print', [
+        Response::viewOnly('allmodules.purchases.print', [
             'purchase' => $purchase,
             'items' => $items,
             'company' => $company,
@@ -1851,7 +1851,7 @@ class ProductionController {
             [(int)$purchase['id']]
         );
         $documents = self::getPurchaseDocuments((int)$purchase['id'], $purchase['document_url'] ?? null, $purchase['document_urls'] ?? null);
-        Response::view('production.purchases.view', [
+        Response::view('allmodules.purchases.view', [
             'pageTitle' => 'Purchase ' . $purchase['purchase_number'],
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-all',
@@ -1882,7 +1882,7 @@ class ProductionController {
         );
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
         $documents = self::getPurchaseDocuments((int)$purchase['id'], $purchase['document_url'] ?? null, $purchase['document_urls'] ?? null);
-        Response::view('production.purchases.edit', [
+        Response::view('allmodules.purchases.edit', [
             'pageTitle' => 'Edit Record Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-purchases',
@@ -2600,7 +2600,7 @@ class ProductionController {
         );
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
-        Response::view('production.purchases.create', [
+        Response::view('allmodules.purchases.create', [
             'pageTitle' => 'Add Record Purchase',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-create',
@@ -3637,7 +3637,7 @@ class ProductionController {
         }
         $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
 
-        Response::view('production.purchases.mapping_create', [
+        Response::view('allmodules.purchases.mapping_create', [
             'pageTitle' => 'Create Mapping Entry',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
@@ -3846,7 +3846,7 @@ class ProductionController {
             $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
         }
 
-        Response::view('production.purchases.mapping_draft', [
+        Response::view('allmodules.purchases.mapping_draft', [
             'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
@@ -5428,7 +5428,7 @@ class ProductionController {
             $draftParams
         );
 
-        Response::view('production.purchases.mapping', [
+        Response::view('allmodules.purchases.mapping', [
             'pageTitle' => 'Purchase Item Mapping',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
@@ -5712,7 +5712,7 @@ class ProductionController {
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
         $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
-        Response::view('production.purchases.mapping_bill', [
+        Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
@@ -8746,7 +8746,7 @@ class ProductionController {
         $rolls = Database::fetchAll("SELECT * FROM seller_rolls WHERE seller_id = ? ORDER BY id ASC", [$sellerId]);
         $stickers = $this->buildStickersForRolls($seller, $rolls);
 
-        Response::viewOnly('production.sellers.labels', [
+        Response::viewOnly('allmodules.sellers.labels', [
             'seller'     => $seller,
             'rolls'      => $rolls,
             'stickers'   => $stickers,
@@ -8769,7 +8769,7 @@ class ProductionController {
         $seller = Database::fetchOne("SELECT * FROM sellers WHERE id = ?", [(int)$roll['seller_id']]);
         $stickers = $this->buildStickersForRolls($seller, [$roll]);
 
-        Response::viewOnly('production.sellers.labels', [
+        Response::viewOnly('allmodules.sellers.labels', [
             'seller'     => $seller,
             'rolls'      => [$roll],
             'stickers'   => $stickers,
@@ -9481,7 +9481,7 @@ class ProductionController {
         $sellers = Database::fetchAll("SELECT id, name, company FROM sellers $damSellerWhere ORDER BY name ASC", $damSellerParams);
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
-        Response::view('production.damages.index', [
+        Response::view('allmodules.damages.index', [
             'pageTitle'      => 'Fabric & Roll Damage Management',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-damages',
@@ -10723,7 +10723,7 @@ class ProductionController {
         $categories = Database::fetchAll("SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
         $subcategories = Database::fetchAll("SELECT * FROM subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
 
-        Response::view('production.catalog.index', [
+        Response::view('allmodules.catalog.index', [
             'pageTitle'      => 'Product Catalog',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-catalog',
@@ -10752,7 +10752,7 @@ class ProductionController {
         $count = Database::fetchOne("SELECT COUNT(*) as c FROM products WHERE source_type = 'OWN_PRODUCTION'")['c'] ?? 0;
         $suggestedCode = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
-        Response::view('production.catalog.create', [
+        Response::view('allmodules.catalog.create', [
             'pageTitle'     => 'Add Product Style | Product Catalog',
             'activeModule'  => 'production',
             'activeMenu'    => 'prod-catalog',
@@ -10991,7 +10991,7 @@ class ProductionController {
             [$id]
         );
 
-        Response::view('production.catalog.view', [
+        Response::view('allmodules.catalog.view', [
             'pageTitle'    => $product['name'] . ' | Product Catalog',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-catalog',
@@ -11072,7 +11072,7 @@ class ProductionController {
             }
         }
 
-        Response::view('production.catalog.edit', [
+        Response::view('allmodules.catalog.edit', [
             'pageTitle'        => 'Edit ' . $product['name'] . ' | Catalog',
             'activeModule'     => 'production',
             'activeMenu'       => 'prod-catalog',
@@ -12584,7 +12584,7 @@ class ProductionController {
             $programRollsMap[$prog['id']] = ProductionProgram::getRolls((int)$prog['id']);
         }
 
-        Response::view('production.programs.index', [
+        Response::view('allmodules.programs.index', [
             'pageTitle'        => 'Production Programs',
             'activeModule'     => 'production',
             'activeMenu'       => 'programs',
@@ -12991,7 +12991,7 @@ class ProductionController {
             "SELECT id, subcategory_id, name, slug FROM sub_subcategories WHERE is_active = 1 ORDER BY name ASC"
         );
 
-        Response::view('production.programs.create', [
+        Response::view('allmodules.programs.create', [
             'pageTitle'              => 'Create Production Program',
             'activeModule'           => 'production',
             'activeMenu'             => 'programs',
@@ -13327,7 +13327,7 @@ class ProductionController {
             "SELECT id, subcategory_id, name, slug FROM sub_subcategories WHERE is_active = 1 ORDER BY name ASC"
         );
 
-        Response::view('production.programs.edit', [
+        Response::view('allmodules.programs.edit', [
             'pageTitle'           => 'Edit Program — ' . ($program['name'] ?: $program['program_number']),
             'activeModule'        => 'production',
             'activeMenu'          => 'programs',
@@ -13587,7 +13587,7 @@ class ProductionController {
 
         $programRolls = ProductionProgram::getRolls((int)$id);
 
-        Response::view('production.programs.view', array_merge($timeline, [
+        Response::view('allmodules.programs.view', array_merge($timeline, [
             'pageTitle'    => 'Program Details — ' . $timeline['program']['program_number'],
             'activeModule' => 'production',
             'activeMenu'   => 'programs',
@@ -13673,7 +13673,7 @@ class ProductionController {
             $cuttingRollsMap[$b['id']] = CuttingBatch::getRolls((int)$b['id']);
         }
 
-        Response::view('production.cutting.index', [
+        Response::view('allmodules.cutting.index', [
             'pageTitle'       => 'Cutting Batches',
             'activeModule'    => 'production',
             'activeMenu'      => 'cutting',
@@ -14551,7 +14551,7 @@ class ProductionController {
         $count = Database::fetchOne("SELECT COUNT(*) as c FROM cutting_batches")['c'] ?? 0;
         $suggestedBatchNumber = 'CUT-' . date('Ymd') . '-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
-        Response::view('production.cutting.create', [
+        Response::view('allmodules.cutting.create', [
             'pageTitle'            => 'New Cutting Batch',
             'activeModule'         => 'production',
             'activeMenu'           => 'cutting',
@@ -14829,7 +14829,7 @@ class ProductionController {
         $users = Database::fetchAll("SELECT id, full_name FROM users WHERE is_active = 1 AND (staff_role = 'CUTTING_MASTER'" . ($assignedOpId > 0 ? " OR id = $assignedOpId" : "") . ") ORDER BY full_name ASC");
         $units = function_exists('getScopedProductionUnits') ? getScopedProductionUnits() : Database::fetchAll("SELECT * FROM production_units WHERE is_active = 1 ORDER BY name ASC");
 
-        Response::view('production.cutting.edit', [
+        Response::view('allmodules.cutting.edit', [
             'pageTitle'    => 'Edit Cutting Batch — ' . ($batch['name'] ?: $batch['batch_number']),
             'activeModule' => 'production',
             'activeMenu'   => 'cutting',
@@ -15080,7 +15080,7 @@ class ProductionController {
 
         $batches = StitchingBatch::getAll($filters);
 
-        Response::view('production.stitching.index', [
+        Response::view('allmodules.stitching.index', [
             'pageTitle'    => 'Stitching Batches',
             'activeModule' => 'production',
             'activeMenu'   => 'stitching',
@@ -15181,7 +15181,7 @@ class ProductionController {
         $count = Database::fetchOne("SELECT COUNT(*) as c FROM stitching_batches")['c'] ?? 0;
         $suggestedBatchNumber = 'STCH-' . date('Ymd') . '-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
-        Response::view('production.stitching.create', [
+        Response::view('allmodules.stitching.create', [
             'pageTitle'            => 'New Stitching Batch',
             'activeModule'         => 'production',
             'activeMenu'           => 'stitching',
@@ -15475,7 +15475,7 @@ class ProductionController {
         $assignedWorkerId = (int)($batch['worker_id'] ?? 0);
         $users = Database::fetchAll("SELECT id, full_name FROM users WHERE is_active = 1 AND (staff_role = 'TAILOR'" . ($assignedWorkerId > 0 ? " OR id = $assignedWorkerId" : "") . ") ORDER BY full_name ASC");
 
-        Response::view('production.stitching.edit', [
+        Response::view('allmodules.stitching.edit', [
             'pageTitle'           => 'Edit Stitching Batch — ' . ($batch['name'] ?: $batch['batch_number']),
             'activeModule'        => 'production',
             'activeMenu'          => 'stitching',
@@ -16463,7 +16463,7 @@ class ProductionController {
             ");
         }
 
-        Response::view('production.batches.index', [
+        Response::view('allmodules.batches.index', [
             'pageTitle'    => 'Finished Production Batches',
             'activeModule' => 'production',
             'activeMenu'   => 'batches',
@@ -16911,7 +16911,7 @@ class ProductionController {
             ORDER BY COALESCE(c.name, w.name) ASC
         ", $whParams);
 
-        Response::view('production.batches.create', [
+        Response::view('allmodules.batches.create', [
             'pageTitle'                 => 'Pack Production Batch',
             'activeModule'              => 'production',
             'activeMenu'                => 'batches',
@@ -17266,7 +17266,7 @@ class ProductionController {
         $bill = !empty($batch['production_bill_id']) ? Database::fetchOne("SELECT * FROM production_bills WHERE id = ?", [(int)$batch['production_bill_id']]) : null;
         $billItems = $bill ? Database::fetchAll("SELECT * FROM production_bill_items WHERE bill_id = ?", [(int)$bill['id']]) : [];
 
-        Response::view('production.batches.view', [
+        Response::view('allmodules.batches.view', [
             'pageTitle'    => 'Batch ' . ($batch['batch_number'] ?? ('#' . $batchId)),
             'activeModule' => 'production',
             'activeMenu'   => 'batches',
@@ -17297,7 +17297,7 @@ class ProductionController {
             ? (class_exists('ProductionUnit') ? ProductionUnit::find((int)$batch['production_unit_id']) : null)
             : (class_exists('ProductionUnit') ? ProductionUnit::getActiveFacility() : null);
 
-        Response::viewOnly('production.batches.bill', [
+        Response::viewOnly('allmodules.batches.bill', [
             'batch'    => $batch,
             'items'    => $items,
             'outward'  => $outward,
@@ -17427,7 +17427,7 @@ class ProductionController {
             ");
         }
 
-        Response::view('production.outward.index', [
+        Response::view('allmodules.outward.index', [
             'pageTitle'       => 'Production Outward & Dispatch',
             'activeModule'    => 'production',
             'activeMenu'      => 'outward',
@@ -17929,7 +17929,7 @@ class ProductionController {
              ORDER BY p.name ASC, pv.sku ASC LIMIT 500"
         );
 
-        Response::view('production.rework.index', [
+        Response::view('allmodules.rework.index', [
             'pageTitle'         => 'Rework from Warehouse',
             'activeModule'      => 'production',
             'activeMenu'        => 'warehouse-rework',
@@ -18195,7 +18195,7 @@ class ProductionController {
             'concern_id'         => currentConcernId(),
         ]);
 
-        Response::view('production.qc.index', [
+        Response::view('allmodules.qc.index', [
             'pageTitle'    => 'Quality Control',
             'activeModule' => 'production',
             'activeMenu'   => 'qc',
@@ -18386,7 +18386,7 @@ class ProductionController {
             }
         }
 
-        Response::view('production.qc.create', [
+        Response::view('allmodules.qc.create', [
             'pageTitle'         => 'New Quality Control',
             'activeModule'      => 'production',
             'activeMenu'        => 'qc',
@@ -18700,7 +18700,7 @@ class ProductionController {
             'sub_subcategory_id' => $batch['program_sub_subcategory_id'] ?? null,
         ], 'inspected_qty');
 
-        Response::view('production.qc.inspect', [
+        Response::view('allmodules.qc.inspect', [
             'pageTitle'        => 'QC Inspection Workstation — Batch #' . $batchId,
             'activeModule'     => 'production',
             'activeMenu'       => 'qc',
@@ -20013,7 +20013,7 @@ class ProductionController {
         // Fetch production units for facility filter
         $productionUnits = Database::fetchAll("SELECT id, name, code FROM production_units WHERE is_active = 1 ORDER BY name ASC");
 
-        Response::view('production.inventory.index', [
+        Response::view('allmodules.inventory.index', [
             'pageTitle'        => 'Production Inventory & QC Outcomes',
             'activeModule'     => 'production',
             'activeMenu'       => 'prod-inventory',
@@ -20435,7 +20435,7 @@ class ProductionController {
             ];
         }
 
-        Response::view('production.inventory.batch', [
+        Response::view('allmodules.inventory.batch', [
             'pageTitle'           => 'QC Batch #' . $id . ' — Inventory Detail',
             'activeModule'        => 'production',
             'activeMenu'          => 'prod-inventory',
@@ -20841,7 +20841,7 @@ class ProductionController {
 
         $skuDisplay = $firstItem['variant_sku'] ?: ($firstItem['product_sku'] ?: 'SKU');
 
-        Response::view('production.inventory.batch', [
+        Response::view('allmodules.inventory.batch', [
             'pageTitle'           => 'Stock Ledger — ' . $skuDisplay,
             'activeModule'        => 'warehouse',
             'activeMenu'          => 'wh-stock',
@@ -21104,7 +21104,7 @@ class ProductionController {
             } catch (\Throwable $e) {}
         }
 
-        Response::view('production.inventory.supply_batch', [
+        Response::view('allmodules.inventory.supply_batch', [
             'pageTitle'           => 'Supply Inward #' . $supplyItemId . ' — Inventory Detail',
             'activeModule'        => 'production',
             'activeMenu'          => 'prod-inventory',
@@ -21162,7 +21162,7 @@ class ProductionController {
                 (SELECT COUNT(*) FROM production_batches WHERE status = 'APPROVED') as ready_batches"
         );
 
-        Response::view('production.reports.index', [
+        Response::view('allmodules.reports.index', [
             'pageTitle'     => 'Production Analytics & Reports',
             'activeModule'  => 'production',
             'activeMenu'    => 'reports',
@@ -21316,7 +21316,7 @@ class ProductionController {
 
         $programs = Database::fetchAll("SELECT id, program_number, name FROM production_programs ORDER BY id DESC LIMIT 50");
 
-        Response::view('production.wastage.index', [
+        Response::view('allmodules.wastage.index', [
             'pageTitle'      => 'Fabric & Cutting Wastage Selling',
             'activeModule'   => 'production',
             'activeMenu'     => 'wastage-selling',
@@ -22033,7 +22033,7 @@ class ProductionController {
 
         $programs = Database::fetchAll("SELECT id, program_number, name FROM production_programs ORDER BY id DESC LIMIT 50");
 
-        Response::view('production.stitching_wastage.index', [
+        Response::view('allmodules.stitching_wastage.index', [
             'pageTitle'        => 'Stitching Scrap & Wastage Selling',
             'activeModule'     => 'production',
             'activeMenu'       => 'stitching-wastage',
@@ -22758,7 +22758,7 @@ class ProductionController {
             ];
         }
 
-        Response::view('production.expenses.index', [
+        Response::view('allmodules.expenses.index', [
             'pageTitle'      => 'Production Expenses',
             'activeModule'   => 'production',
             'activeMenu'     => 'production-expenses',
@@ -23754,7 +23754,7 @@ class ProductionController {
             $customBreadcrumb = $arg10;
         }
 
-        Response::view('production.record_view', [
+        Response::view('allmodules.record_view', [
             'pageTitle'    => $recordTitle,
             'activeModule' => 'production',
             'activeMenu'   => $activeMenu,
@@ -24258,7 +24258,7 @@ class ProductionController {
             }
         }
 
-        Response::viewOnly('production.purchases.roll_qr', [
+        Response::viewOnly('allmodules.purchases.roll_qr', [
             'pageTitle'  => 'Roll QR Labels — ' . $purchase['purchase_number'],
             'purchase'   => $purchase,
             'seller'     => $seller,
@@ -24444,7 +24444,7 @@ class ProductionController {
             [$purchaseId]
         )['cnt'] ?? 0);
 
-        Response::viewOnly('production.purchases.supply_qr', [
+        Response::viewOnly('allmodules.purchases.supply_qr', [
             'pageTitle'          => 'Other Garment Supplies QR Labels — ' . $purchase['purchase_number'],
             'purchase'           => $purchase,
             'seller'             => $seller,
@@ -24927,7 +24927,7 @@ class ProductionController {
             {$metricWhere}
         ", $metricParams);
 
-        Response::view('production.third_party_catalog.index', [
+        Response::view('allmodules.third_party_catalog.index', [
             'pageTitle'     => 'Third-Party Product Catalog',
             'activeModule'  => 'purchases',
             'activeMenu'    => 'purchases-mapping',
@@ -24962,7 +24962,7 @@ class ProductionController {
         }
         $sellers = Database::fetchAll("SELECT id, name, company FROM sellers $tpSellerWhere ORDER BY name ASC", $tpSellerParams);
 
-        Response::view('production.third_party_catalog.create', [
+        Response::view('allmodules.third_party_catalog.create', [
             'pageTitle'    => 'Add Third-Party Catalog Style',
             'activeModule' => 'purchases',
             'activeMenu'   => 'purchases-mapping',
@@ -25088,7 +25088,7 @@ class ProductionController {
 
         $parsedAttrs = !empty($product['attributes']) ? (json_decode($product['attributes'], true) ?: []) : [];
 
-        Response::view('production.third_party_catalog.edit', [
+        Response::view('allmodules.third_party_catalog.edit', [
             'pageTitle'        => 'Edit Third-Party Catalog Style',
             'activeModule'     => 'purchases',
             'activeMenu'       => 'purchases-mapping',
@@ -25318,7 +25318,7 @@ class ProductionController {
             {$metricWhere}
         ", $metricParams);
 
-        Response::view('production.purchased_stock.index', [
+        Response::view('allmodules.purchased_stock.index', [
             'pageTitle'    => 'Purchased Stock Inventory',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-purchased-stock',
@@ -25516,7 +25516,7 @@ class ProductionController {
             ? url('purchases/mapping/draft/' . $stock['mapping_bill_id'])
             : url('purchases/view/' . (int)($stock['purchase_id'] ?? 0));
 
-        Response::view('production.purchased_stock.view', [
+        Response::view('allmodules.purchased_stock.view', [
             'pageTitle'    => 'Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-purchased-stock',
@@ -25616,7 +25616,7 @@ class ProductionController {
             ? url('purchases/mapping/draft/' . $stock['mapping_bill_id'])
             : url('purchases/view/' . (int)($stock['purchase_id'] ?? 0));
 
-        Response::view('production.purchased_stock.edit', [
+        Response::view('allmodules.purchased_stock.edit', [
             'pageTitle'    => 'Edit Purchased Stock: ' . $stock['batch_code'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-purchased-stock',
@@ -26013,4 +26013,8 @@ class ProductionController {
             Response::json(['success' => false, 'message' => 'Failed to delete stock line: ' . $e->getMessage()], 500);
         }
     }
+}
+
+if (!class_exists('ProductionController', false)) {
+    class_alias('AllmodulesController', 'ProductionController');
 }
