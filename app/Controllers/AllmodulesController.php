@@ -21460,6 +21460,27 @@ class AllmodulesController {
     // FABRIC & CUTTING WASTAGE SELLING MANAGEMENT
     // =========================================================================
 
+    /**
+     * Enforce module permission and active concern restriction on wastage records.
+     */
+    private function authorizeWastageRecord(array $record, string $module, string $action): bool {
+        if (!hasPermission($module, $action)) {
+            Response::error(403, 'Access denied: You do not have permission for this wastage action.');
+            return false;
+        }
+
+        $isSuper = function_exists('isSuperAdmin') ? isSuperAdmin() : false;
+        $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $recCid = !empty($record['concern_id']) ? (int)$record['concern_id'] : 0;
+
+        if (!$isSuper && $activeCid && $recCid > 0 && $recCid !== (int)$activeCid) {
+            Response::error(403, 'Access denied: This wastage record belongs to another business concern.');
+            return false;
+        }
+
+        return true;
+    }
+
     public function wastageList(): void {
         $search = trim($_GET['search'] ?? '');
         $type = trim($_GET['type'] ?? '');
@@ -21491,15 +21512,11 @@ class AllmodulesController {
         $concernParams = [];
 
         if ($activeCid) {
-            // Both Admin and Staff can see all sales in this active concern,
-            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
-            // or sales linked to this concern's cutting batches/programs,
-            // or sales created by this user.
             if ($activeCid === 1) {
                 $concernWhere = " AND (ws.concern_id = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $concernWhere = " AND (ws.concern_id = ? OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR ws.concern_id = 1)";
+                $concernWhere = " AND (ws.concern_id = ? OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
             $sql .= $concernWhere;
@@ -21899,6 +21916,9 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'wastage', 'edit')) {
+            return;
+        }
 
         $cuttingBatchId = !empty($_POST['cutting_batch_id']) ? (int)$_POST['cutting_batch_id'] : null;
         if (!$cuttingBatchId || $cuttingBatchId <= 0) {
@@ -22126,12 +22146,15 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'wastage', 'delete')) {
+            return;
+        }
 
         try {
             Database::execute("DELETE FROM wastage_sales WHERE id = ?", [$saleId]);
             AuditService::log('production', 'delete', 'wastage_sales', $saleId, $existing, null);
             Session::flash('success', "Wastage sale #{$existing['sale_number']} deleted successfully.");
-            Response::redirect(url('production/wastage'));
+            Response::redirect(url('allmodules/wastage'));
         } catch (Exception $e) {
             Session::flash('error', 'Error deleting wastage sale: ' . $e->getMessage());
             Response::back();
@@ -22157,6 +22180,9 @@ class AllmodulesController {
 
         if (!$sale) {
             Response::error(404, 'Wastage sale record not found.');
+            return;
+        }
+        if (!$this->authorizeWastageRecord($sale, 'wastage', 'view')) {
             return;
         }
 
@@ -22200,15 +22226,11 @@ class AllmodulesController {
         $concernParams = [];
 
         if ($activeCid) {
-            // Both Admin and Staff can see all sales in this active concern,
-            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
-            // or sales linked to this concern's stitching batches/programs,
-            // or sales created by this user.
             if ($activeCid === 1) {
                 $concernWhere = " AND (sws.concern_id = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $concernWhere = " AND (sws.concern_id = ? OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sws.concern_id = 1)";
+                $concernWhere = " AND (sws.concern_id = ? OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
             $sql .= $concernWhere;
@@ -22607,6 +22629,9 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'stitching_wastage', 'edit')) {
+            return;
+        }
 
         $stitchingBatchId = !empty($_POST['stitching_batch_id']) ? (int)$_POST['stitching_batch_id'] : (int)($existing['stitching_batch_id'] ?? 0);
         $buyerName = trim($_POST['buyer_name'] ?? $existing['buyer_name']);
@@ -22809,12 +22834,15 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'stitching_wastage', 'delete')) {
+            return;
+        }
 
         try {
             Database::execute("DELETE FROM stitching_wastage_sales WHERE id = ?", [$saleId]);
             AuditService::log('production', 'delete', 'stitching_wastage_sales', $saleId, $existing, null);
             Session::flash('success', "Stitching wastage sale #{$existing['sale_number']} deleted successfully.");
-            Response::redirect(url('production/stitching-wastage'));
+            Response::redirect(url('allmodules/stitching-wastage'));
         } catch (Exception $e) {
             Session::flash('error', 'Error deleting stitching wastage sale: ' . $e->getMessage());
             Response::back();
@@ -22840,6 +22868,9 @@ class AllmodulesController {
 
         if (!$sale) {
             Response::error(404, 'Stitching wastage sale record not found.');
+            return;
+        }
+        if (!$this->authorizeWastageRecord($sale, 'stitching_wastage', 'view')) {
             return;
         }
 
