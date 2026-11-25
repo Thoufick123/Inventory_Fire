@@ -427,9 +427,30 @@ class SystemController {
     // SYSTEM NOTIFICATIONS
     // =========================================================================
 
+    private function notificationScopeWhere(): array {
+        if (isSuperAdmin()) {
+            return ['1=1', []];
+        }
+        $uid = (int)(Auth::id() ?? 0);
+        if ($uid > 0) {
+            return ['(user_id = ? OR user_id IS NULL)', [$uid]];
+        }
+        return ['user_id IS NULL', []];
+    }
+
     public function notifications(): void {
-        $notifications = Database::fetchAll("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 100");
-        
+        [$scopeSql, $scopeParams] = $this->notificationScopeWhere();
+        $notifications = Database::fetchAll(
+            "SELECT * FROM notifications WHERE {$scopeSql} ORDER BY created_at DESC LIMIT 100",
+            $scopeParams
+        ) ?: [];
+
+        $unreadRow = Database::fetchOne(
+            "SELECT COUNT(*) AS cnt FROM notifications WHERE {$scopeSql} AND COALESCE(is_read, 0) = 0",
+            $scopeParams
+        );
+        $unreadCount = (int)($unreadRow['cnt'] ?? 0);
+
         Response::view('system.notifications', [
             'pageTitle'     => 'System Notifications',
             'activeModule'  => 'system',
@@ -439,10 +460,82 @@ class SystemController {
                 ['label' => 'Notifications'],
             ],
             'notifications' => $notifications,
+            'unreadCount'   => $unreadCount,
         ]);
     }
 
     public function unreadNotifications(): void {
-        Response::json(['count' => 0, 'notifications' => []]);
+        [$scopeSql, $scopeParams] = $this->notificationScopeWhere();
+        $rows = Database::fetchAll(
+            "SELECT id, type, title, message, link, created_at
+             FROM notifications
+             WHERE {$scopeSql} AND COALESCE(is_read, 0) = 0
+             ORDER BY created_at DESC
+             LIMIT 15",
+            $scopeParams
+        ) ?: [];
+        $countRow = Database::fetchOne(
+            "SELECT COUNT(*) AS cnt FROM notifications WHERE {$scopeSql} AND COALESCE(is_read, 0) = 0",
+            $scopeParams
+        );
+        Response::json([
+            'count'         => (int)($countRow['cnt'] ?? 0),
+            'notifications' => $rows,
+        ]);
+    }
+
+    public function markRead(string $id): void {
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
+
+        if (!CSRF::validateRequest()) {
+            if ($isAjax) {
+                Response::jsonError('Invalid security token.', [], 403);
+            }
+            Session::setFlash('error', 'Invalid security token.');
+            Response::redirect(url('system/notifications'));
+            return;
+        }
+
+        $notifId = (int)$id;
+        [$scopeSql, $scopeParams] = $this->notificationScopeWhere();
+        if ($notifId > 0) {
+            Database::execute(
+                "UPDATE notifications SET is_read = 1 WHERE id = ? AND {$scopeSql}",
+                array_merge([$notifId], $scopeParams)
+            );
+        }
+
+        if ($isAjax) {
+            Response::jsonSuccess('Notification marked as read.');
+        }
+        Session::setFlash('success', 'Notification marked as read.');
+        Response::redirect(url('system/notifications'));
+    }
+
+    public function markAllRead(): void {
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
+
+        if (!CSRF::validateRequest()) {
+            if ($isAjax) {
+                Response::jsonError('Invalid security token.', [], 403);
+            }
+            Session::setFlash('error', 'Invalid security token.');
+            Response::redirect(url('system/notifications'));
+            return;
+        }
+
+        [$scopeSql, $scopeParams] = $this->notificationScopeWhere();
+        Database::execute(
+            "UPDATE notifications SET is_read = 1 WHERE {$scopeSql} AND COALESCE(is_read, 0) = 0",
+            $scopeParams
+        );
+
+        if ($isAjax) {
+            Response::jsonSuccess('All notifications marked as read.');
+        }
+        Session::setFlash('success', 'All notifications marked as read.');
+        Response::redirect(url('system/notifications'));
     }
 }
