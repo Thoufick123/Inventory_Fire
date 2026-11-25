@@ -37,7 +37,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
         <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
     </div>
-    <a class="btn btn-outline-secondary" href="<?= url($isEdit ? 'production/billing/view/' . (int)$bill['id'] : 'production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </div>
 
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
@@ -263,8 +263,8 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         </div>
                     </div>
                     <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
-                        <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace" type="number" step="0.01" min="0" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
+                        <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
+                        <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
                         <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
                     </div>
                     <div id="upiPaymentFields" class="<?= $usesUpiPayment ? '' : 'd-none' ?>">
@@ -314,20 +314,86 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
             </div>
 
             <!-- 2. Cart Table Card -->
+            <style>
+                #billingCartTable {
+                    min-width: 1080px;
+                }
+                #billingCartTable th,
+                #billingCartTable td {
+                    padding: 0.75rem 0.5rem;
+                    vertical-align: middle;
+                }
+                #billingCartTable .billing-product-cell {
+                    min-width: 245px;
+                    max-width: 310px;
+                    white-space: normal;
+                    word-break: break-word;
+                }
+                #billingCartTable .billing-qty-group {
+                    width: 124px;
+                    min-width: 124px;
+                    flex-wrap: nowrap !important;
+                }
+                #billingCartTable .billing-qty-group .btn {
+                    flex: 0 0 32px;
+                    padding: 0.25rem 0;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                #billingCartTable .billing-qty-input {
+                    min-width: 48px;
+                    width: 52px;
+                    flex: 1 1 auto;
+                    padding-left: 0.25rem;
+                    padding-right: 0.25rem;
+                }
+                #billingCartTable .billing-rate-input {
+                    min-width: 78px;
+                    padding-left: 0.45rem;
+                    padding-right: 0.45rem;
+                }
+                #billingCartTable .billing-price-input {
+                    min-width: 98px;
+                    padding-left: 0.45rem;
+                    padding-right: 0.45rem;
+                }
+                #billingCartTable .billing-gst-select {
+                    min-width: 148px;
+                    width: 100%;
+                    padding-right: 2rem !important;
+                    font-size: 12px;
+                }
+                #billingCartTable .billing-gst-rate-group {
+                    min-width: 112px;
+                    width: 100%;
+                    flex-wrap: nowrap !important;
+                }
+                #billingCartTable .billing-gst-rate-input {
+                    min-width: 64px;
+                    font-size: 12px;
+                    padding: 0.25rem 0.4rem !important;
+                }
+                #billingCartTable .item-tags-wrap .badge {
+                    font-size: 11px;
+                    line-height: 1.25;
+                    white-space: nowrap;
+                }
+            </style>
             <div class="card border-0 shadow-sm rounded-3 mb-3">
                 <div class="table-responsive">
                     <table class="table align-middle mb-0" id="billingCartTable">
                         <thead class="table-light small text-uppercase">
                             <tr>
-                                <th style="min-width: 220px;">Product &amp; Details</th>
-                                <th class="text-center" style="width: 125px;">Qty</th>
-                                <th class="text-end" style="width: 95px;">MRP</th>
-                                <th style="width: 95px;">Disc %</th>
-                                <th style="width: 115px;">Price / Pc<br><small class="text-muted fw-normal">incl. tax</small></th>
-                                <th style="width: 165px;">GST Details</th>
-                                <th class="text-end" style="width: 90px;">Tax</th>
-                                <th class="text-end" style="width: 105px;">Total</th>
-                                <th style="width: 45px;"></th>
+                                <th style="min-width: 245px;">Product &amp; Details</th>
+                                <th class="text-center" style="min-width: 140px;">Qty</th>
+                                <th class="text-end text-nowrap" style="min-width: 96px;">MRP</th>
+                                <th class="text-end text-nowrap" style="min-width: 96px;">Disc %</th>
+                                <th class="text-end text-nowrap" style="min-width: 118px;">Price / Pc<br><small class="text-muted fw-normal">incl. tax</small></th>
+                                <th style="min-width: 172px;">GST Details</th>
+                                <th class="text-end text-nowrap" style="min-width: 92px;">Tax</th>
+                                <th class="text-end text-nowrap" style="min-width: 105px;">Total</th>
+                                <th style="min-width: 48px;"></th>
                             </tr>
                         </thead>
                         <tbody id="billCart">
@@ -349,7 +415,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                                         <label class="form-label fw-bold text-dark mb-1" for="cashGivenInput">
                                             <i class="bi bi-cash-stack text-success me-1"></i>Cash Given by Customer (₹)
                                         </label>
-                                        <input type="number" step="0.01" min="0" name="cash_given" id="cashGivenInput" 
+                                        <input type="text" inputmode="decimal" autocomplete="off" name="cash_given" id="cashGivenInput" 
                                                class="form-control form-control-lg text-end fw-bold font-monospace fs-5 border-success-subtle" 
                                                placeholder="0.00" value="<?= $escape($bill['cash_given'] ?? '') ?>" 
                                                oninput="updateCashAndChange()">
@@ -358,7 +424,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                                         <label class="form-label fw-bold text-dark mb-1" for="changeToReturnInput">
                                             <i class="bi bi-arrow-return-left text-primary me-1"></i>Change to Return (₹)
                                         </label>
-                                        <input type="text" name="change_returned" id="changeToReturnInput" 
+                                        <input type="text" inputmode="decimal" name="change_returned" id="changeToReturnInput" 
                                                class="form-control form-control-lg text-end fw-bold font-monospace text-success fs-5 bg-white border-2" 
                                                readonly value="<?= number_format((float)($bill['change_returned'] ?? 0), 2) ?>">
                                     </div>
@@ -412,7 +478,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                             <div id="splitBalance" class="small text-muted text-end mb-3"></div>
 
                             <div class="d-flex justify-content-end gap-2 mt-3">
-                                <a class="btn btn-outline-secondary px-3 py-2 fw-semibold" href="<?= url($isEdit ? 'production/billing/view/' . (int)$bill['id'] : 'production/billing') ?>">Cancel</a>
+                                <a class="btn btn-outline-secondary px-3 py-2 fw-semibold" href="<?= url('production/billing') ?>">Cancel</a>
                                 <button class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm" id="saveBillButton">
                                     <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>
                                 </button>
@@ -488,6 +554,105 @@ let lastComputedGrandTotal = 0;
 let customerSuggestTimer = null;
 let currentCustomerPhone = '<?= $escape($bill['customer_phone'] ?? '') ?>';
 let historyModalInstance = null;
+
+function sanitizeNumericValue(rawValue, allowDecimal = true) {
+    let cleaned = String(rawValue ?? '').replace(allowDecimal ? /[^0-9.]/g : /[^0-9]/g, '');
+    if (!allowDecimal) {
+        return cleaned;
+    }
+    const dotIndex = cleaned.indexOf('.');
+    if (dotIndex !== -1) {
+        cleaned = cleaned.slice(0, dotIndex + 1) + cleaned.slice(dotIndex + 1).replace(/\./g, '');
+    }
+    return cleaned;
+}
+
+function isValidNumericString(rawValue, allowDecimal = true) {
+    const val = String(rawValue ?? '').trim();
+    if (val === '') return false;
+    return allowDecimal ? /^(?:\d+\.?\d*|\.\d+)$/.test(val) : /^\d+$/.test(val);
+}
+
+function bindNumericInputValidation(input, options = {}) {
+    if (!input) return;
+    const allowDecimal = options.allowDecimal !== false;
+    const maxDecimals = typeof options.maxDecimals === 'number' ? options.maxDecimals : 2;
+    const min = typeof options.min === 'number' ? options.min : 0;
+    const max = typeof options.max === 'number' ? options.max : null;
+    const allowEmpty = Boolean(options.allowEmpty);
+    const formatOnBlur = options.formatOnBlur !== false;
+    const defaultValue = options.defaultValue !== undefined
+        ? options.defaultValue
+        : (allowEmpty ? '' : (allowDecimal ? '0.00' : '1'));
+
+    input.setAttribute('inputmode', allowDecimal ? 'decimal' : 'numeric');
+    if (!allowDecimal) {
+        input.setAttribute('pattern', '[0-9]*');
+    }
+
+    input.addEventListener('beforeinput', (e) => {
+        if (e.data == null) return;
+        if (!/^[0-9.]+$/.test(e.data) || (!allowDecimal && e.data.includes('.'))) {
+            e.preventDefault();
+            return;
+        }
+        if (allowDecimal && e.data.includes('.')) {
+            const start = input.selectionStart ?? input.value.length;
+            const end = input.selectionEnd ?? input.value.length;
+            const remaining = input.value.slice(0, start) + input.value.slice(end);
+            if (remaining.includes('.') || (e.data.match(/\./g) || []).length > 1) {
+                e.preventDefault();
+            }
+        }
+    });
+
+    input.addEventListener('input', () => {
+        const prev = input.value;
+        let next = sanitizeNumericValue(prev, allowDecimal);
+        if (allowDecimal && maxDecimals >= 0 && next.includes('.')) {
+            const parts = next.split('.');
+            if (parts[1].length > maxDecimals) {
+                next = parts[0] + '.' + parts[1].slice(0, maxDecimals);
+            }
+        }
+        if (next !== prev) {
+            const pos = input.selectionStart ?? next.length;
+            const diff = prev.length - next.length;
+            input.value = next;
+            const newPos = Math.max(0, pos - diff);
+            if (document.activeElement === input && typeof input.setSelectionRange === 'function') {
+                input.setSelectionRange(newPos, newPos);
+            }
+        }
+        input.classList.remove('is-invalid');
+    });
+
+    input.addEventListener('blur', () => {
+        const trimmed = sanitizeNumericValue(input.value.trim(), allowDecimal);
+        if (trimmed === '' || trimmed === '.') {
+            input.value = allowEmpty ? '' : String(defaultValue);
+            if (typeof options.onNormalize === 'function') {
+                options.onNormalize(input.value);
+            }
+            return;
+        }
+        let num = allowDecimal ? parseFloat(trimmed) : parseInt(trimmed, 10);
+        if (!Number.isFinite(num)) {
+            input.value = String(defaultValue);
+        } else {
+            if (num < min) num = min;
+            if (max !== null && num > max) num = max;
+            if (!formatOnBlur) {
+                input.value = allowDecimal ? String(num) : String(num);
+            } else {
+                input.value = allowDecimal ? num.toFixed(maxDecimals) : String(num);
+            }
+        }
+        if (typeof options.onNormalize === 'function') {
+            options.onNormalize(input.value);
+        }
+    });
+}
 
 function updateStaffName(sel) {
     const opt = sel.options[sel.selectedIndex];
@@ -754,10 +919,14 @@ function updateCashAndChange(total) {
     if (!cashGivenInput || !changeToReturnInput) return;
 
     const paymentMethod = document.getElementById('paymentMethod')?.value;
-    const cashGivenRaw = cashGivenInput.value.trim();
-    if (cashGivenRaw === '') {
+    const sanitizedCash = sanitizeNumericValue(cashGivenInput.value, true);
+    if (cashGivenInput.value !== sanitizedCash) {
+        cashGivenInput.value = sanitizedCash;
+    }
+    const cashGivenRaw = sanitizedCash.trim();
+    if (cashGivenRaw === '' || cashGivenRaw === '.') {
         changeToReturnInput.value = '0.00';
-        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold fs-5 bg-white border-2';
+        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold font-monospace fs-5 bg-white border-2';
         if (changeStatusHelp) {
             changeStatusHelp.innerHTML = paymentMethod === 'CASH_UPI'
                 ? 'Enter the cash tendered to calculate change on the cash portion.'
@@ -768,13 +937,13 @@ function updateCashAndChange(total) {
 
     const cashGiven = parseFloat(cashGivenRaw) || 0;
     const cashTarget = paymentMethod === 'CASH_UPI'
-        ? Number(document.getElementById('cashAmount')?.value || 0)
+        ? Number(sanitizeNumericValue(document.getElementById('cashAmount')?.value || 0, true) || 0)
         : total;
     const change = cashGiven - cashTarget;
 
     if (change >= 0) {
         changeToReturnInput.value = change.toFixed(2);
-        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold text-success fs-5 bg-white border-2 border-success';
+        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold font-monospace text-success fs-5 bg-white border-2 border-success';
         if (changeStatusHelp) {
             changeStatusHelp.innerHTML = change > 0 
                 ? `<span class="text-success fw-bold"><i class="bi bi-arrow-return-left me-1"></i> Return ₹${change.toFixed(2)} change to customer</span>` 
@@ -782,7 +951,7 @@ function updateCashAndChange(total) {
         }
     } else {
         changeToReturnInput.value = '0.00';
-        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold text-danger fs-5 bg-white border-2 border-danger';
+        changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold font-monospace text-danger fs-5 bg-white border-2 border-danger';
         if (changeStatusHelp) {
             changeStatusHelp.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle me-1"></i> ₹${Math.abs(change).toFixed(2)} remaining to collect</span>`;
         }
@@ -859,6 +1028,30 @@ document.addEventListener('DOMContentLoaded', () => {
     paymentMethodSelect.addEventListener('change', () => {
         updatePaymentFields();
         updateTotals();
+    });
+    const cashGivenField = document.getElementById('cashGivenInput');
+    bindNumericInputValidation(cashGivenField, {
+        allowDecimal: true,
+        maxDecimals: 2,
+        min: 0,
+        allowEmpty: true,
+        onNormalize: () => updateCashAndChange()
+    });
+    bindNumericInputValidation(cashAmountInput, {
+        allowDecimal: true,
+        maxDecimals: 2,
+        min: 0,
+        allowEmpty: false,
+        defaultValue: '0.00',
+        onNormalize: updateTotals
+    });
+    bindNumericInputValidation(upiAmountInput, {
+        allowDecimal: true,
+        maxDecimals: 2,
+        min: 0,
+        allowEmpty: false,
+        defaultValue: '0.00',
+        onNormalize: updateTotals
     });
     cashAmountInput.addEventListener('input', updateTotals);
     upiAmountInput.addEventListener('input', updateTotals);
@@ -1110,6 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Product details & HSN
             const productCell = row.insertCell();
+            productCell.className = 'billing-product-cell';
             const productTitle = document.createElement('strong');
             productTitle.className = 'text-dark d-block';
             productTitle.textContent = item.product_name;
@@ -1157,6 +1351,13 @@ document.addEventListener('DOMContentLoaded', () => {
             hsnInput.placeholder = 'HSN';
             hsnInput.name = `items[${index}][hsn_code]`;
             hsnInput.value = item.hsn_code || '6109';
+            bindNumericInputValidation(hsnInput, {
+                allowDecimal: false,
+                min: 0,
+                allowEmpty: true,
+                formatOnBlur: false,
+                defaultValue: ''
+            });
             hsnInput.addEventListener('input', () => { item.hsn_code = hsnInput.value.trim(); });
             hsnRow.append(hsnInput);
             productCell.append(hsnRow);
@@ -1197,12 +1398,11 @@ document.addEventListener('DOMContentLoaded', () => {
             quantityCell.className = 'text-center';
 
             const qtyGroup = document.createElement('div');
-            qtyGroup.className = 'input-group input-group-sm mx-auto shadow-xs';
-            qtyGroup.style.maxWidth = '115px';
+            qtyGroup.className = 'input-group input-group-sm mx-auto shadow-xs flex-nowrap billing-qty-group';
 
             const minusBtn = document.createElement('button');
             minusBtn.type = 'button';
-            minusBtn.className = 'btn btn-outline-secondary px-2';
+            minusBtn.className = 'btn btn-outline-secondary';
             minusBtn.innerHTML = '<i class="bi bi-dash"></i>';
             minusBtn.addEventListener('click', () => {
                 if (item.tags.length > 1) {
@@ -1215,17 +1415,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const quantityInput = document.createElement('input');
-            quantityInput.type = 'number';
-            quantityInput.min = '1';
-            quantityInput.step = '1';
-            quantityInput.max = String(maxStock);
+            quantityInput.type = 'text';
+            quantityInput.inputMode = 'numeric';
+            quantityInput.autocomplete = 'off';
+            quantityInput.setAttribute('aria-label', 'Quantity');
             quantityInput.value = String(currentQty);
-            quantityInput.className = 'form-control form-control-sm text-center fw-bold px-1';
+            quantityInput.className = 'form-control form-control-sm text-center fw-bold font-monospace billing-qty-input';
             quantityInput.dataset.qtyInputFor = itemKey;
 
             const plusBtn = document.createElement('button');
             plusBtn.type = 'button';
-            plusBtn.className = 'btn btn-outline-secondary px-2';
+            plusBtn.className = 'btn btn-outline-secondary';
             plusBtn.innerHTML = '<i class="bi bi-plus"></i>';
             plusBtn.addEventListener('click', () => {
                 if (item.tags.length < maxStock) {
@@ -1239,6 +1439,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         `All ${maxStock} available piece(s) in stock for ${item.product_name} are already added to this bill.`,
                         quantityInput
                     );
+                }
+            });
+
+            bindNumericInputValidation(quantityInput, {
+                allowDecimal: false,
+                min: 1,
+                max: Math.max(1, maxStock),
+                allowEmpty: false,
+                defaultValue: '1',
+                onNormalize: (val) => {
+                    const qty = parseInt(val || '1', 10);
+                    updateRowQuantity(itemKey, isNaN(qty) ? 1 : qty);
                 }
             });
 
@@ -1287,42 +1499,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. MRP cell
             const mrpCell = row.insertCell();
-            mrpCell.className = 'text-end fw-semibold text-muted font-monospace';
+            mrpCell.className = 'text-end fw-semibold text-muted font-monospace text-nowrap';
             mrpCell.textContent = money(item.mrp);
 
             // 4. Discount cell
             const discountCell = row.insertCell();
             const discountInput = document.createElement('input');
-            discountInput.type = 'number';
-            discountInput.step = '0.01';
-            discountInput.min = '0';
-            discountInput.max = '100';
-            discountInput.className = 'form-control form-control-sm text-end font-monospace';
+            discountInput.type = 'text';
+            discountInput.inputMode = 'decimal';
+            discountInput.autocomplete = 'off';
+            discountInput.setAttribute('aria-label', 'Discount percentage');
+            discountInput.className = 'form-control form-control-sm text-end font-monospace billing-rate-input';
             discountInput.value = Number(item.discount_percentage || 0).toFixed(2);
             discountInput.name = `items[${index}][discount_percentage]`;
-            discountInput.addEventListener('input', () => {
-                const discount = Math.min(100, Math.max(0, Number(discountInput.value || 0)));
+            const applyDiscountValue = (rawDiscount) => {
+                const parsed = parseFloat(rawDiscount);
+                const discount = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
                 item.discount_percentage = discount;
                 item.unit_price = Number(item.mrp || 0) * (1 - discount / 100);
                 priceInput.value = item.unit_price.toFixed(2);
                 updateRowQuantity(itemKey, item.tags.length);
+            };
+            bindNumericInputValidation(discountInput, {
+                allowDecimal: true,
+                maxDecimals: 2,
+                min: 0,
+                max: 100,
+                allowEmpty: false,
+                defaultValue: '0.00',
+                onNormalize: (val) => applyDiscountValue(val)
+            });
+            discountInput.addEventListener('input', () => {
+                applyDiscountValue(discountInput.value);
             });
             discountCell.append(discountInput);
 
             // 5. Price / piece cell
             const priceCell = row.insertCell();
             const priceInput = document.createElement('input');
-            priceInput.type = 'number';
-            priceInput.step = '0.01';
-            priceInput.min = '0';
-            priceInput.className = 'form-control form-control-sm text-end font-monospace fw-semibold';
+            priceInput.type = 'text';
+            priceInput.inputMode = 'decimal';
+            priceInput.autocomplete = 'off';
+            priceInput.setAttribute('aria-label', 'Price per piece');
+            priceInput.className = 'form-control form-control-sm text-end font-monospace fw-semibold billing-price-input';
             priceInput.value = Number(item.unit_price || 0).toFixed(2);
             priceInput.name = `items[${index}][unit_price]`;
-            priceInput.addEventListener('input', () => {
-                item.unit_price = Math.max(0, Number(priceInput.value || 0));
+            const applyPriceValue = (rawPrice) => {
+                const parsed = parseFloat(rawPrice);
+                item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
                 item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
                 discountInput.value = item.discount_percentage.toFixed(2);
                 updateRowQuantity(itemKey, item.tags.length);
+            };
+            bindNumericInputValidation(priceInput, {
+                allowDecimal: true,
+                maxDecimals: 2,
+                min: 0,
+                allowEmpty: false,
+                defaultValue: '0.00',
+                onNormalize: (val) => applyPriceValue(val)
+            });
+            priceInput.addEventListener('input', () => {
+                applyPriceValue(priceInput.value);
             });
             priceCell.append(priceInput);
 
@@ -1332,29 +1570,42 @@ document.addEventListener('DOMContentLoaded', () => {
             taxGroup.className = 'd-flex flex-column gap-1';
 
             const taxModeSelect = document.createElement('select');
-            taxModeSelect.className = 'form-select form-select-sm py-1';
-            taxModeSelect.style.fontSize = '12px';
+            taxModeSelect.className = 'form-select form-select-sm py-1 billing-gst-select';
             taxModeSelect.name = `items[${index}][gst_type]`;
             taxModeSelect.innerHTML = '<option value="BOTH">CGST + SGST</option><option value="IGST">IGST only</option><option value="EXEMPTED">Exempted (0%)</option>';
             taxModeSelect.value = item.gst_type || 'BOTH';
 
             const taxRateGroup = document.createElement('div');
-            taxRateGroup.className = 'input-group input-group-sm';
+            taxRateGroup.className = 'input-group input-group-sm flex-nowrap billing-gst-rate-group';
 
             const taxRateInput = document.createElement('input');
-            taxRateInput.type = 'number';
-            taxRateInput.step = '0.01';
-            taxRateInput.min = '0';
-            taxRateInput.max = '40';
-            taxRateInput.className = 'form-control form-control-sm text-end font-monospace py-0 px-1';
-            taxRateInput.style.fontSize = '12px';
+            taxRateInput.type = 'text';
+            taxRateInput.inputMode = 'decimal';
+            taxRateInput.autocomplete = 'off';
+            taxRateInput.setAttribute('aria-label', 'GST percentage');
+            taxRateInput.className = 'form-control form-control-sm text-end font-monospace billing-gst-rate-input';
             taxRateInput.name = `items[${index}][gst_percentage]`;
             taxRateInput.value = Number(item.gst_percentage || 0).toFixed(2);
 
             const taxRateAddon = document.createElement('span');
-            taxRateAddon.className = 'input-group-text py-0 px-1 small text-muted';
+            taxRateAddon.className = 'input-group-text py-0 px-2 small text-muted';
             taxRateAddon.textContent = '%';
             taxRateGroup.append(taxRateInput, taxRateAddon);
+
+            const applyGstRateValue = (rawRate) => {
+                const parsed = parseFloat(rawRate);
+                item.gst_percentage = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
+                updateRowQuantity(itemKey, item.tags.length);
+            };
+            bindNumericInputValidation(taxRateInput, {
+                allowDecimal: true,
+                maxDecimals: 2,
+                min: 0,
+                max: 100,
+                allowEmpty: false,
+                defaultValue: '0.00',
+                onNormalize: (val) => applyGstRateValue(val)
+            });
 
             taxModeSelect.addEventListener('change', () => {
                 item.gst_type = taxModeSelect.value;
@@ -1369,8 +1620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             taxRateInput.addEventListener('input', () => {
-                item.gst_percentage = Math.max(0, Number(taxRateInput.value || 0));
-                updateRowQuantity(itemKey, item.tags.length);
+                applyGstRateValue(taxRateInput.value);
             });
 
             taxGroup.append(taxModeSelect, taxRateGroup);
@@ -1378,13 +1628,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 7. Tax amount cell
             const taxAmountCell = row.insertCell();
-            taxAmountCell.className = 'text-end font-monospace text-muted';
+            taxAmountCell.className = 'text-end font-monospace text-muted text-nowrap';
             taxAmountCell.dataset.taxFor = itemKey;
             taxAmountCell.textContent = money(0);
 
             // 8. Line Total cell
             const totalCell = row.insertCell();
-            totalCell.className = 'text-end fw-bold font-monospace text-primary';
+            totalCell.className = 'text-end fw-bold font-monospace text-primary text-nowrap';
             totalCell.dataset.totalFor = itemKey;
             totalCell.textContent = money(0);
 
@@ -1789,6 +2039,41 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please add at least one finished-goods piece to this bill.');
             return;
         }
+
+        const numericChecks = [
+            ...Array.from(cartBody.querySelectorAll('.billing-qty-input')).map(el => ({ el, decimal: false, label: 'Qty', min: 1 })),
+            ...Array.from(cartBody.querySelectorAll('.billing-rate-input')).map(el => ({ el, decimal: true, label: 'Disc %', min: 0, max: 100 })),
+            ...Array.from(cartBody.querySelectorAll('.billing-price-input')).map(el => ({ el, decimal: true, label: 'Price / Pc', min: 0 })),
+            ...Array.from(cartBody.querySelectorAll('.billing-gst-rate-input')).map(el => ({ el, decimal: true, label: 'GST %', min: 0, max: 100 })),
+        ];
+        if (cashGivenField && cashGivenField.value.trim() !== '') {
+            numericChecks.push({ el: cashGivenField, decimal: true, label: 'Cash Given by Customer', min: 0 });
+        }
+        const changeField = document.getElementById('changeToReturnInput');
+        if (changeField) {
+            numericChecks.push({ el: changeField, decimal: true, label: 'Change to Return', min: 0 });
+        }
+        if (paymentMethodSelect.value === 'CASH_UPI') {
+            numericChecks.push({ el: cashAmountInput, decimal: true, label: 'Cash amount', min: 0 });
+            numericChecks.push({ el: upiAmountInput, decimal: true, label: 'UPI / GPay amount', min: 0 });
+        }
+
+        for (const check of numericChecks) {
+            const rawVal = check.el.value.trim();
+            const validFormat = isValidNumericString(rawVal, check.decimal);
+            const numVal = check.decimal ? parseFloat(rawVal) : parseInt(rawVal, 10);
+            const inRange = Number.isFinite(numVal)
+                && (check.min === undefined || numVal >= check.min)
+                && (check.max === undefined || numVal <= check.max);
+            if (!validFormat || !inRange) {
+                e.preventDefault();
+                check.el.classList.add('is-invalid');
+                check.el.focus();
+                alert(`Please enter a valid number for ${check.label}.`);
+                return;
+            }
+        }
+
         if (paymentMethodSelect.value === 'CASH_UPI') {
             const cash = Number(cashAmountInput.value || 0);
             const upi = Number(upiAmountInput.value || 0);

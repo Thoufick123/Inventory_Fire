@@ -122,6 +122,10 @@ class AllmodulesBillingController
             'pageTitle' => 'Production Billing',
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
+            'breadcrumb' => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Billing'],
+            ],
             'bills' => $bills,
             'stats' => $stats,
             'activeTab' => $activeTab,
@@ -246,6 +250,11 @@ class AllmodulesBillingController
             'pageTitle' => 'Move Bill to Batch',
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
+            'breadcrumb' => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => 'Move Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) . ' to Batch'],
+            ],
             'bill' => $bill,
             'billItems' => $items,
             'warehouses' => $warehouses,
@@ -423,6 +432,11 @@ class AllmodulesBillingController
             'pageTitle' => 'Production Bill ' . $bill['bill_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
+            'breadcrumb' => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => 'Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id'])],
+            ],
             'bill' => $bill,
             'billItems' => $this->loadBillItems((int)$bill['id']),
             'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
@@ -1234,10 +1248,17 @@ class AllmodulesBillingController
              ORDER BY pb.id DESC"
         );
 
+        $billLabel = $bill ? (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) : '';
+
         Response::view('allmodules.billing.form', [
             'pageTitle'               => $bill ? 'Edit Production Bill' : 'Create Production Bill',
             'activeModule'            => 'production',
             'activeMenu'              => 'prod-billing',
+            'breadcrumb'              => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => $bill ? ('Edit Billing ' . $billLabel) : 'Create Billing'],
+            ],
             'bill'                    => $bill,
             'billItems'               => $billItems,
             'prodUnit'                => $prodUnit,
@@ -2074,6 +2095,13 @@ class AllmodulesBillingController
             }
 
             $unitPrice = filter_var($submitted['unit_price'] ?? null, FILTER_VALIDATE_FLOAT);
+            if (array_key_exists('discount_percentage', $submitted) && trim((string)$submitted['discount_percentage']) !== '') {
+                $submittedDiscount = filter_var($submitted['discount_percentage'], FILTER_VALIDATE_FLOAT);
+                if ($submittedDiscount === false || $submittedDiscount < 0 || $submittedDiscount > 100) {
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Enter a valid numeric discount percentage between 0 and 100.');
+                    return;
+                }
+            }
             $rawHsnCode = trim((string)($submitted['hsn_code'] ?? ''));
             if ($rawHsnCode === '') {
                 $rawHsnCode = trim((string)($stock['hsn_code'] ?? '6109'));
@@ -2267,8 +2295,28 @@ class AllmodulesBillingController
             $u = Database::fetchOne("SELECT full_name FROM users WHERE id = ?", [$staffId]);
             $staffName = $u['full_name'] ?? '';
         }
-        $cashGiven = (float)($_POST['cash_given'] ?? 0);
-        $changeReturned = (float)($_POST['change_returned'] ?? 0);
+        $rawCashGiven = trim((string)($_POST['cash_given'] ?? ''));
+        $rawChangeReturned = trim((string)($_POST['change_returned'] ?? ''));
+        if ($rawCashGiven !== '') {
+            $parsedCashGiven = filter_var($rawCashGiven, FILTER_VALIDATE_FLOAT);
+            if ($parsedCashGiven === false || $parsedCashGiven < 0) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Cash given by customer must be a valid non-negative number.');
+                return;
+            }
+            $cashGiven = round((float)$parsedCashGiven, 2);
+        } else {
+            $cashGiven = 0.0;
+        }
+        if ($rawChangeReturned !== '') {
+            $parsedChangeReturned = filter_var($rawChangeReturned, FILTER_VALIDATE_FLOAT);
+            if ($parsedChangeReturned === false || $parsedChangeReturned < 0) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Change to return must be a valid non-negative number.');
+                return;
+            }
+            $changeReturned = round((float)$parsedChangeReturned, 2);
+        } else {
+            $changeReturned = 0.0;
+        }
 
         $existingBill = $billId !== null
             ? Database::fetchOne("SELECT upi_payment_screenshot_url FROM production_bills WHERE id = ?", [$billId])

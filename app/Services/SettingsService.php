@@ -113,6 +113,7 @@ class SettingsService {
             'inventory'  => [],
             'security'   => [],
             'backup'     => [],
+            'theme'      => [],
             'general'    => [],
         ];
 
@@ -125,7 +126,7 @@ class SettingsService {
         }
 
         // Merge defaults for missing keys
-        return array_merge(self::getDefaults(), $grouped);
+        return array_replace_recursive(self::getDefaults(), $grouped);
     }
 
     /**
@@ -167,6 +168,134 @@ class SettingsService {
                 'backup_retention_days' => '30',
                 'alert_recipients'      => 'admin@grminventory.com',
             ],
+            'theme' => [
+                'theme_preset'       => 'indigo',
+                'theme_primary'      => '#4f46e5',
+                'theme_sidebar_bg'   => '#1e293b',
+                'theme_sidebar_text' => '#94a3b8',
+                'theme_navbar_bg'    => '#ffffff',
+                'theme_page_bg'      => '#f8fafc',
+            ],
+        ];
+    }
+
+    /**
+     * Curated built-in UI color presets.
+     */
+    public static function getThemePresets(): array {
+        return [
+            'indigo' => [
+                'label'        => 'Indigo Classic',
+                'primary'      => '#4f46e5',
+                'sidebar_bg'   => '#1e293b',
+                'sidebar_text' => '#94a3b8',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#f8fafc',
+            ],
+            'ocean' => [
+                'label'        => 'Royal Ocean Blue',
+                'primary'      => '#0284c7',
+                'sidebar_bg'   => '#0f172a',
+                'sidebar_text' => '#94a3b8',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#f0f9ff',
+            ],
+            'navy_teal' => [
+                'label'        => 'Deep Navy & Teal',
+                'primary'      => '#0d9488',
+                'sidebar_bg'   => '#111827',
+                'sidebar_text' => '#9ca3af',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#f8fafc',
+            ],
+            'charcoal_amber' => [
+                'label'        => 'Charcoal & Amber',
+                'primary'      => '#d97706',
+                'sidebar_bg'   => '#18181b',
+                'sidebar_text' => '#a1a1aa',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#fafaf9',
+            ],
+            'forest' => [
+                'label'        => 'Forest Emerald',
+                'primary'      => '#059669',
+                'sidebar_bg'   => '#14261f',
+                'sidebar_text' => '#9ca3af',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#f4faf7',
+            ],
+            'plum' => [
+                'label'        => 'Modern Crimson Plum',
+                'primary'      => '#9333ea',
+                'sidebar_bg'   => '#1f1630',
+                'sidebar_text' => '#b8accf',
+                'navbar_bg'    => '#ffffff',
+                'page_bg'      => '#faf8ff',
+            ],
+        ];
+    }
+
+    public static function sanitizeHexColor(?string $value, string $fallback): string {
+        $candidate = trim((string)$value);
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $candidate)) {
+            return strtolower($candidate);
+        }
+        return strtolower($fallback);
+    }
+
+    public static function hexToRgbString(string $hex): string {
+        $hex = ltrim(self::sanitizeHexColor($hex, '#4f46e5'), '#');
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        return "{$r}, {$g}, {$b}";
+    }
+
+    public static function adjustHexBrightness(string $hex, int $steps): string {
+        $hex = ltrim(self::sanitizeHexColor($hex, '#4f46e5'), '#');
+        $r = max(0, min(255, hexdec(substr($hex, 0, 2)) + $steps));
+        $g = max(0, min(255, hexdec(substr($hex, 2, 2)) + $steps));
+        $b = max(0, min(255, hexdec(substr($hex, 4, 2)) + $steps));
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    public static function mixWithWhite(string $hex, float $whiteRatio = 0.90): string {
+        $hex = ltrim(self::sanitizeHexColor($hex, '#4f46e5'), '#');
+        $ratio = max(0.0, min(1.0, $whiteRatio));
+        $r = (int)round(hexdec(substr($hex, 0, 2)) * (1 - $ratio) + 255 * $ratio);
+        $g = (int)round(hexdec(substr($hex, 2, 2)) * (1 - $ratio) + 255 * $ratio);
+        $b = (int)round(hexdec(substr($hex, 4, 2)) * (1 - $ratio) + 255 * $ratio);
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    /**
+     * Resolve active theme colors and derived CSS variables safely.
+     */
+    public static function getThemeConfig(): array {
+        $defaults = self::getDefaults()['theme'];
+        $presets = self::getThemePresets();
+        $presetKey = trim((string)self::get('theme_preset', $defaults['theme_preset']));
+        if ($presetKey !== 'custom' && !isset($presets[$presetKey])) {
+            $presetKey = $defaults['theme_preset'];
+        }
+
+        $primary     = self::sanitizeHexColor((string)self::get('theme_primary', $defaults['theme_primary']), $defaults['theme_primary']);
+        $sidebarBg   = self::sanitizeHexColor((string)self::get('theme_sidebar_bg', $defaults['theme_sidebar_bg']), $defaults['theme_sidebar_bg']);
+        $sidebarText = self::sanitizeHexColor((string)self::get('theme_sidebar_text', $defaults['theme_sidebar_text']), $defaults['theme_sidebar_text']);
+        $navbarBg    = self::sanitizeHexColor((string)self::get('theme_navbar_bg', $defaults['theme_navbar_bg']), $defaults['theme_navbar_bg']);
+        $pageBg      = self::sanitizeHexColor((string)self::get('theme_page_bg', $defaults['theme_page_bg']), $defaults['theme_page_bg']);
+
+        return [
+            'preset'        => $presetKey,
+            'primary'       => $primary,
+            'primary_hover' => self::adjustHexBrightness($primary, -18),
+            'primary_light' => self::mixWithWhite($primary, 0.90),
+            'primary_tint'  => self::mixWithWhite($primary, 0.45),
+            'primary_rgb'   => self::hexToRgbString($primary),
+            'sidebar_bg'    => $sidebarBg,
+            'sidebar_text'  => $sidebarText,
+            'navbar_bg'     => $navbarBg,
+            'page_bg'       => $pageBg,
         ];
     }
 }

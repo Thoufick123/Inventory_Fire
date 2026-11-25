@@ -145,6 +145,7 @@ class SystemController {
                 ['label' => 'Settings'],
             ],
             'settings'     => $groupedSettings,
+            'themePresets' => SettingsService::getThemePresets(),
         ]);
     }
 
@@ -154,7 +155,28 @@ class SystemController {
             return;
         }
         $group = $_POST['group'] ?? 'general';
-        $settingsData = $_POST['settings'] ?? [];
+        $settingsData = is_array($_POST['settings'] ?? null) ? $_POST['settings'] : [];
+
+        if ($group === 'theme') {
+            $defaults = SettingsService::getDefaults()['theme'];
+            $presets = SettingsService::getThemePresets();
+            if (!empty($_POST['reset_theme_defaults'])) {
+                $settingsData = $defaults;
+            } else {
+                $presetKey = trim((string)($settingsData['theme_preset'] ?? $defaults['theme_preset']));
+                if ($presetKey !== 'custom' && !isset($presets[$presetKey])) {
+                    $presetKey = 'custom';
+                }
+                $settingsData = [
+                    'theme_preset'       => $presetKey,
+                    'theme_primary'      => SettingsService::sanitizeHexColor($settingsData['theme_primary'] ?? null, $defaults['theme_primary']),
+                    'theme_sidebar_bg'   => SettingsService::sanitizeHexColor($settingsData['theme_sidebar_bg'] ?? null, $defaults['theme_sidebar_bg']),
+                    'theme_sidebar_text' => SettingsService::sanitizeHexColor($settingsData['theme_sidebar_text'] ?? null, $defaults['theme_sidebar_text']),
+                    'theme_navbar_bg'    => SettingsService::sanitizeHexColor($settingsData['theme_navbar_bg'] ?? null, $defaults['theme_navbar_bg']),
+                    'theme_page_bg'      => SettingsService::sanitizeHexColor($settingsData['theme_page_bg'] ?? null, $defaults['theme_page_bg']),
+                ];
+            }
+        }
 
         try {
             SettingsService::updateGroup($group, $settingsData);
