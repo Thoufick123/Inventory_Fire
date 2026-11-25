@@ -709,6 +709,60 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <?php endif; ?>
             </div>
         </div>
+
+        <!-- Common Stock Transaction History (All Modules & Concerns) -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div>
+                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-clock-history text-info me-2"></i>Common Inventory Stock History (All Modules)</h5>
+                    <small class="text-muted">Unified stock ledger across all warehouses, production units, billing/POS, and returns.</small>
+                </div>
+                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-2 fw-bold">
+                    <?= count($stockHistory ?? []) ?> Transaction(s)
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <?php if (!empty($stockHistory)): ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-uppercase text-muted">
+                            <tr>
+                                <th>Date / Time</th>
+                                <th>Variant ID</th>
+                                <th>Type</th>
+                                <th class="text-end">Qty</th>
+                                <th>Location</th>
+                                <th>Reference</th>
+                                <th>By</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($stockHistory as $sh):
+                                $txType = strtoupper((string)($sh['transaction_type'] ?? $sh['movement_type'] ?? 'MOVEMENT'));
+                                $isIn = in_array($txType, ['IN', 'INWARD', 'PURCHASE', 'RETURN', 'ADJUST_IN'], true) || ((float)($sh['quantity'] ?? 0) > 0 && $txType !== 'OUT');
+                            ?>
+                            <tr>
+                                <td class="text-muted"><?= !empty($sh['created_at']) ? date('d M Y, h:i A', strtotime($sh['created_at'])) : '—' ?></td>
+                                <td><span class="badge bg-dark font-monospace"><?= e($sh['variant_code'] ?? $sh['variant_sku'] ?? '—') ?></span></td>
+                                <td><span class="badge <?= $isIn ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle' ?>"><?= e($txType) ?></span></td>
+                                <td class="text-end fw-bold"><?= number_format((float)($sh['quantity'] ?? 0), 2) ?></td>
+                                <td><?= e($sh['location_name'] ?? ($sh['location_type'] ?? '—')) ?></td>
+                                <td class="font-monospace"><?= e(($sh['reference_type'] ?? '') . (!empty($sh['reference_id']) ? ' #' . $sh['reference_id'] : '')) ?: '—' ?></td>
+                                <td><?= e($sh['actor_name'] ?? 'System') ?></td>
+                                <td class="text-muted"><?= e($sh['notes'] ?? '—') ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php else: ?>
+                <div class="p-4 text-center text-muted small">
+                    <i class="bi bi-clock-history me-1"></i>No stock transactions recorded yet for this batch's variants.
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
 </div>
