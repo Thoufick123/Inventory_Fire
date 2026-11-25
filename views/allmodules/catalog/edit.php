@@ -330,7 +330,42 @@ if (empty($existingColorIds)) {
                         </div>
                     </div>
 
-                
+                    <!-- Color Attributes Multi-Select -->
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <label class="form-label fw-bold mb-0">
+                                <i class="bi bi-palette me-1 text-primary"></i> Color Attributes:
+                            </label>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAddColor">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Color
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelectAllColors">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnClearColors">Clear</button>
+                            </div>
+                        </div>
+                        <div class="p-2 border rounded bg-light d-flex flex-wrap gap-2 align-items-center" id="colorSelectorContainer" style="min-height: 48px;">
+                            <?php if (empty($colors)): ?>
+                                <div class="w-100 text-center py-2 text-muted small" id="emptyColorPrompt">
+                                    <i class="bi bi-palette fs-5 text-secondary opacity-50 d-block mb-1"></i>
+                                    No color attributes found. Click <strong>"+ Add Color"</strong> above to create colors for this category.
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($colors as $clr): ?>
+                                    <div class="btn-group btn-group-sm color-chip-group" id="color-chip-<?= $clr['id'] ?>">
+                                        <label class="btn btn-outline-secondary color-check-btn d-flex align-items-center gap-2" style="cursor: pointer;">
+                                            <input type="checkbox" name="colors[]" class="form-check-input me-1 color-checkbox" value="<?= $clr['id'] ?>" data-name="<?= e($clr['name']) ?>" data-hex="<?= e($clr['hex_code'] ?? '#cccccc') ?>" <?= in_array($clr['id'], $existingColorIds ?? []) ? 'checked' : '' ?>>
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background-color:<?= e($clr['hex_code'] ?? '#cccccc') ?>; border:1px solid #ccc;"></span>
+                                            <span><?= e($clr['name']) ?></span>
+                                        </label>
+                                        <button type="button" class="btn btn-outline-danger btn-delete-color p-1 px-2" data-id="<?= $clr['id'] ?>" data-name="<?= e($clr['name']) ?>" title="Delete color attribute">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
                 <!-- Card Footer with Action Buttons -->
                 <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
