@@ -248,6 +248,7 @@ class Router {
         $this->get('allmodules/purchases/create', 'AllmodulesController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
         $this->post('allmodules/purchases/store', 'AllmodulesController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
         $this->get('allmodules/purchases/view/{id}', 'AllmodulesController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('allmodules/purchases/logs/{id}', 'AllmodulesController', 'ajaxPurchaseBillLogs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
         $this->get('allmodules/purchases/edit/{id}', 'AllmodulesController', 'editProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
         $this->post('allmodules/purchases/update/{id}', 'AllmodulesController', 'updateProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'edit']]);
         $this->post('allmodules/purchases/delete/{id}', 'AllmodulesController', 'deleteProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'delete']]);
@@ -316,6 +317,7 @@ class Router {
         $this->get('purchases/create', 'AllmodulesController', 'createProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
         $this->post('purchases/store', 'AllmodulesController', 'storeProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'create']]);
         $this->get('purchases/view/{id}', 'AllmodulesController', 'viewProductionPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
+        $this->get('purchases/logs/{id}', 'AllmodulesController', 'ajaxPurchaseBillLogs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
         $this->get('purchases/mapping', 'AllmodulesController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->get('purchases/mapping/create', 'AllmodulesController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('purchases/mapping/create', 'AllmodulesController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
