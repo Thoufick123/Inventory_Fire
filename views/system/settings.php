@@ -53,6 +53,7 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                 <!-- TAB 1: COMPANY & BILLING -->
                 <div class="tab-pane fade <?= $activeTab === 'company' ? 'show active' : '' ?>" id="company-pane">
                     <form method="POST" action="<?= url('system/settings/update') ?>">
+                        <?= CSRF::field() ?>
                         <input type="hidden" name="group" value="company">
                         <fieldset <?= !$canEditSettings ? 'disabled' : '' ?>>
                         <h5 class="fw-bold text-dark mb-3"><i class="bi bi-shop me-2 text-primary"></i>Company Profile & Billing Details</h5>
@@ -110,6 +111,7 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                 <!-- TAB 2: MASTER SWITCHES -->
                 <div class="tab-pane fade <?= $activeTab === 'switches' ? 'show active' : '' ?>" id="switches-pane">
                     <form method="POST" action="<?= url('system/settings/update') ?>">
+                        <?= CSRF::field() ?>
                         <input type="hidden" name="group" value="switches">
                         <fieldset <?= !$canEditSettings ? 'disabled' : '' ?>>
                         <h5 class="fw-bold text-dark mb-3"><i class="bi bi-toggle2-on me-2 text-primary"></i>Operational Master Switches</h5>
@@ -171,6 +173,7 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                 <!-- TAB 3: INVENTORY RULES -->
                 <div class="tab-pane fade <?= $activeTab === 'inventory' ? 'show active' : '' ?>" id="inventory-pane">
                     <form method="POST" action="<?= url('system/settings/update') ?>">
+                        <?= CSRF::field() ?>
                         <input type="hidden" name="group" value="inventory">
                         <fieldset <?= !$canEditSettings ? 'disabled' : '' ?>>
                         <h5 class="fw-bold text-dark mb-3"><i class="bi bi-box-seam me-2 text-primary"></i>Stock & Inventory Threshold Rules</h5>
@@ -209,6 +212,7 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                 <!-- TAB 4: SECURITY POLICIES -->
                 <div class="tab-pane fade <?= $activeTab === 'security' ? 'show active' : '' ?>" id="security-pane">
                     <form method="POST" action="<?= url('system/settings/update') ?>">
+                        <?= CSRF::field() ?>
                         <input type="hidden" name="group" value="security">
                         <fieldset <?= !$canEditSettings ? 'disabled' : '' ?>>
                         <h5 class="fw-bold text-dark mb-3"><i class="bi bi-shield-lock me-2 text-primary"></i>Security & Authentication Policies</h5>

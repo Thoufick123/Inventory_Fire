@@ -647,4 +647,40 @@ window.initClientPagination = function(options) {
     }, true);
 })();
 
+// =========================================================================
+// GLOBAL FETCH CSRF TOKEN INJECTOR (SAME-ORIGIN STATE-CHANGING REQUESTS)
+// =========================================================================
+(function() {
+    if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        if (!token) return originalFetch(input, init);
+
+        const reqMethod = ((init && init.method) || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+        if (reqMethod === 'GET' || reqMethod === 'HEAD' || reqMethod === 'OPTIONS') {
+            return originalFetch(input, init);
+        }
+
+        const targetUrl = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+        try {
+            const parsed = new URL(targetUrl, window.location.origin);
+            if (parsed.origin !== window.location.origin) {
+                return originalFetch(input, init);
+            }
+        } catch (e) {
+            return originalFetch(input, init);
+        }
+
+        const nextInit = Object.assign({}, init || {});
+        const headers = new Headers(nextInit.headers || (input instanceof Request ? input.headers : undefined));
+        if (!headers.has('X-CSRF-TOKEN')) {
+            headers.set('X-CSRF-TOKEN', token);
+        }
+        nextInit.headers = headers;
+        return originalFetch(input, nextInit);
+    };
+})();
+
 

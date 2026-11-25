@@ -74,6 +74,22 @@ class Router {
                     }
                 }
 
+                // Enforce CSRF token validation on all POST routes
+                if ($method === 'POST' && class_exists('CSRF') && !CSRF::validateRequest()) {
+                    $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                        || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')
+                        || str_starts_with($url, 'api/');
+                    if ($isAjax) {
+                        Response::jsonError('Invalid or expired security token. Please refresh and try again.', [], 403);
+                    }
+                    Session::flash('error', 'Invalid security token or session expired. Please try submitting again.');
+                    if (!empty($_SERVER['HTTP_REFERER'])) {
+                        Response::redirect($_SERVER['HTTP_REFERER']);
+                    }
+                    Response::redirect(url('login'));
+                    return;
+                }
+
                 // Load and instantiate controller
                 $controllerFile = BASE_PATH . '/app/Controllers/' . $route['controller'] . '.php';
                 if (!file_exists($controllerFile)) {
@@ -132,7 +148,7 @@ class Router {
         $this->get('admin/dashboard', 'AdminController', 'dashboard', ['AuthMiddleware']);
         $this->get('api/admin/dashboard/revenue', 'AdminController', 'ajaxDashboardRevenue', ['AuthMiddleware']);
         $this->get('admin/staff', 'AdminController', 'staffList', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'view']]);
-        $this->get('admin/staff/check-phone', 'AdminController', 'checkPhoneAvailability', ['AuthMiddleware']);
+        $this->get('admin/staff/check-phone', 'AdminController', 'checkPhoneAvailability', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'view']]);
         $this->get('admin/staff/create', 'AdminController', 'createStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'create']]);
         $this->post('admin/staff/store', 'AdminController', 'storeStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'create']]);
         $this->get('admin/staff/view/{id}', 'AdminController', 'viewStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'view']]);
@@ -153,13 +169,6 @@ class Router {
         $this->get('admin/change-password', 'AuthController', 'changePasswordForm', ['AuthMiddleware']);
         $this->post('admin/change-password', 'AuthController', 'changePassword', ['AuthMiddleware']);
 
-        // Production Units Management
-        $this->post('admin/production-units/store', 'AdminController', 'storeProductionUnit', ['AuthMiddleware']);
-        $this->post('admin/production-units/update/{id}', 'AdminController', 'updateProductionUnit', ['AuthMiddleware']);
-        $this->post('admin/production-units/delete/{id}', 'AdminController', 'deleteProductionUnit', ['AuthMiddleware']);
-        $this->post('admin/production-units/toggle/{id}', 'AdminController', 'toggleProductionUnit', ['AuthMiddleware']);
-        $this->post('api/admin/production-units/quick-add', 'AdminController', 'ajaxAddProductionUnit', ['AuthMiddleware']);
-        $this->get('api/admin/production-units/check-duplicate', 'AdminController', 'ajaxCheckProductionUnitDuplicate', ['AuthMiddleware']);
         $this->get('api/qr/status-finder', 'AdminController', 'ajaxQrStatusFinder', ['AuthMiddleware']);
 
 
@@ -198,8 +207,8 @@ class Router {
         $this->get('api/hsn-codes', 'AllmodulesController', 'ajaxHsnCodesList', ['AuthMiddleware']);
         $this->post('api/hsn-codes/store', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
         $this->post('allmodules/hsn/store-ajax', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
-        $this->post('api/operators/quick-add', 'AllmodulesController', 'ajaxQuickAddOperator', ['AuthMiddleware']);
-        $this->post('api/tailors/quick-add', 'AllmodulesController', 'ajaxQuickAddTailor', ['AuthMiddleware']);
+        $this->post('api/operators/quick-add', 'AllmodulesController', 'ajaxQuickAddOperator', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
+        $this->post('api/tailors/quick-add', 'AllmodulesController', 'ajaxQuickAddTailor', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
 
         // PRODUCTION ROUTES
         // ==========================================
@@ -253,8 +262,8 @@ class Router {
         $this->post('allmodules/purchases/mapping/draft/{id}/move', 'AllmodulesController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/generate-all-qr', 'AllmodulesController', 'generateAllThirdPartyMappingDraftQrs', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
-        $this->post('api/purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
-        $this->post('purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware']);
+        $this->post('api/purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/add-to-stock', 'AllmodulesController', 'ajaxAddMappingStockToInventory', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
 
         // Shop & Production Cash & Cash Flow Management
         $this->get('allmodules/cash-flow', 'CashFlowController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'cash_flow', 'view']]);
@@ -329,8 +338,8 @@ class Router {
 
         // Production Billing
         $this->get('allmodules/billing', 'AllmodulesBillingController', 'billList', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-        $this->get('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'moveBillToBatchForm', ['AuthMiddleware']);
-        $this->post('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'createBillDispatchBatch', ['AuthMiddleware']);
+        $this->get('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'moveBillToBatchForm', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
+        $this->post('allmodules/billing/move-to-batch/{id}', 'AllmodulesBillingController', 'createBillDispatchBatch', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
         $this->get('allmodules/billing/create', 'AllmodulesBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
         $this->post('allmodules/billing/create', 'AllmodulesBillingController', 'createBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
         $this->post('allmodules/billing/store', 'AllmodulesBillingController', 'storeBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'create']]);
@@ -339,10 +348,10 @@ class Router {
         $this->post('allmodules/billing/update/{id}', 'AllmodulesBillingController', 'updateBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
         $this->post('allmodules/billing/delete/{id}', 'AllmodulesBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
         $this->get('allmodules/billing/print/{id}', 'AllmodulesBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-                $this->get('api/allmodules/billing/search', 'AllmodulesBillingController', 'searchInventory', ['AuthMiddleware']);
-        $this->get('api/allmodules/billing/batch-items', 'AllmodulesBillingController', 'getBatchItemsJson', ['AuthMiddleware']);
-        $this->get('api/allmodules/billing/customer-search', 'AllmodulesBillingController', 'searchCustomer', ['AuthMiddleware']);
-        $this->get('api/allmodules/billing/customer-history', 'AllmodulesBillingController', 'customerHistory', ['AuthMiddleware']);
+        $this->get('api/allmodules/billing/search', 'AllmodulesBillingController', 'searchInventory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('api/allmodules/billing/batch-items', 'AllmodulesBillingController', 'getBatchItemsJson', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('api/allmodules/billing/customer-search', 'AllmodulesBillingController', 'searchCustomer', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('api/allmodules/billing/customer-history', 'AllmodulesBillingController', 'customerHistory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
 
         // Production Customer Returns & Exchanges
         $this->get('allmodules/returns', 'AllmodulesReturnController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_returns', 'view']]);
@@ -358,8 +367,8 @@ class Router {
         $this->get('allmodules/stock-requests', 'AllmodulesStockRequestController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->get('allmodules/stock-requests/create', 'AllmodulesStockRequestController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
         $this->post('allmodules/stock-requests/store', 'AllmodulesStockRequestController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'create']]);
-        $this->get('api/allmodules/stock-requests/variant-stock', 'AllmodulesStockRequestController', 'ajaxGetStock', ['AuthMiddleware']);
-        $this->get('api/allmodules/stock-requests/scan-product', 'AllmodulesStockRequestController', 'ajaxScanProduct', ['AuthMiddleware']);
+        $this->get('api/allmodules/stock-requests/variant-stock', 'AllmodulesStockRequestController', 'ajaxGetStock', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
+        $this->get('api/allmodules/stock-requests/scan-product', 'AllmodulesStockRequestController', 'ajaxScanProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->get('allmodules/stock-requests/view/{id}', 'AllmodulesStockRequestController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'view']]);
         $this->post('allmodules/stock-requests/receive/{id}', 'AllmodulesStockRequestController', 'receiveBySendArea', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
         $this->post('allmodules/stock-requests/send-stocks/{id}', 'AllmodulesStockRequestController', 'sendStocks', ['AuthMiddleware', ['PermissionMiddleware', 'production_stock_requests', 'edit']]);
@@ -404,8 +413,8 @@ class Router {
         $this->get('api/allmodules/inward/batch-history/{id}', 'InwardController', 'ajaxBatchHistory', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
         // Production Reports & CSV / Excel Export (Legacy forward to ExportController)
-        $this->get('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
-        $this->post('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware']);
+        $this->get('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->post('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
 
         // Production Fabric & Roll Damages
         $this->get('allmodules/damages', 'AllmodulesController', 'damageList', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
@@ -513,10 +522,10 @@ class Router {
         $this->post('allmodules/expenses/update/{id}', 'AllmodulesController', 'updateExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'edit']]);
         $this->post('allmodules/expenses/delete/{id}', 'AllmodulesController', 'deleteExpense', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'delete']]);
         $this->get('allmodules/expenses/receipt/{id}', 'AllmodulesController', 'expenseReceipt', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
-        $this->post('api/allmodules/expenses/quick-add-item', 'AllmodulesController', 'ajaxQuickAddExpenseItem', ['AuthMiddleware']);
-        $this->post('api/allmodules/expenses/quick-add-category', 'AllmodulesController', 'ajaxQuickAddExpenseCategory', ['AuthMiddleware']);
-        $this->post('api/allmodules/expenses/quick-add-unit', 'AllmodulesController', 'ajaxQuickAddUnit', ['AuthMiddleware']);
-        $this->get('api/allmodules/expenses/items', 'AllmodulesController', 'ajaxGetExpenseItems', ['AuthMiddleware']);
+        $this->post('api/allmodules/expenses/quick-add-item', 'AllmodulesController', 'ajaxQuickAddExpenseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'create']]);
+        $this->post('api/allmodules/expenses/quick-add-category', 'AllmodulesController', 'ajaxQuickAddExpenseCategory', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'create']]);
+        $this->post('api/allmodules/expenses/quick-add-unit', 'AllmodulesController', 'ajaxQuickAddUnit', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'create']]);
+        $this->get('api/allmodules/expenses/items', 'AllmodulesController', 'ajaxGetExpenseItems', ['AuthMiddleware', ['PermissionMiddleware', 'production_expenses', 'view']]);
 
         // QC
         $this->get('allmodules/qc', 'AllmodulesController', 'qcList', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
@@ -646,17 +655,17 @@ class Router {
         $this->post('system/backup/send-email/{id}', 'SystemController', 'emailSpecificBackup', ['AuthMiddleware', ['PermissionMiddleware', 'backup', 'create']]);
 
         // Multi-Concern Enterprise Architecture (concern.pdf)
-        $this->get('admin/concerns', 'ConcernController', 'index', ['AuthMiddleware']);
-        $this->get('admin/concerns/create', 'ConcernController', 'create', ['AuthMiddleware']);
-        $this->post('admin/concerns/store', 'ConcernController', 'store', ['AuthMiddleware']);
-        $this->get('admin/concerns/edit/{id}', 'ConcernController', 'edit', ['AuthMiddleware']);
-        $this->post('admin/concerns/update/{id}', 'ConcernController', 'update', ['AuthMiddleware']);
-        $this->post('admin/concerns/assign-staff/{id}', 'ConcernController', 'assignStaff', ['AuthMiddleware']);
-        $this->post('admin/concerns/quick-create-staff', 'ConcernController', 'quickCreateStaff', ['AuthMiddleware']);
-        $this->get('admin/concerns/modules/{id}', 'ConcernController', 'modules', ['AuthMiddleware']);
-        $this->post('admin/concerns/modules/{id}', 'ConcernController', 'updateModules', ['AuthMiddleware']);
-        $this->get('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware']);
-        $this->post('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware']);
+        $this->get('admin/concerns', 'ConcernController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->get('admin/concerns/create', 'ConcernController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/store', 'ConcernController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->get('admin/concerns/edit/{id}', 'ConcernController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/update/{id}', 'ConcernController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/assign-staff/{id}', 'ConcernController', 'assignStaff', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/quick-create-staff', 'ConcernController', 'quickCreateStaff', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->get('admin/concerns/modules/{id}', 'ConcernController', 'modules', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/modules/{id}', 'ConcernController', 'updateModules', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->get('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->get('system/concerns/switch/{id}', 'ConcernController', 'switch', ['AuthMiddleware']);
     }
 }
