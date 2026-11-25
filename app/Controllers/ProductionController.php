@@ -6131,6 +6131,7 @@ class ProductionController {
         }
 
         // 2. Persist third_party_product_variants
+        $totalAllocatedQty = 0.0;
         if (!empty($submittedVariants) && is_array($submittedVariants)) {
             Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?", [$itemId]);
 
@@ -6139,6 +6140,7 @@ class ProductionController {
                 $vColor = trim($var['color'] ?? '') ?: $color;
                 $vSku = trim($var['sku'] ?? '') ?: ($styleCode . '-' . $vSize);
                 $vAllocQty = max(0, (float)($var['allocated_qty'] ?? ($var['quantity'] ?? 1)));
+                $totalAllocatedQty += $vAllocQty;
                 $vRate = (float)($var['purchase_rate'] ?? ($var['unit_price'] ?? $item['unit_price']));
                 $vMrp = (float)($var['mrp'] ?? $firstMrp);
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
@@ -6176,6 +6178,34 @@ class ProductionController {
                     ]
                 );
             }
+        }
+
+        // Auto-sync purchased quantity & bill total if user added extra product qty beyond original purchase list
+        $purchasedQtyNow = (float)($item['quantity'] ?? 0);
+        if ($totalAllocatedQty > $purchasedQtyNow && $totalAllocatedQty > 0) {
+            $unitPriceNow = (float)($item['unit_price'] ?? 0);
+            $baseSubtotal = round($totalAllocatedQty * $unitPriceNow, 2);
+            $sgstPct = (float)($item['sgst_value'] ?? 0);
+            $cgstPct = (float)($item['cgst_value'] ?? 0);
+            $igstPct = (float)($item['igst_value'] ?? 0);
+            $sgstAmtNew = round($baseSubtotal * ($sgstPct / 100), 2);
+            $cgstAmtNew = round($baseSubtotal * ($cgstPct / 100), 2);
+            $igstAmtNew = round($baseSubtotal * ($igstPct / 100), 2);
+            $totalPriceNew = round($baseSubtotal + $sgstAmtNew + $cgstAmtNew + $igstAmtNew, 2);
+
+            Database::execute(
+                "UPDATE production_purchase_items
+                 SET quantity = ?, sgst_amount = ?, cgst_amount = ?, igst_amount = ?, total_price = ?
+                 WHERE id = ?",
+                [$totalAllocatedQty, $sgstAmtNew, $cgstAmtNew, $igstAmtNew, $totalPriceNew, $itemId]
+            );
+            Database::execute(
+                "UPDATE production_purchases
+                 SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                     updated_at = NOW()
+                 WHERE id = ?",
+                [$purchaseId, $purchaseId]
+            );
         }
 
         // 3. Update production_purchase_items

@@ -659,7 +659,17 @@ tr.table-danger, tr.table-danger > td {
                                     $renderVariantRow($idx, $v);
                                 }
                             } else {
-                                $renderVariantRow(0);
+                                $autoRowCount = $purchasedQty >= 1 ? min(200, max(1, (int)round($purchasedQty))) : 1;
+                                $baseSku = $activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
+                                for ($idx = 0; $idx < $autoRowCount; $idx++) {
+                                    $rowSku = $autoRowCount > 1
+                                        ? ($baseSku . '-' . str_pad((string)($idx + 1), 2, '0', STR_PAD_LEFT))
+                                        : $baseSku;
+                                    $renderVariantRow($idx, [
+                                        'allocated_qty' => $autoRowCount > 1 ? 1 : max(1, (int)$purchasedQty),
+                                        'sku' => $rowSku,
+                                    ]);
+                                }
                             }
                             ?>
                         </tbody>
@@ -676,6 +686,9 @@ tr.table-danger, tr.table-danger > td {
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
                                 <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
                             </button>
                         </div>
                         <div class="ms-md-3 fs-6" id="labelAllocationStatus">
@@ -1280,17 +1293,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const isMatch = (Math.abs(diff) < 0.001);
 
         if (isMatch) {
-            labelAllocationStatus.innerHTML = 
+            labelAllocationStatus.innerHTML = `
                 <span class="badge bg-success text-white py-1.5 px-3">
-                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces (Exact Match)
+                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (Exact Match)
                 </span>
-            ;
+            `;
+        } else if (diff > 0) {
+            labelAllocationStatus.innerHTML = `
+                <span class="badge bg-info text-dark py-1.5 px-3">
+                    <i class="bi bi-arrow-up-circle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (+${diff} extra — will auto-update Purchased List)
+                </span>
+            `;
         } else {
-            labelAllocationStatus.innerHTML = 
+            labelAllocationStatus.innerHTML = `
                 <span class="badge bg-warning text-dark py-1.5 px-3">
-                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces ( + (diff > 0 ? '+' : '') + diff +  variance)
+                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (${diff} variance)
                 </span>
-            ;
+            `;
         }
     }
 
@@ -1387,8 +1406,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 return false;
             }
 
-            if (Math.abs(totalAllocated - purchasedQty) > 0.001) {
-                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') differs from the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
+            if (totalAllocated < purchasedQty - 0.001) {
+                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') is less than the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
                 if (!proceed) {
                     e.preventDefault();
                     return false;
@@ -1489,7 +1508,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             errorBox.classList.add('d-none');
             addBillProductButton.disabled = true;
-            fetch(${BASE_URL}/purchases/mapping/add-product, { method: 'POST', body: formData })
+            fetch(`${BASE_URL}/purchases/mapping/add-product`, { method: 'POST', body: formData })
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok || !data.success) {
@@ -1527,7 +1546,7 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('_csrf_token', '<?= CSRF::token() ?>');
             formData.append('csrf_token', '<?= CSRF::token() ?>');
 
-            fetch(${BASE_URL}/api/categories/quick-add, { method: 'POST', body: formData })
+            fetch(`${BASE_URL}/api/categories/quick-add`, { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -1549,6 +1568,174 @@ document.addEventListener('DOMContentLoaded', function () {
                 .catch(err => alert('Failed to create category: ' + err.message));
         });
     }
+
+    // 10. Sync Variant Rows to Purchased Qty (1 row per unit)
+    const btnSyncRowsToPurchasedQty = document.getElementById('btnSyncRowsToPurchasedQty');
+    if (btnSyncRowsToPurchasedQty && tbodyVariantRows) {
+        btnSyncRowsToPurchasedQty.addEventListener('click', function () {
+            const targetRows = Math.max(1, Math.min(200, Math.round(purchasedQty) || 1));
+            const currentRows = tbodyVariantRows.querySelectorAll('.variant-row');
+            if (currentRows.length < targetRows) {
+                addVariantRows(targetRows - currentRows.length);
+            } else if (currentRows.length > targetRows) {
+                if (!confirm(`Reduce rows from ${currentRows.length} to ${targetRows} to match Purchased Qty?`)) {
+                    return;
+                }
+                for (let i = currentRows.length - 1; i >= targetRows; i--) {
+                    currentRows[i].remove();
+                }
+                renumberRows();
+            }
+            tbodyVariantRows.querySelectorAll('.var-qty').forEach(inp => {
+                inp.value = '1';
+            });
+            updateAllocationStatus();
+        });
+    }
+
+    // 11. HSN Code Prefix Auto-Suggestion (from /api/hsn-codes)
+    let hsnMasterList = [];
+    fetch(`${BASE_URL}/api/hsn-codes`, { headers: { 'Accept': 'application/json' } })
+        .then(res => res.json())
+        .then(payload => {
+            if (payload && payload.success && Array.isArray(payload.data)) {
+                const seen = new Set();
+                hsnMasterList = payload.data.filter(item => {
+                    const code = String(item.hsn_code || '').trim();
+                    if (!code || seen.has(code)) return false;
+                    seen.add(code);
+                    return true;
+                });
+            }
+        })
+        .catch(() => {});
+
+    const hsnDropdown = document.createElement('div');
+    hsnDropdown.id = 'hsnSuggestDropdown';
+    hsnDropdown.className = 'list-group shadow-lg border';
+    hsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:240px;overflow-y:auto;min-width:260px;background:#fff;border-radius:0.5rem;';
+    document.body.appendChild(hsnDropdown);
+
+    let activeHsnInput = null;
+    let activeHsnIndex = -1;
+    let currentHsnMatches = [];
+
+    function hideHsnDropdown() {
+        hsnDropdown.style.display = 'none';
+        hsnDropdown.innerHTML = '';
+        activeHsnInput = null;
+        activeHsnIndex = -1;
+        currentHsnMatches = [];
+    }
+
+    function applyHsnSelection(item) {
+        if (!activeHsnInput || !item) return;
+        activeHsnInput.value = item.hsn_code;
+        if (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') {
+            const row = activeHsnInput.closest('.variant-row');
+            if (row) {
+                const gstEl = row.querySelector('.var-gst');
+                if (gstEl) gstEl.value = Number(item.gst_rate).toFixed(2);
+            } else if (activeHsnInput.id === 'newBillHsn') {
+                const modalGst = document.getElementById('newBillGstRate');
+                if (modalGst) modalGst.value = String(item.gst_rate);
+            }
+        }
+        activeHsnInput.dispatchEvent(new Event('change', { bubbles: true }));
+        hideHsnDropdown();
+    }
+
+    function renderHsnDropdown(input) {
+        const q = input.value.trim().toUpperCase();
+        if (!q || hsnMasterList.length === 0) {
+            hideHsnDropdown();
+            return;
+        }
+        const prefixMatches = [];
+        const otherMatches = [];
+        for (const item of hsnMasterList) {
+            const code = String(item.hsn_code || '').toUpperCase();
+            const desc = String(item.description || '').toUpperCase();
+            if (code.startsWith(q)) {
+                prefixMatches.push(item);
+            } else if (code.includes(q) || desc.includes(q)) {
+                otherMatches.push(item);
+            }
+        }
+        currentHsnMatches = prefixMatches.concat(otherMatches).slice(0, 12);
+        if (currentHsnMatches.length === 0) {
+            hideHsnDropdown();
+            return;
+        }
+
+        activeHsnInput = input;
+        activeHsnIndex = 0;
+        const rect = input.getBoundingClientRect();
+        hsnDropdown.style.top = `${rect.bottom + 2}px`;
+        hsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+        hsnDropdown.style.width = `${Math.max(rect.width, 280)}px`;
+        hsnDropdown.innerHTML = '';
+
+        currentHsnMatches.forEach((item, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action py-1.5 px-2.5 text-start small' + (idx === 0 ? ' active' : '');
+            const gstText = (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '')
+                ? `${Number(item.gst_rate)}%`
+                : 'N/A';
+            const descText = item.description ? String(item.description).slice(0, 38) : '';
+            btn.innerHTML = `<div class="d-flex justify-content-between align-items-center gap-2">
+                <span class="font-monospace fw-bold">${item.hsn_code}</span>
+                <span class="badge bg-light text-dark border">${gstText}</span>
+            </div>${descText ? `<div class="text-truncate opacity-75" style="font-size:0.75rem;">${descText}</div>` : ''}`;
+            btn.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                applyHsnSelection(item);
+            });
+            hsnDropdown.appendChild(btn);
+        });
+        hsnDropdown.style.display = 'block';
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('var-hsn') || e.target.id === 'newBillHsn') {
+            renderHsnDropdown(e.target);
+        }
+    });
+    document.addEventListener('focusin', function (e) {
+        if (e.target.classList.contains('var-hsn') || e.target.id === 'newBillHsn') {
+            if (e.target.value.trim()) renderHsnDropdown(e.target);
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (!activeHsnInput || hsnDropdown.style.display === 'none') return;
+        const items = hsnDropdown.querySelectorAll('.list-group-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[activeHsnIndex]?.classList.remove('active');
+            activeHsnIndex = (activeHsnIndex + 1) % items.length;
+            items[activeHsnIndex]?.classList.add('active');
+            items[activeHsnIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[activeHsnIndex]?.classList.remove('active');
+            activeHsnIndex = (activeHsnIndex - 1 + items.length) % items.length;
+            items[activeHsnIndex]?.classList.add('active');
+            items[activeHsnIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeHsnIndex >= 0) {
+            e.preventDefault();
+            applyHsnSelection(currentHsnMatches[activeHsnIndex]);
+        } else if (e.key === 'Escape') {
+            hideHsnDropdown();
+        }
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target !== activeHsnInput && !hsnDropdown.contains(e.target)) {
+            hideHsnDropdown();
+        }
+    });
+    window.addEventListener('scroll', hideHsnDropdown, true);
 
     // Initial allocation check
     updateAllocationStatus();
