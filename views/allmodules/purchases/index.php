@@ -358,6 +358,9 @@
                                     <a class="btn btn-action-icon btn-outline-primary" href="<?= url('production/purchases/print/' . $purchase['id']) ?>" target="_blank" rel="noopener" title="Print Purchase Invoice">
                                         <i class="bi bi-printer"></i>
                                     </a>
+                                    <button type="button" class="btn btn-action-icon btn-outline-dark" title="Bill Logs &amp; Product Details" onclick="openPurchaseBillLogs(<?= (int)$purchase['id'] ?>, '<?= e(addslashes($purchase['purchase_number'])) ?>')">
+                                        <i class="bi bi-clock-history"></i>
+                                    </button>
                                 <?php endif; ?>
                                 <?php if (hasPermission('production_purchases', 'edit') || hasPermission('sellers', 'edit')): ?>
                                     <a class="btn btn-action-icon btn-outline-primary" href="<?= url('production/purchases/edit/' . $purchase['id']) ?>" title="Edit Purchase">
@@ -439,3 +442,176 @@ function confirmDeletePurchase(actionUrl, purchaseNumber) {
         </div>
     </div>
 </div>
+
+<!-- Bill Logs & Product Details Modal -->
+<div class="modal fade" id="modalPurchaseBillLogs" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-clock-history me-2"></i>Bill Logs &amp; Product Details — <span id="billLogsPoTitle"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" id="billLogsModalBody">
+                <div class="text-center py-5 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2"></span>Loading bill logs...
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function escHtmlBillLog(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function openPurchaseBillLogs(purchaseId, poNumber) {
+    const titleEl = document.getElementById('billLogsPoTitle');
+    const bodyEl = document.getElementById('billLogsModalBody');
+    if (titleEl) titleEl.textContent = poNumber || ('#' + purchaseId);
+    if (bodyEl) {
+        bodyEl.innerHTML = '<div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading bill logs...</div>';
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPurchaseBillLogs')).show();
+
+    fetch('<?= url('allmodules/purchases/logs/') ?>' + purchaseId, { headers: { 'Accept': 'application/json' } })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Unable to load bill logs.');
+            const p = data.purchase || {};
+            const items = Array.isArray(data.items) ? data.items : [];
+            const logs = Array.isArray(data.logs) ? data.logs : [];
+
+            const supplierName = p.seller_company || p.seller_name || '—';
+            let html = `
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted">Purchase / PO #</div>
+                            <div class="fw-bold text-primary font-monospace">${escHtmlBillLog(p.purchase_number)}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted">Supplier</div>
+                            <div class="fw-bold">${escHtmlBillLog(supplierName)}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted">Date &amp; Invoice #</div>
+                            <div class="fw-semibold">${escHtmlBillLog(p.purchase_date || '—')} · ${escHtmlBillLog(p.invoice_number || '—')}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted">Total Bill Amount</div>
+                            <div class="fw-bold text-success fs-5">₹${Number(p.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-2"><i class="bi bi-box-seam text-primary me-1"></i>Created &amp; Mapped Bill Products (${items.length})</h6>
+                <div class="table-responsive border rounded mb-4">
+                    <table class="table table-sm table-hover align-middle mb-0 small">
+                        <thead class="table-light text-uppercase text-muted">
+                            <tr>
+                                <th>#</th>
+                                <th>Product / SKU</th>
+                                <th>Category</th>
+                                <th class="text-end">Orig Qty</th>
+                                <th class="text-end">Extra Qty</th>
+                                <th class="text-end">Final Qty</th>
+                                <th class="text-end">Cost / MRP / SP</th>
+                                <th class="text-end">Total (₹)</th>
+                                <th>Source</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (items.length === 0) {
+                html += '<tr><td colspan="10" class="text-center text-muted py-3">No products found in this bill.</td></tr>';
+            } else {
+                items.forEach((it, idx) => {
+                    const origQ = Number(it.original_purchased_qty ?? it.quantity ?? 0);
+                    const extraQ = Number(it.extra_added_qty ?? 0);
+                    const finalQ = Number(it.quantity ?? 0);
+                    const isExtraLine = Number(it.is_extra_purchase_item || 0) === 1;
+                    const isStocked = Number(it.is_inwarded || 0) === 1 || Number(it.inwarded_qty || 0) > 0 || Number(it.qr_stock_added || 0) === 1;
+                    const isMapped = Number(it.is_mapped || 0) === 1;
+                    const catLabel = [it.tp_category_name, it.tp_subcategory_name, it.tp_sub_subcategory_name].filter(Boolean).join(' / ') || '—';
+                    const sourceBadge = isExtraLine
+                        ? '<span class="badge bg-info text-dark">Added (Not in Original Bill)</span>'
+                        : (extraQ > 0 ? '<span class="badge bg-warning text-dark">Bill + Extra Qty</span>' : '<span class="badge bg-light text-secondary border">Original Bill</span>');
+                    const statusBadges = (isMapped ? '<span class="badge bg-success me-1">Mapped</span>' : '<span class="badge bg-warning text-dark me-1">Pending</span>')
+                        + (isStocked ? '<span class="badge bg-primary">Added Stock</span>' : '<span class="badge bg-light text-secondary border">Not Stocked</span>');
+
+                    html += `
+                        <tr>
+                            <td class="text-muted">${idx + 1}</td>
+                            <td>
+                                <div class="fw-bold">${escHtmlBillLog(it.item_name)}</div>
+                                <div class="text-muted font-monospace">${escHtmlBillLog(it.vendor_sku || it.product_code || '—')}</div>
+                            </td>
+                            <td>${escHtmlBillLog(catLabel)}</td>
+                            <td class="text-end">${origQ} ${escHtmlBillLog(it.unit || '')}</td>
+                            <td class="text-end fw-bold ${extraQ > 0 ? 'text-primary' : 'text-muted'}">${extraQ > 0 ? '+' + extraQ : '0'}</td>
+                            <td class="text-end fw-bold">${finalQ} ${escHtmlBillLog(it.unit || '')}</td>
+                            <td class="text-end">₹${Number(it.unit_price || 0).toFixed(2)} / ₹${Number(it.mrp || 0).toFixed(2)} / ₹${Number(it.selling_price || 0).toFixed(2)}</td>
+                            <td class="text-end fw-bold">₹${Number(it.total_price || 0).toFixed(2)}</td>
+                            <td>${sourceBadge}</td>
+                            <td>${statusBadges}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold mb-2"><i class="bi bi-journal-text text-dark me-1"></i>Audit &amp; Activity Logs (${logs.length})</h6>
+                <div class="table-responsive border rounded">
+                    <table class="table table-sm table-hover align-middle mb-0 small">
+                        <thead class="table-light text-uppercase text-muted">
+                            <tr>
+                                <th>Date / Time</th>
+                                <th>Action</th>
+                                <th>Module / Table</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (logs.length === 0) {
+                html += '<tr><td colspan="4" class="text-center text-muted py-3">No audit log entries recorded for this bill.</td></tr>';
+            } else {
+                logs.forEach(lg => {
+                    html += `
+                        <tr>
+                            <td class="text-muted">${escHtmlBillLog(lg.created_at || '—')}</td>
+                            <td><span class="badge bg-secondary-subtle text-dark border text-uppercase">${escHtmlBillLog(lg.action || 'EVENT')}</span></td>
+                            <td class="font-monospace">${escHtmlBillLog((lg.module || '') + ' / ' + (lg.table_name || ''))}</td>
+                            <td>${escHtmlBillLog(lg.actor_name || 'System')}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += '</tbody></table></div>';
+            bodyEl.innerHTML = html;
+        })
+        .catch(err => {
+            bodyEl.innerHTML = `<div class="alert alert-danger mb-0">${escHtmlBillLog(err.message)}</div>`;
+        });
+}
+</script>

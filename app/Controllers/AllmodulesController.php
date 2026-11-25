@@ -1671,6 +1671,77 @@ class AllmodulesController {
         return $uploaded;
     }
 
+    /**
+     * AJAX endpoint returning purchase bill product breakdown & audit logs.
+     */
+    public function ajaxPurchaseBillLogs(string $id): void {
+        $purchaseId = (int)$id;
+        $purchase = Database::fetchOne(
+            "SELECT pp.*, s.name AS seller_name, s.company AS seller_company, u.full_name AS created_by_name
+             FROM production_purchases pp
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             LEFT JOIN users u ON u.id = pp.created_by
+             WHERE pp.id = ? LIMIT 1",
+            [$purchaseId]
+        );
+        if (!$purchase) {
+            Response::json(['success' => false, 'message' => 'Purchase bill not found.'], 404);
+            return;
+        }
+
+        $items = Database::fetchAll(
+            "SELECT ppi.*,
+                    COALESCE(ppi.original_quantity, ppi.quantity) AS original_purchased_qty,
+                    COALESCE(ppi.extra_added_qty, 0) AS extra_added_qty,
+                    COALESCE(ppi.is_extra_purchase_item, 0) AS is_extra_purchase_item,
+                    tc.name AS tp_category_name, tsc.name AS tp_subcategory_name, tssc.name AS tp_sub_subcategory_name,
+                    (SELECT COALESCE(MAX(qg.stock_added), 0) FROM qr_generations qg WHERE qg.source_purchase_item_id = ppi.id) AS qr_stock_added,
+                    (SELECT COUNT(*) FROM third_party_product_variants tpv WHERE tpv.purchase_item_id = ppi.id) AS variant_rows_count
+             FROM production_purchase_items ppi
+             LEFT JOIN third_party_categories tc ON tc.id = ppi.mapped_third_party_category_id
+             LEFT JOIN third_party_subcategories tsc ON tsc.id = ppi.mapped_third_party_subcategory_id
+             LEFT JOIN third_party_sub_subcategories tssc ON tssc.id = ppi.mapped_third_party_sub_subcategory_id
+             WHERE ppi.purchase_id = ?
+             ORDER BY ppi.id ASC",
+            [$purchaseId]
+        );
+
+        $logs = [];
+        try {
+            $itemIds = array_map(static fn(array $r): int => (int)$r['id'], $items);
+            if (!empty($itemIds)) {
+                $in = implode(',', array_fill(0, count($itemIds), '?'));
+                $logs = Database::fetchAll(
+                    "SELECT al.*, u.full_name AS actor_name
+                     FROM audit_logs al
+                     LEFT JOIN users u ON u.id = al.user_id
+                     WHERE (al.table_name = 'production_purchases' AND al.record_id = ?)
+                        OR (al.table_name = 'production_purchase_items' AND al.record_id IN ({$in}))
+                     ORDER BY al.id DESC
+                     LIMIT 50",
+                    array_merge([$purchaseId], $itemIds)
+                );
+            } else {
+                $logs = Database::fetchAll(
+                    "SELECT al.*, u.full_name AS actor_name
+                     FROM audit_logs al
+                     LEFT JOIN users u ON u.id = al.user_id
+                     WHERE al.table_name = 'production_purchases' AND al.record_id = ?
+                     ORDER BY al.id DESC
+                     LIMIT 50",
+                    [$purchaseId]
+                );
+            }
+        } catch (\Throwable $e) {}
+
+        Response::json([
+            'success'  => true,
+            'purchase' => $purchase,
+            'items'    => $items,
+            'logs'     => $logs,
+        ]);
+    }
+
     public function viewProductionPurchase(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
 
