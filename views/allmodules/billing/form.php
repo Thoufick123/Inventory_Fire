@@ -1240,6 +1240,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return m ? m[1].toUpperCase() : '';
     }
 
+    function resolveDiscountPercentage(item) {
+        const rawDisc = item.discount_percentage;
+        if (rawDisc !== undefined && rawDisc !== null && String(rawDisc).trim() !== '') {
+            const parsed = Number(rawDisc);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                return Math.min(100, Math.max(0, parsed));
+            }
+        }
+        const mrpVal = Number(item.mrp || 0);
+        const unitVal = Number(item.unit_price || 0);
+        if (mrpVal > 0 && unitVal >= 0 && unitVal < mrpVal) {
+            return Math.min(100, Math.max(0, 100 - (unitVal / mrpVal) * 100));
+        }
+        return 0;
+    }
+
     function expandRowByPieces(sourceKey, addCount) {
         const sourceItem = cart.get(sourceKey);
         if (!sourceItem || addCount <= 0) return;
@@ -1480,7 +1496,8 @@ document.addEventListener('DOMContentLoaded', () => {
             discountInput.autocomplete = 'off';
             discountInput.setAttribute('aria-label', 'Discount percentage');
             discountInput.className = 'form-control form-control-sm text-end font-monospace billing-rate-input';
-            discountInput.value = Number(item.discount_percentage || 0).toFixed(2);
+            item.discount_percentage = resolveDiscountPercentage(item);
+            discountInput.value = item.discount_percentage.toFixed(2);
             discountInput.name = `items[${index}][discount_percentage]`;
             const applyDiscountValue = (rawDiscount) => {
                 const parsed = parseFloat(rawDiscount);
@@ -1735,6 +1752,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const entry = {
             ...item,
+            discount_percentage: resolveDiscountPercentage(item),
             available_tags: [...pool],
             tags: [chosenTag]
         };
@@ -1937,7 +1955,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             mrp: Number(it.mrp || 0),
                             unit_price: Number(it.unit_price || it.mrp || 0),
                             is_complementary: Number(it.is_complementary || 0),
-                            discount_percentage: 0,
+                            discount_percentage: resolveDiscountPercentage({
+                                mrp: Number(it.mrp || 0),
+                                unit_price: Number(it.unit_price || it.mrp || 0),
+                                discount_percentage: it.discount_percentage
+                            }),
                             discount_amount: 0,
                             gst_percentage: Number(it.gst_percentage || 5),
                             gst_type: it.gst_type || 'BOTH',
@@ -1978,6 +2000,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tags.forEach(tag => {
             const entry = {
                 ...it,
+                discount_percentage: resolveDiscountPercentage(it),
                 tags: tag ? [tag] : [],
                 available_tags: Array.isArray(it.available_tags) && it.available_tags.length ? [...it.available_tags] : [...tags]
             };
