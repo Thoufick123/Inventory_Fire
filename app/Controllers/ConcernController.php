@@ -905,6 +905,25 @@ class ConcernController {
     }
 
     /**
+     * Canonical list of Indian States and Union Territories for concern address validation.
+     *
+     * @return array<int, string>
+     */
+    public static function indianStates(): array {
+        return [
+            'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+            'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+            'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+            'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+            'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+            'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+            'Andaman and Nicobar Islands', 'Chandigarh',
+            'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+            'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+        ];
+    }
+
+    /**
      * Validate contact and operating address fields for concern create/update.
      */
     private function validateConcernContactFields(
@@ -915,10 +934,8 @@ class ConcernController {
         string $state,
         string $pincode
     ): ?string {
-        $compactPhone = preg_replace('/[\s\-]/', '', $phone);
-        $digitsOnly = preg_replace('/\D/', '', $compactPhone);
-        if ($phone === '' || !preg_match('/^\+?[0-9]+$/', $compactPhone) || strlen($digitsOnly) < 10 || strlen($digitsOnly) > 15) {
-            return 'Official Phone / Mobile must be a valid 10 to 15 digit number.';
+        if (!preg_match('/^[0-9]{10}$/', $phone)) {
+            return 'Official Phone / Mobile must be exactly 10 numeric digits.';
         }
 
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -930,12 +947,22 @@ class ConcernController {
             return 'Registered Physical Address is required (10 to 500 characters).';
         }
 
+        $norm = static fn(string $v): string => strtolower(preg_replace('/[\s.\-]+/', '', trim($v)));
+        $stateMap = [];
+        foreach (self::indianStates() as $st) {
+            $stateMap[$norm($st)] = true;
+        }
+
+        if ($state === '' || !isset($stateMap[$norm($state)])) {
+            return 'Please select a valid Indian State / Union Territory.';
+        }
+
         if ($city === '' || !preg_match('/^[a-zA-Z\s.\-]{2,100}$/', $city)) {
             return 'City is required and must contain only valid letters (minimum 2 characters).';
         }
 
-        if ($state === '' || !preg_match('/^[a-zA-Z\s.\-]{2,100}$/', $state)) {
-            return 'State is required and must contain only valid letters (minimum 2 characters).';
+        if (isset($stateMap[$norm($city)])) {
+            return 'City cannot be a state name. Please enter a valid city (e.g. Tirupur, Coimbatore).';
         }
 
         if ($pincode !== '' && !preg_match('/^[0-9]{6}$/', $pincode)) {

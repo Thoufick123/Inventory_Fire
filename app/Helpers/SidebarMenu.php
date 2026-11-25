@@ -89,7 +89,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/variants',
                 'active_menus' => ['prod-variants'],
                 'module'       => 'production',
-                'permissions'  => ['variants', 'catalog'],
+                'permissions'  => ['variants'],
                 'icon'         => '',
             ],
             [
@@ -98,7 +98,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/qr-generations',
                 'active_menus' => ['prod-qr-generation'],
                 'module'       => 'production',
-                'permissions'  => ['qr_generation', 'catalog'],
+                'permissions'  => ['qr_generation'],
                 'icon'         => '',
             ],
             [
@@ -188,7 +188,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/stock-requests',
                 'active_menus' => ['prod-stock-requests', 'stock-requests', 'stock-requirements'],
                 'module'       => 'warehouse',
-                'permissions'  => ['production_stock_requests', 'stock_requests', 'inventory'],
+                'permissions'  => ['production_stock_requests', 'stock_requests'],
                 'icon'         => '',
             ],
             [
