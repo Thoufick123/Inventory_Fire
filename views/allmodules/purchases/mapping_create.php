@@ -24,7 +24,7 @@
                             </button>
                         <?php endif; ?>
                     </div>
-                    <select class="form-select" name="seller_id" required>
+                    <select class="form-select" name="seller_id" id="mappingSellerSelect" required>
                         <option value="">-- Select supplier --</option>
                         <?php foreach ($sellers as $seller): ?>
                             <option value="<?= (int)$seller['id'] ?>" <?= (int)($selectedSellerId ?? 0) === (int)$seller['id'] ? 'selected' : '' ?>><?= e($seller['company'] ? $seller['company'] . ' (' . $seller['name'] . ')' : $seller['name']) ?></option>
@@ -33,8 +33,28 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Supplier Invoice Number <span class="text-danger">*</span></label>
-                    <input type="text" name="invoice_number" id="mappingInvoiceNumber" class="form-control font-monospace" maxlength="100" required value="<?= e($invoiceNumber ?? '') ?>">
+                    <div class="input-group">
+                        <input type="text" name="invoice_number" id="mappingInvoiceNumber" class="form-control font-monospace" maxlength="100" required value="<?= e($invoiceNumber ?? '') ?>" autocomplete="off">
+                        <a href="#" id="btnUseExistingMappingInvoice" class="btn btn-warning fw-semibold d-none">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Use Existing Invoice
+                        </a>
+                    </div>
+                    <div id="mappingInvoiceError" class="invalid-feedback d-none fw-semibold"></div>
                 </div>
+
+                <!-- Existing Invoice All Data Preview Card -->
+                <div class="col-12 d-none" id="existingInvoicePreviewCard">
+                    <div class="card border-warning shadow-sm">
+                        <div class="card-header bg-warning-subtle text-dark py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="fw-bold small"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Existing Invoice Found — All Recorded Data</span>
+                            <a href="#" id="btnUseExistingMappingInvoiceCard" class="btn btn-sm btn-warning fw-semibold">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Use Existing Invoice
+                            </a>
+                        </div>
+                        <div class="card-body p-3" id="existingInvoicePreviewBody"></div>
+                    </div>
+                </div>
+
                 <div class="col-12">
                     <div class="alert alert-info mb-0 small">
                         <i class="bi bi-info-circle me-1"></i>
@@ -43,12 +63,127 @@
                 </div>
 
                 <div class="col-12 text-end">
-                    <button class="btn btn-primary px-4" type="submit"><i class="bi bi-check2-circle me-1"></i>Save Invoice in Mapping</button>
+                    <button class="btn btn-primary px-4" type="submit" id="btnSaveNewMappingInvoice"><i class="bi bi-check2-circle me-1"></i>Save Invoice in Mapping</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sellerSel = document.getElementById('mappingSellerSelect');
+    const invInput = document.getElementById('mappingInvoiceNumber');
+    const errEl = document.getElementById('mappingInvoiceError');
+    const btnUse = document.getElementById('btnUseExistingMappingInvoice');
+    const btnUseCard = document.getElementById('btnUseExistingMappingInvoiceCard');
+    const previewCard = document.getElementById('existingInvoicePreviewCard');
+    const previewBody = document.getElementById('existingInvoicePreviewBody');
+    const btnSave = document.getElementById('btnSaveNewMappingInvoice');
+    let debounceTimer = null;
+
+    function esc(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function clearExistingState() {
+        invInput?.classList.remove('is-invalid');
+        if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+        btnUse?.classList.add('d-none');
+        previewCard?.classList.add('d-none');
+        if (previewBody) previewBody.innerHTML = '';
+        if (btnSave) btnSave.disabled = false;
+    }
+
+    function checkExistingInvoice() {
+        const sid = sellerSel?.value || '';
+        const inv = invInput?.value.trim() || '';
+        if (!sid || !inv) {
+            clearExistingState();
+            return;
+        }
+        fetch('<?= url('api/purchases/mapping/check-invoice') ?>?seller_id=' + encodeURIComponent(sid) + '&invoice_number=' + encodeURIComponent(inv), {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || !data.exists) {
+                clearExistingState();
+                return;
+            }
+            const rec = data.record || {};
+            const items = Array.isArray(data.items) ? data.items : [];
+            const useUrl = rec.use_url || '#';
+
+            invInput?.classList.add('is-invalid');
+            if (errEl) {
+                errEl.textContent = `Invoice "${rec.invoice_number || inv}" already exists (${data.source === 'PURCHASE' ? 'Purchase ' + (rec.purchase_number || '') : 'Mapping Draft'}). Cannot create duplicate — click "Use Existing Invoice".`;
+                errEl.classList.remove('d-none');
+                errEl.classList.add('d-block');
+            }
+            if (btnUse) { btnUse.href = useUrl; btnUse.classList.remove('d-none'); }
+            if (btnUseCard) { btnUseCard.href = useUrl; }
+            if (btnSave) { btnSave.disabled = true; }
+
+            let html = `
+                <div class="row g-2 mb-3 small">
+                    <div class="col-md-3"><strong>Source:</strong> ${esc(data.source === 'PURCHASE' ? 'Purchase Bill (' + (rec.purchase_number || '') + ')' : 'Mapping Draft #' + (rec.id || ''))}</div>
+                    <div class="col-md-3"><strong>Supplier:</strong> ${esc(rec.supplier || '—')}</div>
+                    <div class="col-md-3"><strong>Date:</strong> ${esc(rec.date || '—')}</div>
+                    <div class="col-md-3"><strong>Status:</strong> <span class="badge bg-secondary">${esc(rec.status || '—')}</span>${rec.total_amount !== undefined ? ' · <strong>₹' + Number(rec.total_amount).toFixed(2) + '</strong>' : ''}</div>
+                </div>
+                <div class="table-responsive border rounded">
+                    <table class="table table-sm table-hover align-middle mb-0 small">
+                        <thead class="table-light text-uppercase text-muted">
+                            <tr>
+                                <th>#</th>
+                                <th>Product / SKU</th>
+                                <th>Color / Size</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Rate (₹)</th>
+                                <th class="text-end">MRP / SP (₹)</th>
+                                <th>HSN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            if (items.length === 0) {
+                html += '<tr><td colspan="7" class="text-center text-muted py-2">No products added to this invoice yet.</td></tr>';
+            } else {
+                items.forEach((it, idx) => {
+                    html += `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td><strong>${esc(it.item_name)}</strong> <span class="text-muted font-monospace">${esc(it.vendor_sku || '')}</span></td>
+                            <td>${esc([it.color, it.size].filter(Boolean).join(' / ') || '—')}</td>
+                            <td class="text-end fw-bold">${Number(it.quantity || 0)} ${esc(it.unit || '')}</td>
+                            <td class="text-end">₹${Number(it.unit_price || 0).toFixed(2)}</td>
+                            <td class="text-end">₹${Number(it.mrp || 0).toFixed(2)} / ₹${Number(it.selling_price || 0).toFixed(2)}</td>
+                            <td class="font-monospace">${esc(it.hsn_code || '—')}</td>
+                        </tr>
+                    `;
+                });
+            }
+            html += '</tbody></table></div>';
+            if (previewBody) previewBody.innerHTML = html;
+            previewCard?.classList.remove('d-none');
+        })
+        .catch(() => {});
+    }
+
+    function scheduleCheck() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(checkExistingInvoice, 250);
+    }
+
+    sellerSel?.addEventListener('change', scheduleCheck);
+    invInput?.addEventListener('input', scheduleCheck);
+    invInput?.addEventListener('blur', checkExistingInvoice);
+    if (sellerSel?.value && invInput?.value.trim()) {
+        checkExistingInvoice();
+    }
+});
+</script>
 
 <?php if (hasPermission('sellers', 'create')): ?>
 <div class="modal fade" id="createMappingSupplierModal" tabindex="-1" aria-labelledby="createMappingSupplierModalLabel" aria-hidden="true">

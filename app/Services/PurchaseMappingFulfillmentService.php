@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261121_variant_qr'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261125_accounts_v2'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -251,7 +251,7 @@ class PurchaseMappingFulfillmentService {
         // Hard-coded default third-party categories are no longer auto-seeded; only catalog-saved categories are used.
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261121_variant_qr'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261125_accounts_v2'] = 1;
         }
         self::$schemaEnsured = true;
     }

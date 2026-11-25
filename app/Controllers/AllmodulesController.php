@@ -3623,6 +3623,98 @@ class AllmodulesController {
         ]);
     }
 
+    /**
+     * AJAX check if an invoice number already exists for a supplier in Mapping Bills or Purchases.
+     */
+    public function ajaxCheckMappingInvoice(): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $sellerId = (int)($_GET['seller_id'] ?? 0);
+        $invoiceNumber = trim((string)($_GET['invoice_number'] ?? ''));
+        if ($sellerId <= 0 || $invoiceNumber === '') {
+            Response::json(['success' => true, 'exists' => false]);
+            return;
+        }
+
+        $cid = currentConcernId() ?: 1;
+
+        $mappingBill = Database::fetchOne(
+            "SELECT mb.*, s.name AS seller_name, s.company AS seller_company
+             FROM third_party_mapping_bills mb
+             LEFT JOIN sellers s ON s.id = mb.seller_id
+             WHERE mb.concern_id = ? AND mb.seller_id = ?
+               AND UPPER(TRIM(mb.invoice_number)) = UPPER(TRIM(?))
+             ORDER BY mb.id DESC LIMIT 1",
+            [$cid, $sellerId, $invoiceNumber]
+        );
+        if ($mappingBill) {
+            $items = Database::fetchAll(
+                "SELECT mi.id, mi.item_name, mi.vendor_sku, mi.quantity, mi.unit, mi.unit_price, mi.mrp, mi.selling_price, mi.hsn_code, mi.color, mi.size
+                 FROM third_party_mapping_items mi
+                 WHERE mi.mapping_bill_id = ?
+                 ORDER BY mi.id ASC",
+                [(int)$mappingBill['id']]
+            );
+            $targetUrl = !empty($mappingBill['purchase_id'])
+                ? url('purchases/mapping/bill/' . (int)$mappingBill['purchase_id'])
+                : url('purchases/mapping/draft/' . (int)$mappingBill['id']);
+            Response::json([
+                'success' => true,
+                'exists'  => true,
+                'source'  => 'MAPPING',
+                'record'  => [
+                    'id'             => (int)$mappingBill['id'],
+                    'invoice_number' => $mappingBill['invoice_number'],
+                    'status'         => $mappingBill['status'],
+                    'date'           => !empty($mappingBill['created_at']) ? date('d M Y', strtotime($mappingBill['created_at'])) : '—',
+                    'supplier'       => $mappingBill['seller_company'] ?: ($mappingBill['seller_name'] ?? '—'),
+                    'purchase_id'    => $mappingBill['purchase_id'] ? (int)$mappingBill['purchase_id'] : null,
+                    'use_url'        => $targetUrl,
+                ],
+                'items'   => $items,
+            ]);
+            return;
+        }
+
+        $purchaseWhere = $cid === 1 ? "(pp.concern_id = ? OR pp.concern_id IS NULL)" : "pp.concern_id = ?";
+        $purchaseBill = Database::fetchOne(
+            "SELECT pp.*, s.name AS seller_name, s.company AS seller_company
+             FROM production_purchases pp
+             LEFT JOIN sellers s ON s.id = pp.seller_id
+             WHERE {$purchaseWhere} AND pp.seller_id = ?
+               AND UPPER(TRIM(pp.invoice_number)) = UPPER(TRIM(?))
+             ORDER BY pp.id DESC LIMIT 1",
+            [$cid, $sellerId, $invoiceNumber]
+        );
+        if ($purchaseBill) {
+            $items = Database::fetchAll(
+                "SELECT ppi.id, ppi.item_name, ppi.vendor_sku, ppi.quantity, ppi.unit, ppi.unit_price, ppi.mrp, ppi.selling_price, ppi.hsn_code, ppi.color, ppi.size
+                 FROM production_purchase_items ppi
+                 WHERE ppi.purchase_id = ?
+                 ORDER BY ppi.id ASC",
+                [(int)$purchaseBill['id']]
+            );
+            Response::json([
+                'success' => true,
+                'exists'  => true,
+                'source'  => 'PURCHASE',
+                'record'  => [
+                    'id'              => (int)$purchaseBill['id'],
+                    'purchase_number' => $purchaseBill['purchase_number'],
+                    'invoice_number'  => $purchaseBill['invoice_number'],
+                    'status'          => $purchaseBill['accounts_status'] ?? 'VERIFIED',
+                    'date'            => !empty($purchaseBill['purchase_date']) ? date('d M Y', strtotime($purchaseBill['purchase_date'])) : '—',
+                    'total_amount'    => (float)$purchaseBill['total_amount'],
+                    'supplier'        => $purchaseBill['seller_company'] ?: ($purchaseBill['seller_name'] ?? '—'),
+                    'use_url'         => url('purchases/mapping/bill/' . (int)$purchaseBill['id']),
+                ],
+                'items'   => $items,
+            ]);
+            return;
+        }
+
+        Response::json(['success' => true, 'exists' => false]);
+    }
+
     public function storeThirdPartyMappingBill(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         if (!CSRF::validateRequest()) {
@@ -3676,7 +3768,12 @@ class AllmodulesController {
              ORDER BY id DESC LIMIT 1",
             [$sellerId, $invoiceNumber, $cid]
         );
-        $linkedPurchaseId = $existingPurchase ? (int)$existingPurchase['id'] : null;
+        if ($existingPurchase) {
+            Session::flash('error', "Invoice '{$invoiceNumber}' already exists in Purchases ({$existingPurchase['purchase_number']}). Use the existing invoice instead.");
+            Response::redirect(url('purchases/mapping/create?seller_id=' . $sellerId . '&invoice_number=' . urlencode($invoiceNumber)));
+            return;
+        }
+        $linkedPurchaseId = null;
 
         Database::execute(
             "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, created_by)

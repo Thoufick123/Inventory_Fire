@@ -261,6 +261,7 @@ class Router {
         // Third-Party Product Mapping Module
         $this->get('allmodules/purchases/mapping', 'AllmodulesController', 'thirdPartyMappingList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->get('allmodules/purchases/mapping/create', 'AllmodulesController', 'createThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->get('api/purchases/mapping/check-invoice', 'AllmodulesController', 'ajaxCheckMappingInvoice', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('allmodules/purchases/mapping/create', 'AllmodulesController', 'storeThirdPartyMappingBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->get('allmodules/purchases/mapping/draft/{id}', 'AllmodulesController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('allmodules/purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
