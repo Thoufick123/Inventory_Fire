@@ -5,6 +5,7 @@ $existingItems = array_map(static function (array $item): array {
     return [
         'qc_item_id' => (int)$item['qc_item_id'],
         'variant_id' => (int)($item['variant_id'] ?? 0),
+        'variant_code' => (string)($item['variant_code'] ?? ''),
         'product_name' => (string)$item['product_name'],
         'sku' => (string)($item['sku'] ?? ''),
         'hsn_code' => (string)($item['hsn_code'] ?? '6109'),
@@ -1201,75 +1202,137 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function resolveVariantCode(item) {
+        const rawCode = String(item.variant_code || '').trim().toUpperCase();
+        if (rawCode !== '') return rawCode;
+        const vId = parseInt(item.variant_id || 0, 10);
+        if (vId > 0) return 'V' + String(vId).padStart(4, '0');
+        const firstTag = Array.isArray(item.tags) && item.tags[0] ? String(item.tags[0]).trim() : '';
+        const m = firstTag.match(/^([A-Z0-9]+)-\d+$/i);
+        return m ? m[1].toUpperCase() : '';
+    }
+
     function syncPieceRows(itemKey, item, mainRow) {
         if (!mainRow || !mainRow.parentNode) return;
         cartBody.querySelectorAll(`tr.billing-piece-row[data-parent-key="${itemKey}"]`).forEach(el => el.remove());
 
         const tags = Array.isArray(item.tags) ? item.tags : [];
+        const variantCodeDisplay = resolveVariantCode(item);
         const variantMeta = [
             item.sku || '',
             item.size_name ? `Size: ${item.size_name}` : '',
             item.color_name ? `Color: ${item.color_name}` : ''
         ].filter(Boolean).join(' · ');
         const hsnVal = (item.hsn_code || '6109').trim() || '6109';
-        const unitPriceVal = money(item.unit_price);
+        const discVal = Number(item.discount_percentage || 0).toFixed(2);
+        const unitPriceNum = Number(item.unit_price || 0);
+        const unitPriceInputVal = unitPriceNum.toFixed(2);
+        const gstRate = Number(item.gst_percentage || 0);
+        const gstType = String(item.gst_type || 'BOTH').toUpperCase();
+        const gstTypeLabel = gstType === 'IGST' ? 'IGST only' : (gstType === 'EXEMPTED' ? 'Exempted (0%)' : 'CGST + SGST');
+        let pieceTaxNum = 0;
+        if (gstRate > 0) {
+            const taxable = unitPriceNum / (1 + gstRate / 100);
+            pieceTaxNum = unitPriceNum - taxable;
+        }
 
         let anchor = mainRow;
         tags.forEach((tag, idx) => {
             const pRow = document.createElement('tr');
-            pRow.className = 'billing-piece-row' + (idx % 2 === 1 ? ' billing-piece-row-alt' : '');
+            pRow.className = 'billing-piece-row' + ((idx % 2 === 1) ? ' billing-piece-row-alt' : '');
             pRow.dataset.parentKey = itemKey;
 
-            // Col 1: Product & Variant meta (matching reference piece rows)
+            // 1. Product & Details (explicit Variant ID + Piece QR Tag)
             const prodCell = pRow.insertCell();
             prodCell.className = 'billing-product-cell ps-3';
             const titleEl = document.createElement('div');
             titleEl.className = 'fw-semibold text-dark small';
             titleEl.textContent = item.product_name || '';
+            const badgeWrap = document.createElement('div');
+            badgeWrap.className = 'd-flex flex-wrap align-items-center gap-1 my-1';
+            if (variantCodeDisplay) {
+                const varBadge = document.createElement('span');
+                varBadge.className = 'badge bg-primary-subtle text-primary border font-monospace';
+                varBadge.textContent = `Variant: ${variantCodeDisplay}`;
+                badgeWrap.append(varBadge);
+            }
+            const tagBadge = document.createElement('span');
+            tagBadge.className = 'badge bg-dark text-white font-monospace';
+            tagBadge.textContent = `QR: ${tag}`;
+            badgeWrap.append(tagBadge);
             const metaEl = document.createElement('div');
             metaEl.className = 'small text-muted';
             metaEl.textContent = variantMeta;
-            prodCell.append(titleEl, metaEl);
+            prodCell.append(titleEl, badgeWrap, metaEl);
 
-            // Col 2-4: Scanned Piece Tag Pill (black badge matching reference)
-            const tagCell = pRow.insertCell();
-            tagCell.colSpan = 3;
-            tagCell.className = 'text-center';
-            const tagBadge = document.createElement('span');
-            tagBadge.className = 'badge bg-dark text-white font-monospace px-2 py-1';
-            tagBadge.textContent = tag;
-            tagCell.append(tagBadge);
+            // 2. Qty (1 pc per piece row, matching Row 1 alignment)
+            const qtyCell = pRow.insertCell();
+            qtyCell.className = 'text-center';
+            const qtyPill = document.createElement('span');
+            qtyPill.className = 'badge bg-light text-dark border font-monospace px-3 py-1';
+            qtyPill.textContent = '1 pc';
+            qtyCell.append(qtyPill);
 
-            // Col 5: Price / Pc
+            // 3. MRP
+            const mrpCell = pRow.insertCell();
+            mrpCell.className = 'text-end fw-semibold text-muted font-monospace text-nowrap';
+            mrpCell.textContent = money(item.mrp);
+
+            // 4. Disc %
+            const discCell = pRow.insertCell();
+            const discReadout = document.createElement('span');
+            discReadout.className = 'form-control form-control-sm text-end font-monospace bg-light text-dark billing-rate-input d-inline-block';
+            discReadout.textContent = discVal;
+            discCell.append(discReadout);
+
+            // 5. Price / Pc incl. tax
             const priceCell = pRow.insertCell();
-            priceCell.className = 'text-end fw-semibold font-monospace text-dark text-nowrap';
-            priceCell.dataset.piecePriceFor = itemKey;
-            priceCell.textContent = unitPriceVal;
+            const priceReadout = document.createElement('span');
+            priceReadout.className = 'form-control form-control-sm text-end font-monospace fw-semibold bg-light text-dark billing-price-input d-inline-block';
+            priceReadout.dataset.piecePriceFor = itemKey;
+            priceReadout.textContent = unitPriceInputVal;
+            priceCell.append(priceReadout);
 
-            // Col 6: HSN Pill (right next to Price / Pc)
+            // 6. HSN (next to Price / Pc)
             const hsnCell = pRow.insertCell();
             hsnCell.className = 'text-center';
-            const hsnBadge = document.createElement('span');
-            hsnBadge.className = 'badge bg-light text-dark border font-monospace';
-            hsnBadge.dataset.pieceHsnFor = itemKey;
-            hsnBadge.textContent = hsnVal;
-            hsnCell.append(hsnBadge);
+            const hsnReadout = document.createElement('span');
+            hsnReadout.className = 'form-control form-control-sm text-center font-monospace bg-light text-dark billing-hsn-input d-inline-block';
+            hsnReadout.dataset.pieceHsnFor = itemKey;
+            hsnReadout.textContent = hsnVal;
+            hsnCell.append(hsnReadout);
 
-            // Col 7-9: Piece status summary
-            const statusCell = pRow.insertCell();
-            statusCell.colSpan = 3;
-            statusCell.className = 'text-muted small';
-            const statusBox = document.createElement('div');
-            statusBox.className = 'border rounded-2 px-2 py-1 bg-white text-muted small d-inline-block';
-            statusBox.textContent = `Piece ${idx + 1} of ${tags.length} · Bill item`;
-            statusCell.append(statusBox);
+            // 7. GST Details (mode + rate matching Row 1)
+            const gstCell = pRow.insertCell();
+            const gstWrap = document.createElement('div');
+            gstWrap.className = 'd-flex flex-column gap-1';
+            const gstModeReadout = document.createElement('div');
+            gstModeReadout.className = 'border rounded-1 bg-light text-dark text-center px-2 py-1';
+            gstModeReadout.style.fontSize = '12px';
+            gstModeReadout.textContent = gstTypeLabel;
+            const gstRateReadout = document.createElement('div');
+            gstRateReadout.className = 'border rounded-1 bg-light text-muted text-end font-monospace px-2 py-0';
+            gstRateReadout.style.fontSize = '12px';
+            gstRateReadout.textContent = `${gstRate.toFixed(2)} %`;
+            gstWrap.append(gstModeReadout, gstRateReadout);
+            gstCell.append(gstWrap);
 
-            // Col 10: Remove individual piece button
+            // 8. Tax
+            const taxCell = pRow.insertCell();
+            taxCell.className = 'text-end font-monospace text-muted text-nowrap';
+            taxCell.textContent = money(pieceTaxNum);
+
+            // 9. Total
+            const totalCell = pRow.insertCell();
+            totalCell.className = 'text-end fw-bold font-monospace text-primary text-nowrap';
+            totalCell.textContent = money(unitPriceNum);
+
+            // 10. Remove individual piece button
             const actCell = pRow.insertCell();
             actCell.className = 'text-center';
             const rmBtn = document.createElement('button');
             rmBtn.type = 'button';
-            rmBtn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+            rmBtn.className = 'btn btn-outline-danger btn-sm py-0 px-2';
             rmBtn.title = `Remove piece ${tag}`;
             rmBtn.innerHTML = '<i class="bi bi-x"></i>';
             rmBtn.addEventListener('click', () => {
@@ -1388,6 +1451,14 @@ document.addEventListener('DOMContentLoaded', () => {
             productTitle.className = 'text-dark d-block';
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
+
+            const mainVarCode = resolveVariantCode(item);
+            if (mainVarCode) {
+                const mainVarBadge = document.createElement('span');
+                mainVarBadge.className = 'badge bg-primary-subtle text-primary border font-monospace my-1 me-1';
+                mainVarBadge.textContent = `Variant: ${mainVarCode}`;
+                productCell.append(mainVarBadge);
+            }
 
             if (item.price_edited) {
                 const priceBadge = document.createElement('span');
