@@ -229,44 +229,15 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 </div>
                             </div>
 
-                            <!-- Step 2: Compact Variant Log List -->
-                            <div class="table-responsive mb-2">
-                                <table class="table table-bordered align-middle table-sm mb-1" style="min-width: 1120px;">
-                                    <thead class="table-light small text-uppercase text-muted">
-                                        <tr>
-                                            <th style="width: 105px;">Size</th>
-                                            <th style="width: 115px;">Color</th>
-                                            <th style="width: 85px;">Qty *</th>
-                                            <th style="width: 105px;">Rate *</th>
-                                            <th style="width: 105px;">MRP *</th>
-                                            <th style="width: 105px;">Selling *</th>
-                                            <th style="width: 80px;">GST %</th>
-                                            <th style="width: 190px;">HSN Code</th>
-                                            <th style="width: 240px;">Category *</th>
-                                            <th style="width: 44px;"></th>
-                                        </tr>
-                                    </thead>
+                            <!-- Hidden Variant Payload Table (populated & submitted automatically by Generate & Save) -->
+                            <div class="d-none">
+                                <table>
                                     <tbody class="tp-variant-rows">
                                         <?php $variantRow(0, 0); ?>
                                     </tbody>
                                 </table>
                             </div>
-
-                            <div class="d-flex justify-content-between align-items-center pt-1">
-                                <button type="button" class="btn btn-outline-secondary btn-sm btn-add-variant-row">
-                                    <i class="bi bi-plus-lg me-1"></i>Add Variant Row
-                                </button>
-                            </div>
                         </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 border-top">
-                        <button type="button" class="btn btn-outline-primary fw-semibold" id="btnAddAnotherProduct">
-                            <i class="bi bi-plus-circle me-1"></i>+ Add Another Product (e.g. Pant)
-                        </button>
-                        <button class="btn btn-success btn-lg px-4 fw-semibold" type="submit" id="btnSaveAllProducts">
-                            <i class="bi bi-save me-1"></i>Save All Products to Mapping
-                        </button>
                     </div>
                 </form>
             </div>
@@ -1636,8 +1607,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const gstVal = card.querySelector('.gen-gst')?.value || '5';
         const qtyVal = card.querySelector('.gen-qty')?.value || '1';
         const rateVal = card.querySelector('.gen-rate')?.value || '';
-        const mrpVal = card.querySelector('.gen-mrp')?.value || '';
-        const spVal = card.querySelector('.gen-sp')?.value || '';
+        const mrpInpGen = card.querySelector('.gen-mrp');
+        const spInpGen = card.querySelector('.gen-sp');
+        const mrpVal = mrpInpGen?.value || '';
+        const spVal = spInpGen?.value || '';
+        const mrpNum = parseFloat(mrpVal || '0') || 0;
+        const spNum = parseFloat(spVal || '0') || 0;
+        if (mrpNum <= 0 || spNum <= 0) {
+            alert('Please enter valid MRP and Selling Price greater than 0.');
+            (mrpNum <= 0 ? mrpInpGen : spInpGen)?.focus();
+            return;
+        }
+        if (spNum > mrpNum) {
+            mrpInpGen?.classList.add('is-invalid');
+            spInpGen?.classList.add('is-invalid');
+            alert(`Validation Error: Selling Price (₹${spNum.toFixed(2)}) cannot exceed MRP (₹${mrpNum.toFixed(2)}).`);
+            spInpGen?.focus();
+            return;
+        }
+        mrpInpGen?.classList.remove('is-invalid');
+        spInpGen?.classList.remove('is-invalid');
 
         const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
         const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
@@ -1717,6 +1706,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (form) {
             form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
         }
+    });
+
+    document.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('gen-mrp') && !e.target.classList.contains('gen-sp')) return;
+        const card = e.target.closest('.tp-product-card');
+        if (!card) return;
+        const mrpEl = card.querySelector('.gen-mrp');
+        const spEl = card.querySelector('.gen-sp');
+        const mrp = parseFloat(mrpEl?.value || '0') || 0;
+        const sp = parseFloat(spEl?.value || '0') || 0;
+        const invalid = (mrp > 0 && sp > 0 && sp > mrp);
+        mrpEl?.classList.toggle('is-invalid', invalid);
+        spEl?.classList.toggle('is-invalid', invalid);
     });
 });
 </script>
