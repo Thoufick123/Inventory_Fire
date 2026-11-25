@@ -252,6 +252,7 @@ if (!empty($authUser['production_unit_name'])) {
                     );
                     ?>
                     <?php if ($canViewAssets): ?>
+                    <li class="nav-divider"></li>
                     <li class="nav-item has-submenu">
                         <a href="#" class="nav-link <?= ($activeModule ?? '') === 'assets' ? 'active' : '' ?>">
                             <i class="bi bi-tools"></i>
@@ -341,32 +342,6 @@ if (!empty($authUser['production_unit_name'])) {
                             <li><a href="<?= url('system/settings') ?>" class="<?= in_array(($activeMenu ?? ''), ['settings', 'system-settings']) ? 'active' : '' ?>">Settings</a></li>
                             <li><a href="<?= url('system/backup') ?>" class="<?= in_array(($activeMenu ?? ''), ['backup', 'system-backup']) ? 'active' : '' ?>">Backup</a></li>
                             <?php endif; ?>
-
-                            <?php 
-                            $sideConcerns = getAvailableUserConcerns();
-                            if (!empty($sideConcerns)):
-                            ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Switch Context</li>
-                            <?php if (isSuperAdmin()): 
-                                $isGlobalSide = (currentConcernId() === null);
-                            ?>
-                            <li>
-                                <a href="<?= url('system/concerns/switch/0') ?>" class="d-flex align-items-center justify-content-between py-1 px-3 <?= $isGlobalSide ? 'active text-primary fw-bold' : '' ?>" title="Switch context to Global Admin (All Concerns)">
-                                    <span class="text-truncate" style="max-width: 130px;"><i class="bi bi-shield-lock-fill me-1.5 text-warning"></i>Global Admin</span>
-                                    <span class="badge <?= $isGlobalSide ? 'bg-dark text-white' : 'bg-light text-secondary border' ?>" style="font-size: 9px;">ADMIN</span>
-                                </a>
-                            </li>
-                            <?php endif; ?>
-                            <?php foreach ($sideConcerns as $sc): 
-                                $isCurSc = ((int)currentConcernId() === (int)$sc['id']);
-                            ?>
-                            <li>
-                                <a href="<?= url('system/concerns/switch/' . $sc['id']) ?>" class="d-flex align-items-center justify-content-between py-1 px-3 <?= $isCurSc ? 'active text-primary fw-bold' : '' ?>" title="Switch context to <?= e($sc['name']) ?>">
-                                    <span class="text-truncate" style="max-width: 130px;"><i class="bi bi-building me-1.5 opacity-75"></i><?= e($sc['name']) ?></span>
-                                    <span class="badge <?= $isCurSc ? 'bg-primary text-white' : 'bg-light text-secondary border' ?>" style="font-size: 9px;"><?= e($sc['code']) ?></span>
-                                </a>
-                            </li>
-                            <?php endforeach; endif; ?>
                         </ul>
                     </li>
 
