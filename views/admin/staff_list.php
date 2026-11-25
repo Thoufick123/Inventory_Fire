@@ -51,53 +51,57 @@ if (empty($currentDept)) $currentDept = 'all';
             $totalRoles = count($roles);
             ?>
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-3 bg-primary bg-opacity-10 p-3 me-3 text-primary">
-                            <i class="bi bi-people-fill fs-3"></i>
+                <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="me-2" style="min-width: 0;">
+                            <div class="text-uppercase fw-semibold text-muted small"><?= ($currentDept !== 'all' && !empty($currentDept)) ? 'Total ' . ucfirst($currentDept) . ' Staff' : 'Total Staffs' ?></div>
+                            <div class="fs-3 fw-bold text-primary mt-1"><?= $totalStaff ?></div>
+                            <div class="small text-muted mt-2 text-truncate"><i class="bi bi-people-fill text-primary me-1"></i>Staff directory members</div>
                         </div>
-                        <div>
-                            <div class="text-muted small fw-medium"><?= ($currentDept !== 'all' && !empty($currentDept)) ? 'Total ' . ucfirst($currentDept) . ' Staff' : 'Total Staffs' ?></div>
-                            <div class="fs-4 fw-bold text-dark"><?= $totalStaff ?></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-xl-3">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-3 bg-success bg-opacity-10 p-3 me-3 text-success">
-                            <i class="bi bi-person-check-fill fs-3"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small fw-medium">Active Accounts</div>
-                            <div class="fs-4 fw-bold text-dark"><?= $activeCount ?></div>
+                        <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                            <i class="bi bi-people-fill fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-3 bg-secondary bg-opacity-10 p-3 me-3 text-secondary">
-                            <i class="bi bi-person-dash-fill fs-3"></i>
+                <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="me-2" style="min-width: 0;">
+                            <div class="text-uppercase fw-semibold text-muted small">Active Accounts</div>
+                            <div class="fs-3 fw-bold text-success mt-1"><?= $activeCount ?></div>
+                            <div class="small text-muted mt-2 text-truncate"><i class="bi bi-person-check-fill text-success me-1"></i>Currently enabled logins</div>
                         </div>
-                        <div>
-                            <div class="text-muted small fw-medium">Deactivated</div>
-                            <div class="fs-4 fw-bold text-dark"><?= $inactiveCount ?></div>
+                        <div class="bg-success-subtle text-success revenue-kpi-icon">
+                            <i class="bi bi-person-check-fill fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-3 bg-info bg-opacity-10 p-3 me-3 text-info">
-                            <i class="bi bi-shield-check fs-3"></i>
+                <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="me-2" style="min-width: 0;">
+                            <div class="text-uppercase fw-semibold text-muted small">Deactivated</div>
+                            <div class="fs-3 fw-bold text-warning-emphasis mt-1"><?= $inactiveCount ?></div>
+                            <div class="small text-muted mt-2 text-truncate"><i class="bi bi-person-dash-fill text-warning me-1"></i>Disabled staff accounts</div>
                         </div>
-                        <div>
-                            <div class="text-muted small fw-medium">Active Roles</div>
-                            <div class="fs-4 fw-bold text-dark"><?= $totalRoles ?></div>
+                        <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                            <i class="bi bi-person-dash-fill fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="me-2" style="min-width: 0;">
+                            <div class="text-uppercase fw-semibold text-muted small">Active Roles</div>
+                            <div class="fs-3 fw-bold text-info-emphasis mt-1"><?= $totalRoles ?></div>
+                            <div class="small text-muted mt-2 text-truncate"><i class="bi bi-shield-check text-info me-1"></i>Configured RBAC roles</div>
+                        </div>
+                        <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                            <i class="bi bi-shield-check fs-4"></i>
                         </div>
                     </div>
                 </div>

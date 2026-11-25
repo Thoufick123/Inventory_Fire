@@ -21,64 +21,72 @@
     <div class="row g-3 mb-4">
         <!-- 1. Total Returns -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Total Returns</span>
-                        <div class="p-2 rounded-circle bg-danger-subtle text-danger">
-                            <i class="bi bi-receipt-cutoff fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Total Returns</div>
+                        <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($stats['total_returns'] ?? 0) ?></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-receipt-cutoff text-danger me-1"></i><?= number_format($stats['total_pieces'] ?? 0) ?> total pieces returned
                         </div>
                     </div>
-                    <h3 class="fw-bold text-danger mb-1"><?= number_format($stats['total_returns'] ?? 0) ?></h3>
-                    <div class="small text-muted"><?= number_format($stats['total_pieces'] ?? 0) ?> total pieces returned</div>
+                    <div class="bg-danger-subtle text-danger revenue-kpi-icon">
+                        <i class="bi bi-receipt-cutoff fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 2. In Staging (Awaiting Triage) -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Awaiting Triage</span>
-                        <div class="p-2 rounded-circle bg-warning-subtle text-warning">
-                            <i class="bi bi-hourglass-split fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Awaiting Triage</div>
+                        <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['pending_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-hourglass-split text-warning me-1"></i>Held in staging (Not yet in stock)
                         </div>
                     </div>
-                    <h3 class="fw-bold text-warning mb-1"><?= number_format($stats['pending_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></h3>
-                    <div class="small text-muted">Held in staging (Not yet in stock)</div>
+                    <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                        <i class="bi bi-hourglass-split fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 3. Restocked to Inventory -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Added to Stock</span>
-                        <div class="p-2 rounded-circle bg-success-subtle text-success">
-                            <i class="bi bi-box-seam fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Added to Stock</div>
+                        <div class="fw-bold text-success fs-3 mt-1"><?= number_format($stats['restocked_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-box-seam text-success me-1"></i>Inspected &amp; returned to stock
                         </div>
                     </div>
-                    <h3 class="fw-bold text-success mb-1"><?= number_format($stats['restocked_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></h3>
-                    <div class="small text-muted">Inspected &amp; returned to stock</div>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
+                        <i class="bi bi-box-seam fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 4. Damage Module Quarantined -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Damage Module</span>
-                        <div class="p-2 rounded-circle bg-danger-subtle text-danger">
-                            <i class="bi bi-shield-slash fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Damage Module</div>
+                        <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($stats['damaged_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-shield-slash text-info me-1"></i>Quarantined defect pieces
                         </div>
                     </div>
-                    <h3 class="fw-bold text-dark mb-1"><?= number_format($stats['damaged_pieces'] ?? 0) ?> <span class="fs-6 text-muted fw-normal">pcs</span></h3>
-                    <div class="small text-muted">Quarantined defect pieces</div>
+                    <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                        <i class="bi bi-shield-slash fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>

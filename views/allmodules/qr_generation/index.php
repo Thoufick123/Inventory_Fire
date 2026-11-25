@@ -33,61 +33,57 @@
 <!-- KPI Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-primary border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Total Batches</div>
-                        <h3 class="mb-0 fw-bold text-dark mt-1"><?= number_format(count($batches)) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-primary-subtle p-3 text-primary">
-                        <i class="bi bi-collection-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Batches</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format(count($batches)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-collection-fill text-primary me-1"></i>Generated QR batches</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-collection-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-success border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Total QR Labels</div>
-                        <h3 class="mb-0 fw-bold text-success mt-1"><?= number_format($totalQrs) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-success-subtle p-3 text-success">
-                        <i class="bi bi-qr-code fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total QR Labels</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($totalQrs) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-qr-code text-success me-1"></i>Printed piece labels</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-qr-code fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-info border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Manual Batches</div>
-                        <h3 class="mb-0 fw-bold text-info mt-1"><?= count(array_filter($batches, fn($b) => $b['generation_type'] === 'MANUAL')) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-info-subtle p-3 text-info">
-                        <i class="bi bi-pencil-square fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Manual Batches</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= count(array_filter($batches, fn($b) => $b['generation_type'] === 'MANUAL')) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-pencil-square text-info me-1"></i>Direct label runs</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-pencil-square fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-warning border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Catalog-Linked Batches</div>
-                        <h3 class="mb-0 fw-bold text-warning mt-1"><?= count(array_filter($batches, fn($b) => $b['generation_type'] === 'CATALOG_VARIANT')) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-warning-subtle p-3 text-warning">
-                        <i class="bi bi-tags-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Catalog-Linked Batches</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= count(array_filter($batches, fn($b) => $b['generation_type'] === 'CATALOG_VARIANT')) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-tags-fill text-warning me-1"></i>Catalog variant tags</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-tags-fill fs-4"></i>
                 </div>
             </div>
         </div>

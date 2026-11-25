@@ -82,54 +82,57 @@ if (!empty($bill['total_amount'])) {
 <!-- KPI Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3 d-flex align-items-center">
-                <div class="rounded-3 bg-primary-subtle text-primary p-3 me-3">
-                    <i class="bi bi-layers fs-3"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Garments</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format((int)($batch['total_qty'] ?? $batch['quantity'] ?? 0)) ?> <span class="fs-6 text-muted fw-normal">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-layers text-primary me-1"></i>Packed pieces</div>
                 </div>
-                <div>
-                    <span class="text-muted small fw-semibold text-uppercase d-block">Total Garments</span>
-                    <h3 class="mb-0 fw-bold text-dark"><?= number_format((int)($batch['total_qty'] ?? $batch['quantity'] ?? 0)) ?> <span class="fs-6 text-muted fw-normal">pcs</span></h3>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3 d-flex align-items-center">
-                <div class="rounded-3 bg-warning-subtle text-warning-emphasis p-3 me-3">
-                    <i class="bi bi-boxes fs-3"></i>
-                </div>
-                <div>
-                    <span class="text-muted small fw-semibold text-uppercase d-block">Carton / Boxes</span>
-                    <h3 class="mb-0 fw-bold text-dark"><?= number_format((int)($batch['box_count'] ?? 1)) ?> <span class="fs-6 text-muted fw-normal">boxes</span></h3>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-layers fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3 d-flex align-items-center">
-                <div class="rounded-3 bg-info-subtle text-info-emphasis p-3 me-3">
-                    <i class="bi bi-building fs-3"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Carton / Boxes</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format((int)($batch['box_count'] ?? 1)) ?> <span class="fs-6 text-muted fw-normal">boxes</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-boxes text-warning me-1"></i>Dispatch cartons</div>
                 </div>
-                <div>
-                    <span class="text-muted small fw-semibold text-uppercase d-block">Destination WH</span>
-                    <h5 class="mb-0 fw-bold text-dark text-truncate" style="max-width: 170px;" title="<?= e($batch['warehouse_name'] ?? 'Unassigned') ?>"><?= e($batch['warehouse_name'] ?? 'Unassigned') ?></h5>
-                    <small class="text-muted font-monospace"><?= e($batch['warehouse_code'] ?? '') ?></small>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-boxes fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3 d-flex align-items-center">
-                <div class="rounded-3 bg-success-subtle text-success p-3 me-3">
-                    <i class="bi bi-receipt-cutoff fs-3"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Destination WH</div>
+                    <div class="fw-bold text-info-emphasis fs-4 mt-1 text-truncate" title="<?= e($batch['warehouse_name'] ?? 'Unassigned') ?>"><?= e($batch['warehouse_name'] ?? 'Unassigned') ?></div>
+                    <div class="small text-muted mt-2 font-monospace text-truncate"><?= e($batch['warehouse_code'] ?? 'Warehouse') ?></div>
                 </div>
-                <div>
-                    <span class="text-muted small fw-semibold text-uppercase d-block">Bill &amp; Invoice Total</span>
-                    <h3 class="mb-0 fw-bold text-success">₹<?= number_format($totalValuation, 2) ?></h3>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-building fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Bill &amp; Invoice Total</div>
+                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($totalValuation, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-receipt-cutoff text-success me-1"></i>Batch valuation</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-receipt-cutoff fs-4"></i>
                 </div>
             </div>
         </div>

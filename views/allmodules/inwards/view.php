@@ -97,85 +97,75 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
 <div class="row g-3 mb-4">
     <!-- 1. Outward Dispatched -->
     <div class="col-sm-6 col-md-4 col-xl">
-        <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Outward Dispatched</span>
-                        <h4 class="mb-0 fw-bold text-dark mt-1" id="statExpected"><?= number_format($totalExpected) ?> <small class="fs-6 text-muted">pcs</small></h4>
-                    </div>
-                    <div class="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
-                        <i class="bi bi-truck fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Outward Dispatched</div>
+                    <h4 class="mb-0 fw-bold text-primary mt-1" id="statExpected"><?= number_format($totalExpected) ?> <small class="fs-6 text-muted fw-normal">pcs</small></h4>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-truck fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <!-- 2. Inward Verified Intact -->
     <div class="col-sm-6 col-md-4 col-xl">
-        <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Inward Verified (Intact)</span>
-                        <h4 class="mb-0 fw-bold text-success mt-1" id="statScanned"><?= number_format($displayRec) ?> <small class="fs-6 text-muted">pcs</small></h4>
-                    </div>
-                    <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
-                        <i class="bi bi-upc-scan fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Inward Verified (Intact)</div>
+                    <h4 class="mb-0 fw-bold text-success mt-1" id="statScanned"><?= number_format($displayRec) ?> <small class="fs-6 text-muted fw-normal">pcs</small></h4>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-upc-scan fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <!-- 3. Damaged / Inactive -->
     <div class="col-sm-6 col-md-4 col-xl">
-        <div class="card border-0 shadow-sm border-start border-danger border-4 h-100" id="statDamagedCard">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Damaged / Inactive</span>
-                        <h4 class="mb-0 fw-bold text-danger mt-1" id="statDamaged"><?= number_format($displayDmg) ?> <small class="fs-6 text-muted">pcs</small></h4>
-                    </div>
-                    <div class="rounded-circle bg-danger bg-opacity-10 p-2 text-danger">
-                        <i class="bi bi-slash-circle fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100" id="statDamagedCard">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Damaged / Inactive</div>
+                    <h4 class="mb-0 fw-bold text-danger mt-1" id="statDamaged"><?= number_format($displayDmg) ?> <small class="fs-6 text-muted fw-normal">pcs</small></h4>
+                    <small class="text-danger d-block mt-1 font-monospace" style="font-size: 0.72rem;" id="statDamagedSubtext"><?= $displayDmg > 0 ? "{$displayDmg} quarantined units" : '0 quarantined units' ?></small>
                 </div>
-                <small class="text-danger d-block mt-1 font-monospace" style="font-size: 0.72rem;" id="statDamagedSubtext"><?= $displayDmg > 0 ? "{$displayDmg} quarantined units" : '0 quarantined units' ?></small>
+                <div class="bg-danger-subtle text-danger revenue-kpi-icon">
+                    <i class="bi bi-slash-circle fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <!-- 4. Pending / Missing -->
     <div class="col-sm-6 col-md-6 col-xl">
-        <div class="card border-0 shadow-sm border-start border-warning border-4 h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Pending / Missing</span>
-                        <h4 class="mb-0 fw-bold text-warning mt-1" id="statMissing"><?= number_format($displayMis) ?> <small class="fs-6 text-muted">pcs</small></h4>
-                    </div>
-                    <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
-                        <i class="bi bi-exclamation-triangle fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Pending / Missing</div>
+                    <h4 class="mb-0 fw-bold text-warning-emphasis mt-1" id="statMissing"><?= number_format($displayMis) ?> <small class="fs-6 text-muted fw-normal">pcs</small></h4>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-exclamation-triangle fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <!-- 5. Verification Match -->
     <div class="col-sm-12 col-md-6 col-xl">
-        <div class="card border-0 shadow-sm border-start border-info border-4 h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Verification Match</span>
-                        <h4 class="mb-0 fw-bold text-info mt-1" id="statProgressPct"><?= $displayPct ?>%</h4>
-                    </div>
-                    <div class="rounded-circle bg-info bg-opacity-10 p-2 text-info">
-                        <i class="bi bi-check2-circle fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Verification Match</div>
+                    <h4 class="mb-0 fw-bold text-info-emphasis mt-1" id="statProgressPct"><?= $displayPct ?>%</h4>
                 </div>
-                <div class="progress mt-2" style="height: 6px;">
-                    <div id="statProgressBar" class="progress-bar <?= $displayPct >= 100 ? ($displayDmg > 0 ? 'bg-warning' : 'bg-success') : 'bg-info' ?>" role="progressbar" style="width: <?= $displayPct ?>%;"></div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-check2-circle fs-4"></i>
                 </div>
+            </div>
+            <div class="progress mt-2" style="height: 6px;">
+                <div id="statProgressBar" class="progress-bar <?= $displayPct >= 100 ? ($displayDmg > 0 ? 'bg-warning' : 'bg-success') : 'bg-info' ?>" role="progressbar" style="width: <?= $displayPct ?>%;"></div>
             </div>
         </div>
     </div>

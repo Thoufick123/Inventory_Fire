@@ -16,56 +16,64 @@
 <!-- KPI Stats Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-danger bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Damaged Rolls</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_damaged_records']) ?> <span class="fs-6 fw-normal text-muted">records</span></h3>
-                    <small class="text-muted"><?= number_format($stats['total_damaged_weight'], 2) ?> kg total</small>
+        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Damaged Rolls</div>
+                    <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($stats['total_damaged_records']) ?> <span class="fs-6 fw-normal text-muted">records</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i><?= number_format($stats['total_damaged_weight'], 2) ?> kg total
+                    </div>
                 </div>
-                <div class="bg-danger text-white rounded-3 p-3">
+                <div class="bg-danger-subtle text-danger revenue-kpi-icon">
                     <i class="bi bi-exclamation-triangle-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-warning bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Estimated Loss Value</span>
-                    <h3 class="fw-bold text-warning mb-0 mt-1">₹<?= number_format($stats['total_loss_amount'], 2) ?></h3>
-                    <small class="text-muted"><?= $stats['count_logged'] ?> pending action</small>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Estimated Loss Value</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1">₹<?= number_format($stats['total_loss_amount'], 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-currency-rupee text-warning me-1"></i><?= $stats['count_logged'] ?> pending action
+                    </div>
                 </div>
-                <div class="bg-warning text-dark rounded-3 p-3">
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
                     <i class="bi bi-currency-rupee fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-info bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Returns / Claims</span>
-                    <h3 class="fw-bold text-info mb-0 mt-1"><?= number_format($stats['count_return_initiated']) ?> <span class="fs-6 fw-normal text-muted">in transit</span></h3>
-                    <small class="text-muted"><?= $stats['count_replacement'] ?> replacements</small>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Returns / Claims</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($stats['count_return_initiated']) ?> <span class="fs-6 fw-normal text-muted">in transit</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-arrow-left-right text-info me-1"></i><?= $stats['count_replacement'] ?> replacements
+                    </div>
                 </div>
-                <div class="bg-info text-white rounded-3 p-3">
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
                     <i class="bi bi-arrow-left-right fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-success bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Refunds Recovered</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1">₹<?= number_format($stats['total_refund_received'], 2) ?></h3>
-                    <small class="text-muted"><?= $stats['count_refunded'] ?> debit claims</small>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Refunds Recovered</div>
+                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_refund_received'], 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-check2-circle text-success me-1"></i><?= $stats['count_refunded'] ?> debit claims
+                    </div>
                 </div>
-                <div class="bg-success text-white rounded-3 p-3">
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-check2-circle fs-4"></i>
                 </div>
             </div>

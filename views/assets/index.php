@@ -19,54 +19,58 @@
 
     <!-- KPI Metric Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-primary-subtle text-primary p-3 me-3">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Total Assets</div>
+                        <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($metrics['total']) ?></div>
+                        <div class="small text-muted mt-2 text-truncate"><i class="bi bi-cpu text-primary me-1"></i>Registered equipment</div>
+                    </div>
+                    <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                         <i class="bi bi-cpu fs-4"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small text-uppercase fw-semibold">Total Assets</div>
-                        <h4 class="fw-bold mb-0"><?= number_format($metrics['total']) ?></h4>
-                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-success-subtle text-success p-3 me-3">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Active In-Use</div>
+                        <div class="fw-bold text-success fs-3 mt-1"><?= number_format($metrics['in_use']) ?></div>
+                        <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check-circle text-success me-1"></i>Operational machinery</div>
+                    </div>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
                         <i class="bi bi-check-circle fs-4"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small text-uppercase fw-semibold">Active In-Use</div>
-                        <h4 class="fw-bold mb-0 text-success"><?= number_format($metrics['in_use']) ?></h4>
-                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-warning-subtle text-warning p-3 me-3">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Under Maintenance</div>
+                        <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($metrics['in_maintenance']) ?></div>
+                        <div class="small text-muted mt-2 text-truncate"><i class="bi bi-wrench text-warning me-1"></i>Servicing &amp; repair</div>
+                    </div>
+                    <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
                         <i class="bi bi-wrench fs-4"></i>
                     </div>
-                    <div>
-                        <div class="text-muted small text-uppercase fw-semibold">Under Maintenance</div>
-                        <h4 class="fw-bold mb-0 text-warning"><?= number_format($metrics['in_maintenance']) ?></h4>
-                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm p-3">
-                <div class="d-flex align-items-center">
-                    <div class="rounded-circle bg-info-subtle text-info p-3 me-3">
-                        <i class="bi bi-currency-rupee fs-4"></i>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Total Book Value</div>
+                        <div class="fw-bold text-info-emphasis fs-3 mt-1">₹<?= number_format($metrics['total_book_val'], 2) ?></div>
+                        <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-info me-1"></i>Asset valuation</div>
                     </div>
-                    <div>
-                        <div class="text-muted small text-uppercase fw-semibold">Total Book Value</div>
-                        <h4 class="fw-bold mb-0 text-dark">₹<?= number_format($metrics['total_book_val'], 2) ?></h4>
+                    <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                        <i class="bi bi-currency-rupee fs-4"></i>
                     </div>
                 </div>
             </div>

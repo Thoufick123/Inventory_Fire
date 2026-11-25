@@ -48,21 +48,21 @@ declare(strict_types=1);
 <div class="row g-3 mb-4">
     <!-- Card 1: Live Drawer Cash -->
     <div class="col-xl-3 col-md-6">
-        <div class="card border shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-uppercase small fw-bold text-muted">Live Drawer Cash</span>
-                    <div class="bg-primary-subtle text-primary rounded p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                        <i class="bi bi-cash-stack fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Live Drawer Cash</div>
+                    <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format((float)($activeShift ? $activeShift['expected_drawer'] : 0), 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <?php if (!empty($activeShift)): ?>
+                            <span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>Till Open</span> (Shift: <?= e($activeShift['shift_code']) ?>)
+                        <?php else: ?>
+                            <span class="text-muted"><i class="bi bi-lock me-1"></i>Drawer Till Closed</span>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <h3 class="fw-bold mb-1 text-primary">₹<?= number_format((float)($activeShift ? $activeShift['expected_drawer'] : 0), 2) ?></h3>
-                <div class="small text-muted">
-                    <?php if (!empty($activeShift)): ?>
-                        <span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>Till Open</span> (Shift: <?= e($activeShift['shift_code']) ?>)
-                    <?php else: ?>
-                        <span class="text-muted"><i class="bi bi-lock me-1"></i>Drawer Till Closed</span>
-                    <?php endif; ?>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-cash-stack fs-4"></i>
                 </div>
             </div>
         </div>
@@ -70,17 +70,17 @@ declare(strict_types=1);
 
     <!-- Card 2: Today's Cash Inflow -->
     <div class="col-xl-3 col-md-6">
-        <div class="card border shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-uppercase small fw-bold text-muted">Today's Cash Inflow</span>
-                    <div class="bg-success-subtle text-success rounded p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                        <i class="bi bi-arrow-down-left-circle fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Today's Cash Inflow</div>
+                    <div class="fw-bold text-success fs-3 mt-1">+₹<?= number_format($todayCashInflow, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-arrow-up-right me-1 text-success"></i>Sales: ₹<?= number_format($todayCashSales, 2) ?>
                     </div>
                 </div>
-                <h3 class="fw-bold mb-1 text-success">+₹<?= number_format($todayCashInflow, 2) ?></h3>
-                <div class="small text-muted">
-                    <i class="bi bi-arrow-up-right me-1 text-success"></i>Sales: ₹<?= number_format($todayCashSales, 2) ?>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-arrow-down-left-circle fs-4"></i>
                 </div>
             </div>
         </div>
@@ -88,19 +88,19 @@ declare(strict_types=1);
 
     <!-- Card 3: Net Cash Position -->
     <div class="col-xl-3 col-md-6">
-        <div class="card border shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-uppercase small fw-bold text-muted">Net Cash Position</span>
-                    <div class="bg-info-subtle text-info rounded p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                        <i class="bi bi-graph-up-arrow fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Net Cash Position</div>
+                    <div class="fw-bold <?= $netCashPosition >= 0 ? 'text-info-emphasis' : 'text-danger' ?> fs-3 mt-1">
+                        <?= $netCashPosition >= 0 ? '+' : '' ?>₹<?= number_format($netCashPosition, 2) ?>
+                    </div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-bank text-info me-1"></i>Bank Deposits: ₹<?= number_format($todayBankDeposits, 2) ?>
                     </div>
                 </div>
-                <h3 class="fw-bold mb-1 <?= $netCashPosition >= 0 ? 'text-info' : 'text-danger' ?>">
-                    <?= $netCashPosition >= 0 ? '+' : '' ?>₹<?= number_format($netCashPosition, 2) ?>
-                </h3>
-                <div class="small text-muted">
-                    Bank Deposits: ₹<?= number_format($todayBankDeposits, 2) ?>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-graph-up-arrow fs-4"></i>
                 </div>
             </div>
         </div>
@@ -108,17 +108,17 @@ declare(strict_types=1);
 
     <!-- Card 4: Digital Channels -->
     <div class="col-xl-3 col-md-6">
-        <div class="card border shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-uppercase small fw-bold text-muted">Digital Channels</span>
-                    <div class="bg-warning-subtle text-warning-emphasis rounded p-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
-                        <i class="bi bi-credit-card-2-front fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Digital Channels</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1">₹<?= number_format((float)($digitalStats['total'] ?? 0), 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-credit-card-2-front text-warning me-1"></i>UPI: ₹<?= number_format((float)($digitalStats['upi'] ?? 0), 2) ?> · Card: ₹<?= number_format((float)($digitalStats['card'] ?? 0), 2) ?>
                     </div>
                 </div>
-                <h3 class="fw-bold mb-1 text-dark">₹<?= number_format((float)($digitalStats['total'] ?? 0), 2) ?></h3>
-                <div class="small text-muted">
-                    UPI: ₹<?= number_format((float)($digitalStats['upi'] ?? 0), 2) ?> · Card: ₹<?= number_format((float)($digitalStats['card'] ?? 0), 2) ?>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-credit-card-2-front fs-4"></i>
                 </div>
             </div>
         </div>

@@ -24,80 +24,72 @@
 <!-- Key Performance Indicators / Stat Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Total Rolls Bought</div>
-                        <h3 class="mb-1 fw-bold text-dark mt-1"><?= number_format($totalPurchasedRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></h3>
-                        <div class="small text-muted">
-                            <span class="fw-semibold text-primary"><?= number_format($totalPurchasedQty) ?> pcs</span> • ₹<?= number_format($totalPurchasedValuation, 2) ?>
-                        </div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Rolls Bought</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($totalPurchasedRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <span class="fw-semibold text-primary"><?= number_format($totalPurchasedQty) ?> pcs</span> • ₹<?= number_format($totalPurchasedValuation, 2) ?>
                     </div>
-                    <div class="p-2.5 rounded-3 bg-primary-subtle text-primary">
-                        <i class="bi bi-bag-check-fill fs-4"></i>
-                    </div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-bag-check-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Replaced Rolls Count</div>
-                        <h3 class="mb-1 fw-bold text-info mt-1"><?= number_format($totalReplacedRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></h3>
-                        <div class="small text-muted">
-                            <span class="badge bg-info-subtle text-info border border-info-subtle px-1.5 py-0.5" style="font-size: 11px;">
-                                <i class="bi bi-arrow-repeat me-1"></i>Damage Replacements
-                            </span>
-                            <?php if ($totalReplacedQty > 0): ?>
-                                <span class="ms-1 fw-semibold text-dark"><?= number_format($totalReplacedQty) ?> pcs</span>
-                            <?php endif; ?>
-                        </div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Replaced Rolls Count</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($totalReplacedRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></div>
+                    <div class="small text-muted mt-2">
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-1.5 py-0.5" style="font-size: 11px;">
+                            <i class="bi bi-arrow-repeat me-1"></i>Damage Replacements
+                        </span>
+                        <?php if ($totalReplacedQty > 0): ?>
+                            <span class="ms-1 fw-semibold text-dark"><?= number_format($totalReplacedQty) ?> pcs</span>
+                        <?php endif; ?>
                     </div>
-                    <div class="p-2.5 rounded-3 bg-info-subtle text-info">
-                        <i class="bi bi-arrow-repeat fs-4"></i>
-                    </div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-arrow-repeat fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Active Inventory Rolls</div>
-                        <h3 class="mb-1 fw-bold text-success mt-1"><?= number_format($totalActiveRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></h3>
-                        <div class="small text-muted">Available in Production Inventory</div>
-                    </div>
-                    <div class="p-2.5 rounded-3 bg-success-subtle text-success">
-                        <i class="bi bi-layers-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Active Inventory Rolls</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($totalActiveRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-layers-fill text-success me-1"></i>Available in Production Inventory</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-layers-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-bold">Reported Defects</div>
-                        <h3 class="mb-1 fw-bold text-warning mt-1"><?= number_format($totalDamagesCount) ?> <span class="fs-6 fw-normal text-muted">Cases</span></h3>
-                        <div class="small text-muted">
-                            <?php if ($totalReplacedRollsCount > 0): ?>
-                                <span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i><?= $totalReplacedRollsCount ?> Replaced</span>
-                            <?php else: ?>
-                                <span>Fabric damage logs</span>
-                            <?php endif; ?>
-                        </div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Reported Defects</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($totalDamagesCount) ?> <span class="fs-6 fw-normal text-muted">Cases</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <?php if ($totalReplacedRollsCount > 0): ?>
+                            <span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i><?= $totalReplacedRollsCount ?> Replaced</span>
+                        <?php else: ?>
+                            <span><i class="bi bi-shield-exclamation text-warning me-1"></i>Fabric damage logs</span>
+                        <?php endif; ?>
                     </div>
-                    <div class="p-2.5 rounded-3 bg-warning-subtle text-warning">
-                        <i class="bi bi-shield-exclamation fs-4"></i>
-                    </div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-shield-exclamation fs-4"></i>
                 </div>
             </div>
         </div>

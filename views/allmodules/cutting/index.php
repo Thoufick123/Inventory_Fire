@@ -29,61 +29,57 @@
 ?>
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-primary">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Total Cutting Batches</div>
-                        <div class="fs-4 fw-bold text-dark"><?= number_format($totalBatches) ?></div>
-                    </div>
-                    <div class="bg-primary-subtle text-primary p-3 rounded-circle">
-                        <i class="bi bi-scissors fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Cutting Batches</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($totalBatches) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-scissors text-primary me-1"></i>Recorded cutting runs</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-scissors fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-success">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Total Cut Output</div>
-                        <div class="fs-4 fw-bold text-success"><?= number_format($totalCutPieces) ?> <small class="fs-6 text-muted">pcs</small></div>
-                    </div>
-                    <div class="bg-success-subtle text-success p-3 rounded-circle">
-                        <i class="bi bi-check2-all fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Cut Output</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($totalCutPieces) ?> <small class="fs-6 text-muted fw-normal">pcs</small></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check2-all text-success me-1"></i>Approved garment cuts</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-check2-all fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-warning">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Fabric Scrap / Wastage</div>
-                        <div class="fs-4 fw-bold text-warning"><?= number_format($totalFabricWastageKg, 2) ?> <small class="fs-6 text-muted">kg</small></div>
-                    </div>
-                    <div class="bg-warning-subtle text-warning p-3 rounded-circle">
-                        <i class="bi bi-trash3 fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Fabric Scrap / Wastage</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($totalFabricWastageKg, 2) ?> <small class="fs-6 text-muted fw-normal">kg</small></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-trash3 text-warning me-1"></i>Cutting room scrap</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-trash3 fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card shadow-sm border-0 border-start border-4 border-info">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small">Avg Fabric Cost/Pc</div>
-                        <div class="fs-4 fw-bold text-info">₹<?= number_format($avgCostPerPiece, 2) ?></div>
-                    </div>
-                    <div class="bg-info-subtle text-info p-3 rounded-circle">
-                        <i class="bi bi-currency-rupee fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Avg Fabric Cost/Pc</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1">₹<?= number_format($avgCostPerPiece, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-info me-1"></i>Per garment piece</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-currency-rupee fs-4"></i>
                 </div>
             </div>
         </div>

@@ -25,56 +25,64 @@
 <!-- KPI Stats Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-primary bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Total Rework Received</span>
-                    <h3 class="fw-bold text-primary mb-0 mt-1"><?= number_format($stats['total_pieces']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted"><?= number_format($stats['total_records']) ?> total cases logged</small>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Rework Received</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($stats['total_pieces']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-box-arrow-in-down-left text-primary me-1"></i><?= number_format($stats['total_records']) ?> total cases logged
+                    </div>
                 </div>
-                <div class="bg-primary text-white rounded-3 p-3">
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                     <i class="bi bi-box-arrow-in-down-left fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-warning bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Pending / In Rework</span>
-                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format($stats['qty_in_rework'] + $stats['qty_received']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted"><?= ($stats['count_in_rework'] + $stats['count_received']) ?> active factory repairs</small>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Pending / In Rework</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['qty_in_rework'] + $stats['qty_received']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-tools text-warning me-1"></i><?= ($stats['count_in_rework'] + $stats['count_received']) ?> active factory repairs
+                    </div>
                 </div>
-                <div class="bg-warning text-dark rounded-3 p-3">
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
                     <i class="bi bi-tools fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-success bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Repaired &amp; Restocked</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['qty_repaired']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted"><?= number_format($stats['qty_redispatched']) ?> pcs re-dispatched</small>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Repaired &amp; Restocked</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($stats['qty_repaired']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-check2-circle text-success me-1"></i><?= number_format($stats['qty_redispatched']) ?> pcs re-dispatched
+                    </div>
                 </div>
-                <div class="bg-success text-white rounded-3 p-3">
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-check2-circle fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm bg-danger bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Scrapped / Beyond Repair</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['qty_scrapped']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted"><?= number_format($stats['count_scrapped']) ?> written-off cases</small>
+        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Scrapped / Beyond Repair</div>
+                    <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($stats['qty_scrapped']) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-trash3-fill text-danger me-1"></i><?= number_format($stats['count_scrapped']) ?> written-off cases
+                    </div>
                 </div>
-                <div class="bg-danger text-white rounded-3 p-3">
+                <div class="bg-danger-subtle text-danger revenue-kpi-icon">
                     <i class="bi bi-trash3-fill fs-4"></i>
                 </div>
             </div>

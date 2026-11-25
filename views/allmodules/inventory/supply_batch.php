@@ -135,18 +135,18 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
     </div>
 </div>
 
-<!-- Batch KPI Cards (Exact look of QC Batch) -->
+<!-- Batch KPI Cards -->
 <div class="row g-3 mb-4">
     <!-- 1. In-Stock Remaining -->
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-success bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Remaining</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($remainingPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></h3>
-                    <small class="text-muted d-block mt-1">Available in production unit</small>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">In-Stock Remaining</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($remainingPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-box-seam-fill text-success me-1"></i>Available in production unit</div>
                 </div>
-                <div class="bg-success text-white rounded-3 p-3">
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-box-seam-fill fs-4"></i>
                 </div>
             </div>
@@ -155,14 +155,14 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
 
     <!-- 2. Outward Dispatched -->
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-danger bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward Dispatched</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($totalOutwardPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></h3>
-                    <small class="text-muted d-block mt-1">Dispatched to warehouses</small>
+        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Outward Dispatched</div>
+                    <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($totalOutwardPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-truck text-danger me-1"></i>Dispatched to warehouses</div>
                 </div>
-                <div class="bg-danger text-white rounded-3 p-3">
+                <div class="bg-danger-subtle text-danger revenue-kpi-icon">
                     <i class="bi bi-truck fs-4"></i>
                 </div>
             </div>
@@ -171,18 +171,18 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
 
     <!-- 3. Total Inwarded -->
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-info bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Total Inwarded</span>
-                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format($totalPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></h3>
-                    <small class="text-muted d-block mt-1"><?= $poTotalPieces > $totalPieces ? 'PO Total: ' . number_format($poTotalPieces) . ' ' . e(strtolower($unit)) : '1 supply item variant' ?></small>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Inwarded</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($totalPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></div>
+                    <div class="small text-muted mt-2 text-truncate"><?= $poTotalPieces > $totalPieces ? 'PO Total: ' . number_format($poTotalPieces) . ' ' . e(strtolower($unit)) : '1 supply item variant' ?></div>
                     <div class="d-flex flex-wrap gap-1 mt-2">
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle">HSN: <?= e($hsnCode) ?></span>
                         <span class="badge bg-success-subtle text-success border border-success-subtle">Inward Complete</span>
                     </div>
                 </div>
-                <div class="bg-info text-dark rounded-3 p-3">
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
                     <i class="bi bi-patch-check-fill fs-4"></i>
                 </div>
             </div>
@@ -191,14 +191,14 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
 
     <!-- 4. In-Stock Valuation -->
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm bg-primary bg-opacity-10 h-100">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">In-Stock Valuation</span>
-                    <h3 class="fw-bold text-primary mb-0 mt-1">₹<?= number_format($remainingValue, 2) ?></h3>
-                    <small class="text-muted d-block mt-1">Total: ₹<?= number_format($totalValue, 2) ?><?= $poTotalPieces > $totalPieces ? ' (PO: ₹' . number_format($poTotalValue, 2) . ')' : '' ?></small>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">In-Stock Valuation</div>
+                    <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($remainingValue, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-primary me-1"></i>Total: ₹<?= number_format($totalValue, 2) ?><?= $poTotalPieces > $totalPieces ? ' (PO: ₹' . number_format($poTotalValue, 2) . ')' : '' ?></div>
                 </div>
-                <div class="bg-primary text-white rounded-3 p-3">
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                     <i class="bi bi-currency-rupee fs-4"></i>
                 </div>
             </div>

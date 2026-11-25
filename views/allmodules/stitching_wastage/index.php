@@ -22,18 +22,18 @@
     <div class="row g-3 mb-4">
         <!-- 1. Total Quantity Sold -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Wastage Sold</span>
-                        <div class="p-2 rounded-circle bg-warning-subtle text-warning">
-                            <i class="bi bi-box2-heart fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Wastage Sold</div>
+                        <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['total_quantity'], 2) ?> <span class="fs-6 fw-normal text-muted">Units/kg</span></div>
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span><?= number_format($stats['total_records']) ?> Sale Transaction(s)</span>
+                            <span class="badge bg-light text-secondary border">Stitching Scrap</span>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-dark mb-1"><?= number_format($stats['total_quantity'], 2) ?> <span class="fs-6 fw-normal text-muted">Units/kg</span></h3>
-                    <div class="small text-muted d-flex justify-content-between align-items-center">
-                        <span><?= number_format($stats['total_records']) ?> Sale Transaction(s)</span>
-                        <span class="badge bg-light text-secondary border">Stitching Scrap</span>
+                    <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                        <i class="bi bi-box2-heart fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -41,18 +41,18 @@
 
         <!-- 2. Total Sales Value -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Total Sales Value</span>
-                        <div class="p-2 rounded-circle bg-primary-subtle text-primary">
-                            <i class="bi bi-currency-rupee fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Total Sales Value</div>
+                        <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($stats['total_amount'], 2) ?></div>
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span>Avg: <strong class="text-dark">₹<?= number_format($stats['avg_rate_per_unit'], 2) ?>/unit</strong></span>
+                            <span class="badge bg-primary-subtle text-primary border">Total Billed</span>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-primary mb-1">₹ <?= number_format($stats['total_amount'], 2) ?></h3>
-                    <div class="small text-muted d-flex justify-content-between align-items-center">
-                        <span>Avg: <strong class="text-dark">₹<?= number_format($stats['avg_rate_per_unit'], 2) ?>/unit</strong></span>
-                        <span class="badge bg-primary-subtle text-primary border">Total Billed</span>
+                    <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                        <i class="bi bi-currency-rupee fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -60,18 +60,18 @@
 
         <!-- 3. Collected Revenue -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Paid / Received</span>
-                        <div class="p-2 rounded-circle bg-success-subtle text-success">
-                            <i class="bi bi-cash-stack fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Paid / Received</div>
+                        <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_paid'], 2) ?></div>
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span><?= number_format($stats['count_paid']) ?> Fully Paid</span>
+                            <span class="badge bg-success-subtle text-success border">Realized</span>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-success mb-1">₹ <?= number_format($stats['total_paid'], 2) ?></h3>
-                    <div class="small text-muted d-flex justify-content-between align-items-center">
-                        <span><?= number_format($stats['count_paid']) ?> Fully Paid</span>
-                        <span class="badge bg-success-subtle text-success border">Realized</span>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
+                        <i class="bi bi-cash-stack fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -79,18 +79,18 @@
 
         <!-- 4. Pending Collections -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Pending Receivables</span>
-                        <div class="p-2 rounded-circle bg-danger-subtle text-danger">
-                            <i class="bi bi-clock-history fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Pending Receivables</div>
+                        <div class="fw-bold text-danger fs-3 mt-1">₹<?= number_format($stats['total_pending'], 2) ?></div>
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span><?= number_format($stats['count_pending'] + $stats['count_partial']) ?> Unsettled</span>
+                            <span class="badge bg-danger-subtle text-danger border">Due</span>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-danger mb-1">₹ <?= number_format($stats['total_pending'], 2) ?></h3>
-                    <div class="small text-muted d-flex justify-content-between align-items-center">
-                        <span><?= number_format($stats['count_pending'] + $stats['count_partial']) ?> Unsettled</span>
-                        <span class="badge bg-danger-subtle text-danger border">Due</span>
+                    <div class="bg-danger-subtle text-danger revenue-kpi-icon">
+                        <i class="bi bi-clock-history fs-4"></i>
                     </div>
                 </div>
             </div>

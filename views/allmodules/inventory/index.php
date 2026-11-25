@@ -25,14 +25,14 @@ $inventoryVariantCount = array_sum(array_map(
 <!-- KPI Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-success border-4 h-100 bg-success bg-opacity-10">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Total Available Stock</span>
-                    <h3 class="fw-bold text-success mb-0 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-success d-block mt-1"><i class="bi bi-check2-circle me-1"></i>Ready for Allocation</small>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Available Stock</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($stats['total_remaining_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check2-circle text-success me-1"></i>Ready for Allocation</div>
                 </div>
-                <div class="bg-success text-white rounded-3 p-3">
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-box-seam-fill fs-4"></i>
                 </div>
             </div>
@@ -40,9 +40,9 @@ $inventoryVariantCount = array_sum(array_map(
     </div>
 
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-primary border-4 h-100 bg-primary bg-opacity-10">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
                     <?php 
                         $hasStitching = ($stats['stitching_pieces'] ?? 0) > 0;
                         $hasInward = ($stats['inward_pieces'] ?? 0) > 0;
@@ -50,11 +50,11 @@ $inventoryVariantCount = array_sum(array_map(
                         $primaryStockPieces = $hasStitching ? ($stats['stitching_pieces'] ?? 0) : ($stats['inward_pieces'] ?? 0);
                         $primaryStockVal = $hasStitching ? ($stats['stitching_val'] ?? 0) : ($stats['inward_val'] ?? 0);
                     ?>
-                    <span class="text-uppercase text-muted fw-semibold small d-block"><?= $primaryStockTitle ?></span>
-                    <h3 class="fw-bold text-primary mb-0 mt-1"><?= number_format($primaryStockPieces) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($primaryStockVal, 2) ?></small>
+                    <div class="text-uppercase fw-semibold text-muted small"><?= $primaryStockTitle ?></div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($primaryStockPieces) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> text-primary me-1"></i>Est. Val: ₹<?= number_format($primaryStockVal, 2) ?></div>
                 </div>
-                <div class="bg-primary text-white rounded-3 p-3">
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                     <i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> fs-4"></i>
                 </div>
             </div>
@@ -62,14 +62,14 @@ $inventoryVariantCount = array_sum(array_map(
     </div>
 
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-warning border-4 h-100 bg-warning bg-opacity-10">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Third-Party Products</span>
-                    <h3 class="fw-bold text-dark mb-0 mt-1"><?= number_format($stats['third_party_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Est. Val: ₹<?= number_format($stats['third_party_val'] ?? 0, 2) ?></small>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Third-Party Products</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['third_party_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-bag-check-fill text-warning me-1"></i>Est. Val: ₹<?= number_format($stats['third_party_val'] ?? 0, 2) ?></div>
                 </div>
-                <div class="bg-warning text-dark rounded-3 p-3">
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
                     <i class="bi bi-bag-check-fill fs-4"></i>
                 </div>
             </div>
@@ -77,14 +77,14 @@ $inventoryVariantCount = array_sum(array_map(
     </div>
 
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-danger border-4 h-100 bg-danger bg-opacity-10">
-            <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase text-muted fw-semibold small d-block">Outward / Dispatched</span>
-                    <h3 class="fw-bold text-danger mb-0 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></h3>
-                    <small class="text-muted d-block mt-1">Dispatched to Warehouse/Billed</small>
+        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Outward / Dispatched</div>
+                    <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($stats['total_outwarded_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-truck text-danger me-1"></i>Dispatched to Warehouse/Billed</div>
                 </div>
-                <div class="bg-danger text-white rounded-3 p-3">
+                <div class="bg-danger-subtle text-danger revenue-kpi-icon">
                     <i class="bi bi-truck fs-4"></i>
                 </div>
             </div>

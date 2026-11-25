@@ -180,9 +180,9 @@ class SettingsService {
     }
 
     /**
-     * Curated built-in UI color presets.
+     * Built-in default color presets.
      */
-    public static function getThemePresets(): array {
+    public static function getDefaultThemePresets(): array {
         return [
             'indigo' => [
                 'label'        => 'Indigo Classic',
@@ -191,6 +191,7 @@ class SettingsService {
                 'sidebar_text' => '#94a3b8',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#f8fafc',
+                'is_custom'    => false,
             ],
             'ocean' => [
                 'label'        => 'Royal Ocean Blue',
@@ -199,6 +200,7 @@ class SettingsService {
                 'sidebar_text' => '#94a3b8',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#f0f9ff',
+                'is_custom'    => false,
             ],
             'navy_teal' => [
                 'label'        => 'Deep Navy & Teal',
@@ -207,6 +209,7 @@ class SettingsService {
                 'sidebar_text' => '#9ca3af',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#f8fafc',
+                'is_custom'    => false,
             ],
             'charcoal_amber' => [
                 'label'        => 'Charcoal & Amber',
@@ -215,6 +218,7 @@ class SettingsService {
                 'sidebar_text' => '#a1a1aa',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#fafaf9',
+                'is_custom'    => false,
             ],
             'forest' => [
                 'label'        => 'Forest Emerald',
@@ -223,6 +227,7 @@ class SettingsService {
                 'sidebar_text' => '#9ca3af',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#f4faf7',
+                'is_custom'    => false,
             ],
             'plum' => [
                 'label'        => 'Modern Crimson Plum',
@@ -231,8 +236,141 @@ class SettingsService {
                 'sidebar_text' => '#b8accf',
                 'navbar_bg'    => '#ffffff',
                 'page_bg'      => '#faf8ff',
+                'is_custom'    => false,
             ],
         ];
+    }
+
+    public static function getCustomThemePresets(): array {
+        $raw = (string)self::get('theme_custom_presets', '[]');
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $defaults = self::getDefaults()['theme'];
+        $clean = [];
+        foreach ($decoded as $id => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $presetId = preg_replace('/[^a-z0-9_-]/i', '', (string)$id);
+            $label = trim((string)($item['label'] ?? ''));
+            if ($presetId === '' || $label === '') {
+                continue;
+            }
+            $clean[$presetId] = [
+                'label'        => mb_substr($label, 0, 50),
+                'primary'      => self::sanitizeHexColor($item['primary'] ?? null, $defaults['theme_primary']),
+                'sidebar_bg'   => self::sanitizeHexColor($item['sidebar_bg'] ?? null, $defaults['theme_sidebar_bg']),
+                'sidebar_text' => self::sanitizeHexColor($item['sidebar_text'] ?? null, $defaults['theme_sidebar_text']),
+                'navbar_bg'    => self::sanitizeHexColor($item['navbar_bg'] ?? null, $defaults['theme_navbar_bg']),
+                'page_bg'      => self::sanitizeHexColor($item['page_bg'] ?? null, $defaults['theme_page_bg']),
+                'is_custom'    => true,
+            ];
+        }
+        return $clean;
+    }
+
+    public static function getHiddenThemePresets(): array {
+        $raw = (string)self::get('theme_hidden_presets', '[]');
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        return array_values(array_unique(array_filter(array_map('strval', $decoded), static fn(string $v): bool => $v !== '')));
+    }
+
+    /**
+     * Active quick color presets (visible built-ins + customer-saved custom presets).
+     */
+    public static function getThemePresets(): array {
+        $hidden = self::getHiddenThemePresets();
+        $visibleDefaults = array_filter(
+            self::getDefaultThemePresets(),
+            static fn(array $preset, string $id): bool => !in_array($id, $hidden, true),
+            ARRAY_FILTER_USE_BOTH
+        );
+        return array_merge($visibleDefaults, self::getCustomThemePresets());
+    }
+
+    public static function saveCustomThemePreset(string $label, array $colors, bool $applyNow = true): string {
+        $cleanLabel = trim(preg_replace('/\s+/', ' ', $label) ?? '');
+        if ($cleanLabel === '') {
+            throw new InvalidArgumentException('Preset name is required.');
+        }
+        $cleanLabel = mb_substr($cleanLabel, 0, 50);
+
+        $defaults = self::getDefaults()['theme'];
+        $sanitized = [
+            'label'        => $cleanLabel,
+            'primary'      => self::sanitizeHexColor($colors['primary'] ?? null, $defaults['theme_primary']),
+            'sidebar_bg'   => self::sanitizeHexColor($colors['sidebar_bg'] ?? null, $defaults['theme_sidebar_bg']),
+            'sidebar_text' => self::sanitizeHexColor($colors['sidebar_text'] ?? null, $defaults['theme_sidebar_text']),
+            'navbar_bg'    => self::sanitizeHexColor($colors['navbar_bg'] ?? null, $defaults['theme_navbar_bg']),
+            'page_bg'      => self::sanitizeHexColor($colors['page_bg'] ?? null, $defaults['theme_page_bg']),
+            'is_custom'    => true,
+        ];
+
+        $customPresets = self::getCustomThemePresets();
+        $slugBase = strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $cleanLabel), '_'));
+        if ($slugBase === '') {
+            $slugBase = 'palette';
+        }
+        $presetId = 'custom_' . $slugBase;
+        $counter = 2;
+        while (isset($customPresets[$presetId]) || isset(self::getDefaultThemePresets()[$presetId])) {
+            $presetId = 'custom_' . $slugBase . '_' . ($counter++);
+        }
+
+        $customPresets[$presetId] = $sanitized;
+        $payload = ['theme_custom_presets' => json_encode($customPresets)];
+
+        if ($applyNow) {
+            $payload['theme_preset']       = $presetId;
+            $payload['theme_primary']      = $sanitized['primary'];
+            $payload['theme_sidebar_bg']   = $sanitized['sidebar_bg'];
+            $payload['theme_sidebar_text'] = $sanitized['sidebar_text'];
+            $payload['theme_navbar_bg']    = $sanitized['navbar_bg'];
+            $payload['theme_page_bg']      = $sanitized['page_bg'];
+        }
+
+        self::updateGroup('theme', $payload);
+        return $presetId;
+    }
+
+    public static function deleteThemePreset(string $presetId): bool {
+        $cleanId = preg_replace('/[^a-z0-9_-]/i', '', trim($presetId));
+        if ($cleanId === '') {
+            return false;
+        }
+
+        $customPresets = self::getCustomThemePresets();
+        $defaultPresets = self::getDefaultThemePresets();
+        $payload = [];
+        $deleted = false;
+
+        if (isset($customPresets[$cleanId])) {
+            unset($customPresets[$cleanId]);
+            $payload['theme_custom_presets'] = json_encode($customPresets);
+            $deleted = true;
+        } elseif (isset($defaultPresets[$cleanId])) {
+            $hidden = self::getHiddenThemePresets();
+            if (!in_array($cleanId, $hidden, true)) {
+                $hidden[] = $cleanId;
+            }
+            $payload['theme_hidden_presets'] = json_encode(array_values($hidden));
+            $deleted = true;
+        }
+
+        if (!$deleted) {
+            return false;
+        }
+
+        if ((string)self::get('theme_preset', 'indigo') === $cleanId) {
+            $payload['theme_preset'] = 'custom';
+        }
+
+        return self::updateGroup('theme', $payload);
     }
 
     public static function sanitizeHexColor(?string $value, string $fallback): string {

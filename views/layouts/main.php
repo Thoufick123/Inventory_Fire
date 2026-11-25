@@ -55,6 +55,7 @@ if (!empty($authUser['production_unit_name'])) {
             --primary: <?= e($activeTheme['primary']) ?>;
             --primary-hover: <?= e($activeTheme['primary_hover']) ?>;
             --primary-light: <?= e($activeTheme['primary_light']) ?>;
+            --primary-tint: <?= e($activeTheme['primary_tint']) ?>;
             --primary-rgb: <?= e($activeTheme['primary_rgb']) ?>;
             --sidebar-bg: <?= e($activeTheme['sidebar_bg']) ?>;
             --sidebar-text: <?= e($activeTheme['sidebar_text']) ?>;
@@ -73,12 +74,17 @@ if (!empty($authUser['production_unit_name'])) {
             background: var(--sidebar-bg) !important;
         }
         .sidebar-brand i,
-        .submenu li a.active {
+        .submenu li a.active,
+        .sidebar .submenu li a.active.text-primary {
             color: var(--primary-tint, var(--primary)) !important;
         }
         .sidebar .nav-item .nav-link,
         .submenu li a {
             color: var(--sidebar-text);
+        }
+        .sidebar .sidebar-sub-heading {
+            color: var(--sidebar-text) !important;
+            opacity: 0.78;
         }
         .sidebar .nav-item .nav-link.active {
             color: #ffffff;
@@ -317,30 +323,30 @@ if (!empty($authUser['production_unit_name'])) {
                         </a>
                         <ul class="submenu <?= in_array(($activeModule ?? ''), ['admin', 'concerns', 'staff', 'system']) ? 'show' : '' ?>">
                             <?php if ($canViewConcerns): ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Business Concerns</li>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Business Concerns</li>
                             <li><a href="<?= url('admin/concerns') ?>" class="<?= in_array(($activeMenu ?? ''), ['concerns', 'admin-concerns', 'concerns-list']) ? 'active' : '' ?>">All Concerns</a></li>
                             <li><a href="<?= url('admin/concerns/create') ?>" class="<?= ($activeMenu ?? '') === 'concerns-create' ? 'active' : '' ?>">Add New Concern</a></li>
                             <?php endif; ?>
 
                             <?php if ($canViewStaff): ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Staff &amp; Permissions</li>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Staff &amp; Permissions</li>
                             <li><a href="<?= url('admin/staff?department=all') ?>" class="<?= in_array(($activeMenu ?? ''), ['staff', 'staff-all', 'staff-production', 'staff-general']) ? 'active' : '' ?>">Total Staffs</a></li>
                             <li><a href="<?= url('admin/staff/create') ?>" class="<?= ($activeMenu ?? '') === 'staff-create' ? 'active' : '' ?>">Add Staff</a></li>
                             <li><a href="<?= url('admin/roles') ?>" class="<?= ($activeMenu ?? '') === 'roles' ? 'active' : '' ?>">Role Assign / Permissions</a></li>
                             <?php endif; ?>
 
                             <?php if ($canViewSystem): ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">System &amp; Settings</li>
-                            <li><a href="<?= url('system/audit') ?>" class="<?= ($activeMenu ?? '') === 'audit' ? 'active' : '' ?>">Audit Logs</a></li>
-                            <li><a href="<?= url('system/settings') ?>" class="<?= ($activeMenu ?? '') === 'settings' ? 'active' : '' ?>">Settings</a></li>
-                            <li><a href="<?= url('system/backup') ?>" class="<?= ($activeMenu ?? '') === 'backup' ? 'active' : '' ?>">Backup</a></li>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">System &amp; Settings</li>
+                            <li><a href="<?= url('system/audit') ?>" class="<?= in_array(($activeMenu ?? ''), ['audit', 'system-audit']) ? 'active' : '' ?>">Audit Logs</a></li>
+                            <li><a href="<?= url('system/settings') ?>" class="<?= in_array(($activeMenu ?? ''), ['settings', 'system-settings']) ? 'active' : '' ?>">Settings</a></li>
+                            <li><a href="<?= url('system/backup') ?>" class="<?= in_array(($activeMenu ?? ''), ['backup', 'system-backup']) ? 'active' : '' ?>">Backup</a></li>
                             <?php endif; ?>
 
                             <?php 
                             $sideConcerns = getAvailableUserConcerns();
                             if (!empty($sideConcerns)):
                             ?>
-                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1 text-muted" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Switch Context</li>
+                            <li class="sidebar-sub-heading text-uppercase px-3 pt-2 pb-1" style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">Switch Context</li>
                             <?php if (isSuperAdmin()): 
                                 $isGlobalSide = (currentConcernId() === null);
                             ?>

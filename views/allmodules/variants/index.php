@@ -17,61 +17,57 @@
 <!-- KPI Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-primary border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Total Variants</div>
-                        <h3 class="mb-0 fw-bold text-dark mt-1"><?= number_format($stats['total_variants']) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-primary-subtle p-3 text-primary">
-                        <i class="bi bi-tags-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Variants</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($stats['total_variants']) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-tags-fill text-primary me-1"></i>Registered SKU variants</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-tags-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-success border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Active Variants</div>
-                        <h3 class="mb-0 fw-bold text-success mt-1"><?= number_format($stats['active_variants']) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-success-subtle p-3 text-success">
-                        <i class="bi bi-check-circle-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Active Variants</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($stats['active_variants']) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check-circle-fill text-success me-1"></i>Enabled for production</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-check-circle-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-info border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Parent Catalogs</div>
-                        <h3 class="mb-0 fw-bold text-info mt-1"><?= number_format($stats['unique_catalogs']) ?></h3>
-                    </div>
-                    <div class="rounded-circle bg-info-subtle p-3 text-info">
-                        <i class="bi bi-journal-bookmark-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Parent Catalogs</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($stats['unique_catalogs']) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-journal-bookmark-fill text-info me-1"></i>Linked master styles</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-journal-bookmark-fill fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-3 col-sm-6">
-        <div class="card border-0 shadow-sm border-start border-warning border-4">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="text-muted small fw-semibold text-uppercase">Unit Available Stock</div>
-                        <h3 class="mb-0 fw-bold text-warning mt-1"><?= number_format($stats['total_stock']) ?> <small class="fs-6 text-muted">pcs</small></h3>
-                    </div>
-                    <div class="rounded-circle bg-warning-subtle p-3 text-warning">
-                        <i class="bi bi-box-seam-fill fs-4"></i>
-                    </div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Unit Available Stock</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['total_stock']) ?> <small class="fs-6 text-muted fw-normal">pcs</small></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-box-seam-fill text-warning me-1"></i>Current variant balance</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-box-seam-fill fs-4"></i>
                 </div>
             </div>
         </div>
