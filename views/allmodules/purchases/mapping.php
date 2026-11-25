@@ -32,47 +32,67 @@
 <!-- KPI Metric Cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Third-Party Products</div>
-                <div class="fs-3 fw-bold text-dark"><?= number_format((int)($metrics['total_items'] ?? 0)) ?></div>
-                <div class="small text-muted"><?= number_format((float)($metrics['total_quantity'] ?? 0)) ?> purchased units (pcs)</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Pending Unmapped</div>
-                <div class="fs-3 fw-bold text-warning"><?= number_format((int)($metrics['unmapped_count'] ?? 0)) ?></div>
-                <div class="small text-muted">Awaiting category &amp; attribute mapping</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Successfully Mapped</div>
-                <div class="fs-3 fw-bold text-success"><?= number_format((int)($metrics['mapped_count'] ?? 0)) ?></div>
-                <div class="small text-muted">Configured in Third-Party Catalog</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Mapping Completion</div>
-                <?php
-                    $tot = (int)($metrics['total_items'] ?? 0);
-                    $map = (int)($metrics['mapped_count'] ?? 0);
-                    $pct = $tot > 0 ? round(($map / $tot) * 100, 1) : 100;
-                ?>
-                <div class="fs-3 fw-bold text-primary"><?= $pct ?>%</div>
-                <div class="progress mt-2" style="height: 6px;">
-                    <div class="progress-bar bg-success" role="progressbar" style="width: <?= $pct ?>%" aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100"></div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Third-Party Products</div>
+                    <div class="fs-3 fw-bold text-primary mt-1"><?= number_format((int)($metrics['total_items'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-box-seam text-primary me-1"></i><?= number_format((float)($metrics['total_quantity'] ?? 0)) ?> purchased units (pcs)</div>
                 </div>
-                <div class="small text-muted mt-2">
-                    QR batches: <?= number_format((int)($metrics['qr_count'] ?? 0)) ?> &nbsp;·&nbsp; GRNs: <?= number_format((int)($metrics['grn_count'] ?? 0)) ?>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-box-seam fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Pending Unmapped</div>
+                    <div class="fs-3 fw-bold text-warning-emphasis mt-1"><?= number_format((int)($metrics['unmapped_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-hourglass-split text-warning me-1"></i>Awaiting category &amp; attribute mapping</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-hourglass-split fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Successfully Mapped</div>
+                    <div class="fs-3 fw-bold text-success mt-1"><?= number_format((int)($metrics['mapped_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check2-circle text-success me-1"></i>Configured in Third-Party Catalog</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-check2-circle fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2 flex-grow-1" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Mapping Completion</div>
+                    <?php
+                        $tot = (int)($metrics['total_items'] ?? 0);
+                        $map = (int)($metrics['mapped_count'] ?? 0);
+                        $pct = $tot > 0 ? round(($map / $tot) * 100, 1) : 100;
+                    ?>
+                    <div class="fs-3 fw-bold text-info-emphasis mt-1"><?= $pct ?>%</div>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <?= $pct ?>%" aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        QR batches: <?= number_format((int)($metrics['qr_count'] ?? 0)) ?> &nbsp;·&nbsp; GRNs: <?= number_format((int)($metrics['grn_count'] ?? 0)) ?>
+                    </div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon ms-2">
+                    <i class="bi bi-diagram-3 fs-4"></i>
                 </div>
             </div>
         </div>

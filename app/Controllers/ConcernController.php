@@ -752,12 +752,12 @@ class ConcernController {
 
         if ($success) {
             if ($concernId === 0) {
-                Session::flash('success', "Switched to <strong>Global Admin (All Concerns)</strong> view.");
+                Session::flash('success', "Switched to Global Admin (All Concerns) view.");
             } else {
                 $c = currentConcern();
-                $cName = $c['name'] ?? 'Concern #' . $concernId;
-                $cCode = $c['code'] ?? '';
-                Session::flash('success', "Switched active business concern to <strong>{$cName}</strong> ({$cCode}).");
+                $cName = trim((string)($c['name'] ?? 'Concern #' . $concernId));
+                $cCode = trim((string)($c['code'] ?? ''));
+                Session::flash('success', "Switched active business concern to {$cName}" . ($cCode !== '' ? " ({$cCode})" : '') . ".");
             }
         } else {
             Session::flash('error', 'Unable to switch to the selected concern. Access denied or entity inactive.');

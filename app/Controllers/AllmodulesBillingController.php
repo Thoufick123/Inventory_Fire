@@ -618,13 +618,25 @@ class AllmodulesBillingController
                 }
             }
 
+            $explicitCodeCandidates = array_values(array_filter([$vCodeUpper, $vDbCode, $vDbQr], static fn(string $c): bool => $c !== ''));
+            $hasExplicitVariantCode = !empty($explicitCodeCandidates);
+            $matchesExplicitVariantCode = false;
+            foreach ($explicitCodeCandidates as $codeCandidate) {
+                if ($codeCandidate === $needle || ('V' . $codeCandidate) === $needle || $codeCandidate === ('V' . $needle)) {
+                    $matchesExplicitVariantCode = true;
+                    break;
+                }
+            }
+            $matchesSyntheticVCode = !$hasExplicitVariantCode
+                && (($formattedVCode !== '' && $formattedVCode === $needle) || ($shortVCode !== '' && $shortVCode === $needle));
+            $matchesNumericId = !$needleIsVariantCode
+                && $vIdStr !== '0'
+                && ($vIdStr === $needle || $vIdStr === $cleanNeedle || ('#' . $vIdStr) === $needle || (is_numeric($cleanNum) && (int)$cleanNum === $vId));
+
             $isExactMatch = in_array($needle, $tagsUpper, true)
-                || ($vCodeUpper !== '' && ($vCodeUpper === $needle || ('V' . $vCodeUpper) === $needle))
-                || ($vDbCode !== '' && ($vDbCode === $needle || ('V' . $vDbCode) === $needle))
-                || ($vDbQr !== '' && ($vDbQr === $needle || ('V' . $vDbQr) === $needle))
-                || ($formattedVCode !== '' && $formattedVCode === $needle)
-                || ($shortVCode !== '' && $shortVCode === $needle)
-                || ($vIdStr !== '0' && ($vIdStr === $needle || $vIdStr === $cleanNeedle || ('#' . $vIdStr) === $needle || (is_numeric($cleanNum) && (int)$cleanNum === $vId)))
+                || $matchesExplicitVariantCode
+                || $matchesSyntheticVCode
+                || $matchesNumericId
                 || ($vSkuUpper !== '' && $vSkuUpper === $needle)
                 || $tagPrefixMatch;
 
@@ -781,11 +793,11 @@ class AllmodulesBillingController
             foreach ($items as $item) {
                 $iVarId = (int)($item['variant_id'] ?? 0);
                 $iVarCode = strtoupper(trim((string)($item['variant_code'] ?? '')));
-                $iVarPadded = $iVarId > 0 ? sprintf('V%04d', $iVarId) : '';
+                $iVarPadded = ($iVarCode === '' && $iVarId > 0) ? sprintf('V%04d', $iVarId) : '';
                 $itemTagsUpper = array_map('strtoupper', array_map('trim', $item['available_tags']));
                 if ($iVarId === $varId
-                    || ($iVarCode !== '' && ($iVarCode === $varCode || $iVarCode === $vPadded || $iVarCode === $needle))
-                    || ($iVarPadded !== '' && ($iVarPadded === $vPadded || $iVarPadded === $varCode))
+                    || ($iVarCode !== '' && ($iVarCode === $varCode || $iVarCode === $needle))
+                    || ($iVarPadded !== '' && $iVarPadded === $varCode)
                     || (!empty($item['sku']) && strtoupper($item['sku']) === $varSku)
                     || in_array($needle, $itemTagsUpper, true)
                     || in_array($varCode, $itemTagsUpper, true)) {
@@ -799,7 +811,7 @@ class AllmodulesBillingController
                 return;
             }
 
-            // Direct fallback: check QC items for this variant across active batches
+            // Direct fallback: check QC items belonging to THIS product & variant across active batches
             $directQcRows = Database::fetchAll("
                 SELECT qi.id as qc_item_id, qi.qc_batch_id, qi.variant_id, qi.size_name, qi.color_name,
                        qi.base_price, qi.discount_price, qi.passed_qty,
@@ -812,21 +824,72 @@ class AllmodulesBillingController
                 JOIN production_programs pp ON pp.id = qb.program_id
                 JOIN products p ON p.id = pp.product_id
                 JOIN product_variants pv ON pv.id = ?
-                WHERE (qi.variant_id = ? OR qi.variant_id IS NULL OR qi.variant_id = 0)
+                WHERE pp.product_id = pv.product_id
+                  AND (
+                        qi.variant_id = ?
+                        OR (
+                            (qi.variant_id IS NULL OR qi.variant_id = 0)
+                            AND (? = '' OR UPPER(TRIM(COALESCE(qi.size_name, ''))) = UPPER(TRIM(?)))
+                            AND (? = '' OR UPPER(TRIM(COALESCE(qi.color_name, ''))) = UPPER(TRIM(?)))
+                        )
+                  )
                   AND qi.passed_qty > 0
                 ORDER BY qb.id DESC
-            ", [$varId, $varId]);
+            ", [
+                $varId,
+                $varId,
+                (string)($variantMatch['size_name'] ?? ''),
+                (string)($variantMatch['size_name'] ?? ''),
+                (string)($variantMatch['color_name'] ?? ''),
+                (string)($variantMatch['color_name'] ?? ''),
+            ]);
 
             if (!empty($directQcRows)) {
+                $soldFallbackRows = Database::fetchAll(
+                    $billId > 0
+                        ? "SELECT tag_code FROM production_bill_item_tags WHERE bill_id <> ?"
+                        : "SELECT tag_code FROM production_bill_item_tags",
+                    $billId > 0 ? [$billId] : []
+                );
+                $soldFallbackMap = array_fill_keys(array_map(
+                    static fn(array $r): string => strtoupper(trim((string)$r['tag_code'])),
+                    $soldFallbackRows
+                ), true);
+
                 foreach ($directQcRows as $dRow) {
                     $mrp = max(0.0, (float)($dRow['variant_mrp'] ?: ($dRow['base_price'] ?: $variantMatch['mrp'])));
                     $sellingPrice = max(0.0, (float)($dRow['selling_price'] ?: ($dRow['discount_price'] ?: $variantMatch['selling_price'])));
                     if ($sellingPrice <= 0) $sellingPrice = $mrp;
 
+                    $genTagRows = Database::fetchAll("
+                        SELECT qri.qr_code
+                        FROM qr_generation_items qri
+                        JOIN qr_generations qrg ON qrg.id = qri.generation_id
+                        WHERE (qrg.qc_batch_id = ?
+                               OR qrg.id = (SELECT qr_generation_id FROM qc_batches WHERE id = ?)
+                               OR (qrg.stitching_batch_id > 0 AND qrg.stitching_batch_id = (SELECT stitching_batch_id FROM qc_batches WHERE id = ?)))
+                          AND (qri.variant_id = ? OR (? = 0 AND UPPER(TRIM(COALESCE(qri.size_name, ''))) = UPPER(TRIM(COALESCE(?, '')))))
+                        ORDER BY qri.sequence_num ASC
+                    ", [(int)$dRow['qc_batch_id'], (int)$dRow['qc_batch_id'], (int)$dRow['qc_batch_id'], $varId, $varId, (string)($dRow['size_name'] ?? '')]);
+
                     $vTags = [];
-                    $qCount = max(1, (int)$dRow['passed_qty']);
-                    for ($t = 1; $t <= $qCount; $t++) {
-                        $vTags[] = ($varCode ?: 'V' . $varId) . '-' . sprintf('%03d', $t);
+                    foreach ($genTagRows as $gtRow) {
+                        $cand = trim((string)($gtRow['qr_code'] ?? ''));
+                        if ($cand !== '' && !isset($soldFallbackMap[strtoupper($cand)])) {
+                            $vTags[] = $cand;
+                        }
+                    }
+                    if (empty($vTags)) {
+                        $qCount = max(1, (int)$dRow['passed_qty']);
+                        for ($t = 1; $t <= $qCount; $t++) {
+                            $cand = ($varCode ?: 'V' . $varId) . '-' . sprintf('%03d', $t);
+                            if (!isset($soldFallbackMap[strtoupper($cand)])) {
+                                $vTags[] = $cand;
+                            }
+                        }
+                    }
+                    if (empty($vTags)) {
+                        continue;
                     }
 
                     $variantItems[] = [
@@ -847,9 +910,11 @@ class AllmodulesBillingController
                         'available_tags'   => $vTags,
                     ];
                 }
-                $checkPriceForItems($variantItems, $needle);
-                Response::jsonSuccess('Variant QC inventory found.', ['items' => $variantItems]);
-                return;
+                if (!empty($variantItems)) {
+                    $checkPriceForItems($variantItems, $needle);
+                    Response::jsonSuccess('Variant QC inventory found.', ['items' => $variantItems]);
+                    return;
+                }
             }
 
             // Fallback: check available stock balances across facilities
@@ -871,10 +936,37 @@ class AllmodulesBillingController
                     $sellingPrice = 0.00;
                 }
 
+                $soldBalRows = Database::fetchAll(
+                    $billId > 0
+                        ? "SELECT tag_code FROM production_bill_item_tags WHERE bill_id <> ?"
+                        : "SELECT tag_code FROM production_bill_item_tags",
+                    $billId > 0 ? [$billId] : []
+                );
+                $soldBalMap = array_fill_keys(array_map(
+                    static fn(array $r): string => strtoupper(trim((string)$r['tag_code'])),
+                    $soldBalRows
+                ), true);
+
+                $qrBalRows = Database::fetchAll(
+                    "SELECT qr_code FROM qr_generation_items WHERE variant_id = ? ORDER BY sequence_num ASC, id ASC",
+                    [$varId]
+                );
                 $vCode = $variantMatch['variant_code'] ?: $variantMatch['sku'];
                 $vTags = [];
-                for ($t = 1; $t <= (int)$availableQty; $t++) {
-                    $vTags[] = $vCode . '-' . sprintf('%03d', $t);
+                foreach ($qrBalRows as $qbRow) {
+                    $cand = trim((string)($qbRow['qr_code'] ?? ''));
+                    if ($cand !== '' && !isset($soldBalMap[strtoupper($cand)])) {
+                        $vTags[] = $cand;
+                        if (count($vTags) >= (int)$availableQty) {
+                            break;
+                        }
+                    }
+                }
+                for ($t = 1; count($vTags) < (int)$availableQty && $t <= ((int)$availableQty * 2 + 20); $t++) {
+                    $cand = $vCode . '-' . sprintf('%03d', $t);
+                    if (!isset($soldBalMap[strtoupper($cand)]) && !in_array($cand, $vTags, true)) {
+                        $vTags[] = $cand;
+                    }
                 }
                 $variantItems = [
                     [
@@ -989,8 +1081,8 @@ class AllmodulesBillingController
             ));
             $vCodeUpper = strtoupper(trim((string)($item['variant_code'] ?? '')));
             $vId = (int)($item['variant_id'] ?? 0);
-            $formattedVCode = $vId > 0 ? sprintf('V%04d', $vId) : '';
-            $shortVCode = $vId > 0 ? ('V' . $vId) : '';
+            $formattedVCode = ($vCodeUpper === '' && $vId > 0) ? sprintf('V%04d', $vId) : '';
+            $shortVCode = ($vCodeUpper === '' && $vId > 0) ? ('V' . $vId) : '';
 
             $metadataMatch = stripos($item['product_name'], $query) !== false
                 || stripos((string)$item['sku'], $query) !== false
@@ -1000,7 +1092,7 @@ class AllmodulesBillingController
                 || ($vCodeUpper !== '' && stripos($vCodeUpper, $needle) !== false)
                 || ($formattedVCode !== '' && stripos($formattedVCode, $needle) !== false)
                 || ($shortVCode !== '' && stripos($shortVCode, $needle) !== false)
-                || ($vId > 0 && ($needleNum === $vId || (string)$vId === $cleanNeedle || ('#' . $vId) === $needle || (is_numeric($cleanNum) && (int)$cleanNum === $vId)));
+                || (!$needleIsVariantCode && $vId > 0 && ($needleNum === $vId || (string)$vId === $cleanNeedle || ('#' . $vId) === $needle || (is_numeric($cleanNum) && (int)$cleanNum === $vId)));
 
             if ($metadataMatch || $matchingTags) {
                 if ($matchingTags) {
@@ -1548,11 +1640,19 @@ class AllmodulesBillingController
                     WHERE (qrg.qc_batch_id = ? 
                            OR qrg.id = (SELECT qr_generation_id FROM qc_batches WHERE id = ?)
                            OR (qrg.stitching_batch_id > 0 AND qrg.stitching_batch_id = (SELECT stitching_batch_id FROM qc_batches WHERE id = ?)))
-                      AND (UPPER(TRIM(COALESCE(qri.size_name, ''))) = UPPER(TRIM(COALESCE(?, '')))
-                           OR UPPER(TRIM(COALESCE(qri.color_name, ''))) = UPPER(TRIM(COALESCE(?, ''))))
+                      AND (? = '' OR UPPER(TRIM(COALESCE(qri.size_name, ''))) = UPPER(TRIM(?)))
+                      AND (? = '' OR UPPER(TRIM(COALESCE(qri.color_name, ''))) = UPPER(TRIM(?)))
                       AND qri.variant_id > 0
                     ORDER BY qri.id ASC LIMIT 1
-                ", [(int)$row['qc_batch_id'], (int)$row['qc_batch_id'], (int)$row['qc_batch_id'], (string)($row['size_name'] ?? ''), (string)($row['color_name'] ?? '')]);
+                ", [
+                    (int)$row['qc_batch_id'],
+                    (int)$row['qc_batch_id'],
+                    (int)$row['qc_batch_id'],
+                    (string)($row['size_name'] ?? ''),
+                    (string)($row['size_name'] ?? ''),
+                    (string)($row['color_name'] ?? ''),
+                    (string)($row['color_name'] ?? ''),
+                ]);
                 if (!empty($qrItem['variant_id'])) {
                     $vId = (int)$qrItem['variant_id'];
                     $row['variant_id'] = $vId;
@@ -2000,6 +2100,22 @@ class AllmodulesBillingController
                     [$variantId, $productionUnitId]
                 );
                 $availableVariantQty = (float)($balRow['quantity'] ?? 0);
+                if ($availableVariantQty <= 0) {
+                    $anyBalRow = Database::fetchOne(
+                        "SELECT COALESCE(SUM(quantity), 0) AS quantity
+                         FROM stock_balances
+                         WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
+                        [$variantId]
+                    );
+                    $availableVariantQty = (float)($anyBalRow['quantity'] ?? 0);
+                }
+                if ($availableVariantQty <= 0) {
+                    foreach ($this->getAvailableInventory($billId ?? 0, $productionUnitId) as $availEntry) {
+                        if ((int)($availEntry['variant_id'] ?? 0) === $variantId) {
+                            $availableVariantQty += count($availEntry['available_tags'] ?? []);
+                        }
+                    }
+                }
                 $requestedVariantQty = ($variantRequestedQuantities[$variantId] ?? 0) + count($tags);
                 if (!$varRow || $availableVariantQty < $requestedVariantQty) {
                     Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Insufficient available stock for variant ' . ($varRow['sku'] ?? "ID $variantId") . '. Available: ' . $availableVariantQty);

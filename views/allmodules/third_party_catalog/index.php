@@ -16,38 +16,58 @@
 <!-- KPI Cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Catalog Styles</div>
-                <div class="fs-3 fw-bold text-dark"><?= number_format((int)($metrics['total_styles'] ?? 0)) ?></div>
-                <div class="small text-muted">Configured third-party products</div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Catalog Styles</div>
+                    <div class="fs-3 fw-bold text-primary mt-1"><?= number_format((int)($metrics['total_styles'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-collection text-primary me-1"></i>Configured third-party products</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-collection fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Categories</div>
-                <div class="fs-3 fw-bold text-info"><?= number_format((int)($metrics['total_categories'] ?? 0)) ?></div>
-                <div class="small text-muted">Distinct categories used</div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Categories</div>
+                    <div class="fs-3 fw-bold text-info-emphasis mt-1"><?= number_format((int)($metrics['total_categories'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-diagram-3 text-info me-1"></i>Distinct categories used</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-diagram-3 fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Avg. Selling Price</div>
-                <div class="fs-3 fw-bold text-primary">₹<?= number_format((float)($metrics['avg_selling'] ?? 0), 2) ?></div>
-                <div class="small text-muted">Average selling value</div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Avg. Selling Price</div>
+                    <div class="fs-3 fw-bold text-warning-emphasis mt-1">₹<?= number_format((float)($metrics['avg_selling'] ?? 0), 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-tag text-warning me-1"></i>Average selling value</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-tag fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Avg. MRP</div>
-                <div class="fs-3 fw-bold text-success">₹<?= number_format((float)($metrics['avg_mrp'] ?? 0), 2) ?></div>
-                <div class="small text-muted">Average maximum retail price</div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Avg. MRP</div>
+                    <div class="fs-3 fw-bold text-success mt-1">₹<?= number_format((float)($metrics['avg_mrp'] ?? 0), 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-success me-1"></i>Average maximum retail price</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-currency-rupee fs-4"></i>
+                </div>
             </div>
         </div>
     </div>

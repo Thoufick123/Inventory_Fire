@@ -316,16 +316,16 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
             <!-- 2. Cart Table Card -->
             <style>
                 #billingCartTable {
-                    min-width: 1080px;
+                    min-width: 1140px;
                 }
                 #billingCartTable th,
                 #billingCartTable td {
-                    padding: 0.75rem 0.5rem;
+                    padding: 0.7rem 0.45rem;
                     vertical-align: middle;
                 }
                 #billingCartTable .billing-product-cell {
-                    min-width: 245px;
-                    max-width: 310px;
+                    min-width: 220px;
+                    max-width: 290px;
                     white-space: normal;
                     word-break: break-word;
                 }
@@ -349,14 +349,22 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     padding-right: 0.25rem;
                 }
                 #billingCartTable .billing-rate-input {
-                    min-width: 78px;
-                    padding-left: 0.45rem;
-                    padding-right: 0.45rem;
+                    min-width: 74px;
+                    padding-left: 0.4rem;
+                    padding-right: 0.4rem;
                 }
                 #billingCartTable .billing-price-input {
-                    min-width: 98px;
-                    padding-left: 0.45rem;
-                    padding-right: 0.45rem;
+                    min-width: 96px;
+                    padding-left: 0.4rem;
+                    padding-right: 0.4rem;
+                }
+                #billingCartTable .billing-hsn-input {
+                    min-width: 78px;
+                    max-width: 92px;
+                    margin-left: auto;
+                    margin-right: auto;
+                    padding-left: 0.35rem;
+                    padding-right: 0.35rem;
                 }
                 #billingCartTable .billing-gst-select {
                     min-width: 148px;
@@ -374,10 +382,14 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     font-size: 12px;
                     padding: 0.25rem 0.4rem !important;
                 }
-                #billingCartTable .item-tags-wrap .badge {
-                    font-size: 11px;
-                    line-height: 1.25;
-                    white-space: nowrap;
+                #billingCartTable tr.billing-piece-row td {
+                    padding-top: 0.55rem;
+                    padding-bottom: 0.55rem;
+                    background-color: #ffffff;
+                    border-top: 1px dashed #e2e8f0;
+                }
+                #billingCartTable tr.billing-piece-row.billing-piece-row-alt td {
+                    background-color: #f8fafc;
                 }
             </style>
             <div class="card border-0 shadow-sm rounded-3 mb-3">
@@ -385,19 +397,20 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     <table class="table align-middle mb-0" id="billingCartTable">
                         <thead class="table-light small text-uppercase">
                             <tr>
-                                <th style="min-width: 245px;">Product &amp; Details</th>
-                                <th class="text-center" style="min-width: 140px;">Qty</th>
-                                <th class="text-end text-nowrap" style="min-width: 96px;">MRP</th>
-                                <th class="text-end text-nowrap" style="min-width: 96px;">Disc %</th>
-                                <th class="text-end text-nowrap" style="min-width: 118px;">Price / Pc<br><small class="text-muted fw-normal">incl. tax</small></th>
-                                <th style="min-width: 172px;">GST Details</th>
-                                <th class="text-end text-nowrap" style="min-width: 92px;">Tax</th>
-                                <th class="text-end text-nowrap" style="min-width: 105px;">Total</th>
-                                <th style="min-width: 48px;"></th>
+                                <th style="min-width: 220px;">Product &amp; Details</th>
+                                <th class="text-center" style="min-width: 138px;">Qty</th>
+                                <th class="text-end text-nowrap" style="min-width: 90px;">MRP</th>
+                                <th class="text-end text-nowrap" style="min-width: 90px;">Disc %</th>
+                                <th class="text-end text-nowrap" style="min-width: 112px;">Price / Pc<br><small class="text-muted fw-normal">incl. tax</small></th>
+                                <th class="text-center text-nowrap" style="min-width: 96px;">HSN</th>
+                                <th style="min-width: 168px;">GST Details</th>
+                                <th class="text-end text-nowrap" style="min-width: 88px;">Tax</th>
+                                <th class="text-end text-nowrap" style="min-width: 100px;">Total</th>
+                                <th style="min-width: 46px;"></th>
                             </tr>
                         </thead>
                         <tbody id="billCart">
-                            <tr><td colspan="9" class="text-center text-muted py-5"><i class="bi bi-cart3 fs-1 d-block mb-2 text-secondary"></i>Scan or search for items to add to this bill.</td></tr>
+                            <tr><td colspan="10" class="text-center text-muted py-5"><i class="bi bi-cart3 fs-1 d-block mb-2 text-secondary"></i>Scan or search for items to add to this bill.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1188,6 +1201,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function syncPieceRows(itemKey, item, mainRow) {
+        if (!mainRow || !mainRow.parentNode) return;
+        cartBody.querySelectorAll(`tr.billing-piece-row[data-parent-key="${itemKey}"]`).forEach(el => el.remove());
+
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        const variantMeta = [
+            item.sku || '',
+            item.size_name ? `Size: ${item.size_name}` : '',
+            item.color_name ? `Color: ${item.color_name}` : ''
+        ].filter(Boolean).join(' · ');
+        const hsnVal = (item.hsn_code || '6109').trim() || '6109';
+        const unitPriceVal = money(item.unit_price);
+
+        let anchor = mainRow;
+        tags.forEach((tag, idx) => {
+            const pRow = document.createElement('tr');
+            pRow.className = 'billing-piece-row' + (idx % 2 === 1 ? ' billing-piece-row-alt' : '');
+            pRow.dataset.parentKey = itemKey;
+
+            // Col 1: Product & Variant meta (matching reference piece rows)
+            const prodCell = pRow.insertCell();
+            prodCell.className = 'billing-product-cell ps-3';
+            const titleEl = document.createElement('div');
+            titleEl.className = 'fw-semibold text-dark small';
+            titleEl.textContent = item.product_name || '';
+            const metaEl = document.createElement('div');
+            metaEl.className = 'small text-muted';
+            metaEl.textContent = variantMeta;
+            prodCell.append(titleEl, metaEl);
+
+            // Col 2-4: Scanned Piece Tag Pill (black badge matching reference)
+            const tagCell = pRow.insertCell();
+            tagCell.colSpan = 3;
+            tagCell.className = 'text-center';
+            const tagBadge = document.createElement('span');
+            tagBadge.className = 'badge bg-dark text-white font-monospace px-2 py-1';
+            tagBadge.textContent = tag;
+            tagCell.append(tagBadge);
+
+            // Col 5: Price / Pc
+            const priceCell = pRow.insertCell();
+            priceCell.className = 'text-end fw-semibold font-monospace text-dark text-nowrap';
+            priceCell.dataset.piecePriceFor = itemKey;
+            priceCell.textContent = unitPriceVal;
+
+            // Col 6: HSN Pill (right next to Price / Pc)
+            const hsnCell = pRow.insertCell();
+            hsnCell.className = 'text-center';
+            const hsnBadge = document.createElement('span');
+            hsnBadge.className = 'badge bg-light text-dark border font-monospace';
+            hsnBadge.dataset.pieceHsnFor = itemKey;
+            hsnBadge.textContent = hsnVal;
+            hsnCell.append(hsnBadge);
+
+            // Col 7-9: Piece status summary
+            const statusCell = pRow.insertCell();
+            statusCell.colSpan = 3;
+            statusCell.className = 'text-muted small';
+            const statusBox = document.createElement('div');
+            statusBox.className = 'border rounded-2 px-2 py-1 bg-white text-muted small d-inline-block';
+            statusBox.textContent = `Piece ${idx + 1} of ${tags.length} · Bill item`;
+            statusCell.append(statusBox);
+
+            // Col 10: Remove individual piece button
+            const actCell = pRow.insertCell();
+            actCell.className = 'text-center';
+            const rmBtn = document.createElement('button');
+            rmBtn.type = 'button';
+            rmBtn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+            rmBtn.title = `Remove piece ${tag}`;
+            rmBtn.innerHTML = '<i class="bi bi-x"></i>';
+            rmBtn.addEventListener('click', () => {
+                item.tags = item.tags.filter(existing => existing !== tag);
+                if (!item.tags.length) {
+                    cart.delete(itemKey);
+                    renderCart();
+                } else {
+                    updateRowQuantity(itemKey, item.tags.length);
+                }
+            });
+            actCell.append(rmBtn);
+
+            anchor.insertAdjacentElement('afterend', pRow);
+            anchor = pRow;
+        });
+    }
+
     function updateRowQuantity(itemKey, requestedQty) {
         const item = cart.get(itemKey);
         if (!item) return;
@@ -1210,40 +1310,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         item.tags = allAvailable.slice(0, qty);
+        const remainingStock = Math.max(0, maxStock - qty);
 
         const row = cartBody.querySelector(`tr[data-row-key="${itemKey}"]`);
         if (row) {
             const rowIndex = row.dataset.rowIndex;
-            // Update tag badges in productCell
-            const tagsWrap = row.querySelector('.item-tags-wrap');
-            if (tagsWrap) {
-                tagsWrap.innerHTML = '';
-                const maxBadges = 4;
-                const shownTags = item.tags.slice(0, maxBadges);
-                shownTags.forEach(tag => {
-                    const badge = document.createElement('button');
-                    badge.type = 'button';
-                    badge.className = 'badge border-0 bg-light text-dark font-monospace shadow-xs';
-                    badge.title = 'Remove QR piece from bill';
-                    badge.textContent = `${tag} ×`;
-                    badge.addEventListener('click', () => {
-                        item.tags = item.tags.filter(existing => existing !== tag);
-                        if (!item.tags.length) {
-                            cart.delete(itemKey);
-                            renderCart();
-                        } else {
-                            updateRowQuantity(itemKey, item.tags.length);
-                        }
-                    });
-                    tagsWrap.append(badge);
-                });
-                if (item.tags.length > maxBadges) {
-                    const moreBadge = document.createElement('span');
-                    moreBadge.className = 'badge bg-primary-subtle text-primary border font-monospace shadow-xs';
-                    moreBadge.textContent = `+${item.tags.length - maxBadges} more`;
-                    moreBadge.title = item.tags.slice(maxBadges).join(', ');
-                    tagsWrap.append(moreBadge);
-                }
+
+            // Update remaining Stock counter below Qty input dynamically
+            const stockEl = row.querySelector(`[data-stock-for="${itemKey}"]`);
+            if (stockEl) {
+                stockEl.textContent = String(remainingStock);
             }
 
             // Update hidden tags inputs in quantityCell
@@ -1264,6 +1340,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (qInput && !qInput.matches(':focus')) {
                 qInput.value = String(qty);
             }
+
+            // Sync piece-by-piece rows directly below this variant row
+            syncPieceRows(itemKey, item, row);
 
             // Update line total and tax
             const price = Number(item.unit_price || 0);
@@ -1287,7 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCart() {
         cartBody.innerHTML = '';
         if (!cart.size) {
-            cartBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-5"><i class="bi bi-cart3 fs-1 d-block mb-2 text-secondary"></i>Scan or search for items to add to this bill.</td></tr>';
+            cartBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-5"><i class="bi bi-cart3 fs-1 d-block mb-2 text-secondary"></i>Scan or search for items to add to this bill.</td></tr>';
             updateTotals();
             return;
         }
@@ -1300,8 +1379,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentQty = item.tags.length;
             const allAvailable = selectableTags(item);
             const maxStock = allAvailable.length;
+            const remainingStock = Math.max(0, maxStock - currentQty);
 
-            // 1. Product details & HSN
+            // 1. Product & Details (clean, HSN moved next to Price / Pc)
             const productCell = row.insertCell();
             productCell.className = 'billing-product-cell';
             const productTitle = document.createElement('strong');
@@ -1333,65 +1413,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hiddenVar.name = `items[${index}][variant_id]`;
             hiddenVar.value = item.variant_id || 0;
             productCell.append(hiddenVar);
-
-            // Compact HSN edit line
-            const hsnRow = document.createElement('div');
-            hsnRow.className = 'd-inline-flex align-items-center gap-1 mt-1';
-            hsnRow.innerHTML = `<span class="badge bg-light text-secondary border font-monospace px-1">HSN:</span>`;
-            const hsnInput = document.createElement('input');
-            hsnInput.type = 'text';
-            hsnInput.id = `billing-hsn-${index}`;
-            hsnInput.maxLength = 10;
-            hsnInput.required = true;
-            hsnInput.inputMode = 'numeric';
-            hsnInput.className = 'form-control form-control-sm font-monospace py-0 px-1 border-0 bg-light';
-            hsnInput.style.maxWidth = '75px';
-            hsnInput.style.height = '22px';
-            hsnInput.style.fontSize = '12px';
-            hsnInput.placeholder = 'HSN';
-            hsnInput.name = `items[${index}][hsn_code]`;
-            hsnInput.value = item.hsn_code || '6109';
-            bindNumericInputValidation(hsnInput, {
-                allowDecimal: false,
-                min: 0,
-                allowEmpty: true,
-                formatOnBlur: false,
-                defaultValue: ''
-            });
-            hsnInput.addEventListener('input', () => { item.hsn_code = hsnInput.value.trim(); });
-            hsnRow.append(hsnInput);
-            productCell.append(hsnRow);
-
-            // Tags badges
-            const tagsWrap = document.createElement('div');
-            tagsWrap.className = 'item-tags-wrap d-flex flex-wrap gap-1 mt-1';
-            const maxBadges = 4;
-            const shownTags = item.tags.slice(0, maxBadges);
-            shownTags.forEach(tag => {
-                const badge = document.createElement('button');
-                badge.type = 'button';
-                badge.className = 'badge border-0 bg-light text-dark font-monospace shadow-xs';
-                badge.title = 'Remove QR piece from bill';
-                badge.textContent = `${tag} ×`;
-                badge.addEventListener('click', () => {
-                    item.tags = item.tags.filter(existing => existing !== tag);
-                    if (!item.tags.length) {
-                        cart.delete(itemKey);
-                        renderCart();
-                    } else {
-                        updateRowQuantity(itemKey, item.tags.length);
-                    }
-                });
-                tagsWrap.append(badge);
-            });
-            if (item.tags.length > maxBadges) {
-                const moreBadge = document.createElement('span');
-                moreBadge.className = 'badge bg-primary-subtle text-primary border font-monospace shadow-xs';
-                moreBadge.textContent = `+${item.tags.length - maxBadges} more`;
-                moreBadge.title = item.tags.slice(maxBadges).join(', ');
-                tagsWrap.append(moreBadge);
-            }
-            productCell.append(tagsWrap);
 
             // 2. Quantity cell
             const quantityCell = row.insertCell();
@@ -1482,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const limitHelper = document.createElement('div');
             limitHelper.className = 'small text-muted text-center mt-1';
-            limitHelper.innerHTML = `Stock: <strong class="text-dark">${maxStock}</strong> pcs`;
+            limitHelper.innerHTML = `Stock: <strong class="text-dark" data-stock-for="${itemKey}">${remainingStock}</strong> pcs`;
             quantityCell.append(limitHelper);
 
             // Hidden tags container
@@ -1564,7 +1585,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             priceCell.append(priceInput);
 
-            // 6. GST details cell (compact stacked layout)
+            // 6. HSN cell (next to Price / Pc incl. tax)
+            const hsnCell = row.insertCell();
+            hsnCell.className = 'text-center';
+            const hsnInput = document.createElement('input');
+            hsnInput.type = 'text';
+            hsnInput.id = `billing-hsn-${index}`;
+            hsnInput.maxLength = 10;
+            hsnInput.required = true;
+            hsnInput.inputMode = 'numeric';
+            hsnInput.setAttribute('aria-label', 'HSN code');
+            hsnInput.className = 'form-control form-control-sm text-center font-monospace billing-hsn-input';
+            hsnInput.placeholder = 'HSN';
+            hsnInput.name = `items[${index}][hsn_code]`;
+            hsnInput.value = item.hsn_code || '6109';
+            bindNumericInputValidation(hsnInput, {
+                allowDecimal: false,
+                min: 0,
+                allowEmpty: true,
+                formatOnBlur: false,
+                defaultValue: ''
+            });
+            hsnInput.addEventListener('input', () => {
+                item.hsn_code = hsnInput.value.trim();
+                const displayHsn = item.hsn_code || '6109';
+                cartBody.querySelectorAll(`[data-piece-hsn-for="${itemKey}"]`).forEach(el => {
+                    el.textContent = displayHsn;
+                });
+            });
+            hsnCell.append(hsnInput);
+
+            // 7. GST details cell (compact stacked layout)
             const gstCell = row.insertCell();
             const taxGroup = document.createElement('div');
             taxGroup.className = 'd-flex flex-column gap-1';
@@ -1650,6 +1701,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCart();
             });
             removeCell.append(removeBtn);
+
+            // Render piece-by-piece rows immediately below this variant row
+            syncPieceRows(itemKey, item, row);
 
             index++;
         });
@@ -1832,22 +1886,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const exactMatch = res.data.items.find(it => {
                     const available = Array.isArray(it.available_tags) ? it.available_tags : [];
-                    const vCode = (it.variant_code || '').toUpperCase();
+                    const vCode = (it.variant_code || '').toUpperCase().trim();
                     const vId = String(it.variant_id || '');
                     const uNeedle = needle.toUpperCase().trim();
                     const cleanNeedle = uNeedle.replace(/^#/, '');
+                    const isVCodeQuery = /^V0*[0-9]+$/i.test(uNeedle);
                     const cleanNum = uNeedle.replace(/^V0*|^#0*/i, '');
                     const cleanNeedleNum = parseInt(cleanNum, 10);
                     const itVIdNum = parseInt(vId, 10);
-                    const formattedVCode = itVIdNum > 0 ? ('V' + String(itVIdNum).padStart(4, '0')) : '';
-                    const shortVCode = itVIdNum > 0 ? ('V' + itVIdNum) : '';
+                    const formattedVCode = (vCode === '' && itVIdNum > 0) ? ('V' + String(itVIdNum).padStart(4, '0')) : '';
+                    const shortVCode = (vCode === '' && itVIdNum > 0) ? ('V' + itVIdNum) : '';
                     const sku = (it.sku || '').toUpperCase();
 
                     return available.some(t => t.toUpperCase() === uNeedle || t.toUpperCase().startsWith(uNeedle + '-') || t.toUpperCase().startsWith(uNeedle + '_'))
                         || (vCode !== '' && (vCode === uNeedle || ('V' + vCode) === uNeedle || vCode === ('V' + uNeedle)))
                         || (formattedVCode !== '' && formattedVCode === uNeedle)
                         || (shortVCode !== '' && shortVCode === uNeedle)
-                        || (vId !== '0' && (vId === cleanNeedle || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)))
+                        || (!isVCodeQuery && vId !== '0' && (vId === cleanNeedle || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)))
                         || (sku !== '' && sku === uNeedle);
                 });
 
@@ -1882,7 +1937,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <strong class="text-dark">${it.product_name}</strong>
-                        <span class="small text-muted ms-2">${it.sku || ''} ${it.size_name ? '· ' + it.size_name : ''}</span>
+                        ${it.variant_code ? `<span class="badge bg-dark text-white font-monospace ms-1">${it.variant_code}</span>` : ''}
+                        <span class="small text-muted ms-2">${it.sku || ''} ${it.size_name ? '· ' + it.size_name : ''} ${it.color_name ? '· ' + it.color_name : ''}</span>
                     </div>
                     <span class="badge bg-primary">${money(it.unit_price)}</span>
                 </div>
