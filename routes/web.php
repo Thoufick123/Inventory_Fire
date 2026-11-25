@@ -49,9 +49,9 @@ class Router {
         }
 
         // Backward compatibility: seamlessly route legacy production/ to allmodules/
-        if (str_starts_with($url, 'allmodules/')) {
+        if (str_starts_with($url, 'production/')) {
             $url = 'allmodules/' . substr($url, 11);
-        } elseif (str_starts_with($url, 'api/allmodules/')) {
+        } elseif (str_starts_with($url, 'api/production/')) {
             $url = 'api/allmodules/' . substr($url, 15);
         }
 

@@ -162,10 +162,57 @@ class AdminController {
     }
 
     /**
-     * Compute dashboard KPI cards and revenue chart datasets for the selected concern scope.
+     * Validate and normalize dashboard From/To date range.
      */
-    private function getDashboardRevenueAnalytics(array $scope, int $months = 12): array {
-        $months = in_array($months, [6, 12], true) ? $months : 12;
+    private function resolveDashboardDateRange(?string $rawFrom, ?string $rawTo, bool $useDefaultWhenEmpty = true): array {
+        $parseDate = static function (?string $val): string {
+            $trimmed = trim((string)$val);
+            if ($trimmed === '') {
+                return '';
+            }
+            $dt = DateTime::createFromFormat('Y-m-d', $trimmed);
+            return ($dt && $dt->format('Y-m-d') === $trimmed) ? $trimmed : '';
+        };
+
+        $fromDate = $parseDate($rawFrom);
+        $toDate   = $parseDate($rawTo);
+
+        if ($useDefaultWhenEmpty && $rawFrom === null && $rawTo === null) {
+            $fromDate = date('Y-m-01', strtotime('-5 months'));
+            $toDate   = date('Y-m-d');
+        }
+
+        if ($fromDate !== '' && $toDate !== '' && $fromDate > $toDate) {
+            [$fromDate, $toDate] = [$toDate, $fromDate];
+        }
+
+        return [
+            'fromDate' => $fromDate,
+            'toDate'   => $toDate,
+        ];
+    }
+
+    /**
+     * Build SQL date/datetime range filter fragment and bound parameters.
+     */
+    private function buildDateRangeFilter(string $columnRef, string $fromDate, string $toDate, bool $isDateTime = false): array {
+        $sql = '';
+        $params = [];
+        if ($fromDate !== '') {
+            $sql .= " AND {$columnRef} >= ?";
+            $params[] = $isDateTime ? ($fromDate . ' 00:00:00') : $fromDate;
+        }
+        if ($toDate !== '') {
+            $sql .= " AND {$columnRef} <= ?";
+            $params[] = $isDateTime ? ($toDate . ' 23:59:59') : $toDate;
+        }
+        return [$sql, $params];
+    }
+
+    /**
+     * Compute dashboard KPI cards and revenue chart datasets for the selected concern and date range.
+     */
+    private function getDashboardRevenueAnalytics(array $scope, string $fromDate = '', string $toDate = ''): array {
         $isGlobalAdmin     = $scope['isGlobalAdmin'];
         $availableConcerns = $scope['availableConcerns'];
         $allowedConcernIds = $scope['allowedConcernIds'];
@@ -173,19 +220,42 @@ class AdminController {
         $selectedConcernId = $scope['selectedConcernId'];
         $selectedConcern   = $scope['selectedConcern'];
 
-        // 1. Total Concerns Count
-        $totalConcerns = ($selectedConcernId !== null) ? 1 : count($availableConcerns);
+        // 1. Total Concerns Count (filtered by selected concern & created_at date range)
+        [$concernDateSql, $concernDateParams] = $this->buildDateRangeFilter('c.created_at', $fromDate, $toDate, true);
+        if ($selectedConcernId !== null) {
+            $concernCountRow = Database::fetchOne(
+                "SELECT COUNT(*) AS cnt FROM concerns c WHERE c.id = ? AND c.is_active = 1{$concernDateSql}",
+                array_merge([$selectedConcernId], $concernDateParams)
+            );
+            $totalConcerns = (int)($concernCountRow['cnt'] ?? 0);
+        } elseif ($isGlobalAdmin) {
+            $concernCountRow = Database::fetchOne(
+                "SELECT COUNT(*) AS cnt FROM concerns c WHERE c.is_active = 1{$concernDateSql}",
+                $concernDateParams
+            );
+            $totalConcerns = (int)($concernCountRow['cnt'] ?? 0);
+        } elseif (!empty($allowedConcernIds)) {
+            $placeholders = implode(',', array_fill(0, count($allowedConcernIds), '?'));
+            $concernCountRow = Database::fetchOne(
+                "SELECT COUNT(*) AS cnt FROM concerns c WHERE c.is_active = 1 AND c.id IN ({$placeholders}){$concernDateSql}",
+                array_merge($allowedConcernIds, $concernDateParams)
+            );
+            $totalConcerns = (int)($concernCountRow['cnt'] ?? 0);
+        } else {
+            $totalConcerns = 0;
+        }
         $concernsSubtitle = $selectedConcern
             ? ($selectedConcern['name'] . ' (' . $selectedConcern['code'] . ')')
             : 'All Active Business Entities';
 
-        // 2. Total Staff Count (active non-superadmin staff within concern scope)
+        // 2. Total Staff Count (active non-superadmin staff within concern & date scope)
+        [$staffDateSql, $staffDateParams] = $this->buildDateRangeFilter('u.created_at', $fromDate, $toDate, true);
         $staffSql = "SELECT COUNT(DISTINCT u.id) AS cnt
                      FROM users u
                      LEFT JOIN roles r ON u.role_id = r.id
                      WHERE u.is_active = 1
-                       AND (u.role_id != 1 AND u.username != 'admin' AND (r.slug NOT IN ('admin', 'super_admin') OR r.slug IS NULL))";
-        $staffParams = [];
+                       AND (u.role_id != 1 AND u.username != 'admin' AND (r.slug NOT IN ('admin', 'super_admin') OR r.slug IS NULL)){$staffDateSql}";
+        $staffParams = $staffDateParams;
         if ($selectedConcernId !== null) {
             $staffSql .= " AND (EXISTS (SELECT 1 FROM user_concerns uc WHERE uc.user_id = u.id AND uc.concern_id = ?) OR u.default_concern_id = ?)";
             $staffParams[] = $selectedConcernId;
@@ -194,7 +264,7 @@ class AdminController {
             if (!empty($allowedConcernIds)) {
                 $placeholders = implode(',', array_fill(0, count($allowedConcernIds), '?'));
                 $staffSql .= " AND (EXISTS (SELECT 1 FROM user_concerns uc WHERE uc.user_id = u.id AND uc.concern_id IN ({$placeholders})) OR u.default_concern_id IN ({$placeholders}))";
-                $staffParams = array_merge($allowedConcernIds, $allowedConcernIds);
+                $staffParams = array_merge($staffParams, $allowedConcernIds, $allowedConcernIds);
             } else {
                 $staffSql .= " AND 1 = 0";
             }
@@ -204,28 +274,30 @@ class AdminController {
             ? ('Assigned to ' . $selectedConcern['code'])
             : 'Active Workforce Directory';
 
-        // 3. Total Purchase Amount (production_purchases)
+        // 3. Total Purchase Amount (production_purchases filtered by concern & purchase_date)
         [$purFilter, $purParams] = $this->buildRevenueConcernFilter('pp.concern_id', $selectedConcernId, $allowedConcernIds, $isGlobalAdmin);
+        [$purDateSql, $purDateParams] = $this->buildDateRangeFilter('pp.purchase_date', $fromDate, $toDate, false);
         $purchaseRow = Database::fetchOne(
             "SELECT COUNT(*) AS purchase_count,
                     COALESCE(SUM(pp.total_amount), 0) AS total_purchase_amount
              FROM production_purchases pp
-             WHERE 1=1{$purFilter}",
-            $purParams
+             WHERE 1=1{$purFilter}{$purDateSql}",
+            array_merge($purParams, $purDateParams)
         );
         $purchaseCount       = (int)($purchaseRow['purchase_count'] ?? 0);
         $totalPurchaseAmount = round((float)($purchaseRow['total_purchase_amount'] ?? 0), 2);
 
-        // 4. Total Selling Amount (production_bills)
+        // 4. Total Selling Amount (production_bills filtered by concern & bill_date)
         [$billFilter, $billParams] = $this->buildRevenueConcernFilter('pb.concern_id', $selectedConcernId, $allowedConcernIds, $isGlobalAdmin);
+        [$billDateSql, $billDateParams] = $this->buildDateRangeFilter('pb.bill_date', $fromDate, $toDate, false);
         $sellingRow = Database::fetchOne(
             "SELECT COUNT(*) AS selling_count,
                     COALESCE(SUM(pb.total_amount), 0) AS total_selling_amount,
                     COALESCE(SUM(CASE WHEN pb.payment_status = 'PAID' THEN pb.total_amount ELSE 0 END), 0) AS paid_selling_amount,
                     COALESCE(SUM(CASE WHEN pb.payment_status != 'PAID' THEN pb.total_amount ELSE 0 END), 0) AS pending_selling_amount
              FROM production_bills pb
-             WHERE 1=1{$billFilter}",
-            $billParams
+             WHERE 1=1{$billFilter}{$billDateSql}",
+            array_merge($billParams, $billDateParams)
         );
         $sellingCount         = (int)($sellingRow['selling_count'] ?? 0);
         $totalSellingAmount   = round((float)($sellingRow['total_selling_amount'] ?? 0), 2);
@@ -233,52 +305,82 @@ class AdminController {
         $pendingSellingAmount = round((float)($sellingRow['pending_selling_amount'] ?? 0), 2);
         $netRevenueBalance    = round($totalSellingAmount - $totalPurchaseAmount, 2);
 
-        // 5. Monthly Revenue Trend (Last N Months)
-        $monthKeys = [];
-        $monthLabels = [];
-        $baseTs = strtotime(date('Y-m-01'));
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $ts = strtotime("-{$i} months", $baseTs);
-            $ym = date('Y-m', $ts);
-            $monthKeys[] = $ym;
-            $monthLabels[] = date('M Y', $ts);
+        // 5. Revenue Trend Graph (adaptive Daily when <= 45 days, Monthly otherwise)
+        $trendEnd   = $toDate !== '' ? $toDate : date('Y-m-d');
+        $trendStart = $fromDate !== '' ? $fromDate : date('Y-m-01', strtotime('-11 months', strtotime($trendEnd)));
+        if ($trendStart > $trendEnd) {
+            $trendStart = date('Y-m-01', strtotime('-11 months', strtotime($trendEnd)));
         }
-        $startDate = $monthKeys[0] . '-01';
+
+        $daysDiff = (int)floor((strtotime($trendEnd) - strtotime($trendStart)) / 86400) + 1;
+        $isDailyTrend = ($fromDate !== '' && $toDate !== '' && $daysDiff <= 45);
+
+        $bucketKeys = [];
+        $bucketLabels = [];
+        if ($isDailyTrend) {
+            $cursor = new DateTime($trendStart);
+            $endObj = new DateTime($trendEnd);
+            while ($cursor <= $endObj) {
+                $key = $cursor->format('Y-m-d');
+                $bucketKeys[]   = $key;
+                $bucketLabels[] = $cursor->format('d M');
+                $cursor->modify('+1 day');
+            }
+
+            $purGroupExpr  = 'DATE(pp.purchase_date)';
+            $billGroupExpr = 'DATE(pb.bill_date)';
+            $trendPurStart = $trendStart;
+            $trendPurEnd   = $trendEnd;
+        } else {
+            $cursor = new DateTime(date('Y-m-01', strtotime($trendStart)));
+            $endObj = new DateTime(date('Y-m-01', strtotime($trendEnd)));
+            while ($cursor <= $endObj) {
+                $key = $cursor->format('Y-m');
+                $bucketKeys[]   = $key;
+                $bucketLabels[] = $cursor->format('M Y');
+                $cursor->modify('+1 month');
+            }
+
+            $purGroupExpr  = "DATE_FORMAT(pp.purchase_date, '%Y-%m')";
+            $billGroupExpr = "DATE_FORMAT(pb.bill_date, '%Y-%m')";
+            $trendPurStart = $fromDate !== '' ? $fromDate : $trendStart;
+            $trendPurEnd   = $toDate !== '' ? $toDate : $trendEnd;
+        }
 
         $monthlyPurchaseRows = Database::fetchAll(
-            "SELECT DATE_FORMAT(pp.purchase_date, '%Y-%m') AS ym,
+            "SELECT {$purGroupExpr} AS bucket,
                     COALESCE(SUM(pp.total_amount), 0) AS total_amt
              FROM production_purchases pp
-             WHERE pp.purchase_date >= ?{$purFilter}
-             GROUP BY DATE_FORMAT(pp.purchase_date, '%Y-%m')",
-            array_merge([$startDate], $purParams)
+             WHERE pp.purchase_date >= ? AND pp.purchase_date <= ?{$purFilter}
+             GROUP BY {$purGroupExpr}",
+            array_merge([$trendPurStart, $trendPurEnd], $purParams)
         ) ?: [];
-        $monthlyPurchaseMap = [];
+        $purchaseBucketMap = [];
         foreach ($monthlyPurchaseRows as $row) {
-            $monthlyPurchaseMap[$row['ym']] = round((float)$row['total_amt'], 2);
+            $purchaseBucketMap[$row['bucket']] = round((float)$row['total_amt'], 2);
         }
 
         $monthlySellingRows = Database::fetchAll(
-            "SELECT DATE_FORMAT(pb.bill_date, '%Y-%m') AS ym,
+            "SELECT {$billGroupExpr} AS bucket,
                     COALESCE(SUM(pb.total_amount), 0) AS total_amt
              FROM production_bills pb
-             WHERE pb.bill_date >= ?{$billFilter}
-             GROUP BY DATE_FORMAT(pb.bill_date, '%Y-%m')",
-            array_merge([$startDate], $billParams)
+             WHERE pb.bill_date >= ? AND pb.bill_date <= ?{$billFilter}
+             GROUP BY {$billGroupExpr}",
+            array_merge([$trendPurStart, $trendPurEnd], $billParams)
         ) ?: [];
-        $monthlySellingMap = [];
+        $sellingBucketMap = [];
         foreach ($monthlySellingRows as $row) {
-            $monthlySellingMap[$row['ym']] = round((float)$row['total_amt'], 2);
+            $sellingBucketMap[$row['bucket']] = round((float)$row['total_amt'], 2);
         }
 
         $trendPurchases = [];
         $trendSelling = [];
-        foreach ($monthKeys as $ym) {
-            $trendPurchases[] = $monthlyPurchaseMap[$ym] ?? 0.0;
-            $trendSelling[]   = $monthlySellingMap[$ym] ?? 0.0;
+        foreach ($bucketKeys as $key) {
+            $trendPurchases[] = $purchaseBucketMap[$key] ?? 0.0;
+            $trendSelling[]   = $sellingBucketMap[$key] ?? 0.0;
         }
 
-        // 6. Concern-wise Purchase vs Selling Breakdown
+        // 6. Concern-wise Purchase vs Selling Breakdown (within selected date range)
         $concernsToCompare = $selectedConcern ? [$selectedConcern] : $availableConcerns;
         $hasConcernOne = isset($concernMap[1]);
         $purExpr = $hasConcernOne ? 'COALESCE(pp.concern_id, 1)' : 'pp.concern_id';
@@ -287,9 +389,9 @@ class AdminController {
         $purByConcernRows = Database::fetchAll(
             "SELECT {$purExpr} AS cid, COALESCE(SUM(pp.total_amount), 0) AS total_amt
              FROM production_purchases pp
-             WHERE 1=1{$purFilter}
+             WHERE 1=1{$purFilter}{$purDateSql}
              GROUP BY {$purExpr}",
-            $purParams
+            array_merge($purParams, $purDateParams)
         ) ?: [];
         $purByConcern = [];
         foreach ($purByConcernRows as $r) {
@@ -301,9 +403,9 @@ class AdminController {
         $sellByConcernRows = Database::fetchAll(
             "SELECT {$billExpr} AS cid, COALESCE(SUM(pb.total_amount), 0) AS total_amt
              FROM production_bills pb
-             WHERE 1=1{$billFilter}
+             WHERE 1=1{$billFilter}{$billDateSql}
              GROUP BY {$billExpr}",
-            $billParams
+            array_merge($billParams, $billDateParams)
         ) ?: [];
         $sellByConcern = [];
         foreach ($sellByConcernRows as $r) {
@@ -322,12 +424,25 @@ class AdminController {
             $comparisonSelling[]   = $sellByConcern[$cid] ?? 0.0;
         }
 
+        if ($fromDate !== '' && $toDate !== '') {
+            $dateRangeLabel = date('d M Y', strtotime($fromDate)) . ' – ' . date('d M Y', strtotime($toDate));
+        } elseif ($fromDate !== '') {
+            $dateRangeLabel = 'From ' . date('d M Y', strtotime($fromDate));
+        } elseif ($toDate !== '') {
+            $dateRangeLabel = 'Up to ' . date('d M Y', strtotime($toDate));
+        } else {
+            $dateRangeLabel = 'All Time';
+        }
+
         return [
             'selectedConcernId' => $selectedConcernId ? (string)$selectedConcernId : 'all',
             'selectedScopeName' => $selectedConcern
                 ? ($selectedConcern['name'] . ' (' . $selectedConcern['code'] . ')')
                 : 'All Concerns (Overall)',
-            'months' => $months,
+            'fromDate'          => $fromDate,
+            'toDate'            => $toDate,
+            'dateRangeLabel'    => $dateRangeLabel,
+            'trendSubtitle'     => ($isDailyTrend ? 'Daily' : 'Monthly') . ' Total Purchase vs Selling Amount (' . $dateRangeLabel . ')',
             'cards' => [
                 'totalConcerns'        => $totalConcerns,
                 'concernsSubtitle'     => $concernsSubtitle,
@@ -343,9 +458,10 @@ class AdminController {
             ],
             'charts' => [
                 'monthlyTrend' => [
-                    'labels'    => $monthLabels,
-                    'purchases' => $trendPurchases,
-                    'selling'   => $trendSelling,
+                    'labels'      => $bucketLabels,
+                    'purchases'   => $trendPurchases,
+                    'selling'     => $trendSelling,
+                    'granularity' => $isDailyTrend ? 'daily' : 'monthly',
                 ],
                 'revenueSplit' => [
                     'labels' => ['Total Selling', 'Total Purchases'],
@@ -482,7 +598,12 @@ class AdminController {
         }
 
         $requestedConcern = isset($_GET['concern_id']) ? (string)$_GET['concern_id'] : null;
-        $requestedMonths  = isset($_GET['months']) ? (int)$_GET['months'] : 12;
+        $hasDateParams    = isset($_GET['from_date']) || isset($_GET['to_date']);
+        $dateRange        = $this->resolveDashboardDateRange(
+            $_GET['from_date'] ?? null,
+            $_GET['to_date'] ?? null,
+            !$hasDateParams
+        );
         $scope = $this->resolveDashboardConcernScope($requestedConcern);
 
         if ($scope === null || !empty($scope['unauthorized'])) {
@@ -490,7 +611,7 @@ class AdminController {
             return;
         }
 
-        $analytics = $this->getDashboardRevenueAnalytics($scope, $requestedMonths);
+        $analytics = $this->getDashboardRevenueAnalytics($scope, $dateRange['fromDate'], $dateRange['toDate']);
 
         Response::view('admin.dashboard', [
             'pageTitle'           => 'Dashboard',
@@ -511,14 +632,19 @@ class AdminController {
         }
 
         $requestedConcern = isset($_GET['concern_id']) ? (string)$_GET['concern_id'] : 'all';
-        $requestedMonths  = isset($_GET['months']) ? (int)$_GET['months'] : 12;
+        $hasDateParams    = isset($_GET['from_date']) || isset($_GET['to_date']);
+        $dateRange        = $this->resolveDashboardDateRange(
+            $_GET['from_date'] ?? null,
+            $_GET['to_date'] ?? null,
+            !$hasDateParams
+        );
         $scope = $this->resolveDashboardConcernScope($requestedConcern);
 
         if ($scope === null || !empty($scope['unauthorized'])) {
             Response::jsonError('Unauthorized or invalid concern selection.', [], 403);
         }
 
-        $analytics = $this->getDashboardRevenueAnalytics($scope, $requestedMonths);
+        $analytics = $this->getDashboardRevenueAnalytics($scope, $dateRange['fromDate'], $dateRange['toDate']);
         Response::jsonSuccess('Dashboard revenue metrics loaded.', $analytics);
     }
 

@@ -104,6 +104,10 @@ class AllmodulesReturnController
             'pageTitle'    => 'Customer Returns & Exchanges | Production Unit',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-returns',
+            'breadcrumb'   => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Returns & Exchanges'],
+            ],
             'returns'      => $returns,
             'stats'        => $allStats,
             'search'       => $search,
@@ -120,6 +124,11 @@ class AllmodulesReturnController
             'pageTitle'    => 'Record Return & Exchange | Production Unit',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-returns',
+            'breadcrumb'   => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Returns & Exchanges', 'url' => url('allmodules/returns')],
+                ['label' => 'Create Return & Exchange'],
+            ],
         ]);
     }
 
@@ -132,284 +141,298 @@ class AllmodulesReturnController
      */
     public function ajaxLookupBill(): void
     {
-        $query = trim((string)($_GET['q'] ?? ''));
-        $lookupType = strtolower(trim((string)($_GET['type'] ?? 'scan')));
-        if ($lookupType !== 'select' && $query === '') {
-            Response::json(['success' => false, 'message' => 'Enter a value to search.']);
-            return;
-        }
+        try {
+            $query = trim((string)($_GET['q'] ?? ''));
+            $lookupType = strtolower(trim((string)($_GET['type'] ?? 'scan')));
+            if ($lookupType !== 'select' && $query === '') {
+                Response::json(['success' => false, 'message' => 'Enter a value to search.']);
+                return;
+            }
 
-        $scannedTag = null;
-        $scannedSku = null;
-        $matchedBillId = null;
+            $concernWhereSql = '';
+            $concernParams = [];
+            if (function_exists('currentConcernId') && currentConcernId() !== null) {
+                $cid = currentConcernId();
+                if ($cid === 1) {
+                    $concernWhereSql = ' AND (pb.concern_id = ? OR pb.concern_id IS NULL)';
+                } else {
+                    $concernWhereSql = ' AND pb.concern_id = ?';
+                }
+                $concernParams[] = $cid;
+            }
 
-        if ($lookupType === 'bill' || $lookupType === 'phone') {
-            $where = [];
-            $params = [];
+            $scannedTag = null;
+            $scannedSku = null;
+            $matchedBillId = null;
 
-            if ($lookupType === 'bill') {
-                $where[] = 'pb.bill_number LIKE ?';
-                $params[] = '%' . $query . '%';
-            } else {
-                $phoneDigits = preg_replace('/\D+/', '', $query);
-                if (strlen($phoneDigits) < 7) {
-                    Response::json(['success' => false, 'message' => 'Enter at least 7 phone digits to search.']);
+            if ($lookupType === 'bill' || $lookupType === 'phone') {
+                $where = [];
+                $params = [];
+
+                if ($lookupType === 'bill') {
+                    $where[] = 'pb.bill_number LIKE ?';
+                    $params[] = '%' . $query . '%';
+                } else {
+                    $phoneDigits = preg_replace('/\D+/', '', $query);
+                    if (strlen($phoneDigits) < 7) {
+                        Response::json(['success' => false, 'message' => 'Enter at least 7 phone digits to search.']);
+                        return;
+                    }
+                    $phoneSuffix = strlen($phoneDigits) > 10 ? substr($phoneDigits, -10) : $phoneDigits;
+                    $customerPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.customer_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
+                    $companyPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.company_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
+                    $where[] = "({$customerPhone} LIKE ? OR {$companyPhone} LIKE ?)";
+                    $params[] = '%' . $phoneSuffix;
+                    $params[] = '%' . $phoneSuffix;
+                }
+
+                $billOptions = Database::fetchAll(
+                    "SELECT pb.id, pb.bill_number, pb.bill_date, pb.customer_name, pb.company_name,
+                            pb.customer_phone, pb.company_phone, pb.total_amount,
+                            (SELECT pr.id FROM production_returns pr
+                             WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
+                             ORDER BY pr.id DESC LIMIT 1) AS active_return_id,
+                            (SELECT pr.return_number FROM production_returns pr
+                             WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
+                             ORDER BY pr.id DESC LIMIT 1) AS active_return_number
+                     FROM production_bills pb
+                     WHERE " . implode(' AND ', $where) . $concernWhereSql . "
+                     ORDER BY pb.id DESC
+                     LIMIT 50",
+                    array_merge($params, $concernParams)
+                );
+
+                if (!$billOptions) {
+                    Response::json(['success' => false, 'message' => 'No invoices found for that search.']);
                     return;
                 }
-                $phoneSuffix = strlen($phoneDigits) > 10 ? substr($phoneDigits, -10) : $phoneDigits;
-                $customerPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.customer_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
-                $companyPhone = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(pb.company_phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
-                $where[] = "({$customerPhone} LIKE ? OR {$companyPhone} LIKE ?)";
-                $params[] = '%' . $phoneSuffix;
-                $params[] = '%' . $phoneSuffix;
-            }
 
-            if (function_exists('currentConcernId') && currentConcernId() !== null) {
-                $where[] = '(pb.concern_id = ? OR pb.concern_id IS NULL)';
-                $params[] = currentConcernId();
-            }
-
-            $billOptions = Database::fetchAll(
-                "SELECT pb.id, pb.bill_number, pb.bill_date, pb.customer_name, pb.company_name,
-                        pb.customer_phone, pb.company_phone, pb.total_amount,
-                        (SELECT pr.id FROM production_returns pr
-                         WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
-                         ORDER BY pr.id DESC LIMIT 1) AS active_return_id,
-                        (SELECT pr.return_number FROM production_returns pr
-                         WHERE pr.bill_id = pb.id AND pr.status <> 'CANCELLED'
-                         ORDER BY pr.id DESC LIMIT 1) AS active_return_number
-                 FROM production_bills pb
-                 WHERE " . implode(' AND ', $where) . "
-                 ORDER BY pb.id DESC
-                 LIMIT 50",
-                $params
-            );
-
-            if (!$billOptions) {
-                Response::json(['success' => false, 'message' => 'No invoices found for that search.']);
+                Response::json([
+                    'success' => true,
+                    'bill_options' => $billOptions,
+                ]);
                 return;
             }
 
-            Response::json([
-                'success' => true,
-                'bill_options' => $billOptions,
-            ]);
-            return;
-        }
-
-        if ($lookupType === 'select') {
-            $matchedBillId = (int)($_GET['bill_id'] ?? 0);
-            if ($matchedBillId <= 0) {
-                Response::json(['success' => false, 'message' => 'Select a valid invoice.']);
-                return;
-            }
-        } else {
-        // 1. Check if the scanned string is an individual piece tag code in production_bill_item_tags
-        $tagRow = Database::fetchOne(
-            "SELECT pbit.bill_id, pbit.tag_code, pbit.bill_item_id, pb.bill_number 
-             FROM production_bill_item_tags pbit
-             JOIN production_bills pb ON pbit.bill_id = pb.id
-             WHERE UPPER(TRIM(pbit.tag_code)) = UPPER(?) LIMIT 1",
-            [$query]
-        );
-        if ($tagRow) {
-            $scannedTag = $tagRow['tag_code'];
-            $matchedBillId = (int)$tagRow['bill_id'];
-        } else {
-            // Also check if tag was already recorded in previous production_return_items
-            $retTagRow = Database::fetchOne(
-                "SELECT pr.bill_id, pri.tag_code, pb.bill_number
-                 FROM production_return_items pri
-                 JOIN production_returns pr ON pri.return_id = pr.id
-                 JOIN production_bills pb ON pr.bill_id = pb.id
-                 WHERE UPPER(TRIM(pri.tag_code)) = UPPER(?) LIMIT 1",
-                [$query]
-            );
-            if ($retTagRow) {
-                $scannedTag = $retTagRow['tag_code'];
-                $matchedBillId = (int)$retTagRow['bill_id'];
-            }
-        }
-
-        // 2. If not a specific piece tag, check if it matches a product variant SKU, Barcode, or QR code in billed items
-        if (!$matchedBillId) {
-            $skuRow = Database::fetchOne(
-                "SELECT pbi.bill_id, pbi.sku
-                 FROM production_bill_items pbi
-                 JOIN production_bills pb ON pbi.bill_id = pb.id
-                 LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
-                 WHERE UPPER(TRIM(pbi.sku)) = UPPER(?) 
-                    OR UPPER(TRIM(pv.sku)) = UPPER(?) 
-                    OR UPPER(TRIM(pv.qr_code)) = UPPER(?) 
-                    OR UPPER(TRIM(pv.barcode)) = UPPER(?)
-                 ORDER BY pb.id DESC LIMIT 1",
-                [$query, $query, $query, $query]
-            );
-            if ($skuRow) {
-                $scannedSku = $skuRow['sku'];
-                $matchedBillId = (int)$skuRow['bill_id'];
-            }
-        }
-
-        // Keep exact bill-number scans supported; use the explicit search modes for phone lookup.
-        if (!$matchedBillId) {
-            $bill = Database::fetchOne(
-                "SELECT id FROM production_bills 
-                 WHERE bill_number = ?
-                 ORDER BY id DESC LIMIT 1",
-                [$query]
-            );
-            if ($bill) {
-                $matchedBillId = (int)$bill['id'];
-            }
-        }
-        }
-
-        if (!$matchedBillId) {
-            Response::json([
-                'success' => false, 
-                'message' => 'No production bill or sold piece found matching scan: ' . htmlspecialchars($query)
-            ]);
-            return;
-        }
-
-        $billSql = "SELECT * FROM production_bills WHERE id = ?";
-        $billParams = [$matchedBillId];
-        if (function_exists('currentConcernId') && currentConcernId() !== null) {
-            $billSql .= " AND (concern_id = ? OR concern_id IS NULL)";
-            $billParams[] = currentConcernId();
-        }
-        $bill = Database::fetchOne($billSql, $billParams);
-        if (!$bill) {
-            Response::json(['success' => false, 'message' => 'Production bill record could not be loaded.']);
-            return;
-        }
-
-        $billId = (int)$bill['id'];
-        $activeReturn = Database::fetchOne(
-            "SELECT id, return_number FROM production_returns
-             WHERE bill_id = ? AND status <> 'CANCELLED'
-             ORDER BY id DESC LIMIT 1",
-            [$billId]
-        );
-        if ($activeReturn) {
-            Response::json([
-                'success' => false,
-                'message' => "This invoice already has a return/exchange recorded ({$activeReturn['return_number']}).",
-            ]);
-            return;
-        }
-
-        $billItems = Database::fetchAll(
-            "SELECT * FROM production_bill_items WHERE bill_id = ? ORDER BY id",
-            [$billId]
-        );
-
-        // Fetch piece tags belonging to this bill from production_bill_item_tags
-        // UNION with any tags that were previously returned for this bill in production_return_items
-        $tagRows = Database::fetchAll(
-            "SELECT bill_item_id, tag_code, 0 as is_returned
-             FROM production_bill_item_tags
-             WHERE bill_id = ?
-             UNION
-             SELECT pri.bill_item_id, pri.tag_code, 1 as is_returned
-             FROM production_return_items pri
-             JOIN production_returns pr ON pr.id = pri.return_id
-             WHERE pr.bill_id = ? AND pri.tag_code IS NOT NULL AND pri.tag_code <> ''",
-            [$billId, $billId]
-        );
-
-        // Already returned tags for this bill
-        $returnedTagRows = Database::fetchAll(
-            "SELECT pri.tag_code 
-             FROM production_return_items pri 
-             JOIN production_returns pr ON pr.id = pri.return_id 
-             WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'",
-            [$billId]
-        );
-        $alreadyReturnedTags = array_fill_keys(array_map('strtoupper', array_column($returnedTagRows, 'tag_code')), true);
-
-        // Already returned quantity per bill_item_id
-        $returnedQtyRows = Database::fetchAll(
-            "SELECT pri.bill_item_id, SUM(pri.quantity) as total_returned_qty
-             FROM production_return_items pri
-             JOIN production_returns pr ON pr.id = pri.return_id
-             WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'
-             GROUP BY pri.bill_item_id",
-            [$billId]
-        );
-        $returnedQtyByItem = [];
-        foreach ($returnedQtyRows as $rqr) {
-            $returnedQtyByItem[(int)$rqr['bill_item_id']] = (int)$rqr['total_returned_qty'];
-        }
-
-        // Group tags by item ID, avoiding duplicates
-        $seenTags = [];
-        $tagsByItem = [];
-        foreach ($tagRows as $t) {
-            $tagCode = strtoupper(trim((string)$t['tag_code']));
-            if (empty($tagCode) || isset($seenTags[$tagCode])) {
-                continue;
-            }
-            $seenTags[$tagCode] = true;
-            $isReturned = isset($alreadyReturnedTags[$tagCode]) || !empty($t['is_returned']);
-            $tagsByItem[(int)$t['bill_item_id']][] = [
-                'tag_code'    => $t['tag_code'],
-                'is_returned' => $isReturned,
-            ];
-        }
-
-        $totalBillPieces = 0;
-        $totalReturnedPieces = 0;
-        $hasReturnablePieces = false;
-
-        foreach ($billItems as &$bi) {
-            $itemId = (int)$bi['id'];
-            $biTags = $tagsByItem[$itemId] ?? [];
-            $bi['tags'] = $biTags;
-            $qty = (int)$bi['quantity'];
-            $totalBillPieces += $qty;
-
-            $alreadyReturnedCount = $returnedQtyByItem[$itemId] ?? 0;
-            $bi['returned_qty'] = $alreadyReturnedCount;
-            $bi['remaining_qty'] = max(0, $qty - $alreadyReturnedCount);
-            $totalReturnedPieces += min($qty, $alreadyReturnedCount);
-
-            if (!empty($biTags)) {
-                foreach ($biTags as $t) {
-                    if (empty($t['is_returned'])) {
-                        $hasReturnablePieces = true;
-                        break;
-                    }
+            if ($lookupType === 'select') {
+                $matchedBillId = (int)($_GET['bill_id'] ?? 0);
+                if ($matchedBillId <= 0) {
+                    Response::json(['success' => false, 'message' => 'Select a valid invoice.']);
+                    return;
                 }
             } else {
-                if ($bi['remaining_qty'] > 0) {
-                    $hasReturnablePieces = true;
+                // 1. Check if the scanned string is an individual piece tag code in production_bill_item_tags
+                $tagRow = Database::fetchOne(
+                    "SELECT pbit.bill_id, pbit.tag_code, pbit.bill_item_id, pb.bill_number 
+                     FROM production_bill_item_tags pbit
+                     JOIN production_bills pb ON pbit.bill_id = pb.id
+                     WHERE UPPER(TRIM(pbit.tag_code)) = UPPER(?){$concernWhereSql}
+                     ORDER BY pb.id DESC LIMIT 1",
+                    array_merge([$query], $concernParams)
+                );
+                if ($tagRow) {
+                    $scannedTag = $tagRow['tag_code'];
+                    $matchedBillId = (int)$tagRow['bill_id'];
+                } else {
+                    // Also check if tag was already recorded in previous production_return_items
+                    $retTagRow = Database::fetchOne(
+                        "SELECT pr.bill_id, pri.tag_code, pb.bill_number
+                         FROM production_return_items pri
+                         JOIN production_returns pr ON pri.return_id = pr.id
+                         JOIN production_bills pb ON pr.bill_id = pb.id
+                         WHERE UPPER(TRIM(pri.tag_code)) = UPPER(?){$concernWhereSql}
+                         ORDER BY pb.id DESC LIMIT 1",
+                        array_merge([$query], $concernParams)
+                    );
+                    if ($retTagRow) {
+                        $scannedTag = $retTagRow['tag_code'];
+                        $matchedBillId = (int)$retTagRow['bill_id'];
+                    }
+                }
+
+                // 2. If not a specific piece tag, check if it matches a product variant SKU, QR code, or variant code in billed items
+                if (!$matchedBillId) {
+                    $skuRow = Database::fetchOne(
+                        "SELECT pbi.bill_id, pbi.sku
+                         FROM production_bill_items pbi
+                         JOIN production_bills pb ON pbi.bill_id = pb.id
+                         LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
+                         WHERE (UPPER(TRIM(pbi.sku)) = UPPER(?) 
+                            OR UPPER(TRIM(pv.sku)) = UPPER(?) 
+                            OR UPPER(TRIM(pv.qr_code)) = UPPER(?) 
+                            OR UPPER(TRIM(pv.variant_code)) = UPPER(?)){$concernWhereSql}
+                         ORDER BY pb.id DESC LIMIT 1",
+                        array_merge([$query, $query, $query, $query], $concernParams)
+                    );
+                    if ($skuRow) {
+                        $scannedSku = $skuRow['sku'];
+                        $matchedBillId = (int)$skuRow['bill_id'];
+                    }
+                }
+
+                // 3. Keep exact bill-number scans supported even in scan mode
+                if (!$matchedBillId) {
+                    $bill = Database::fetchOne(
+                        "SELECT pb.id FROM production_bills pb
+                         WHERE UPPER(TRIM(pb.bill_number)) = UPPER(?){$concernWhereSql}
+                         ORDER BY pb.id DESC LIMIT 1",
+                        array_merge([$query], $concernParams)
+                    );
+                    if ($bill) {
+                        $matchedBillId = (int)$bill['id'];
+                    }
                 }
             }
+
+            if (!$matchedBillId) {
+                Response::json([
+                    'success' => false, 
+                    'message' => 'No production bill or sold piece found matching scan: ' . htmlspecialchars($query)
+                ]);
+                return;
+            }
+
+            $bill = Database::fetchOne(
+                "SELECT pb.* FROM production_bills pb WHERE pb.id = ?{$concernWhereSql}",
+                array_merge([$matchedBillId], $concernParams)
+            );
+            if (!$bill) {
+                Response::json(['success' => false, 'message' => 'Production bill record could not be loaded.']);
+                return;
+            }
+
+            $billId = (int)$bill['id'];
+            $activeReturn = Database::fetchOne(
+                "SELECT id, return_number FROM production_returns
+                 WHERE bill_id = ? AND status <> 'CANCELLED'
+                 ORDER BY id DESC LIMIT 1",
+                [$billId]
+            );
+            if ($activeReturn) {
+                Response::json([
+                    'success' => false,
+                    'message' => "This invoice already has a return/exchange recorded ({$activeReturn['return_number']}).",
+                ]);
+                return;
+            }
+
+            $billItems = Database::fetchAll(
+                "SELECT * FROM production_bill_items WHERE bill_id = ? ORDER BY id",
+                [$billId]
+            );
+
+            // Fetch piece tags belonging to this bill from production_bill_item_tags
+            // UNION with any tags that were previously returned for this bill in production_return_items
+            $tagRows = Database::fetchAll(
+                "SELECT bill_item_id, tag_code, 0 as is_returned
+                 FROM production_bill_item_tags
+                 WHERE bill_id = ?
+                 UNION
+                 SELECT pri.bill_item_id, pri.tag_code, 1 as is_returned
+                 FROM production_return_items pri
+                 JOIN production_returns pr ON pr.id = pri.return_id
+                 WHERE pr.bill_id = ? AND pri.tag_code IS NOT NULL AND pri.tag_code <> ''",
+                [$billId, $billId]
+            );
+
+            // Already returned tags for this bill
+            $returnedTagRows = Database::fetchAll(
+                "SELECT pri.tag_code 
+                 FROM production_return_items pri 
+                 JOIN production_returns pr ON pr.id = pri.return_id 
+                 WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'",
+                [$billId]
+            );
+            $alreadyReturnedTags = array_fill_keys(array_map('strtoupper', array_column($returnedTagRows, 'tag_code')), true);
+
+            // Already returned quantity per bill_item_id
+            $returnedQtyRows = Database::fetchAll(
+                "SELECT pri.bill_item_id, SUM(pri.quantity) as total_returned_qty
+                 FROM production_return_items pri
+                 JOIN production_returns pr ON pr.id = pri.return_id
+                 WHERE pr.bill_id = ? AND pr.status <> 'CANCELLED'
+                 GROUP BY pri.bill_item_id",
+                [$billId]
+            );
+            $returnedQtyByItem = [];
+            foreach ($returnedQtyRows as $rqr) {
+                $returnedQtyByItem[(int)$rqr['bill_item_id']] = (int)$rqr['total_returned_qty'];
+            }
+
+            // Group tags by item ID, avoiding duplicates
+            $seenTags = [];
+            $tagsByItem = [];
+            foreach ($tagRows as $t) {
+                $tagCode = strtoupper(trim((string)$t['tag_code']));
+                if (empty($tagCode) || isset($seenTags[$tagCode])) {
+                    continue;
+                }
+                $seenTags[$tagCode] = true;
+                $isReturned = isset($alreadyReturnedTags[$tagCode]) || !empty($t['is_returned']);
+                $tagsByItem[(int)$t['bill_item_id']][] = [
+                    'tag_code'    => $t['tag_code'],
+                    'is_returned' => $isReturned,
+                ];
+            }
+
+            $totalBillPieces = 0;
+            $totalReturnedPieces = 0;
+            $hasReturnablePieces = false;
+
+            foreach ($billItems as &$bi) {
+                $itemId = (int)$bi['id'];
+                $biTags = $tagsByItem[$itemId] ?? [];
+                $bi['tags'] = $biTags;
+                $qty = (int)$bi['quantity'];
+                $totalBillPieces += $qty;
+
+                $alreadyReturnedCount = $returnedQtyByItem[$itemId] ?? 0;
+                $bi['returned_qty'] = $alreadyReturnedCount;
+                $bi['remaining_qty'] = max(0, $qty - $alreadyReturnedCount);
+                $totalReturnedPieces += min($qty, $alreadyReturnedCount);
+
+                if (!empty($biTags)) {
+                    foreach ($biTags as $t) {
+                        if (empty($t['is_returned'])) {
+                            $hasReturnablePieces = true;
+                            break;
+                        }
+                    }
+                } else {
+                    if ($bi['remaining_qty'] > 0) {
+                        $hasReturnablePieces = true;
+                    }
+                }
+            }
+            unset($bi);
+
+            // Fetch previous returns for this bill
+            $prevReturns = Database::fetchAll(
+                "SELECT id, return_number, return_type, total_returned_qty, net_amount, status, created_at
+                 FROM production_returns
+                 WHERE bill_id = ? AND status <> 'CANCELLED'
+                 ORDER BY id DESC",
+                [$billId]
+            );
+
+            Response::json([
+                'success'            => true,
+                'bill'               => $bill,
+                'items'              => $billItems,
+                'scanned_tag'        => $scannedTag,
+                'scanned_sku'        => $scannedSku,
+                'is_fully_returned'  => !$hasReturnablePieces,
+                'total_bill_pieces'  => $totalBillPieces,
+                'total_returned'     => $totalReturnedPieces,
+                'previous_returns'   => $prevReturns,
+            ]);
+        } catch (Throwable $e) {
+            error_log('AllmodulesReturnController::ajaxLookupBill failed: ' . $e->getMessage());
+            Response::json([
+                'success' => false,
+                'message' => 'Unable to look up return invoice right now. Please try again.',
+            ], 500);
         }
-        unset($bi);
-
-        // Fetch previous returns for this bill
-        $prevReturns = Database::fetchAll(
-            "SELECT id, return_number, return_type, total_returned_qty, net_amount, status, created_at
-             FROM production_returns
-             WHERE bill_id = ? AND status <> 'CANCELLED'
-             ORDER BY id DESC",
-            [$billId]
-        );
-
-        Response::json([
-            'success'            => true,
-            'bill'               => $bill,
-            'items'              => $billItems,
-            'scanned_tag'        => $scannedTag,
-            'scanned_sku'        => $scannedSku,
-            'is_fully_returned'  => !$hasReturnablePieces,
-            'total_bill_pieces'  => $totalBillPieces,
-            'total_returned'     => $totalReturnedPieces,
-            'previous_returns'   => $prevReturns,
-        ]);
     }
 
     /**
@@ -1067,6 +1090,11 @@ class AllmodulesReturnController
             'pageTitle'      => 'Return ' . $return['return_number'],
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-returns',
+            'breadcrumb'     => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Returns & Exchanges', 'url' => url('allmodules/returns')],
+                ['label' => $return['return_number']],
+            ],
             'return'         => $return,
             'items'          => $items,
             'bill'           => $bill,

@@ -397,7 +397,7 @@ function handleUniversalScan() {
         document.getElementById('returnForm').classList.add('d-none');
     }
 
-    let lookupUrl = '<?= url("production/returns/lookup") ?>';
+    let lookupUrl = '<?= url("allmodules/returns/lookup") ?>';
     if (selectedBillId) {
         delete input.dataset.selectedBillId;
         lookupUrl += '?type=select&bill_id=' + encodeURIComponent(selectedBillId);
@@ -405,8 +405,25 @@ function handleUniversalScan() {
         lookupUrl += '?type=' + encodeURIComponent(searchMode) + '&q=' + encodeURIComponent(q);
     }
 
-    fetch(lookupUrl)
-        .then(res => res.json())
+    fetch(lookupUrl, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(async res => {
+            const rawText = await res.text();
+            let parsed;
+            try {
+                parsed = JSON.parse(rawText);
+            } catch (parseErr) {
+                throw new Error('Server returned an unexpected response (HTTP ' + res.status + ').');
+            }
+            if (!res.ok && parsed && parsed.message) {
+                throw new Error(parsed.message);
+            }
+            return parsed;
+        })
         .then(data => {
             if (!data.success) {
                 statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i> ' + (data.message || 'Not found') + '</span>';
