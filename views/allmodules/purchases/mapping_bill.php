@@ -545,16 +545,29 @@ tr.table-danger, tr.table-danger > td {
             </div>
         </div>
         <?php
-        $allSizeNames = array_values(array_unique(array_filter(array_merge(
-            array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []),
+        $dedupeCi = static function (array $vals): array {
+            $seen = [];
+            $out = [];
+            foreach ($vals as $v) {
+                $v = trim((string)$v);
+                if ($v === '') continue;
+                $k = mb_strtolower($v);
+                if (isset($seen[$k])) continue;
+                $seen[$k] = true;
+                $out[] = $v;
+            }
+            return $out;
+        };
+        $allSizeNames = $dedupeCi(array_merge(
+            array_map(static fn($s) => (string)($s['name'] ?? ''), $masterSizes ?? []),
             $standardSizes ?? ['Free Size']
-        ))));
-        $allColorNames = array_values(array_unique(array_filter(array_merge(
-            array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []),
+        ));
+        $allColorNames = $dedupeCi(array_merge(
+            array_map(static fn($c) => (string)($c['name'] ?? ''), $masterColors ?? []),
             $standardColors ?? ['Default']
-        ))));
+        ));
 
-        $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId, $allSizeNames, $allColorNames): void {
+        $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId): void {
             $vSize = !empty($v['size']) ? $v['size'] : ($activeItem['size'] ?: 'Free Size');
             $vColor = !empty($v['color']) ? $v['color'] : ($activeItem['color'] ?: 'Default');
             $vSku = !empty($v['sku']) ? $v['sku'] : ($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']));
@@ -570,8 +583,6 @@ tr.table-danger, tr.table-danger > td {
             }
             $vSubcatId = !empty($v['third_party_subcategory_id']) ? (int)$v['third_party_subcategory_id'] : (!empty($v['subcategory_id']) ? (int)$v['subcategory_id'] : $activeSubcatId);
             $vSubSubcatId = !empty($v['third_party_sub_subcategory_id']) ? (int)$v['third_party_sub_subcategory_id'] : (!empty($v['sub_subcategory_id']) ? (int)$v['sub_subcategory_id'] : $activeSubSubcatId);
-            $rowSizes = in_array($vSize, $allSizeNames, true) ? $allSizeNames : array_merge([$vSize], $allSizeNames);
-            $rowColors = in_array($vColor, $allColorNames, true) ? $allColorNames : array_merge([$vColor], $allColorNames);
         ?>
         <tr class="variant-row" data-index="<?= $index ?>">
             <td class="text-center text-muted fw-bold row-num" style="width: 45px; min-width: 45px;"><?= $index + 1 ?></td>
@@ -606,21 +617,13 @@ tr.table-danger, tr.table-danger > td {
             </td>
             <td style="width: 155px; min-width: 145px;">
                 <div class="input-group input-group-sm">
-                    <select class="form-select form-select-sm var-size" name="variants[<?= $index ?>][size]" required>
-                        <?php foreach ($rowSizes as $szOpt): ?>
-                            <option value="<?= e($szOpt) ?>" <?= strcasecmp($vSize, $szOpt) === 0 ? 'selected' : '' ?>><?= e($szOpt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="text" class="form-control form-control-sm var-size" name="variants[<?= $index ?>][size]" value="<?= e($vSize) ?>" placeholder="Type size..." required autocomplete="off">
                     <button type="button" class="btn btn-outline-secondary btn-quick-add-size" title="Create New Size"><i class="bi bi-plus-lg"></i></button>
                 </div>
             </td>
             <td style="width: 165px; min-width: 155px;">
                 <div class="input-group input-group-sm">
-                    <select class="form-select form-select-sm var-color" name="variants[<?= $index ?>][color]" required>
-                        <?php foreach ($rowColors as $colOpt): ?>
-                            <option value="<?= e($colOpt) ?>" <?= strcasecmp($vColor, $colOpt) === 0 ? 'selected' : '' ?>><?= e($colOpt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="text" class="form-control form-control-sm var-color" name="variants[<?= $index ?>][color]" value="<?= e($vColor) ?>" placeholder="Type color..." required autocomplete="off">
                     <button type="button" class="btn btn-outline-secondary btn-quick-add-color" title="Create New Color"><i class="bi bi-plus-lg"></i></button>
                 </div>
             </td>
@@ -657,21 +660,26 @@ tr.table-danger, tr.table-danger > td {
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">2</span>
                     <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Product Variants Entry &amp; Pricing</h5>
                 </div>
-                <!-- Batch Price Replicator Controls -->
+                <!-- Overall Price Inputs & Top-Right Add Row Controls -->
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <div class="input-group input-group-sm" style="width: 170px;">
+                    <div class="input-group input-group-sm" style="width: 155px;">
                         <span class="input-group-text bg-light text-muted">MRP ₹</span>
                         <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
                     </div>
-                    <div class="input-group input-group-sm" style="width: 180px;">
+                    <div class="input-group input-group-sm" style="width: 155px;">
                         <span class="input-group-text bg-light text-muted">SP ₹</span>
                         <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnReplicatePricing" title="Copy MRP &amp; Selling Price to all variant rows">
-                        <i class="bi bi-arrow-repeat me-1"></i>Replicate to All
+                    <div class="vr mx-1 d-none d-md-block"></div>
+                    <input class="form-control form-control-sm text-center" id="variantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 60px;" autocomplete="off" title="Number of rows to add">
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAddVariantRows">
+                        <i class="bi bi-plus-lg me-1"></i>Add Rows
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-success fw-semibold" id="btnHeaderAutoDistribute" title="Evenly distribute purchased bill quantity (<?= (int)$purchasedQty ?> pcs) across all active variants">
-                        <i class="bi bi-magic me-1"></i>Auto-Distribute Qty
+                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
+                        <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
                     </button>
                 </div>
             </div>
@@ -697,19 +705,9 @@ tr.table-danger, tr.table-danger > td {
                             <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <select class="form-select form-select-sm" id="batchInputSize" style="width: 130px;">
-                        <option value="">-- Size --</option>
-                        <?php foreach ($allSizeNames as $szOpt): ?>
-                            <option value="<?= e($szOpt) ?>"><?= e($szOpt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select class="form-select form-select-sm" id="batchSelectColor" style="width: 135px;">
-                        <option value="">-- Color --</option>
-                        <?php foreach ($allColorNames as $colOpt): ?>
-                            <option value="<?= e($colOpt) ?>"><?= e($colOpt) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Category Hierarchy, Size &amp; Color to all variant rows">
+                    <input type="text" class="form-control form-control-sm" id="batchInputSize" placeholder="Type Size..." style="width: 130px;" autocomplete="off">
+                    <input type="text" class="form-control form-control-sm" id="batchSelectColor" placeholder="Type Color..." style="width: 135px;" autocomplete="off">
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Category Hierarchy, Size, Color &amp; Pricing to all variant rows">
                         <i class="bi bi-check2-all me-1"></i>Apply to All
                     </button>
                 </div>
@@ -757,22 +755,10 @@ tr.table-danger, tr.table-danger > td {
                     </table>
                 </div>
 
-                <!-- Add Variants Controls & Live Allocation Summary -->
+                <!-- Live Allocation Summary -->
                 <div class="p-3 bg-light-subtle border-top d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <div class="d-flex align-items-center gap-2">
-                            <input class="form-control form-control-sm" id="variantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 80px;" autocomplete="off">
-                            <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAddVariantRows">
-                                <i class="bi bi-plus-lg me-1"></i>Add Rows
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
-                                <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
-                            </button>
-                        </div>
-                        <div class="ms-md-3 fs-6" id="labelAllocationStatus">
+                        <div class="fs-6" id="labelAllocationStatus">
                             <!-- JS updates this -->
                         </div>
                     </div>
@@ -1536,55 +1522,36 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
                 if (sizeVal) {
-                    const szSel = row.querySelector('.var-size');
-                    if (szSel) {
-                        if (!Array.from(szSel.options).some(o => o.value === sizeVal)) {
-                            const opt = document.createElement('option');
-                            opt.value = sizeVal;
-                            opt.textContent = sizeVal;
-                            szSel.appendChild(opt);
-                        }
-                        szSel.value = sizeVal;
-                    }
+                    const szInp = row.querySelector('.var-size');
+                    if (szInp) szInp.value = sizeVal;
                 }
                 if (colorVal) {
-                    const colSel = row.querySelector('.var-color');
-                    if (colSel) {
-                        if (!Array.from(colSel.options).some(o => o.value === colorVal)) {
-                            const opt = document.createElement('option');
-                            opt.value = colorVal;
-                            opt.textContent = colorVal;
-                            colSel.appendChild(opt);
-                        }
-                        colSel.value = colorVal;
-                    }
+                    const colInp = row.querySelector('.var-color');
+                    if (colInp) colInp.value = colorVal;
                 }
             });
         });
     }
 
-    // 5. Price Replicator
-    if (btnReplicatePricing) {
-        btnReplicatePricing.addEventListener('click', function () {
-            const mrp = parseFloat(batchInputMrp?.value || '0') || 0;
-            const sp = parseFloat(batchInputSp?.value || '0') || 0;
-
-            if (mrp > 0 && sp > 0 && mrp < sp) {
-                alert('Validation Error: MRP (₹' + mrp.toFixed(2) + ') cannot be lower than Selling Price (₹' + sp.toFixed(2) + ').');
-                batchInputMrp?.focus();
-                return;
-            }
-
-            if (tbodyVariantRows) {
-                tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
-                    const mrpInp = row.querySelector('.var-mrp');
-                    const spInp = row.querySelector('.var-sp');
-                    if (mrpInp && mrp > 0) mrpInp.value = mrp.toFixed(2);
-                    if (spInp && sp > 0) spInp.value = sp.toFixed(2);
-                });
-            }
-        });
+    // 5. Auto-Apply Overall MRP / SP on change
+    function applyOverallPricingToAll() {
+        const mrp = parseFloat(batchInputMrp?.value || '0') || 0;
+        const sp = parseFloat(batchInputSp?.value || '0') || 0;
+        if (mrp > 0 && sp > 0 && sp > mrp) {
+            return;
+        }
+        if (tbodyVariantRows) {
+            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                const mrpInp = row.querySelector('.var-mrp');
+                const spInp = row.querySelector('.var-sp');
+                if (mrpInp && mrp > 0) mrpInp.value = mrp.toFixed(2);
+                if (spInp && sp > 0) spInp.value = sp.toFixed(2);
+                validateMrpSpPair(mrpInp, spInp);
+            });
+        }
     }
+    if (batchInputMrp) batchInputMrp.addEventListener('change', applyOverallPricingToAll);
+    if (batchInputSp) batchInputSp.addEventListener('change', applyOverallPricingToAll);
 
     // 6. Form Submission Validation
     const formMapProductBill = document.getElementById('formMapProductBill');
@@ -2125,21 +2092,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 12. Category-Based Size & Color Dropdown Filtering + Quick-Add Size & Color
+    // 12. Category-Based Size & Color Auto-Suggest (Case-Insensitive Deduplicated) + Quick-Add
     const categoryAttributesMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
-    const globalSizeList = <?= json_encode($allSizeNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
-    const globalColorList = <?= json_encode($allColorNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const dedupeCi = (list) => {
+        const seen = new Set();
+        const out = [];
+        for (const v of (list || [])) {
+            const s = String(v || '').trim();
+            if (!s) continue;
+            const k = s.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(s);
+        }
+        return out;
+    };
+    const globalSizeList = dedupeCi(<?= json_encode($allSizeNames ?? [], JSON_UNESCAPED_UNICODE) ?>);
+    const globalColorList = dedupeCi(<?= json_encode($allColorNames ?? [], JSON_UNESCAPED_UNICODE) ?>);
 
-    function filterSizeColorForRow(row) {
-        if (!row) return;
+    function getAttributeCandidates(input) {
+        const isSize = input.classList.contains('var-size') || input.id === 'batchInputSize';
+        const baseList = isSize ? globalSizeList : globalColorList;
+        const row = input.closest('.variant-row');
+        if (!row) return baseList;
+
         const catSel = row.querySelector('.var-category');
         const subSel = row.querySelector('.var-subcategory');
         const ssSel = row.querySelector('.var-subsubcategory');
-        const sizeSel = row.querySelector('.var-size');
-        const colorSel = row.querySelector('.var-color');
-        if (!catSel || !sizeSel || !colorSel) return;
-
-        const cName = (catSel.selectedOptions[0]?.value ? catSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+        const cName = (catSel && catSel.selectedOptions[0]?.value ? catSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
         const sName = (subSel && subSel.selectedOptions[0]?.value ? subSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
         const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
 
@@ -2151,43 +2131,114 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (cName && categoryAttributesMap[cName]) {
             attr = categoryAttributesMap[cName];
         }
-
-        const currentSize = sizeSel.value;
-        const targetSizes = (attr && Array.isArray(attr.sizes) && attr.sizes.length > 0)
-            ? Array.from(new Set([...attr.sizes, ...globalSizeList]))
-            : globalSizeList;
-        const finalSizes = currentSize && !targetSizes.includes(currentSize) ? [currentSize, ...targetSizes] : targetSizes;
-        sizeSel.innerHTML = '';
-        finalSizes.forEach(sz => {
-            const opt = document.createElement('option');
-            opt.value = sz;
-            opt.textContent = sz;
-            if (sz === currentSize) opt.selected = true;
-            sizeSel.appendChild(opt);
-        });
-
-        const currentColor = colorSel.value;
-        const targetColors = (attr && Array.isArray(attr.colors) && attr.colors.length > 0)
-            ? Array.from(new Set([...attr.colors, ...globalColorList]))
-            : globalColorList;
-        const finalColors = currentColor && !targetColors.includes(currentColor) ? [currentColor, ...targetColors] : targetColors;
-        colorSel.innerHTML = '';
-        finalColors.forEach(col => {
-            const opt = document.createElement('option');
-            opt.value = col;
-            opt.textContent = col;
-            if (col === currentColor) opt.selected = true;
-            colorSel.appendChild(opt);
-        });
+        const linked = attr ? (isSize ? attr.sizes : attr.colors) : [];
+        return (Array.isArray(linked) && linked.length > 0) ? dedupeCi([...linked, ...baseList]) : baseList;
     }
 
-    if (tbodyVariantRows) {
-        tbodyVariantRows.addEventListener('change', function (e) {
-            if (e.target.classList.contains('var-category') || e.target.classList.contains('var-subcategory') || e.target.classList.contains('var-subsubcategory')) {
-                filterSizeColorForRow(e.target.closest('.variant-row'));
+    const attrDropdown = document.createElement('div');
+    attrDropdown.id = 'attrSuggestDropdown';
+    attrDropdown.className = 'list-group shadow-lg border';
+    attrDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:220px;overflow-y:auto;min-width:170px;background:#fff;border-radius:0.5rem;';
+    document.body.appendChild(attrDropdown);
+
+    let activeAttrInput = null;
+    let activeAttrIdx = -1;
+    let currentAttrMatches = [];
+
+    function hideAttrDropdown() {
+        attrDropdown.style.display = 'none';
+        attrDropdown.innerHTML = '';
+        activeAttrInput = null;
+        activeAttrIdx = -1;
+        currentAttrMatches = [];
+    }
+
+    function applyAttrSelection(val) {
+        if (!activeAttrInput || !val) return;
+        activeAttrInput.value = val;
+        activeAttrInput.dispatchEvent(new Event('change', { bubbles: true }));
+        hideAttrDropdown();
+    }
+
+    function renderAttrDropdown(input, showAllOnFocus = false) {
+        const q = input.value.trim().toLowerCase();
+        const candidates = getAttributeCandidates(input);
+        let matches = [];
+        if (!q && showAllOnFocus) {
+            matches = candidates.slice(0, 15);
+        } else {
+            const prefix = [];
+            const partial = [];
+            for (const c of candidates) {
+                const lc = c.toLowerCase();
+                if (lc.startsWith(q)) prefix.push(c);
+                else if (lc.includes(q)) partial.push(c);
             }
+            matches = prefix.concat(partial).slice(0, 15);
+        }
+        currentAttrMatches = matches;
+        if (currentAttrMatches.length === 0) {
+            hideAttrDropdown();
+            return;
+        }
+        activeAttrInput = input;
+        activeAttrIdx = 0;
+        const rect = input.getBoundingClientRect();
+        attrDropdown.style.top = `${rect.bottom + 2}px`;
+        attrDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 200)}px`;
+        attrDropdown.style.width = `${Math.max(rect.width, 165)}px`;
+        attrDropdown.innerHTML = '';
+
+        currentAttrMatches.forEach((val, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action py-1 px-2.5 text-start small' + (idx === 0 ? ' active' : '');
+            btn.textContent = val;
+            btn.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                applyAttrSelection(val);
+            });
+            attrDropdown.appendChild(btn);
         });
+        attrDropdown.style.display = 'block';
     }
+
+    const isAttrSuggestInput = (el) => el && (el.classList.contains('var-size') || el.classList.contains('var-color') || el.id === 'batchInputSize' || el.id === 'batchSelectColor');
+    document.addEventListener('input', function (e) {
+        if (isAttrSuggestInput(e.target)) renderAttrDropdown(e.target, true);
+    });
+    document.addEventListener('focusin', function (e) {
+        if (isAttrSuggestInput(e.target)) renderAttrDropdown(e.target, true);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (!activeAttrInput || attrDropdown.style.display === 'none') return;
+        const items = attrDropdown.querySelectorAll('.list-group-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[activeAttrIdx]?.classList.remove('active');
+            activeAttrIdx = (activeAttrIdx + 1) % items.length;
+            items[activeAttrIdx]?.classList.add('active');
+            items[activeAttrIdx]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[activeAttrIdx]?.classList.remove('active');
+            activeAttrIdx = (activeAttrIdx - 1 + items.length) % items.length;
+            items[activeAttrIdx]?.classList.add('active');
+            items[activeAttrIdx]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeAttrIdx >= 0) {
+            e.preventDefault();
+            applyAttrSelection(currentAttrMatches[activeAttrIdx]);
+        } else if (e.key === 'Escape') {
+            hideAttrDropdown();
+        }
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target !== activeAttrInput && !attrDropdown.contains(e.target)) {
+            hideAttrDropdown();
+        }
+    });
+    window.addEventListener('scroll', hideAttrDropdown, true);
 
     let activeAttrRow = null;
     document.addEventListener('click', function (e) {
@@ -2224,18 +2275,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.success) {
                         const newSize = data.name || code;
-                        if (!globalSizeList.includes(newSize)) globalSizeList.push(newSize);
-                        document.querySelectorAll('.var-size, #batchInputSize').forEach(sel => {
-                            if (!Array.from(sel.options).some(o => o.value.toUpperCase() === newSize.toUpperCase())) {
-                                const opt = document.createElement('option');
-                                opt.value = newSize;
-                                opt.textContent = newSize;
-                                sel.appendChild(opt);
-                            }
-                        });
+                        if (!globalSizeList.some(s => s.toLowerCase() === newSize.toLowerCase())) {
+                            globalSizeList.push(newSize);
+                        }
                         if (activeAttrRow) {
-                            const rowSel = activeAttrRow.querySelector('.var-size');
-                            if (rowSel) rowSel.value = newSize;
+                            const rowInp = activeAttrRow.querySelector('.var-size');
+                            if (rowInp) rowInp.value = newSize;
                         }
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSize')).hide();
                         input.value = '';
@@ -2269,18 +2314,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.success) {
                         const newColor = data.name || name;
-                        if (!globalColorList.includes(newColor)) globalColorList.push(newColor);
-                        document.querySelectorAll('.var-color, #batchSelectColor').forEach(sel => {
-                            if (!Array.from(sel.options).some(o => o.value.toUpperCase() === newColor.toUpperCase())) {
-                                const opt = document.createElement('option');
-                                opt.value = newColor;
-                                opt.textContent = newColor;
-                                sel.appendChild(opt);
-                            }
-                        });
+                        if (!globalColorList.some(c => c.toLowerCase() === newColor.toLowerCase())) {
+                            globalColorList.push(newColor);
+                        }
                         if (activeAttrRow) {
-                            const rowSel = activeAttrRow.querySelector('.var-color');
-                            if (rowSel) rowSel.value = newColor;
+                            const rowInp = activeAttrRow.querySelector('.var-color');
+                            if (rowInp) rowInp.value = newColor;
                         }
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddColor')).hide();
                         nameInput.value = '';
