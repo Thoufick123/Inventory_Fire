@@ -3895,6 +3895,7 @@ class AllmodulesController {
             }
         }
 
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
         $warehouses = [];
         if ($cid !== null) {
             $warehouses = Database::fetchAll(
@@ -6025,6 +6026,7 @@ class AllmodulesController {
         // Sub-subcategories for active item
         $subSubcategories = [];
         $activeSubcatId = (int)($activeItem['mapped_third_party_subcategory_id'] ?? 0);
+        $activeSubSubcatId = (int)($activeItem['mapped_third_party_sub_subcategory_id'] ?? 0);
         if ($activeSubcatId > 0) {
             $subSubcategories = Database::fetchAll(
                 "SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE subcategory_id = ? AND is_active = 1 ORDER BY sort_order ASC, name ASC",
@@ -6238,6 +6240,7 @@ class AllmodulesController {
             error_log('categoryAttributesMap build failed: ' . $e->getMessage());
         }
 
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
         $warehouses = [];
         if ($cid !== null) {
             $warehouses = Database::fetchAll(
