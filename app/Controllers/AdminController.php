@@ -792,6 +792,7 @@ class AdminController {
             'staffPermissions'    => [],
             'sidebarItems'        => SidebarMenu::allModuleItems(),
             'savedSidebarOrder'   => SidebarMenu::getOrderForUser(null),
+            'savedSidebarOrderMap'=> [],
             'staff'               => null,
         ]);
     }
@@ -891,7 +892,7 @@ class AdminController {
             }
             if (!empty($_POST['sidebar_order'])) {
                 SidebarMenu::ensureSchema();
-                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                $sanitizedOrder = SidebarMenu::sanitizeOrderPayload($_POST['sidebar_order']);
                 Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $id]);
             }
 
@@ -1032,6 +1033,7 @@ class AdminController {
             'staffPermissions'    => User::getPermissionIds($staffId),
             'sidebarItems'        => SidebarMenu::allModuleItems(),
             'savedSidebarOrder'   => SidebarMenu::getOrderForUser($staffId),
+            'savedSidebarOrderMap'=> SidebarMenu::getOrderMapForUser($staffId),
             'staff'               => $staff,
         ]);
     }
@@ -1142,7 +1144,7 @@ class AdminController {
             }
             if (!empty($_POST['sidebar_order'])) {
                 SidebarMenu::ensureSchema();
-                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                $sanitizedOrder = SidebarMenu::sanitizeOrderPayload($_POST['sidebar_order']);
                 Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $staffId]);
             }
 

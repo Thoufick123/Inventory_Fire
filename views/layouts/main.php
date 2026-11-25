@@ -240,7 +240,7 @@ if (!empty($authUser['production_unit_name'])) {
                                 'retail_pos' => $modRetailPos,
                                 'returns'    => $modReturns,
                             ];
-                            foreach (SidebarMenu::getOrderedItemsForUser(Auth::id()) as $navItem):
+                            foreach (SidebarMenu::getOrderedItemsForUser(Auth::id(), Session::getActiveConcernId()) as $navItem):
                                 $modEnabled = $moduleFlagMap[$navItem['module']] ?? false;
                                 if (!$modEnabled) {
                                     continue;

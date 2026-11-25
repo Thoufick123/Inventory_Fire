@@ -175,43 +175,6 @@ foreach ($hierarchicalModules as $m) {
 
                             <input type="hidden" name="department" id="selected_department" value="<?= e($dept ?: 'ALL') ?>">
 
-                            <!-- Dynamic Operational Concern Selection Cards -->
-                            <div class="col-12 pt-3 border-top">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label class="form-label fw-bold text-dark mb-0">
-                                        <i class="bi bi-buildings-fill text-primary me-2"></i>Select Department / Operational Concern <span class="text-danger">*</span>
-                                    </label>
-                                    <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Dynamic list of registered business concerns</span>
-                                </div>
-                                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-2.5" id="departmentCards">
-                                    <?php 
-                                    $activeOpConcernId = (int)($defaultConcernId ?? 0);
-                                    if ($activeOpConcernId <= 0 && !empty($concerns)) {
-                                        $activeOpConcernId = (int)$concerns[0]['id'];
-                                    }
-                                    foreach (($concerns ?? []) as $cIdx => $c): 
-                                        $cId = (int)$c['id'];
-                                        $isActiveOp = ($cId === $activeOpConcernId);
-                                    ?>
-                                    <div class="col">
-                                        <input type="radio" class="btn-check dept-concern-radio" name="operational_concern_id" id="dept_concern_<?= $cId ?>" value="<?= $cId ?>" <?= $isActiveOp ? 'checked' : '' ?> onchange="handleOperationalConcernSelection(<?= $cId ?>)">
-                                        <label class="btn btn-outline-primary w-100 p-2.5 text-start d-flex align-items-center h-100 dept-card rounded-3 shadow-xs <?= $isActiveOp ? 'active' : '' ?>" for="dept_concern_<?= $cId ?>" id="label_dept_concern_<?= $cId ?>">
-                                            <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-2 text-primary flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                                <i class="bi bi-buildings fs-5"></i>
-                                            </div>
-                                            <div class="flex-grow-1 min-w-0">
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <span class="fw-bold text-truncate" style="font-size: 13.5px;"><?= e($c['name']) ?></span>
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small" style="font-size: 9.5px;"><?= e($c['code']) ?></span>
-                                                </div>
-                                                <div class="text-muted small text-truncate" style="font-size: 11px;"><?= e($c['legal_name'] ?: 'Operational Concern') ?></div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-
                                 <!-- Status Toggle (Only on Edit) -->
                             <?php if ($isEdit): ?>
                                 <div class="col-12 pt-2">
@@ -282,12 +245,12 @@ foreach ($hierarchicalModules as $m) {
                             <?php endforeach; ?>
                         </div>
 
-                        <input type="hidden" name="default_concern_id" id="default_concern_id" value="<?= (int)$activeOpConcernId ?>">
+                        <input type="hidden" name="default_concern_id" id="default_concern_id" value="<?= (int)($defaultConcernId ?? 0) ?>">
 
                         <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
                             <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
                             <div class="small">
-                                Staff members will only be able to view documents, batches, and switch between entities that are checked above. Their selected primary operational concern will be active upon login.
+                                Staff members will only be able to view documents, batches, and switch between entities that are checked above. The first checked concern will be active upon login.
                             </div>
                         </div>
                     </div>
@@ -465,10 +428,10 @@ foreach ($hierarchicalModules as $m) {
                 $orderedSidebarKeys = $savedSidebarOrder ?? array_keys($sidebarItemMap);
                 ?>
                 <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-ol me-2 text-primary"></i>Left Sidebar Menu Order</h5>
-                            <small class="text-muted">Drag &amp; drop or use arrows to set the left sidebar order for this staff member's allocated modules.</small>
+                            <small class="text-muted">Configure the left sidebar order separately for each authorized concern tab.</small>
                         </div>
                         <div class="d-flex align-items-center gap-3 flex-wrap">
                             <div class="form-check form-switch mb-0">
@@ -480,7 +443,11 @@ foreach ($hierarchicalModules as $m) {
                             </button>
                         </div>
                     </div>
+                    <ul class="nav nav-pills gap-2 px-3 py-2.5 border-bottom bg-light bg-opacity-50" id="sidebarConcernTabs"></ul>
                     <div class="card-body p-3">
+                        <div id="sidebarNoConcernHint" class="text-center text-muted small py-3 d-none">
+                            Select at least one authorized concern above to configure sidebar menu order.
+                        </div>
                         <input type="hidden" name="sidebar_order" id="sidebarOrderInput" value="<?= e(json_encode($orderedSidebarKeys)) ?>">
                         <div id="sidebarOrderList" class="list-group">
                             <?php foreach ($orderedSidebarKeys as $pos => $sKey):
@@ -685,24 +652,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const warningBox = document.getElementById('role_mismatch_warning');
     const warningMsg = document.getElementById('role_mismatch_msg');
     const staffForm  = document.getElementById('staffForm');
-
-    window.handleOperationalConcernSelection = function(concernId) {
-        const chk = document.getElementById('concern_' + concernId);
-        if (chk && !chk.checked) {
-            chk.checked = true;
-            syncDefaultConcernOptions();
-        }
-        const defSelect = document.getElementById('default_concern_id');
-        if (defSelect) {
-            defSelect.value = concernId;
-        }
-        document.querySelectorAll('.dept-concern-radio').forEach(r => {
-            const lbl = document.getElementById('label_dept_concern_' + r.value);
-            if (lbl) {
-                lbl.classList.toggle('active', r.checked);
-            }
-        });
-    };
 
     function syncRoleAndDepartment(autoSelect = true) {
         // Multi-module enablement: Ensure all modules and submodule rows are visible, active, and selectable
@@ -954,8 +903,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!hiddenInput) return;
 
         const checkboxes = document.querySelectorAll('.concern-checkbox');
-        const checkedRadio = document.querySelector('.dept-concern-radio:checked');
-        const preferredVal = checkedRadio ? parseInt(checkedRadio.value) : (parseInt(hiddenInput.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>);
+        const preferredVal = parseInt(hiddenInput.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>;
         const checkedIds = [];
 
         checkboxes.forEach(cb => {
@@ -977,17 +925,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const activeCid = checkedIds.includes(preferredVal) ? preferredVal : (checkedIds[0] || '');
         hiddenInput.value = activeCid;
 
-        if (activeCid) {
-            const rad = document.getElementById('dept_concern_' + activeCid);
-            if (rad && !rad.checked) {
-                rad.checked = true;
-            }
-            document.querySelectorAll('.dept-concern-radio').forEach(r => {
-                const lbl = document.getElementById('label_dept_concern_' + r.value);
-                if (lbl) {
-                    lbl.classList.toggle('active', r.checked);
-                }
-            });
+        if (typeof window.refreshSidebarConcernTabs === 'function') {
+            window.refreshSidebarConcernTabs();
         }
     };
 
@@ -1026,14 +965,72 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     // =========================================================================
-    // Left Sidebar Menu Order Management
+    // Left Sidebar Menu Order Management (Per-Concern Tabs)
     // =========================================================================
     const sidebarOrderList = document.getElementById('sidebarOrderList');
     const sidebarOrderInput = document.getElementById('sidebarOrderInput');
+    const sidebarConcernTabs = document.getElementById('sidebarConcernTabs');
+    const sidebarNoConcernHint = document.getElementById('sidebarNoConcernHint');
     const toggleAllocatedOnly = document.getElementById('toggleAllocatedOnly');
     const btnResetSidebarOrder = document.getElementById('btnResetSidebarOrder');
     const sidebarOrderEmptyHint = document.getElementById('sidebarOrderEmptyHint');
     const defaultSidebarKeys = <?= json_encode(array_column($sidebarItems ?? SidebarMenu::allModuleItems(), 'key')) ?>;
+    const savedSidebarOrderMap = <?= json_encode($savedSidebarOrderMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const sidebarOrderMap = {};
+    let activeSidebarConcernId = null;
+
+    if (savedSidebarOrderMap && typeof savedSidebarOrderMap === 'object') {
+        Object.keys(savedSidebarOrderMap).forEach(k => {
+            if (k !== '_default' && Array.isArray(savedSidebarOrderMap[k])) {
+                sidebarOrderMap[String(k)] = savedSidebarOrderMap[k].slice();
+            }
+        });
+    }
+
+    function getCheckedConcernsList() {
+        const list = [];
+        document.querySelectorAll('.concern-checkbox:checked').forEach(cb => {
+            const cid = String(cb.value);
+            const code = cb.getAttribute('data-concern-code') || '';
+            const name = cb.getAttribute('data-concern-name') || ('Concern #' + cid);
+            list.push({ id: cid, label: code ? `${code} - ${name}` : name });
+        });
+        return list;
+    }
+
+    function ensureConcernOrder(cid) {
+        if (!sidebarOrderMap[cid]) {
+            const fallback = Array.isArray(savedSidebarOrderMap._default)
+                ? savedSidebarOrderMap._default
+                : defaultSidebarKeys;
+            sidebarOrderMap[cid] = fallback.slice();
+        }
+        return sidebarOrderMap[cid];
+    }
+
+    function applyOrderToDOM(keys) {
+        if (!sidebarOrderList) return;
+        const itemsByKey = {};
+        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach(el => {
+            itemsByKey[el.getAttribute('data-key')] = el;
+        });
+        keys.forEach(k => {
+            if (itemsByKey[k]) sidebarOrderList.appendChild(itemsByKey[k]);
+        });
+        defaultSidebarKeys.forEach(k => {
+            if (!keys.includes(k) && itemsByKey[k]) sidebarOrderList.appendChild(itemsByKey[k]);
+        });
+    }
+
+    function serializeSidebarOrderMap() {
+        if (!sidebarOrderInput) return;
+        const checked = getCheckedConcernsList();
+        const payload = {};
+        checked.forEach(c => {
+            payload[c.id] = ensureConcernOrder(c.id);
+        });
+        sidebarOrderInput.value = JSON.stringify(payload);
+    }
 
     function getAllocatedViewSubmodules() {
         const allocated = new Set();
@@ -1046,12 +1043,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function refreshSidebarOrderUI() {
         if (!sidebarOrderList || !sidebarOrderInput) return;
+        const checked = getCheckedConcernsList();
+        if (checked.length === 0) {
+            sidebarOrderList.classList.add('d-none');
+            if (sidebarNoConcernHint) sidebarNoConcernHint.classList.remove('d-none');
+            if (sidebarOrderEmptyHint) sidebarOrderEmptyHint.classList.add('d-none');
+            sidebarOrderInput.value = JSON.stringify({});
+            return;
+        }
+        sidebarOrderList.classList.remove('d-none');
+        if (sidebarNoConcernHint) sidebarNoConcernHint.classList.add('d-none');
+
         const allocatedSet = getAllocatedViewSubmodules();
         const showAllocatedOnly = toggleAllocatedOnly ? toggleAllocatedOnly.checked : true;
         const keys = [];
         let visibleCount = 0;
 
-        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach((item, idx) => {
+        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach((item) => {
             const key = item.getAttribute('data-key');
             if (key) keys.push(key);
             let perms = [];
@@ -1076,11 +1084,53 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        sidebarOrderInput.value = JSON.stringify(keys);
+        if (activeSidebarConcernId) {
+            sidebarOrderMap[activeSidebarConcernId] = keys;
+        }
+        serializeSidebarOrderMap();
+
         if (sidebarOrderEmptyHint) {
             sidebarOrderEmptyHint.classList.toggle('d-none', visibleCount > 0);
         }
     }
+
+    window.refreshSidebarConcernTabs = function() {
+        if (!sidebarConcernTabs) return;
+        const checked = getCheckedConcernsList();
+        sidebarConcernTabs.innerHTML = '';
+
+        if (checked.length === 0) {
+            activeSidebarConcernId = null;
+            sidebarConcernTabs.classList.add('d-none');
+            refreshSidebarOrderUI();
+            return;
+        }
+        sidebarConcernTabs.classList.remove('d-none');
+
+        if (!activeSidebarConcernId || !checked.some(c => c.id === activeSidebarConcernId)) {
+            activeSidebarConcernId = checked[0].id;
+        }
+
+        checked.forEach(c => {
+            ensureConcernOrder(c.id);
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nav-link btn-sm py-1.5 px-3 ' + (c.id === activeSidebarConcernId ? 'active fw-semibold' : 'bg-white border text-dark');
+            btn.innerHTML = `<i class="bi bi-buildings me-1"></i>${c.label}`;
+            btn.addEventListener('click', () => {
+                activeSidebarConcernId = c.id;
+                applyOrderToDOM(ensureConcernOrder(c.id));
+                window.refreshSidebarConcernTabs();
+            });
+            li.appendChild(btn);
+            sidebarConcernTabs.appendChild(li);
+        });
+
+        applyOrderToDOM(ensureConcernOrder(activeSidebarConcernId));
+        refreshSidebarOrderUI();
+    };
 
     if (sidebarOrderList) {
         let draggedItem = null;
@@ -1160,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById(id)?.addEventListener('click', () => setTimeout(refreshSidebarOrderUI, 30));
     });
 
-    refreshSidebarOrderUI();
+    window.refreshSidebarConcernTabs();
 });
 </script>
 
