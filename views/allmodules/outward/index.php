@@ -681,34 +681,40 @@ function viewOutwardDispatchDetails(outwardId) {
                         return;
                     }
 
-                    pieceTags.forEach((tag, pieceIndex) => {
-                        const pieceCard = document.createElement('div');
-                        pieceCard.className = 'border rounded-2 p-1 text-center bg-white';
-                        pieceCard.style.width = '76px';
-                        pieceCard.title = `Piece ${pieceIndex + 1}: ${tag}`;
+                    const primaryTag = pieceTags[0];
+                    const pieceCard = document.createElement('div');
+                    pieceCard.className = 'border rounded-2 p-2 text-center bg-white d-inline-block';
+                    pieceCard.style.minWidth = '88px';
+                    pieceCard.title = `Variant QR: ${primaryTag}`;
 
-                        const qr = document.createElement('div');
-                        qr.className = 'vod-piece-qr mx-auto';
-                        qr.setAttribute('aria-label', `QR code for ${tag}`);
-                        const code = document.createElement('div');
-                        code.className = 'font-monospace text-dark text-break mt-1';
-                        code.style.fontSize = '0.62rem';
-                        code.textContent = tag;
-                        pieceCard.append(qr, code);
-                        qrList.appendChild(pieceCard);
+                    const qr = document.createElement('div');
+                    qr.className = 'vod-piece-qr mx-auto';
+                    qr.setAttribute('aria-label', `QR code for ${primaryTag}`);
+                    const code = document.createElement('div');
+                    code.className = 'font-monospace text-dark text-break mt-1';
+                    code.style.fontSize = '0.65rem';
+                    code.textContent = primaryTag;
+                    pieceCard.append(qr, code);
+                    if (pieceTags.length > 1) {
+                        const qtyBadge = document.createElement('div');
+                        qtyBadge.className = 'badge bg-light text-muted border mt-1';
+                        qtyBadge.style.fontSize = '0.62rem';
+                        qtyBadge.textContent = `${pieceTags.length} pcs`;
+                        pieceCard.appendChild(qtyBadge);
+                    }
+                    qrList.appendChild(pieceCard);
 
-                        if (typeof QRCode === 'undefined') {
-                            qr.textContent = 'QR unavailable';
-                            qr.className += ' small text-danger';
-                            return;
-                        }
+                    if (typeof QRCode === 'undefined') {
+                        qr.textContent = 'QR unavailable';
+                        qr.className += ' small text-danger';
+                    } else {
                         new QRCode(qr, {
-                            text: tag,
-                            width: 60,
-                            height: 60,
+                            text: primaryTag,
+                            width: 64,
+                            height: 64,
                             correctLevel: QRCode.CorrectLevel.M
                         });
-                    });
+                    }
                 });
             }
 

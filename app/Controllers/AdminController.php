@@ -668,6 +668,8 @@ class AdminController {
             'hierarchicalModules' => Role::getHierarchicalPermissions(),
             'rolePermissionsMap'  => Role::getAllRolePermissionsMap(),
             'staffPermissions'    => [],
+            'sidebarItems'        => SidebarMenu::allModuleItems(),
+            'savedSidebarOrder'   => SidebarMenu::getOrderForUser(null),
             'staff'               => null,
         ]);
     }
@@ -764,6 +766,11 @@ class AdminController {
             if (isset($_POST['permissions'])) {
                 $rawPerms = is_array($_POST['permissions']) ? array_filter($_POST['permissions']) : [];
                 User::savePermissions($id, $rawPerms);
+            }
+            if (!empty($_POST['sidebar_order'])) {
+                SidebarMenu::ensureSchema();
+                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $id]);
             }
 
             $newSnapshot = $this->prepareStaffSnapshot($_POST);
@@ -901,6 +908,8 @@ class AdminController {
             'hierarchicalModules' => Role::getHierarchicalPermissions(),
             'rolePermissionsMap'  => Role::getAllRolePermissionsMap(),
             'staffPermissions'    => User::getPermissionIds($staffId),
+            'sidebarItems'        => SidebarMenu::allModuleItems(),
+            'savedSidebarOrder'   => SidebarMenu::getOrderForUser($staffId),
             'staff'               => $staff,
         ]);
     }
@@ -1008,6 +1017,11 @@ class AdminController {
             if (isset($_POST['permissions'])) {
                 $rawPerms = is_array($_POST['permissions']) ? array_filter($_POST['permissions']) : [];
                 User::savePermissions($staffId, $rawPerms);
+            }
+            if (!empty($_POST['sidebar_order'])) {
+                SidebarMenu::ensureSchema();
+                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $staffId]);
             }
 
             AuditService::log('staff', 'update', 'users', $staffId, $oldSnapshot, $newSnapshot);

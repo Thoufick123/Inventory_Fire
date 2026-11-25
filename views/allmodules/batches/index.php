@@ -5,9 +5,6 @@
     </div>
     <?php if (hasPermission('batches', 'create')): ?>
     <div class="d-flex align-items-center gap-2">
-        <a href="<?= url('production/billing/create') ?>" class="btn btn-outline-success">
-            <i class="bi bi-receipt me-1"></i> New Production Bill
-        </a>
         <a href="<?= url('production/batches/create') ?>" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i> Pack New Batch
         </a>
