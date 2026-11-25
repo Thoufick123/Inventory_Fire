@@ -348,7 +348,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         border-top: 1px solid #dee2e6;
     }
     .saved-variants-scroll.is-expanded {
-        max-height: 75vh;
+        max-height: none;
+        overflow-y: visible;
     }
     .saved-variants-table {
         font-size: 12px;
@@ -500,6 +501,23 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     </a>
                                 </div>
                                 <?php endif; ?>
+                                <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                    <button type="button"
+                                            class="btn btn-xs btn-outline-primary btn-edit-saved-item"
+                                            title="Edit saved variant"
+                                            data-id="<?= (int)$item['id'] ?>"
+                                            data-name="<?= e($item['item_name']) ?>"
+                                            data-color="<?= e($item['color'] ?? '') ?>"
+                                            data-size="<?= e($item['size'] ?? '') ?>"
+                                            data-hsn="<?= e($item['hsn_code'] ?? '') ?>"
+                                            data-unit="<?= e($item['unit'] ?: 'PCS') ?>"
+                                            data-qty="<?= e((string)(float)$item['quantity']) ?>"
+                                            data-rate="<?= e((string)(float)$item['unit_price']) ?>"
+                                            data-mrp="<?= e((string)(float)$item['mrp']) ?>"
+                                            data-selling="<?= e((string)(float)$item['selling_price']) ?>">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                <?php endif; ?>
                                 <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
                                     <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline js-draft-confirm-form" data-confirm-title="Delete Saved Product" data-confirm-msg="Delete this product and its unposted QR batch? This cannot be undone." data-confirm-btn="Yes, Delete" data-confirm-class="btn-danger">
                                         <?= CSRF::field() ?>
@@ -516,6 +534,62 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         </table>
     </div>
 </div>
+<!-- Edit Saved Variant Modal -->
+<div class="modal fade" id="editSavedVariantModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="" id="editSavedVariantForm" class="modal-content border-0 shadow-lg rounded-3">
+            <?= CSRF::field() ?>
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold fs-6"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Saved Variant: <span id="editVarTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2.5">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">Color</label>
+                        <input type="text" name="color" id="editVarColor" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">Size</label>
+                        <input type="text" name="size" id="editVarSize" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">HSN Code</label>
+                        <input type="text" name="hsn_code" id="editVarHsn" class="form-control form-control-sm font-monospace">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">Quantity <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0.01" name="quantity" id="editVarQty" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">UOM</label>
+                        <input type="text" name="unit" id="editVarUnit" class="form-control form-control-sm text-uppercase" value="PCS">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold mb-1">Purchase Rate <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0" name="unit_price" id="editVarRate" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold mb-1">MRP (₹)</label>
+                        <input type="number" step="0.01" min="0" name="mrp" id="editVarMrp" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold mb-1">Selling Price (₹)</label>
+                        <input type="number" step="0.01" min="0" name="selling_price" id="editVarSelling" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-12 d-none" id="editVarPriceError">
+                        <div class="alert alert-danger py-1.5 px-2.5 small mb-0">MRP cannot be less than Selling Price.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modern UI Alert Modal (replaces native browser showDraftModernAlert()) -->
 <div class="modal fade" id="draftModernAlertModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -622,6 +696,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 : '<i class="bi bi-arrows-expand me-1"></i>Expand';
         });
     }
+
+    const editModalEl = document.getElementById('editSavedVariantModal');
+    const editForm = document.getElementById('editSavedVariantForm');
+    document.querySelectorAll('.btn-edit-saved-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!editForm || !editModalEl) return;
+            editForm.action = '<?= url('purchases/mapping/draft/item/') ?>' + btn.dataset.id + '/update';
+            document.getElementById('editVarTitle').textContent = btn.dataset.name || '';
+            document.getElementById('editVarColor').value = btn.dataset.color || '';
+            document.getElementById('editVarSize').value = btn.dataset.size || '';
+            document.getElementById('editVarHsn').value = btn.dataset.hsn || '';
+            document.getElementById('editVarQty').value = btn.dataset.qty || '1';
+            document.getElementById('editVarUnit').value = btn.dataset.unit || 'PCS';
+            document.getElementById('editVarRate').value = btn.dataset.rate || '0';
+            document.getElementById('editVarMrp').value = btn.dataset.mrp || '0';
+            document.getElementById('editVarSelling').value = btn.dataset.selling || '0';
+            document.getElementById('editVarPriceError')?.classList.add('d-none');
+            if (typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(editModalEl).show();
+            }
+        });
+    });
+
+    editForm?.addEventListener('submit', (e) => {
+        const mrp = parseFloat(document.getElementById('editVarMrp')?.value || '0') || 0;
+        const sell = parseFloat(document.getElementById('editVarSelling')?.value || '0') || 0;
+        const errBox = document.getElementById('editVarPriceError');
+        if (mrp > 0 && sell > mrp) {
+            e.preventDefault();
+            errBox?.classList.remove('d-none');
+            return;
+        }
+        errBox?.classList.add('d-none');
+    });
 });
 </script>
 
@@ -1642,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const draftHsnDropdown = document.createElement('div');
     draftHsnDropdown.id = 'draftHsnSuggestDropdown';
     draftHsnDropdown.className = 'list-group shadow-lg border';
-    draftHsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:220px;overflow-y:auto;min-width:260px;background:#fff;border-radius:0.5rem;';
+    draftHsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:220px;overflow-y:auto;overscroll-behavior:contain;min-width:260px;background:#fff;border-radius:0.5rem;';
     document.body.appendChild(draftHsnDropdown);
 
     let activeDraftHsnInput = null;
@@ -1700,7 +1808,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (c.startsWith(q)) prefix.push(it);
             else if (c.includes(q) || d.includes(q)) other.push(it);
         }
-        const matches = prefix.concat(other).slice(0, 12);
+        const matches = prefix.concat(other).slice(0, 30);
         if (!matches.length) {
             hideDraftHsnDropdown();
             return;
@@ -1724,7 +1832,10 @@ document.addEventListener('DOMContentLoaded', function() {
         draftHsnDropdown.style.display = 'block';
     });
     document.addEventListener('click', e => { if (e.target !== activeDraftHsnInput && !draftHsnDropdown.contains(e.target)) hideDraftHsnDropdown(); });
-    window.addEventListener('scroll', hideDraftHsnDropdown, true);
+    window.addEventListener('scroll', function (ev) {
+        if (ev.target === draftHsnDropdown || (ev.target && draftHsnDropdown.contains(ev.target))) return;
+        hideDraftHsnDropdown();
+    }, true);
 
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('gen-category')) {

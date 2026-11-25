@@ -4077,6 +4077,119 @@ class AllmodulesController {
         Response::redirect(url('purchases/mapping'));
     }
 
+    public function updateThirdPartyMappingDraftItem(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $mappingItemId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingItemId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
+            $params[] = $cid;
+        }
+        $item = Database::fetchOne(
+            "SELECT mi.*, mb.status AS bill_status
+             FROM third_party_mapping_items mi
+             JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             WHERE mi.id = ?{$scope}",
+            $params
+        );
+        if (!$item) {
+            Session::flash('error', 'Mapped product not found.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+        $mappingBillId = (int)$item['mapping_bill_id'];
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if (($item['bill_status'] ?? '') !== 'DRAFT') {
+            Session::flash('error', 'Only DRAFT mapping items can be edited.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        $color = trim((string)($_POST['color'] ?? ''));
+        $size = trim((string)($_POST['size'] ?? ''));
+        $hsnCode = strtoupper(trim((string)($_POST['hsn_code'] ?? '')));
+        $unit = strtoupper(trim((string)($_POST['unit'] ?? ($item['unit'] ?? 'PCS')))) ?: 'PCS';
+        $qty = round((float)($_POST['quantity'] ?? 0), 3);
+        $unitPrice = round((float)($_POST['unit_price'] ?? 0), 2);
+        $mrp = round((float)($_POST['mrp'] ?? 0), 2);
+        $sellingPrice = round((float)($_POST['selling_price'] ?? 0), 2);
+
+        if ($qty <= 0) {
+            Session::flash('error', 'Quantity must be greater than 0.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if ($unitPrice < 0 || $mrp < 0 || $sellingPrice < 0) {
+            Session::flash('error', 'Rates and prices cannot be negative.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if ($mrp > 0 && $sellingPrice > $mrp) {
+            Session::flash('error', 'Selling Price cannot exceed MRP.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            Database::execute(
+                "UPDATE third_party_mapping_items
+                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                 WHERE id = ?",
+                [
+                    $color !== '' ? $color : null,
+                    $size !== '' ? $size : null,
+                    $hsnCode !== '' ? $hsnCode : null,
+                    $unit,
+                    $qty,
+                    $unitPrice,
+                    $mrp,
+                    $sellingPrice,
+                    $mappingItemId
+                ]
+            );
+
+            if (!empty($item['variant_id'])) {
+                Database::execute(
+                    "UPDATE product_variants
+                     SET color = ?, size = ?, purchase_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                     WHERE id = ?",
+                    [
+                        $color !== '' ? $color : null,
+                        $size !== '' ? $size : null,
+                        $unitPrice,
+                        $mrp,
+                        $sellingPrice,
+                        (int)$item['variant_id']
+                    ]
+                );
+            }
+
+            if (!empty($item['qr_generation_id'])) {
+                Database::execute(
+                    "UPDATE qr_generations
+                     SET quantity = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                     WHERE id = ? AND COALESCE(stock_added, 0) = 0",
+                    [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
+                );
+            }
+
+            Database::commit();
+            Session::flash('success', 'Saved variant updated successfully.');
+        } catch (Exception $e) {
+            Database::rollBack();
+            Session::flash('error', 'Error updating variant: ' . $e->getMessage());
+        }
+
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
     public function deleteThirdPartyMappingDraftItem(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         $mappingItemId = (int)$id;
