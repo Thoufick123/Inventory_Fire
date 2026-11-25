@@ -27,48 +27,54 @@
 <!-- Quick Stats & Facility Overview -->
 <div class="row g-3 mb-4">
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3 h-100 bg-white">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-primary-subtle text-primary p-3">
-                    <i class="bi bi-buildings fs-4"></i>
-                </div>
-                <div>
-                    <div class="small text-muted fw-semibold">Active Business Concern</div>
-                    <div class="fw-bold fs-6 text-dark d-flex align-items-center gap-2">
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Active Business Concern</div>
+                    <div class="fw-bold text-primary fs-5 mt-1 d-flex align-items-center gap-2 flex-wrap">
                         <span><?= e($activeConcern['name'] ?? ($activeFacility['name'] ?? 'Consolidated Enterprise')) ?></span>
                         <?php if (!empty($activeConcern['code'])): ?>
                             <span class="badge bg-primary text-white" style="font-size: 10px;"><?= e($activeConcern['code']) ?></span>
                         <?php endif; ?>
                     </div>
-                    <small class="text-muted"><?= !empty($activeConcern['legal_name']) ? e($activeConcern['legal_name']) : (!empty($activeFacility['name']) ? 'Facility: ' . e($activeFacility['name']) : 'Multi-Concern Architecture') ?></small>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-buildings text-primary me-1"></i><?= !empty($activeConcern['legal_name']) ? e($activeConcern['legal_name']) : (!empty($activeFacility['name']) ? 'Facility: ' . e($activeFacility['name']) : 'Multi-Concern Architecture') ?>
+                    </div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-buildings fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3 h-100 bg-white">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-success-subtle text-success p-3">
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Export Format Support</div>
+                    <div class="fw-bold text-success fs-5 mt-1">Excel CSV &amp; Printable Summary</div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Native decimal formatting with UTF-8 BOM
+                    </div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-file-earmark-spreadsheet fs-4"></i>
                 </div>
-                <div>
-                    <div class="small text-muted fw-semibold">Export Format Support</div>
-                    <div class="fw-bold fs-6 text-dark">Excel CSV &amp; Printable Summary</div>
-                    <small class="text-muted">Native decimal formatting with UTF-8 BOM</small>
-                </div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 p-3 h-100 bg-white">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 bg-info-subtle text-info p-3">
-                    <i class="bi bi-lightning-charge fs-4"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Query Engine Optimization</div>
+                    <div class="fw-bold text-info-emphasis fs-5 mt-1">High-Speed SARGable Range Scan</div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-lightning-charge text-info me-1"></i>Indexed date predicates &amp; pre-joined aggregations
+                    </div>
                 </div>
-                <div>
-                    <div class="small text-muted fw-semibold">Query Engine Optimization</div>
-                    <div class="fw-bold fs-6 text-dark">High-Speed SARGable Range Scan</div>
-                    <small class="text-muted">Indexed date predicates &amp; pre-joined aggregations</small>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-lightning-charge fs-4"></i>
                 </div>
             </div>
         </div>
