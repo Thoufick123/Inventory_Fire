@@ -19399,7 +19399,8 @@ class AllmodulesController {
             $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s, $s]);
         }
 
-        $cid = currentConcernId();
+        // Finished Goods Inventory is common across all concerns and modules
+        $cid = null;
         if ($cid) {
             if ($cid === 1) {
                 $sql .= " AND (qb.concern_id = ? OR qb.concern_id IS NULL)";
@@ -20666,6 +20667,28 @@ class AllmodulesController {
             ];
         }
 
+        // Common Inventory Stock History across all locations & modules
+        $stockHistory = [];
+        $batchVariantIds = array_values(array_unique(array_filter(array_map(static fn(array $r): int => (int)($r['variant_id'] ?? 0), $qcItems))));
+        if (!empty($batchVariantIds)) {
+            try {
+                $vhPlaceholders = implode(',', array_fill(0, count($batchVariantIds), '?'));
+                $stockHistory = Database::fetchAll(
+                    "SELECT st.*, pv.variant_code, pv.sku AS variant_sku, u.full_name AS actor_name,
+                            CASE WHEN st.location_type = 'WAREHOUSE' THEN w.name ELSE pu.name END AS location_name
+                     FROM stock_transactions st
+                     LEFT JOIN product_variants pv ON pv.id = st.variant_id
+                     LEFT JOIN users u ON u.id = st.created_by
+                     LEFT JOIN warehouses w ON st.location_type = 'WAREHOUSE' AND w.id = st.location_id
+                     LEFT JOIN production_units pu ON st.location_type = 'PRODUCTION_UNIT' AND pu.id = st.location_id
+                     WHERE st.variant_id IN ({$vhPlaceholders})
+                     ORDER BY st.id DESC
+                     LIMIT 100",
+                    $batchVariantIds
+                );
+            } catch (\Throwable $e) {}
+        }
+
         Response::view('allmodules.inventory.batch', [
             'pageTitle'           => 'QC Batch #' . $id . ' — Inventory Detail',
             'activeModule'        => 'production',
@@ -20684,6 +20707,7 @@ class AllmodulesController {
             'soldPiecesList'      => $soldPiecesList,
             'returnPiecesList'    => [],
             'movementLogs'        => $outwards,
+            'stockHistory'        => $stockHistory,
             'totalReworkPieces'   => $totalReworkPieces,
             'totalRejectedPieces' => $totalRejectedPieces,
             'totalPieces'         => $totalPieces,
