@@ -234,6 +234,12 @@ class ConcernController {
             return;
         }
 
+        if ($contactError = $this->validateConcernContactFields($phone, $email, $address, $city, $state, $pincode)) {
+            Session::flash('error', $contactError);
+            Response::redirect(url('admin/concerns/create'));
+            return;
+        }
+
         // Check unique code
         $exists = Database::fetchOne("SELECT id FROM concerns WHERE code = ?", [$code]);
         if ($exists) {
@@ -407,6 +413,21 @@ class ConcernController {
             Session::flash('error', 'Concern Code is required.');
             Response::redirect(url("admin/concerns/edit/{$concernId}"));
             return;
+        }
+
+        if ($contactError = $this->validateConcernContactFields($phone, $email, $address, $city, $state, $pincode)) {
+            Session::flash('error', $contactError);
+            Response::redirect(url("admin/concerns/edit/{$concernId}"));
+            return;
+        }
+
+        if ($isActive === 0 && (int)($concern['is_active'] ?? 1) === 1) {
+            $otherActive = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns WHERE is_active = 1 AND id != ?", [$concernId]);
+            if ($otherActive <= 0) {
+                Session::flash('error', 'Cannot deactivate the only active business concern.');
+                Response::redirect(url("admin/concerns/edit/{$concernId}"));
+                return;
+            }
         }
 
         // Check unique code excluding this concern
@@ -803,6 +824,47 @@ class ConcernController {
         $msg = $newStatus ? "Concern '{$concern['name']}' activated." : "Concern '{$concern['name']}' deactivated.";
         Session::flash('success', $msg);
         Response::redirect(url('admin/concerns'));
+    }
+
+    /**
+     * Validate contact and operating address fields for concern create/update.
+     */
+    private function validateConcernContactFields(
+        string $phone,
+        string $email,
+        string $address,
+        string $city,
+        string $state,
+        string $pincode
+    ): ?string {
+        $compactPhone = preg_replace('/[\s\-]/', '', $phone);
+        $digitsOnly = preg_replace('/\D/', '', $compactPhone);
+        if ($phone === '' || !preg_match('/^\+?[0-9]+$/', $compactPhone) || strlen($digitsOnly) < 10 || strlen($digitsOnly) > 15) {
+            return 'Official Phone / Mobile must be a valid 10 to 15 digit number.';
+        }
+
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return 'Please enter a valid Official Email address.';
+        }
+
+        $addrLen = function_exists('mb_strlen') ? mb_strlen($address) : strlen($address);
+        if ($addrLen < 10 || $addrLen > 500) {
+            return 'Registered Physical Address is required (10 to 500 characters).';
+        }
+
+        if ($city === '' || !preg_match('/^[a-zA-Z\s.\-]{2,100}$/', $city)) {
+            return 'City is required and must contain only valid letters (minimum 2 characters).';
+        }
+
+        if ($state === '' || !preg_match('/^[a-zA-Z\s.\-]{2,100}$/', $state)) {
+            return 'State is required and must contain only valid letters (minimum 2 characters).';
+        }
+
+        if ($pincode !== '' && !preg_match('/^[0-9]{6}$/', $pincode)) {
+            return 'Pincode must be a valid 6-digit number.';
+        }
+
+        return null;
     }
 
     /**

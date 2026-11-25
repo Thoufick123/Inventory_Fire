@@ -82,7 +82,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
                 <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-grid-3x3-gap me-1 text-primary"></i> Registered Business Concerns</h6>
-                <div class="small text-muted">Switch context anytime from the top navigation bar dropdown or using the quick-switch button below.</div>
+                <div class="small text-muted">Switch context anytime from the top navigation bar dropdown.</div>
             </div>
             <form method="GET" action="<?= url('admin/concerns') ?>" class="d-flex gap-2">
                 <div class="btn-group btn-group-sm">
@@ -208,19 +208,11 @@
                         </td>
                         <td class="text-end">
                             <div class="d-inline-flex gap-1">
-                                <?php if (!$isActiveSession && $c['is_active']): ?>
-                                    <a href="<?= url('system/concerns/switch/' . $c['id']) ?>" class="btn btn-sm btn-outline-primary" title="Switch active session to this concern">
-                                        <i class="bi bi-shuffle me-1"></i>Switch
-                                    </a>
-                                <?php endif; ?>
                                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#staffModal_<?= $c['id'] ?>" title="Manage Staff for this Concern">
                                     <i class="bi bi-people"></i>
                                 </button>
                                 <a href="<?= url('admin/concerns/edit/' . $c['id']) ?>" class="btn btn-sm btn-outline-secondary" title="Edit Concern &amp; Staff">
                                     <i class="bi bi-pencil"></i>
-                                </a>
-                                <a href="<?= url('admin/concerns/toggle/' . $c['id']) ?>" class="btn btn-sm <?= $c['is_active'] ? 'btn-outline-danger' : 'btn-outline-success' ?>" title="<?= $c['is_active'] ? 'Deactivate' : 'Activate' ?>" onclick="return confirm('<?= $c['is_active'] ? 'Deactivate this concern?' : 'Activate this concern?' ?>')">
-                                    <i class="bi <?= $c['is_active'] ? 'bi-toggle-on text-success' : 'bi-toggle-off text-muted' ?>"></i>
                                 </a>
                             </div>
                         </td>
