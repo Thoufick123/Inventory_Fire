@@ -3,7 +3,10 @@ $cards = $analytics['cards'] ?? [];
 $charts = $analytics['charts'] ?? [];
 $selectedConcernId = $analytics['selectedConcernId'] ?? 'all';
 $selectedScopeName = $analytics['selectedScopeName'] ?? 'All Concerns (Overall)';
-$selectedMonths = (int)($analytics['months'] ?? 12);
+$fromDate = $analytics['fromDate'] ?? '';
+$toDate = $analytics['toDate'] ?? '';
+$dateRangeLabel = $analytics['dateRangeLabel'] ?? 'All Time';
+$trendSubtitle = $analytics['trendSubtitle'] ?? 'Monthly Total Purchase vs Selling Amount';
 ?>
 
 <style>
@@ -33,7 +36,11 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
         <h2 class="mb-1"><i class="bi bi-speedometer2 me-2 text-primary"></i>Admin Dashboard</h2>
         <p class="text-muted small mb-0">Concern-wise revenue overview, procurement vs selling performance, and workforce summary.</p>
     </div>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill" id="activeDateRangeBadge">
+            <i class="bi bi-calendar-range me-1 text-primary"></i>
+            <span id="activeDateRangeLabel"><?= e($dateRangeLabel) ?></span>
+        </span>
         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill" id="activeScopeBadge">
             <i class="bi bi-buildings me-1"></i>
             <span id="activeScopeLabel"><?= e($selectedScopeName) ?></span>
@@ -42,12 +49,12 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
 </div>
 
 <!-- ========================================================================= -->
-<!-- 1. CONCERN & PERIOD FILTER BAR (BEFORE REVENUE CARDS)                     -->
+<!-- 1. CONCERN & DATE RANGE FILTER BAR (BEFORE REVENUE CARDS)                 -->
 <!-- ========================================================================= -->
 <div class="card border-0 shadow-sm mb-4 rounded-3">
     <div class="card-body py-3">
         <div class="row g-3 align-items-end">
-            <div class="col-md-5 col-lg-4">
+            <div class="col-md-4 col-lg-4">
                 <label for="dashboardConcernFilter" class="form-label small fw-semibold text-uppercase text-muted mb-1">
                     <i class="bi bi-funnel me-1 text-primary"></i>Select Business Concern
                 </label>
@@ -63,25 +70,29 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4 col-lg-3">
-                <label for="dashboardMonthsFilter" class="form-label small fw-semibold text-uppercase text-muted mb-1">
-                    <i class="bi bi-calendar3 me-1 text-primary"></i>Graph Timeframe
+            <div class="col-sm-6 col-md-3 col-lg-2">
+                <label for="dashboardFromDate" class="form-label small fw-semibold text-uppercase text-muted mb-1">
+                    <i class="bi bi-calendar-event me-1 text-primary"></i>From Date
                 </label>
-                <select id="dashboardMonthsFilter" class="form-select shadow-xs">
-                    <option value="6" <?= $selectedMonths === 6 ? 'selected' : '' ?>>Last 6 Months</option>
-                    <option value="12" <?= $selectedMonths === 12 ? 'selected' : '' ?>>Last 12 Months</option>
-                </select>
+                <input type="date" id="dashboardFromDate" class="form-control shadow-xs" value="<?= e($fromDate) ?>">
             </div>
-            <div class="col-md-3 col-lg-5 d-flex align-items-center justify-content-md-end gap-2">
+            <div class="col-sm-6 col-md-3 col-lg-2">
+                <label for="dashboardToDate" class="form-label small fw-semibold text-uppercase text-muted mb-1">
+                    <i class="bi bi-calendar-check me-1 text-primary"></i>To Date
+                </label>
+                <input type="date" id="dashboardToDate" class="form-control shadow-xs" value="<?= e($toDate) ?>">
+            </div>
+            <div class="col-md-2 col-lg-4 d-flex align-items-center justify-content-md-end flex-wrap gap-2">
                 <div id="dashboardLoadingIndicator" class="d-none text-primary small fw-semibold">
                     <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     Updating metrics...
                 </div>
-                <?php if (!empty($canSelectAllConcerns)): ?>
-                <button type="button" id="btnResetConcernFilter" class="btn btn-outline-secondary btn-sm <?= $selectedConcernId === 'all' ? 'd-none' : '' ?>">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Show All Concerns
+                <button type="button" id="btnAllTimeDates" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-infinity me-1"></i>All Time
                 </button>
-                <?php endif; ?>
+                <button type="button" id="btnResetDashboardFilters" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                </button>
             </div>
         </div>
     </div>
@@ -182,7 +193,7 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
             <div class="card-header bg-white py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div>
                     <h5 class="mb-0 fw-bold"><i class="bi bi-bar-chart-line text-primary me-2"></i>Revenue Trend Graph</h5>
-                    <small class="text-muted">Monthly Total Purchase vs Selling Amount</small>
+                    <small class="text-muted" id="trendChartSubtitle"><?= e($trendSubtitle) ?></small>
                 </div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Trend Chart Type">
                     <button type="button" class="btn btn-primary active" id="btnChartBar" data-chart-type="bar">
@@ -289,6 +300,11 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
     function renderCards(data) {
         const cards = data.cards || {};
         document.getElementById('activeScopeLabel').textContent = data.selectedScopeName || 'All Concerns (Overall)';
+        document.getElementById('activeDateRangeLabel').textContent = data.dateRangeLabel || 'All Time';
+        const trendSubEl = document.getElementById('trendChartSubtitle');
+        if (trendSubEl && data.trendSubtitle) {
+            trendSubEl.textContent = data.trendSubtitle;
+        }
 
         document.getElementById('kpiTotalConcerns').textContent = Number(cards.totalConcerns || 0).toLocaleString('en-IN');
         const concernsSub = document.getElementById('kpiConcernsSubtitle');
@@ -312,11 +328,6 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
         netEl.textContent = formatInr(netVal);
         netEl.classList.remove('text-success', 'text-danger');
         netEl.classList.add(netVal >= 0 ? 'text-success' : 'text-danger');
-
-        const resetBtn = document.getElementById('btnResetConcernFilter');
-        if (resetBtn) {
-            resetBtn.classList.toggle('d-none', data.selectedConcernId === 'all');
-        }
     }
 
     function escapeHtml(str) {
@@ -500,21 +511,27 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
 
     async function fetchAndUpdateDashboard() {
         const concernSelect = document.getElementById('dashboardConcernFilter');
-        const monthsSelect = document.getElementById('dashboardMonthsFilter');
+        const fromInput = document.getElementById('dashboardFromDate');
+        const toInput = document.getElementById('dashboardToDate');
         const loader = document.getElementById('dashboardLoadingIndicator');
 
         const concernVal = concernSelect ? concernSelect.value : 'all';
-        const monthsVal = monthsSelect ? monthsSelect.value : '12';
+        const fromVal = fromInput ? fromInput.value : '';
+        const toVal = toInput ? toInput.value : '';
 
         if (loader) loader.classList.remove('d-none');
 
         try {
             const query = new URLSearchParams({
                 concern_id: concernVal,
-                months: monthsVal
+                from_date: fromVal,
+                to_date: toVal
             });
             const response = await fetch(revenueApiUrl + '?' + query.toString(), {
-                headers: { 'Accept': 'application/json' }
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
             const payload = await response.json();
             if (!response.ok || !payload.success) {
@@ -522,6 +539,13 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
             }
 
             currentAnalytics = payload.data;
+            if (fromInput && typeof currentAnalytics.fromDate === 'string') {
+                fromInput.value = currentAnalytics.fromDate;
+            }
+            if (toInput && typeof currentAnalytics.toDate === 'string') {
+                toInput.value = currentAnalytics.toDate;
+            }
+
             renderCards(currentAnalytics);
             renderCharts(currentAnalytics);
 
@@ -531,7 +555,8 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
             } else {
                 pageUrl.searchParams.set('concern_id', concernVal);
             }
-            pageUrl.searchParams.set('months', monthsVal);
+            pageUrl.searchParams.set('from_date', currentAnalytics.fromDate || '');
+            pageUrl.searchParams.set('to_date', currentAnalytics.toDate || '');
             window.history.replaceState({}, '', pageUrl.toString());
         } catch (err) {
             console.error('Dashboard update error:', err);
@@ -545,20 +570,37 @@ $selectedMonths = (int)($analytics['months'] ?? 12);
         renderCharts(currentAnalytics);
 
         const concernSelect = document.getElementById('dashboardConcernFilter');
-        const monthsSelect = document.getElementById('dashboardMonthsFilter');
-        const resetBtn = document.getElementById('btnResetConcernFilter');
+        const fromInput = document.getElementById('dashboardFromDate');
+        const toInput = document.getElementById('dashboardToDate');
+        const btnAllTime = document.getElementById('btnAllTimeDates');
+        const btnReset = document.getElementById('btnResetDashboardFilters');
         const btnBar = document.getElementById('btnChartBar');
         const btnLine = document.getElementById('btnChartLine');
 
         if (concernSelect) {
             concernSelect.addEventListener('change', fetchAndUpdateDashboard);
         }
-        if (monthsSelect) {
-            monthsSelect.addEventListener('change', fetchAndUpdateDashboard);
+        if (fromInput) {
+            fromInput.addEventListener('change', fetchAndUpdateDashboard);
         }
-        if (resetBtn && concernSelect) {
-            resetBtn.addEventListener('click', function() {
-                concernSelect.value = 'all';
+        if (toInput) {
+            toInput.addEventListener('change', fetchAndUpdateDashboard);
+        }
+        if (btnAllTime) {
+            btnAllTime.addEventListener('click', function() {
+                if (fromInput) fromInput.value = '';
+                if (toInput) toInput.value = '';
+                fetchAndUpdateDashboard();
+            });
+        }
+        if (btnReset) {
+            btnReset.addEventListener('click', function() {
+                if (concernSelect) {
+                    const hasAll = Array.from(concernSelect.options).some(opt => opt.value === 'all');
+                    concernSelect.value = hasAll ? 'all' : (concernSelect.options[0]?.value || 'all');
+                }
+                if (fromInput) fromInput.value = initialAnalytics.fromDate || '';
+                if (toInput) toInput.value = initialAnalytics.toDate || '';
                 fetchAndUpdateDashboard();
             });
         }
