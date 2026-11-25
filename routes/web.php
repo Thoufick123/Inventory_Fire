@@ -130,6 +130,7 @@ class Router {
         // ADMIN ROUTES
         // ==========================================
         $this->get('admin/dashboard', 'AdminController', 'dashboard', ['AuthMiddleware']);
+        $this->get('api/admin/dashboard/revenue', 'AdminController', 'ajaxDashboardRevenue', ['AuthMiddleware']);
         $this->get('admin/staff', 'AdminController', 'staffList', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'view']]);
         $this->get('admin/staff/check-phone', 'AdminController', 'checkPhoneAvailability', ['AuthMiddleware']);
         $this->get('admin/staff/create', 'AdminController', 'createStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'create']]);
