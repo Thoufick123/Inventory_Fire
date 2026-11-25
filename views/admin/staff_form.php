@@ -146,7 +146,7 @@ foreach ($hierarchicalModules as $m) {
                                                     data-applicable-concerns='<?= e($r['applicable_concerns'] ?? '[]') ?>'
                                                     data-name="<?= e($r['name']) ?>"
                                                     <?= (string)($staff['role_id'] ?? '') === (string)$r['id'] ? 'selected' : '' ?>>
-                                                <?= e($r['name']) ?> [<?= $badgeLabel ?>]
+                                                <?= e($r['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>

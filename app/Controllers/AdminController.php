@@ -1455,7 +1455,7 @@ class AdminController {
             'pageTitle'           => 'View Role: ' . $role['name'],
             'activeMenu'          => 'roles',
             'role'                => $role,
-            'rolePermissions'     => Role::getPermissionIds((int)$id),
+            'rolePermissions'     => Role::getRolePermissionIds((int)$id),
             'hierarchicalModules' => Role::getHierarchicalPermissions(),
             'assignedUsers'       => $assignedUsers,
         ]);
