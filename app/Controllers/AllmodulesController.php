@@ -1270,7 +1270,7 @@ class AllmodulesController {
             'Material Type'  => $seller['material_type'] ?? '',
             'City'           => $seller['city'] ?? '',
             'Total Rolls'    => (int)($seller['roll_count'] ?? 0),
-            'Total Price'    => '₹' . number_format((float)($seller['roll_price'] ?? 0), 2),
+            'Total Price'    => formatCurrency((float)((float)($seller['roll_price'] ?? 0))),
         ];
 
         try {
@@ -7642,7 +7642,7 @@ class AllmodulesController {
             'Design'       => $roll['design_name'] ?? '',
             'Quantity'     => (int)($roll['quantity'] ?? 0),
             'Weight'       => number_format((float)($roll['weight'] ?? 0), 2) . ' kg',
-            'Price'        => '₹' . number_format((float)($roll['price'] ?? 0), 2),
+            'Price'        => formatCurrency((float)((float)($roll['price'] ?? 0))),
         ];
 
         AuditService::log('production', 'DELETE', 'seller_rolls', (int)$id, $delRollSnapshot, null);
@@ -13610,7 +13610,7 @@ class AllmodulesController {
                 'Rolls Count'    => count($validRolls),
                 'Total Quantity' => $totalRollQty,
                 'Total Weight'   => number_format($totalRollWeight, 2) . ' kg',
-                'Total Price'    => '₹' . number_format($totalRollPrice, 2),
+                'Total Price'    => formatCurrency((float)($totalRollPrice)),
             ]);
 
             Session::flash('success', "Program '{$name}' updated successfully.");
@@ -16237,8 +16237,8 @@ class AllmodulesController {
                 'old_selling_price'       => $oldSellingPrice,
                 'old_mrp'                 => $oldMrp,
                 'cost_price'              => $costPrice,
-                'formatted_selling_price' => '₹' . number_format($newSellingPrice, 2),
-                'formatted_mrp'           => '₹' . number_format($newMrp, 2),
+                'formatted_selling_price' => formatCurrency((float)($newSellingPrice)),
+                'formatted_mrp'           => formatCurrency((float)($newMrp)),
                 'discount_percentage'     => round($discountPercentage, 1),
                 'stock_reduced'           => $reduceStockQty,
             ];
@@ -23437,8 +23437,8 @@ class AllmodulesController {
                 'item_name'   => $expense['item_name'],
                 'category'    => ucwords(str_replace('_', ' ', strtolower((string)$expense['category']))),
                 'quantity'    => number_format((float)$expense['quantity'], 2) . ' ' . ($expense['unit_type'] ?: 'PCS'),
-                'unit_cost'   => '₹' . number_format((float)$expense['unit_cost'], 2),
-                'total_cost'  => '₹' . number_format((float)$expense['total_cost'], 2),
+                'unit_cost'   => formatCurrency((float)((float)$expense['unit_cost'])),
+                'total_cost'  => formatCurrency((float)((float)$expense['total_cost'])),
             ]
         ];
 
@@ -23452,9 +23452,9 @@ class AllmodulesController {
             'Invoice / Ref #'  => $expense['invoice_number'] ?: ($expense['payment_reference'] ?: '—'),
             'Payment Status'   => $expense['payment_status'],
             'Payment Method'   => $expense['payment_method'],
-            'Total Cost'       => '₹' . number_format((float)$expense['total_cost'], 2),
-            'Amount Paid'      => '₹' . number_format((float)$expense['paid_amount'], 2),
-            'Balance Due'      => '₹' . number_format(max(0, (float)$expense['total_cost'] - (float)$expense['paid_amount']), 2),
+            'Total Cost'       => formatCurrency((float)((float)$expense['total_cost'])),
+            'Amount Paid'      => formatCurrency((float)((float)$expense['paid_amount'])),
+            'Balance Due'      => formatCurrency((float)(max(0, (float)$expense['total_cost'] - (float)$expense['paid_amount']))),
             'Program'          => !empty($expense['program_number']) ? ($expense['program_number'] . (!empty($expense['program_name']) ? ' (' . $expense['program_name'] . ')' : '')) : '—',
             'Created By'       => $expense['created_by_name'] ?: '—',
             'Created At'       => $expense['created_at'] ?: '—',

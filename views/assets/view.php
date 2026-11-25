@@ -91,11 +91,11 @@
                         </div>
                         <div class="col-md-3">
                             <span class="text-muted small d-block">Purchase Cost</span>
-                            <h5 class="fw-bold mb-0">₹<?= number_format($asset['purchase_cost'], 2) ?></h5>
+                            <h5 class="fw-bold mb-0"><?= formatCurrency((float)($asset['purchase_cost'])) ?></h5>
                         </div>
                         <div class="col-md-3">
                             <span class="text-muted small d-block">Current Book Value</span>
-                            <h5 class="fw-bold text-primary mb-0">₹<?= number_format($asset['current_book_value'], 2) ?></h5>
+                            <h5 class="fw-bold text-primary mb-0"><?= formatCurrency((float)($asset['current_book_value'])) ?></h5>
                         </div>
                         <div class="col-md-3">
                             <span class="text-muted small d-block">Warranty Expiry</span>
@@ -151,7 +151,7 @@
                                     <td><?= date('d M Y', strtotime($log['service_date'])) ?></td>
                                     <td><span class="badge bg-light text-dark border"><?= e($log['service_type']) ?></span></td>
                                     <td><?= e($log['technician_name'] ?: ($log['serviced_by_vendor'] ?: 'In-House')) ?></td>
-                                    <td class="fw-bold">₹<?= number_format($log['service_cost'], 2) ?></td>
+                                    <td class="fw-bold"><?= formatCurrency((float)($log['service_cost'])) ?></td>
                                     <td><?= $log['downtime_hours'] ?> hrs</td>
                                     <td>
                                         <span class="badge <?= $log['status'] === 'COMPLETED' ? 'bg-success' : 'bg-warning text-dark' ?>">

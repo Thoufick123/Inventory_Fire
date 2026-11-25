@@ -126,8 +126,8 @@
             </div>
 
             <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top border-dark" style="font-size: 10.5px;">
-                <div class="price-badge">MRP: ₹<?= number_format((float)$variant['mrp'], 2) ?></div>
-                <div class="price-badge text-dark" style="font-size: 12px;">PRICE: ₹<?= number_format((float)$variant['selling_price'], 2) ?></div>
+                <div class="price-badge">MRP: <?= formatCurrency((float)((float)$variant['mrp'])) ?></div>
+                <div class="price-badge text-dark" style="font-size: 12px;">PRICE: <?= formatCurrency((float)((float)$variant['selling_price'])) ?></div>
             </div>
             <div class="text-center font-monospace mt-1 fw-bold" style="font-size: 9.5px; letter-spacing: 0.5px;">
                 <?= e($variant['variant_code'] ?: ($variant['qr_code'] ?: $variant['sku'])) ?>

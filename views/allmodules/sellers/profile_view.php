@@ -30,7 +30,7 @@
                     <div class="text-uppercase fw-semibold text-muted small">Total Rolls Bought</div>
                     <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($totalPurchasedRollsCount) ?> <span class="fs-6 fw-normal text-muted">Rolls</span></div>
                     <div class="small text-muted mt-2 text-truncate">
-                        <span class="fw-semibold text-primary"><?= number_format($totalPurchasedQty) ?> pcs</span> • ₹<?= number_format($totalPurchasedValuation, 2) ?>
+                        <span class="fw-semibold text-primary"><?= number_format($totalPurchasedQty) ?> pcs</span> • <?= formatCurrency((float)($totalPurchasedValuation)) ?>
                     </div>
                 </div>
                 <div class="bg-primary-subtle text-primary revenue-kpi-icon">
@@ -266,9 +266,9 @@
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end font-monospace">
-                                            <div class="fw-bold text-dark">₹<?= number_format($entry['total_price'], 2) ?></div>
+                                            <div class="fw-bold text-dark"><?= formatCurrency((float)($entry['total_price'])) ?></div>
                                             <?php if ($entry['unit_price'] > 0): ?>
-                                                <small class="text-muted">₹<?= number_format($entry['unit_price'], 2) ?>/pc</small>
+                                                <small class="text-muted"><?= formatCurrency((float)($entry['unit_price'])) ?>/pc</small>
                                             <?php endif; ?>
                                         </td>
                                         <td>
@@ -382,8 +382,8 @@
                                         </td>
                                         <td class="text-center fw-bold text-dark"><?= number_format((float)$pr['quantity']) ?> pcs</td>
                                         <td class="text-center font-monospace"><?= number_format((float)($pr['weight_kg'] ?? 0), 2) ?> kg</td>
-                                        <td class="text-end font-monospace">₹<?= number_format((float)($pr['unit_price'] ?? 0), 2) ?></td>
-                                        <td class="text-end fw-bold font-monospace text-dark">₹<?= number_format((float)($pr['total_price'] ?? 0), 2) ?></td>
+                                        <td class="text-end font-monospace"><?= formatCurrency((float)((float)($pr['unit_price'] ?? 0))) ?></td>
+                                        <td class="text-end fw-bold font-monospace text-dark"><?= formatCurrency((float)((float)($pr['total_price'] ?? 0))) ?></td>
                                         <td>
                                             <?php if (!empty($pr['start_code']) && !empty($pr['end_code']) && $pr['start_code'] !== $pr['end_code']): ?>
                                                 <div class="badge bg-light text-dark border font-monospace" style="font-size: 11px;">
@@ -652,7 +652,7 @@
                                         <td><?= e($ar['design_name'] ?: '—') ?></td>
                                         <td class="text-center fw-bold text-dark"><?= number_format((float)$ar['quantity']) ?> pcs</td>
                                         <td class="text-center font-monospace"><?= number_format((float)($ar['weight'] ?? 0), 2) ?> kg</td>
-                                        <td class="text-end font-monospace">₹<?= number_format((float)($ar['price'] ?? 0), 2) ?></td>
+                                        <td class="text-end font-monospace"><?= formatCurrency((float)((float)($ar['price'] ?? 0))) ?></td>
                                         <td>
                                             <?php if (!empty($ar['start_code']) && !empty($ar['end_code'])): ?>
                                                 <span class="badge bg-light text-dark border font-monospace" style="font-size: 11px;">
@@ -742,7 +742,7 @@
                                         <td class="text-center"><?= (int)$p['items_count'] ?> items</td>
                                         <td class="text-center fw-semibold"><?= number_format((float)$p['total_qty']) ?> pcs</td>
                                         <td class="text-center font-monospace"><?= number_format((float)$p['total_weight'], 2) ?> kg</td>
-                                        <td class="text-end fw-bold font-monospace text-dark">₹<?= number_format((float)$p['total_amount'], 2) ?></td>
+                                        <td class="text-end fw-bold font-monospace text-dark"><?= formatCurrency((float)((float)$p['total_amount'])) ?></td>
                                         <td><span class="small text-muted"><?= e($p['created_by_name'] ?: 'System') ?></span></td>
                                         <td class="text-end">
                                             <a href="<?= url('production/purchases/view/' . (int)$p['id']) ?>" class="btn btn-sm btn-outline-primary" title="View Purchase">

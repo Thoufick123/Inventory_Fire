@@ -52,7 +52,7 @@ $inventoryVariantCount = array_sum(array_map(
                     ?>
                     <div class="text-uppercase fw-semibold text-muted small"><?= $primaryStockTitle ?></div>
                     <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($primaryStockPieces) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
-                    <div class="small text-muted mt-2 text-truncate"><i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> text-primary me-1"></i>Est. Val: ₹<?= number_format($primaryStockVal, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> text-primary me-1"></i>Est. Val: <?= formatCurrency((float)($primaryStockVal)) ?></div>
                 </div>
                 <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                     <i class="bi <?= $hasStitching ? 'bi-scissors' : ($hasInward ? 'bi-box-arrow-in-down' : 'bi-scissors') ?> fs-4"></i>
@@ -67,7 +67,7 @@ $inventoryVariantCount = array_sum(array_map(
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Third-Party Products</div>
                     <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['third_party_pieces'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
-                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-bag-check-fill text-warning me-1"></i>Est. Val: ₹<?= number_format($stats['third_party_val'] ?? 0, 2) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-bag-check-fill text-warning me-1"></i>Est. Val: <?= formatCurrency((float)($stats['third_party_val'] ?? 0)) ?></div>
                 </div>
                 <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
                     <i class="bi bi-bag-check-fill fs-4"></i>
@@ -198,7 +198,7 @@ $inventoryVariantCount = array_sum(array_map(
             <i class="bi bi-boxes me-1"></i> <?= number_format($stats['total_remaining_pieces'] ?? 0) ?> pcs Available
         </span>
         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6">
-            ₹<?= number_format($stats['total_remaining_valuation'] ?? 0, 2) ?> Est. Valuation
+            <?= formatCurrency((float)($stats['total_remaining_valuation'] ?? 0)) ?> Est. Valuation
         </span>
     </div>
 </div>
@@ -442,20 +442,20 @@ $inventoryVariantCount = array_sum(array_map(
                     <!-- MRP (₹) -->
                     <td class="text-end text-nowrap">
                         <span class="text-muted font-monospace row-mrp-val">
-                            ₹<?= number_format($minMrp, 2) ?><?= ($maxMrp > $minMrp) ? ' - ₹' . number_format($maxMrp, 2) : '' ?>
+                            <?= formatCurrency((float)($minMrp)) ?><?= ($maxMrp > $minMrp) ? ' - ₹' . number_format($maxMrp, 2) : '' ?>
                         </span>
                     </td>
 
                     <!-- Discount Price (₹) -->
                     <td class="text-end text-nowrap">
                         <span class="fw-bold text-success font-monospace row-selling-val">
-                            ₹<?= number_format($minPrice, 2) ?><?= ($maxPrice > $minPrice) ? ' - ₹' . number_format($maxPrice, 2) : '' ?>
+                            <?= formatCurrency((float)($minPrice)) ?><?= ($maxPrice > $minPrice) ? ' - ₹' . number_format($maxPrice, 2) : '' ?>
                         </span>
                     </td>
 
                     <!-- Total Valuation (₹) -->
                     <td class="text-end text-nowrap">
-                        <span class="fw-bold text-primary font-monospace row-val-val">₹<?= number_format($batchVal, 2) ?></span>
+                        <span class="fw-bold text-primary font-monospace row-val-val"><?= formatCurrency((float)($batchVal)) ?></span>
                     </td>
 
                     <!-- Actions -->
@@ -608,7 +608,7 @@ $inventoryVariantCount = array_sum(array_map(
 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="small text-muted fw-semibold">Available Valuation:</span>
-                    <span class="fw-bold text-primary">₹<?= number_format($batch['remaining_value'] ?? 0, 2) ?></span>
+                    <span class="fw-bold text-primary"><?= formatCurrency((float)($batch['remaining_value'] ?? 0)) ?></span>
                 </div>
 
                 <div class="d-flex gap-1.5 batch-list-actions flex-wrap">

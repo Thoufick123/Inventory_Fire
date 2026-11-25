@@ -16,11 +16,11 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Bills Revenue' : (($activeTab ?? 'normal') === 'all' ? 'All Billed Revenue' : 'Standard Billed Revenue') ?></div>
-                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_revenue'] ?? 0, 2) ?></div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= formatCurrency((float)($stats['total_revenue'] ?? 0)) ?></div>
                     <div class="small text-muted mt-2 d-flex align-items-center gap-1 flex-wrap">
-                        <span class="text-success fw-semibold">₹<?= number_format($stats['paid_revenue'] ?? 0, 2) ?></span> Paid
+                        <span class="text-success fw-semibold"><?= formatCurrency((float)($stats['paid_revenue'] ?? 0)) ?></span> Paid
                         <span class="text-muted">&bull;</span>
-                        <span class="text-warning-emphasis fw-semibold">₹<?= number_format($stats['pending_revenue'] ?? 0, 2) ?></span> Pending
+                        <span class="text-warning-emphasis fw-semibold"><?= formatCurrency((float)($stats['pending_revenue'] ?? 0)) ?></span> Pending
                     </div>
                 </div>
                 <div class="bg-success-subtle text-success revenue-kpi-icon">
@@ -197,7 +197,7 @@
                                 <small class="text-muted"><?= htmlspecialchars(($bill['buyer_type'] ?? 'COMPANY') === 'CUSTOMER' ? ($bill['customer_phone'] ?? '') : ($bill['company_phone'] ?? '')) ?></small>
                             </td>
                             <td class="text-center"><?= (int)$bill['line_count'] ?></td>
-                            <td class="text-end fw-semibold">₹<?= number_format((float)$bill['total_amount'], 2) ?></td>
+                            <td class="text-end fw-semibold"><?= formatCurrency((float)((float)$bill['total_amount'])) ?></td>
                             <td>
                                 <span class="badge <?= $bill['payment_status'] === 'PAID' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' ?>">
                                     <?= htmlspecialchars($bill['payment_status']) ?>

@@ -95,15 +95,15 @@
                         </tr>
                         <tr>
                             <td class="text-muted fw-semibold ps-4">Selling Price:</td>
-                            <td><strong class="text-success fs-5">₹<?= number_format((float)$variant['selling_price'], 2) ?></strong></td>
+                            <td><strong class="text-success fs-5"><?= formatCurrency((float)((float)$variant['selling_price'])) ?></strong></td>
                         </tr>
                         <tr>
                             <td class="text-muted fw-semibold ps-4">MRP:</td>
-                            <td>₹<?= number_format((float)$variant['mrp'], 2) ?></td>
+                            <td><?= formatCurrency((float)((float)$variant['mrp'])) ?></td>
                         </tr>
                         <tr>
                             <td class="text-muted fw-semibold ps-4">Production Cost:</td>
-                            <td>₹<?= number_format((float)$variant['production_cost'], 2) ?></td>
+                            <td><?= formatCurrency((float)((float)$variant['production_cost'])) ?></td>
                         </tr>
                         <tr>
                             <td class="text-muted fw-semibold ps-4">HSN &amp; GST:</td>

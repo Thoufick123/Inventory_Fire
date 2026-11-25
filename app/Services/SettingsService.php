@@ -143,7 +143,6 @@ class SettingsService {
                 'company_pan'        => 'AAAAA0000A',
                 'company_address'    => '123 Textile Park Road, Tirupur, Tamil Nadu 641601',
                 'currency_symbol'    => '₹',
-                'invoice_footer'     => 'Thank you for your business! Goods once sold can be returned within 7 days.',
             ],
             'switches' => [
                 'maintenance_mode'      => 'false',

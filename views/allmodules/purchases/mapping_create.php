@@ -157,8 +157,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             <td><strong>${esc(it.item_name)}</strong> <span class="text-muted font-monospace">${esc(it.vendor_sku || '')}</span></td>
                             <td>${esc([it.color, it.size].filter(Boolean).join(' / ') || '—')}</td>
                             <td class="text-end fw-bold">${Number(it.quantity || 0)} ${esc(it.unit || '')}</td>
-                            <td class="text-end">₹${Number(it.unit_price || 0).toFixed(2)}</td>
-                            <td class="text-end">₹${Number(it.mrp || 0).toFixed(2)} / ₹${Number(it.selling_price || 0).toFixed(2)}</td>
+                            <td class="text-end">${formatCurrency(Number(it.unit_price || 0))}</td>
+                            <td class="text-end">${formatCurrency(Number(it.mrp || 0))} / ${formatCurrency(Number(it.selling_price || 0))}</td>
                             <td class="font-monospace">${esc(it.hsn_code || '—')}</td>
                         </tr>
                     `;

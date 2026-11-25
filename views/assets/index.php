@@ -66,7 +66,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Total Book Value</div>
-                        <div class="fw-bold text-info-emphasis fs-3 mt-1">₹<?= number_format($metrics['total_book_val'], 2) ?></div>
+                        <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= formatCurrency((float)($metrics['total_book_val'])) ?></div>
                         <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-info me-1"></i>Asset valuation</div>
                     </div>
                     <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
@@ -198,7 +198,7 @@
                                 ?>
                                 <span class="small fw-bold <?= $condBadge ?>"><?= e($ast['condition_state']) ?></span>
                             </td>
-                            <td class="fw-semibold">₹<?= number_format($ast['current_book_value'], 2) ?></td>
+                            <td class="fw-semibold"><?= formatCurrency((float)($ast['current_book_value'])) ?></td>
                             <td class="text-end pe-3">
                                 <div class="btn-group btn-group-sm">
                                     <a href="<?= url('assets/view/' . $ast['id']) ?>" class="btn btn-outline-secondary" title="View Passport">

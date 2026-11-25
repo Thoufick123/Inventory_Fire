@@ -114,7 +114,7 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
                             $wW = (float)$batch['wastage_weight'];
                             $wCost = (float)($batch['wastage_cost'] ?? ($wW * $rRate));
                         ?>
-                        <span class="badge bg-warning-subtle text-dark border fw-bold" id="badgeRatePerKg">Rate: ₹<?= number_format($rRate, 2) ?> / kg</span>
+                        <span class="badge bg-warning-subtle text-dark border fw-bold" id="badgeRatePerKg">Rate: <?= formatCurrency((float)($rRate)) ?> / kg</span>
                     </div>
                 </div>
                 <div class="card-body p-4">
@@ -141,7 +141,7 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
                             <label class="form-label fw-semibold text-danger mb-0">
                                 <i class="bi bi-trash3 me-1"></i>Fabric Roll Wastage Breakdown
                             </label>
-                            <span class="badge bg-danger-subtle text-danger border" id="dispWastageCostBadge">Wastage Cost: ₹<?= number_format($wCost, 2) ?></span>
+                            <span class="badge bg-danger-subtle text-danger border" id="dispWastageCostBadge">Wastage Cost: <?= formatCurrency((float)($wCost)) ?></span>
                         </div>
 
                         <!-- Dynamic Per-Roll Wastage Inputs Container -->
@@ -156,7 +156,7 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
                             <label class="form-label required fw-bold text-danger mb-0">
                                 Total Wastage Fabric Weight (kg)
                             </label>
-                            <span class="fw-bold text-danger fs-6" id="dispTotalWastageCostSum">Total Cost: ₹<?= number_format($wCost, 2) ?></span>
+                            <span class="fw-bold text-danger fs-6" id="dispTotalWastageCostSum">Total Cost: <?= formatCurrency((float)($wCost)) ?></span>
                         </div>
                         <div class="input-group input-group-lg">
                             <input type="number" step="0.01" min="0" name="wastage_weight" id="wastageWeight" class="form-control border-danger text-danger fw-bold" value="<?= number_format((float)$batch['wastage_weight'], 2, '.', '') ?>" oninput="handleManualTotalWastageInput(this.value)" required>
@@ -170,11 +170,11 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
                         <div class="row g-3 text-center">
                             <div class="col-6 col-sm-4 border-end pb-2">
                                 <div class="text-muted small">Fabric Rate</div>
-                                <div class="fw-bold fs-6 text-dark mt-1" id="dispRatePerKg">₹<?= number_format($rRate, 2) ?> / kg</div>
+                                <div class="fw-bold fs-6 text-dark mt-1" id="dispRatePerKg"><?= formatCurrency((float)($rRate)) ?> / kg</div>
                             </div>
                             <div class="col-6 col-sm-4 border-end pb-2">
                                 <div class="text-muted small">Wastage Cost</div>
-                                <div class="fw-bold fs-6 text-danger mt-1" id="dispWastageCost">₹<?= number_format($wCost, 2) ?></div>
+                                <div class="fw-bold fs-6 text-danger mt-1" id="dispWastageCost"><?= formatCurrency((float)($wCost)) ?></div>
                             </div>
                             <div class="col-6 col-sm-4 pb-2">
                                 <div class="text-muted small">Wastage %</div>
@@ -191,7 +191,7 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
                             </div>
                             <div class="col-6 col-sm-4 pt-2 border-top">
                                 <div class="text-muted small">Fabric Cost / Pc</div>
-                                <div class="fw-bold fs-6 text-success mt-1" id="dispCostPerPiece">₹<?= number_format((float)$batch['cost_per_piece'], 2) ?></div>
+                                <div class="fw-bold fs-6 text-success mt-1" id="dispCostPerPiece"><?= formatCurrency((float)((float)$batch['cost_per_piece'])) ?></div>
                             </div>
                         </div>
                     </div>
@@ -315,7 +315,7 @@ function buildRollOptionsHtml(selectedRollId = '', rollData = null) {
                 data-material="${escapeHtml(r.material_type || '')}" 
                 data-seller="${escapeHtml(sName)}" 
                 ${isSel ? 'selected' : ''}>
-                Roll #${escapeHtml(r.roll_number || r.id)} (${escapeHtml(r.color || 'Standard')} - ${escapeHtml(r.design_name || 'Plain')}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${parseFloat(w).toFixed(2)} kg / ₹${parseFloat(p).toFixed(2)}
+                Roll #${escapeHtml(r.roll_number || r.id)} (${escapeHtml(r.color || 'Standard')} - ${escapeHtml(r.design_name || 'Plain')}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${parseFloat(w).toFixed(2)} kg / ${formatCurrency(parseFloat(p))}
             </option>`;
         });
     }
@@ -334,7 +334,7 @@ function buildRollOptionsHtml(selectedRollId = '', rollData = null) {
             data-design="${escapeHtml(des)}" 
             data-seller="${escapeHtml(sName)}" 
             selected>
-            ${escapeHtml(num)} (${escapeHtml(col)} - ${escapeHtml(des)}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${w.toFixed(2)} kg / ₹${p.toFixed(2)}
+            ${escapeHtml(num)} (${escapeHtml(col)} - ${escapeHtml(des)}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${w.toFixed(2)} kg / ${formatCurrency(p)}
         </option>`;
     }
     return html;
@@ -711,7 +711,7 @@ function renderRollWastageRows() {
             <div class="row g-2 align-items-center">
                 <div class="col-6 col-md-5">
                     <small class="text-muted d-block" style="font-size: 11px;">Weight &amp; Rate</small>
-                    <span class="small fw-semibold text-dark">${weight.toFixed(2)} kg <span class="text-muted">(@ ₹${rate.toFixed(2)}/kg)</span></span>
+                    <span class="small fw-semibold text-dark">${weight.toFixed(2)} kg <span class="text-muted">(@ ${formatCurrency(rate)}/kg)</span></span>
                 </div>
                 <div class="col-6 col-md-7">
                     <small class="text-danger fw-semibold d-block" style="font-size: 11px;">Wastage Weight (kg)</small>

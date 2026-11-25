@@ -271,9 +271,9 @@
 
                         <!-- Pricing -->
                         <td class="text-center">
-                            <div class="fw-bold text-dark">₹<?= number_format((float)$v['selling_price'], 2) ?></div>
+                            <div class="fw-bold text-dark"><?= formatCurrency((float)((float)$v['selling_price'])) ?></div>
                             <?php if ((float)$v['mrp'] > (float)$v['selling_price']): ?>
-                            <small class="text-muted text-decoration-line-through">₹<?= number_format((float)$v['mrp'], 2) ?></small>
+                            <small class="text-muted text-decoration-line-through"><?= formatCurrency((float)((float)$v['mrp'])) ?></small>
                             <?php endif; ?>
                         </td>
 

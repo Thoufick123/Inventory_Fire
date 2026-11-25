@@ -149,7 +149,7 @@ $trendSubtitle = $analytics['trendSubtitle'] ?? 'Monthly Total Purchase vs Selli
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Total Purchase Amount</div>
                     <div class="fw-bold text-warning-emphasis fs-3 mt-1" id="kpiTotalPurchaseAmount">
-                        ₹<?= number_format((float)($cards['totalPurchaseAmount'] ?? 0), 2) ?>
+                        <?= formatCurrency((float)((float)($cards['totalPurchaseAmount'] ?? 0))) ?>
                     </div>
                     <div class="small text-muted mt-2" id="kpiPurchaseSubtitle">
                         <i class="bi bi-cart-check text-warning me-1"></i><?= number_format((int)($cards['purchaseCount'] ?? 0)) ?> Purchase Orders
@@ -169,7 +169,7 @@ $trendSubtitle = $analytics['trendSubtitle'] ?? 'Monthly Total Purchase vs Selli
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Total Selling Amount</div>
                     <div class="fw-bold text-info-emphasis fs-3 mt-1" id="kpiTotalSellingAmount">
-                        ₹<?= number_format((float)($cards['totalSellingAmount'] ?? 0), 2) ?>
+                        <?= formatCurrency((float)((float)($cards['totalSellingAmount'] ?? 0))) ?>
                     </div>
                     <div class="small text-muted mt-2" id="kpiSellingSubtitle">
                         <i class="bi bi-currency-rupee text-info me-1"></i><?= number_format((int)($cards['sellingCount'] ?? 0)) ?> Sales Bills
@@ -229,17 +229,17 @@ $trendSubtitle = $analytics['trendSubtitle'] ?? 'Monthly Total Purchase vs Selli
                 <div class="border-top pt-3 mt-3 small">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <span class="text-muted">Paid Sales Collected</span>
-                        <span class="fw-semibold text-success" id="summaryPaidSelling">₹<?= number_format((float)($cards['paidSellingAmount'] ?? 0), 2) ?></span>
+                        <span class="fw-semibold text-success" id="summaryPaidSelling"><?= formatCurrency((float)((float)($cards['paidSellingAmount'] ?? 0))) ?></span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <span class="text-muted">Pending Sales Dues</span>
-                        <span class="fw-semibold text-warning-emphasis" id="summaryPendingSelling">₹<?= number_format((float)($cards['pendingSellingAmount'] ?? 0), 2) ?></span>
+                        <span class="fw-semibold text-warning-emphasis" id="summaryPendingSelling"><?= formatCurrency((float)((float)($cards['pendingSellingAmount'] ?? 0))) ?></span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center pt-1 border-top mt-2">
                         <span class="fw-semibold text-dark">Net Balance (Selling - Purchase)</span>
                         <?php $netBal = (float)($cards['netRevenueBalance'] ?? 0); ?>
                         <span class="fw-bold <?= $netBal >= 0 ? 'text-success' : 'text-danger' ?>" id="summaryNetBalance">
-                            <?= $netBal < 0 ? '-' : '' ?>₹<?= number_format(abs($netBal), 2) ?>
+                            <?= $netBal < 0 ? '-' : '' ?><?= formatCurrency((float)(abs($netBal))) ?>
                         </span>
                     </div>
                 </div>

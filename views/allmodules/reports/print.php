@@ -136,17 +136,17 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
     <div class="kpi-grid">
         <div class="kpi-card revenue">
             <div class="kpi-label text-success">Total Gross Revenue</div>
-            <div class="kpi-val text-success">₹<?= number_format((float)($fin['gross_revenue'] ?? 0), 2) ?></div>
-            <div class="kpi-sub">Bills: ₹<?= number_format((float)($fin['billing_total'] ?? 0), 2) ?> + Scrap: ₹<?= number_format((float)($fin['wastage_total'] ?? 0), 2) ?></div>
+            <div class="kpi-val text-success"><?= formatCurrency((float)((float)($fin['gross_revenue'] ?? 0))) ?></div>
+            <div class="kpi-sub">Bills: <?= formatCurrency((float)((float)($fin['billing_total'] ?? 0))) ?> + Scrap: <?= formatCurrency((float)((float)($fin['wastage_total'] ?? 0))) ?></div>
         </div>
         <div class="kpi-card cost">
             <div class="kpi-label text-danger">Total Expenditures</div>
-            <div class="kpi-val text-danger">₹<?= number_format((float)($fin['total_expenditure'] ?? 0), 2) ?></div>
-            <div class="kpi-sub">Purchases: ₹<?= number_format((float)($fin['purchases_total'] ?? 0), 2) ?> + Exp: ₹<?= number_format((float)($fin['expenses_total'] ?? 0), 2) ?></div>
+            <div class="kpi-val text-danger"><?= formatCurrency((float)((float)($fin['total_expenditure'] ?? 0))) ?></div>
+            <div class="kpi-sub">Purchases: <?= formatCurrency((float)((float)($fin['purchases_total'] ?? 0))) ?> + Exp: <?= formatCurrency((float)((float)($fin['expenses_total'] ?? 0))) ?></div>
         </div>
         <div class="kpi-card <?= $isProfit ? 'profit-pos' : 'profit-neg' ?>">
             <div class="kpi-label <?= $isProfit ? 'text-success' : 'text-danger' ?>">Net Income (<?= $isProfit ? 'Profit' : 'Loss' ?>)</div>
-            <div class="kpi-val <?= $isProfit ? 'text-success' : 'text-danger' ?>">₹<?= number_format((float)($fin['net_profit_loss'] ?? 0), 2) ?></div>
+            <div class="kpi-val <?= $isProfit ? 'text-success' : 'text-danger' ?>"><?= formatCurrency((float)((float)($fin['net_profit_loss'] ?? 0))) ?></div>
             <div class="kpi-sub">Operating Margin: <strong><?= number_format((float)($fin['profit_margin_pct'] ?? 0), 2) ?>%</strong></div>
         </div>
         <div class="kpi-card stock">
@@ -166,42 +166,42 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                     <tr>
                         <td>Direct Factory Billing (Sales)</td>
                         <td class="center"><?= (int)($fin['billing_count'] ?? 0) ?> bills (<?= (int)($fin['billing_pieces'] ?? 0) ?> pcs)</td>
-                        <td class="right strong text-success">₹<?= number_format((float)($fin['billing_total'] ?? 0), 2) ?></td>
+                        <td class="right strong text-success"><?= formatCurrency((float)((float)($fin['billing_total'] ?? 0))) ?></td>
                     </tr>
                     <tr>
                         <td>Cutting &amp; Stitching Scrap Sales</td>
                         <td class="center">Wastage Disposals</td>
-                        <td class="right strong text-success">₹<?= number_format((float)($fin['wastage_total'] ?? 0), 2) ?></td>
+                        <td class="right strong text-success"><?= formatCurrency((float)((float)($fin['wastage_total'] ?? 0))) ?></td>
                     </tr>
                     <tr class="total-row">
                         <td><strong>TOTAL GROSS INFLOW (REVENUE)</strong></td>
                         <td class="center"><strong>All Sales</strong></td>
-                        <td class="right strong text-success"><strong>₹<?= number_format((float)($fin['gross_revenue'] ?? 0), 2) ?></strong></td>
+                        <td class="right strong text-success"><strong><?= formatCurrency((float)((float)($fin['gross_revenue'] ?? 0))) ?></strong></td>
                     </tr>
                     <tr>
                         <td>Raw Fabric &amp; Material Purchases</td>
                         <td class="center"><?= (int)($fin['purchases_count'] ?? 0) ?> Purchase Orders</td>
-                        <td class="right strong text-danger">₹<?= number_format((float)($fin['purchases_total'] ?? 0), 2) ?></td>
+                        <td class="right strong text-danger"><?= formatCurrency((float)((float)($fin['purchases_total'] ?? 0))) ?></td>
                     </tr>
                     <tr>
                         <td>Factory Operating &amp; Machinery Expenses</td>
                         <td class="center"><?= (int)($fin['expenses_count'] ?? 0) ?> Expense Items</td>
-                        <td class="right strong text-danger">₹<?= number_format((float)($fin['expenses_total'] ?? 0), 2) ?></td>
+                        <td class="right strong text-danger"><?= formatCurrency((float)((float)($fin['expenses_total'] ?? 0))) ?></td>
                     </tr>
                     <tr>
                         <td>Customer Returns &amp; Credit Reversals</td>
                         <td class="center"><?= (int)($fin['returns_count'] ?? 0) ?> returns (<?= (int)($fin['returns_pieces'] ?? 0) ?> pcs)</td>
-                        <td class="right strong text-danger">₹<?= number_format((float)($fin['returns_total'] ?? 0), 2) ?></td>
+                        <td class="right strong text-danger"><?= formatCurrency((float)((float)($fin['returns_total'] ?? 0))) ?></td>
                     </tr>
                     <tr class="total-row">
                         <td><strong>TOTAL OPERATING EXPENDITURES</strong></td>
                         <td class="center"><strong>All Outflows</strong></td>
-                        <td class="right strong text-danger"><strong>₹<?= number_format((float)($fin['total_expenditure'] ?? 0), 2) ?></strong></td>
+                        <td class="right strong text-danger"><strong><?= formatCurrency((float)((float)($fin['total_expenditure'] ?? 0))) ?></strong></td>
                     </tr>
                     <tr style="background: <?= $isProfit ? '#ecfdf5' : '#fff1f2' ?>;">
                         <td style="font-weight:800; font-size:12px; color: <?= $isProfit ? '#15803d' : '#b91c1c' ?>;">NET OPERATING <?= $isProfit ? 'PROFIT' : 'LOSS' ?></td>
                         <td class="center fw-bold" style="color: <?= $isProfit ? '#15803d' : '#b91c1c' ?>;">Margin: <?= number_format((float)($fin['profit_margin_pct'] ?? 0), 2) ?>%</td>
-                        <td class="right" style="font-weight:800; font-size:13px; color: <?= $isProfit ? '#15803d' : '#b91c1c' ?>;">₹<?= number_format((float)($fin['net_profit_loss'] ?? 0), 2) ?></td>
+                        <td class="right" style="font-weight:800; font-size:13px; color: <?= $isProfit ? '#15803d' : '#b91c1c' ?>;"><?= formatCurrency((float)((float)($fin['net_profit_loss'] ?? 0))) ?></td>
                     </tr>
                 </table>
             </div>
@@ -291,7 +291,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td class="center"><?= (int)$pur['total_items'] ?></td>
                             <td class="center fw-bold"><?= (int)$pur['total_rolls'] ?></td>
                             <td class="right"><?= number_format((float)$pur['total_weight'], 2) ?> kg</td>
-                            <td class="right fw-bold text-success">₹<?= number_format((float)$pur['total_amount'], 2) ?></td>
+                            <td class="right fw-bold text-success"><?= formatCurrency((float)((float)$pur['total_amount'])) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -329,8 +329,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($r['fabric_type'] ?? '-') ?></td>
                             <td><?= htmlspecialchars($r['color'] ?? '-') ?></td>
                             <td class="right"><?= number_format((float)($r['weight'] ?? 0), 2) ?></td>
-                            <td class="right"><?= isset($r['cost_per_kg']) && (float)$r['cost_per_kg'] > 0 ? '₹' . number_format((float)$r['cost_per_kg'], 2) . '/kg' : '-' ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($r['total_cost'] ?? 0), 2) ?></td>
+                            <td class="right"><?= isset($r['cost_per_kg']) && (float)$r['cost_per_kg'] > 0 ? formatCurrency((float)((float)$r['cost_per_kg'])) . '/kg' : '-' ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($r['total_cost'] ?? 0))) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($r['status'] ?? 'IN_STOCK') ?></span></td>
                         </tr>
                     <?php endforeach; ?>
@@ -522,8 +522,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($b['destination_warehouse'] ?? '-') ?></td>
                             <td class="center fw-bold text-success"><?= number_format((int)$b['total_pieces']) ?></td>
                             <td class="center"><?= (int)$b['box_count'] ?> boxes</td>
-                            <td class="right">₹<?= number_format((float)($b['cost_per_piece'] ?? 0), 2) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($b['total_cost'] ?? 0), 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($b['cost_per_piece'] ?? 0))) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($b['total_cost'] ?? 0))) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($b['status']) ?></span></td>
                             <td><?= !empty($b['packed_date']) ? date('d M Y', strtotime($b['packed_date'])) : '-' ?></td>
                         </tr>
@@ -649,9 +649,9 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                                         <?= !empty($movement['design_code']) ? ' (' . htmlspecialchars($movement['design_code']) . ')' : '' ?>
                                     </td>
                                     <td><?= htmlspecialchars($movement['hsn_code'] ?? '-') ?> / <?= number_format((float)($movement['gst_rate'] ?? 0), 2) ?>%</td>
-                                    <td class="right">₹<?= number_format((float)($movement['mrp'] ?? 0), 2) ?></td>
-                                    <td class="right">₹<?= number_format((float)($movement['purchase_price'] ?? 0), 2) ?></td>
-                                    <td class="right">₹<?= number_format((float)($movement['selling_price'] ?? 0), 2) ?></td>
+                                    <td class="right"><?= formatCurrency((float)((float)($movement['mrp'] ?? 0))) ?></td>
+                                    <td class="right"><?= formatCurrency((float)((float)($movement['purchase_price'] ?? 0))) ?></td>
+                                    <td class="right"><?= formatCurrency((float)((float)($movement['selling_price'] ?? 0))) ?></td>
                                     <td><?= htmlspecialchars($movement['transaction_type']) ?><br><small><?= htmlspecialchars($movement['stock_state']) ?></small></td>
                                     <td class="right text-success"><?= number_format((float)$movement['stock_in'], 2) ?></td>
                                     <td class="right text-danger"><?= number_format((float)$movement['stock_out'], 2) ?></td>
@@ -705,9 +705,9 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= date('d M Y', strtotime($b['bill_date'])) ?></td>
                             <td><?= htmlspecialchars($b['client_name']) ?></td>
                             <td class="center"><?= (int)$b['total_pieces'] ?></td>
-                            <td class="right">₹<?= number_format((float)$b['subtotal'], 2) ?></td>
-                            <td class="right">₹<?= number_format((float)$b['tax_amount'], 2) ?></td>
-                            <td class="right fw-bold text-success">₹<?= number_format((float)$b['total_amount'], 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$b['subtotal'])) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$b['tax_amount'])) ?></td>
+                            <td class="right fw-bold text-success"><?= formatCurrency((float)((float)$b['total_amount'])) ?></td>
                             <td><?= htmlspecialchars($b['payment_method']) ?> (<?= htmlspecialchars($b['payment_status']) ?>)</td>
                         </tr>
                     <?php endforeach; ?>
@@ -744,8 +744,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($ret['customer_name']) ?></td>
                             <td class="center fw-bold text-danger"><?= (int)$ret['total_returned_qty'] ?></td>
                             <td><span class="badge badge-secondary"><?= htmlspecialchars($ret['disposition']) ?></span></td>
-                            <td class="right">₹<?= number_format((float)$ret['gst_reversal_amount'], 2) ?></td>
-                            <td class="right fw-bold text-danger">₹<?= number_format((float)$ret['net_amount'], 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$ret['gst_reversal_amount'])) ?></td>
+                            <td class="right fw-bold text-danger"><?= formatCurrency((float)((float)$ret['net_amount'])) ?></td>
                             <td><?= htmlspecialchars($ret['refund_mode'] ?? 'CASH') ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -816,8 +816,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><span class="badge badge-info"><?= htmlspecialchars($w['wastage_type']) ?></span></td>
                             <td><?= htmlspecialchars($w['buyer_name']) ?></td>
                             <td class="right"><?= number_format((float)($w['weight_kg'] ?? 0), 2) ?> kg</td>
-                            <td class="right">₹<?= number_format((float)($w['rate_per_kg'] ?? 0), 2) ?></td>
-                            <td class="right fw-bold text-success">₹<?= number_format((float)($w['total_amount'] ?? 0), 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($w['rate_per_kg'] ?? 0))) ?></td>
+                            <td class="right fw-bold text-success"><?= formatCurrency((float)((float)($w['total_amount'] ?? 0))) ?></td>
                             <td><?= !empty($w['created_at']) ? date('d M Y', strtotime($w['created_at'])) : '-' ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -852,9 +852,9 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><strong><?= htmlspecialchars($e['title'] ?? '-') ?></strong></td>
                             <td><?= htmlspecialchars($e['category'] ?? '-') ?></td>
                             <td><?= htmlspecialchars((string)($e['production_unit'] ?? '-')) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($e['total_cost'] ?? 0), 2) ?></td>
-                            <td class="right text-success">₹<?= number_format((float)($e['paid_amount'] ?? 0), 2) ?></td>
-                            <td class="right text-danger">₹<?= number_format((float)($e['pending_amount'] ?? 0), 2) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($e['total_cost'] ?? 0))) ?></td>
+                            <td class="right text-success"><?= formatCurrency((float)((float)($e['paid_amount'] ?? 0))) ?></td>
+                            <td class="right text-danger"><?= formatCurrency((float)((float)($e['pending_amount'] ?? 0))) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($e['payment_status'] ?? '-') ?></span></td>
                             <td><?= !empty($e['expense_date']) ? date('d M Y', strtotime($e['expense_date'])) : '-' ?></td>
                         </tr>
@@ -894,8 +894,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><strong><?= htmlspecialchars($rm['item_name']) ?></strong></td>
                             <td><?= htmlspecialchars(trim(($rm['color'] ?? '') . ' ' . ($rm['size'] ?? ''))) ?: '-' ?></td>
                             <td class="right"><?= number_format((float)$rm['quantity'], 2) ?> <?= htmlspecialchars($rm['unit'] ?? '') ?></td>
-                            <td class="right">₹<?= number_format((float)$rm['unit_price'], 2) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)$rm['total_price'], 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$rm['unit_price'])) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)$rm['total_price'])) ?></td>
                             <td><?= htmlspecialchars($rm['hsn_code'] ?: '-') ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -945,9 +945,9 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td class="right"><?= number_format($origQty) ?> <?= htmlspecialchars($tp['unit'] ?? '') ?></td>
                             <td class="right"><?= $extraQty > 0 ? '<strong style="color:#0284c7;">+' . number_format($extraQty) . ' ' . htmlspecialchars($tp['unit'] ?? '') . '</strong>' : '0' ?></td>
                             <td class="right fw-bold"><?= number_format((float)$tp['quantity']) ?> <?= htmlspecialchars($tp['unit'] ?? '') ?></td>
-                            <td class="right">₹<?= number_format((float)$tp['unit_price'], 2) ?></td>
-                            <td class="right">₹<?= number_format((float)$tp['mrp'], 2) ?> / ₹<?= number_format((float)$tp['selling_price'], 2) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)$tp['total_price'], 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$tp['unit_price'])) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)$tp['mrp'])) ?> / <?= formatCurrency((float)((float)$tp['selling_price'])) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)$tp['total_price'])) ?></td>
                             <td>
                                 <?php if ($isExtraLine): ?>
                                     <span class="badge badge-info">Added (Not in Original Bill)</span>
@@ -1006,7 +1006,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($sup['gstin'] ?: ($sup['gst_number'] ?? '-')) ?></td>
                             <td><?= htmlspecialchars(trim(($sup['city'] ?? '') . ' ' . ($sup['state'] ?? ''))) ?: '-' ?></td>
                             <td class="center"><?= (int)($sup['total_orders'] ?? 0) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($sup['total_order_value'] ?? 0), 2) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($sup['total_order_value'] ?? 0))) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -1083,7 +1083,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($dm['product_name'] ?: ($dm['roll_number'] ?? '-')) ?></td>
                             <td><?= htmlspecialchars($dm['supplier_company'] ?: ($dm['supplier_name'] ?? '-')) ?></td>
                             <td class="right"><?= number_format((float)($dm['damaged_weight'] ?: $dm['damaged_quantity']), 2) ?></td>
-                            <td class="right text-danger fw-bold">₹<?= number_format((float)($dm['loss_amount'] ?? 0), 2) ?></td>
+                            <td class="right text-danger fw-bold"><?= formatCurrency((float)((float)($dm['loss_amount'] ?? 0))) ?></td>
                             <td><?= htmlspecialchars($dm['damage_reason'] ?: ($dm['defect_notes'] ?? '-')) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($dm['status'] ?? 'PENDING') ?></span></td>
                             <td><?= htmlspecialchars($dm['resolution_type'] ?: '-') ?></td>
@@ -1166,8 +1166,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($v['size_name'] ?: '-') ?></td>
                             <td><?= htmlspecialchars($v['color_name'] ?: '-') ?></td>
                             <td><?= htmlspecialchars(implode(' > ', array_filter([$v['category_name'] ?? '', $v['subcategory_name'] ?? '', $v['sub_subcategory_name'] ?? '']))) ?: '-' ?></td>
-                            <td class="right">₹<?= number_format((float)($v['mrp'] ?? 0), 2) ?></td>
-                            <td class="right">₹<?= number_format((float)($v['selling_price'] ?? 0), 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($v['mrp'] ?? 0))) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($v['selling_price'] ?? 0))) ?></td>
                             <td class="right"><?= number_format((float)($v['available_quantity'] ?? 0), 0) ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -1205,8 +1205,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($inv['location_name'] ?: 'Central Facility') ?></td>
                             <td><span class="badge badge-success"><?= htmlspecialchars($inv['stock_state'] ?? 'AVAILABLE') ?></span></td>
                             <td class="right fw-bold"><?= number_format((float)$inv['quantity'], 2) ?></td>
-                            <td class="right">₹<?= number_format((float)($inv['selling_price'] ?? 0), 2) ?></td>
-                            <td class="right">₹<?= number_format((float)($inv['mrp'] ?? 0), 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($inv['selling_price'] ?? 0))) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($inv['mrp'] ?? 0))) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -1242,8 +1242,8 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($ast['category_name'] ?: '-') ?></td>
                             <td><?= htmlspecialchars(trim(($ast['brand'] ?? '') . ' ' . ($ast['model_number'] ?? ''))) ?: '-' ?></td>
                             <td><?= !empty($ast['purchase_date']) ? date('d M Y', strtotime($ast['purchase_date'])) : '-' ?></td>
-                            <td class="right">₹<?= number_format((float)($ast['purchase_cost'] ?? 0), 2) ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($ast['current_book_value'] ?? 0), 2) ?></td>
+                            <td class="right"><?= formatCurrency((float)((float)($ast['purchase_cost'] ?? 0))) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($ast['current_book_value'] ?? 0))) ?></td>
                             <td><span class="badge badge-info"><?= htmlspecialchars($ast['condition_state'] ?? 'GOOD') ?></span></td>
                         </tr>
                     <?php endforeach; ?>
@@ -1280,7 +1280,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                             <td><?= htmlspecialchars($am['service_type'] ?? 'PREVENTIVE') ?></td>
                             <td><?= htmlspecialchars($am['technician_name'] ?: ($am['serviced_by_vendor'] ?? '-')) ?></td>
                             <td><?= !empty($am['service_date']) ? date('d M Y', strtotime($am['service_date'])) : '-' ?></td>
-                            <td class="right fw-bold">₹<?= number_format((float)($am['service_cost'] ?? 0), 2) ?></td>
+                            <td class="right fw-bold"><?= formatCurrency((float)((float)($am['service_cost'] ?? 0))) ?></td>
                             <td class="right"><?= number_format((float)($am['downtime_hours'] ?? 0), 1) ?></td>
                             <td><span class="badge badge-success"><?= htmlspecialchars($am['status'] ?? 'COMPLETED') ?></span></td>
                         </tr>

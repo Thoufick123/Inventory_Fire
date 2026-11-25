@@ -45,9 +45,9 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Total Sales Value</div>
-                        <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($stats['total_amount'], 2) ?></div>
+                        <div class="fw-bold text-primary fs-3 mt-1"><?= formatCurrency((float)($stats['total_amount'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
-                            <span>Avg: <strong class="text-dark">₹<?= number_format($stats['avg_rate_per_unit'], 2) ?>/unit</strong></span>
+                            <span>Avg: <strong class="text-dark"><?= formatCurrency((float)($stats['avg_rate_per_unit'])) ?>/unit</strong></span>
                             <span class="badge bg-primary-subtle text-primary border">Total Billed</span>
                         </div>
                     </div>
@@ -64,7 +64,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Paid / Received</div>
-                        <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_paid'], 2) ?></div>
+                        <div class="fw-bold text-success fs-3 mt-1"><?= formatCurrency((float)($stats['total_paid'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
                             <span><?= number_format($stats['count_paid']) ?> Fully Paid</span>
                             <span class="badge bg-success-subtle text-success border">Realized</span>
@@ -83,7 +83,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Pending Receivables</div>
-                        <div class="fw-bold text-danger fs-3 mt-1">₹<?= number_format($stats['total_pending'], 2) ?></div>
+                        <div class="fw-bold text-danger fs-3 mt-1"><?= formatCurrency((float)($stats['total_pending'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
                             <span><?= number_format($stats['count_pending'] + $stats['count_partial']) ?> Unsettled</span>
                             <span class="badge bg-danger-subtle text-danger border">Due</span>
@@ -271,15 +271,15 @@
                                     <!-- Quantity & Rate -->
                                     <td class="text-end">
                                         <div class="fw-bold text-dark fs-7"><?= number_format($s['quantity'], 2) ?> <?= e($s['unit_type']) ?></div>
-                                        <small class="text-muted">@ ₹<?= number_format($s['rate_per_unit'], 2) ?> / <?= e($s['unit_type']) ?></small>
+                                        <small class="text-muted">@ <?= formatCurrency((float)($s['rate_per_unit'])) ?> / <?= e($s['unit_type']) ?></small>
                                     </td>
 
                                     <!-- Total Selling Amount -->
                                     <td class="text-end">
                                         <div class="fw-bold text-success fs-6">₹ <?= number_format($s['total_amount'], 2) ?></div>
                                         <?php if ($s['paid_amount'] > 0 && $s['paid_amount'] < $s['total_amount']): ?>
-                                            <small class="text-muted d-block">Paid: ₹<?= number_format($s['paid_amount'], 2) ?></small>
-                                            <small class="text-danger fw-semibold d-block">Due: ₹<?= number_format($s['total_amount'] - $s['paid_amount'], 2) ?></small>
+                                            <small class="text-muted d-block">Paid: <?= formatCurrency((float)($s['paid_amount'])) ?></small>
+                                            <small class="text-danger fw-semibold d-block">Due: <?= formatCurrency((float)($s['total_amount'] - $s['paid_amount'])) ?></small>
                                         <?php elseif ($s['paid_amount'] >= $s['total_amount']): ?>
                                             <small class="text-success fw-semibold"><i class="bi bi-check-all me-1"></i>Full Paid</small>
                                         <?php else: ?>
@@ -1213,13 +1213,13 @@ function onNewStwQuantityChange() {
     if (r > 0) {
         const total = q * r;
         document.getElementById('newStwTotalAmount').value = total > 0 ? total.toFixed(2) : '';
-        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ₹${r.toFixed(2)}/${unit} = ₹${total.toFixed(2)}`;
+        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ${formatCurrency(r)}/${unit} = ${formatCurrency(total)}`;
     } else if (t > 0 && q > 0) {
         const rate = t / q;
         document.getElementById('newStwRatePerUnit').value = rate.toFixed(2);
-        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ₹${rate.toFixed(2)}/${unit} = ₹${t.toFixed(2)}`;
+        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ${formatCurrency(rate)}/${unit} = ${formatCurrency(t)}`;
     } else {
-        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ₹${r.toFixed(2)}/${unit} = ₹0.00`;
+        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ${formatCurrency(r)}/${unit} = ₹0.00`;
     }
     syncNewStwPaidAmount();
 }
@@ -1230,7 +1230,7 @@ function onNewStwRateChange() {
     const unit = document.getElementById('newStwUnitType').value;
     const total = q * r;
     document.getElementById('newStwTotalAmount').value = total > 0 ? total.toFixed(2) : '';
-    document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ₹${r.toFixed(2)}/${unit} = ₹${total.toFixed(2)}`;
+    document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ${formatCurrency(r)}/${unit} = ${formatCurrency(total)}`;
     syncNewStwPaidAmount();
 }
 
@@ -1241,9 +1241,9 @@ function onNewStwTotalChange() {
     if (q > 0 && t > 0) {
         const rate = t / q;
         document.getElementById('newStwRatePerUnit').value = rate.toFixed(2);
-        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ₹${rate.toFixed(2)}/${unit} = ₹${t.toFixed(2)}`;
+        document.getElementById('newStwCalcPreview').textContent = `Calculated: ${q.toFixed(2)} ${unit} × ${formatCurrency(rate)}/${unit} = ${formatCurrency(t)}`;
     } else {
-        document.getElementById('newStwCalcPreview').textContent = `Total Price Entered: ₹${t.toFixed(2)}`;
+        document.getElementById('newStwCalcPreview').textContent = `Total Price Entered: ${formatCurrency(t)}`;
     }
     syncNewStwPaidAmount();
 }

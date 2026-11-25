@@ -75,7 +75,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Avg Fabric Cost/Pc</div>
-                    <div class="fw-bold text-info-emphasis fs-3 mt-1">₹<?= number_format($avgCostPerPiece, 2) ?></div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= formatCurrency((float)($avgCostPerPiece)) ?></div>
                     <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-info me-1"></i>Per garment piece</div>
                 </div>
                 <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
@@ -215,7 +215,7 @@
                                                 <?= e($r['roll_color'] ?: 'Standard') ?> &bull; <?= e($r['roll_design'] ?: 'Plain') ?>
                                             </div>
                                             <div class="small text-muted">
-                                                <?= number_format($rollWeight, 2) ?> kg / ₹<?= number_format((float)($b['roll_price'] ?? 0), 2) ?>
+                                                <?= number_format($rollWeight, 2) ?> kg / <?= formatCurrency((float)((float)($b['roll_price'] ?? 0))) ?>
                                             </div>
                                         <?php else: ?>
                                             <div class="fw-semibold text-dark mb-1">
@@ -230,7 +230,7 @@
                                                 <?php endforeach; ?>
                                             </div>
                                             <div class="small text-muted">
-                                                Total: <?= number_format($rollWeight, 2) ?> kg / ₹<?= number_format((float)($b['roll_price'] ?? 0), 2) ?>
+                                                Total: <?= number_format($rollWeight, 2) ?> kg / <?= formatCurrency((float)((float)($b['roll_price'] ?? 0))) ?>
                                             </div>
                                         <?php endif; ?>
                                     <?php else: ?>
@@ -254,11 +254,11 @@
                                         }
                                     ?>
                                     <div class="small text-danger fw-semibold">
-                                        ₹<?= number_format($wCost, 2) ?> <span class="text-muted fw-normal">(<?= number_format($wastagePct, 1) ?>%)</span>
+                                        <?= formatCurrency((float)($wCost)) ?> <span class="text-muted fw-normal">(<?= number_format($wastagePct, 1) ?>%)</span>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="fw-bold text-primary">₹<?= number_format((float)($b['cost_per_piece'] ?? 0), 2) ?></div>
+                                    <div class="fw-bold text-primary"><?= formatCurrency((float)((float)($b['cost_per_piece'] ?? 0))) ?></div>
                                     <small class="text-muted">per cut piece</small>
                                 </td>
                                 <td>

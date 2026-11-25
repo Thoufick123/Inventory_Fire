@@ -52,7 +52,7 @@ declare(strict_types=1);
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Live Drawer Cash</div>
-                    <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format((float)($activeShift ? $activeShift['expected_drawer'] : 0), 2) ?></div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= formatCurrency((float)((float)($activeShift ? $activeShift['expected_drawer'] : 0))) ?></div>
                     <div class="small text-muted mt-2 text-truncate">
                         <?php if (!empty($activeShift)): ?>
                             <span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>Till Open</span> (Shift: <?= e($activeShift['shift_code']) ?>)
@@ -74,9 +74,9 @@ declare(strict_types=1);
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Today's Cash Inflow</div>
-                    <div class="fw-bold text-success fs-3 mt-1">+₹<?= number_format($todayCashInflow, 2) ?></div>
+                    <div class="fw-bold text-success fs-3 mt-1">+<?= formatCurrency((float)($todayCashInflow)) ?></div>
                     <div class="small text-muted mt-2 text-truncate">
-                        <i class="bi bi-arrow-up-right me-1 text-success"></i>Sales: ₹<?= number_format($todayCashSales, 2) ?>
+                        <i class="bi bi-arrow-up-right me-1 text-success"></i>Sales: <?= formatCurrency((float)($todayCashSales)) ?>
                     </div>
                 </div>
                 <div class="bg-success-subtle text-success revenue-kpi-icon">
@@ -93,10 +93,10 @@ declare(strict_types=1);
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Net Cash Position</div>
                     <div class="fw-bold <?= $netCashPosition >= 0 ? 'text-info-emphasis' : 'text-danger' ?> fs-3 mt-1">
-                        <?= $netCashPosition >= 0 ? '+' : '' ?>₹<?= number_format($netCashPosition, 2) ?>
+                        <?= $netCashPosition >= 0 ? '+' : '' ?><?= formatCurrency((float)($netCashPosition)) ?>
                     </div>
                     <div class="small text-muted mt-2 text-truncate">
-                        <i class="bi bi-bank text-info me-1"></i>Bank Deposits: ₹<?= number_format($todayBankDeposits, 2) ?>
+                        <i class="bi bi-bank text-info me-1"></i>Bank Deposits: <?= formatCurrency((float)($todayBankDeposits)) ?>
                     </div>
                 </div>
                 <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
@@ -112,9 +112,9 @@ declare(strict_types=1);
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Digital Channels</div>
-                    <div class="fw-bold text-warning-emphasis fs-3 mt-1">₹<?= number_format((float)($digitalStats['total'] ?? 0), 2) ?></div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= formatCurrency((float)((float)($digitalStats['total'] ?? 0))) ?></div>
                     <div class="small text-muted mt-2 text-truncate">
-                        <i class="bi bi-credit-card-2-front text-warning me-1"></i>UPI: ₹<?= number_format((float)($digitalStats['upi'] ?? 0), 2) ?> · Card: ₹<?= number_format((float)($digitalStats['card'] ?? 0), 2) ?>
+                        <i class="bi bi-credit-card-2-front text-warning me-1"></i>UPI: <?= formatCurrency((float)((float)($digitalStats['upi'] ?? 0))) ?> · Card: <?= formatCurrency((float)((float)($digitalStats['card'] ?? 0))) ?>
                     </div>
                 </div>
                 <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
@@ -151,33 +151,33 @@ declare(strict_types=1);
         <div class="row g-2 text-center align-items-center">
             <div class="col-md-2 col-4">
                 <div class="small text-muted text-uppercase fw-semibold" style="font-size: 11px;">Opening Float</div>
-                <div class="fs-6 fw-bold">₹<?= number_format((float)$activeShift['opening_float'], 2) ?></div>
+                <div class="fs-6 fw-bold"><?= formatCurrency((float)((float)$activeShift['opening_float'])) ?></div>
             </div>
             <div class="col-auto text-muted fw-bold d-none d-md-block">+</div>
             <div class="col-md-2 col-4">
                 <div class="small text-muted text-uppercase fw-semibold" style="font-size: 11px;">Cash Sales</div>
-                <div class="fs-6 fw-bold text-success">+₹<?= number_format((float)$activeShift['total_sales'], 2) ?></div>
+                <div class="fs-6 fw-bold text-success">+<?= formatCurrency((float)((float)$activeShift['total_sales'])) ?></div>
             </div>
             <div class="col-auto text-muted fw-bold d-none d-md-block">-</div>
             <div class="col-md-2 col-4">
                 <div class="small text-muted text-uppercase fw-semibold" style="font-size: 11px;">Cash Refunds</div>
-                <div class="fs-6 fw-bold text-danger">-₹<?= number_format((float)$activeShift['total_refunds'], 2) ?></div>
+                <div class="fs-6 fw-bold text-danger">-<?= formatCurrency((float)((float)$activeShift['total_refunds'])) ?></div>
             </div>
             <div class="col-auto text-muted fw-bold d-none d-md-block">-</div>
             <div class="col-md-2 col-4">
                 <div class="small text-muted text-uppercase fw-semibold" style="font-size: 11px;">Expenses</div>
-                <div class="fs-6 fw-bold text-warning-emphasis">-₹<?= number_format((float)$activeShift['total_expenses'], 2) ?></div>
+                <div class="fs-6 fw-bold text-warning-emphasis">-<?= formatCurrency((float)((float)$activeShift['total_expenses'])) ?></div>
             </div>
             <div class="col-auto text-muted fw-bold d-none d-md-block">-</div>
             <div class="col-md-2 col-4">
                 <div class="small text-muted text-uppercase fw-semibold" style="font-size: 11px;">Bank Drops</div>
-                <div class="fs-6 fw-bold text-info">-₹<?= number_format((float)$activeShift['total_bank_drops'], 2) ?></div>
+                <div class="fs-6 fw-bold text-info">-<?= formatCurrency((float)((float)$activeShift['total_bank_drops'])) ?></div>
             </div>
             <div class="col-auto text-muted fw-bold d-none d-md-block">=</div>
             <div class="col-md col-12">
                 <div class="bg-white border rounded p-2 text-center shadow-sm">
                     <div class="small text-muted text-uppercase fw-bold" style="font-size: 11px;">Expected Drawer Till</div>
-                    <div class="fs-5 fw-bold text-primary">₹<?= number_format((float)$activeShift['expected_drawer'], 2) ?></div>
+                    <div class="fs-5 fw-bold text-primary"><?= formatCurrency((float)((float)$activeShift['expected_drawer'])) ?></div>
                 </div>
             </div>
         </div>
@@ -266,7 +266,7 @@ declare(strict_types=1);
                                     </td>
                                     <td><span class="badge bg-light text-dark border"><?= e($tx['payment_mode']) ?></span></td>
                                     <td class="text-end fw-bold <?= $isInflow ? 'text-success' : 'text-danger' ?>">
-                                        <?= $isInflow ? '+' : '-' ?>₹<?= number_format((float)$tx['amount'], 2) ?>
+                                        <?= $isInflow ? '+' : '-' ?><?= formatCurrency((float)((float)$tx['amount'])) ?>
                                     </td>
                                     <td class="font-monospace small"><?= e($tx['shift_code'] ?? '—') ?></td>
                                     <td>
@@ -317,18 +317,18 @@ declare(strict_types=1);
                                     <td class="fw-semibold small"><?= e($sh['cashier_name'] ?? '—') ?></td>
                                     <td class="small text-nowrap"><?= e(formatDateTime($sh['opened_at'])) ?></td>
                                     <td class="small text-nowrap"><?= !empty($sh['closed_at']) ? e(formatDateTime($sh['closed_at'])) : '—' ?></td>
-                                    <td class="text-end fw-semibold">₹<?= number_format((float)$sh['opening_float'], 2) ?></td>
-                                    <td class="text-end fw-semibold text-primary">₹<?= number_format((float)$sh['expected_cash'], 2) ?></td>
-                                    <td class="text-end fw-bold">₹<?= number_format((float)$sh['actual_cash'], 2) ?></td>
+                                    <td class="text-end fw-semibold"><?= formatCurrency((float)((float)$sh['opening_float'])) ?></td>
+                                    <td class="text-end fw-semibold text-primary"><?= formatCurrency((float)((float)$sh['expected_cash'])) ?></td>
+                                    <td class="text-end fw-bold"><?= formatCurrency((float)((float)$sh['actual_cash'])) ?></td>
                                     <td class="text-end">
                                         <?php if ($sh['status'] === 'OPEN'): ?>
                                             <span class="text-muted small">In Progress</span>
                                         <?php elseif ($var == 0): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>₹0.00 Exact</span>
                                         <?php elseif ($var > 0): ?>
-                                            <span class="badge bg-warning-subtle text-warning-emphasis border"><i class="bi bi-arrow-up me-1"></i>+₹<?= number_format($var, 2) ?> Surplus</span>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border"><i class="bi bi-arrow-up me-1"></i>+<?= formatCurrency((float)($var)) ?> Surplus</span>
                                         <?php else: ?>
-                                            <span class="badge bg-danger-subtle text-danger border"><i class="bi bi-arrow-down me-1"></i>-₹<?= number_format(abs($var), 2) ?> Short</span>
+                                            <span class="badge bg-danger-subtle text-danger border"><i class="bi bi-arrow-down me-1"></i>-<?= formatCurrency((float)(abs($var))) ?> Short</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="small text-muted"><?= e($sh['closing_notes'] ?: '—') ?></td>
@@ -364,7 +364,7 @@ declare(strict_types=1);
                                     <td><strong class="text-dark"><?= e($ex['source_or_recipient'] ?: 'Expense') ?></strong></td>
                                     <td class="font-monospace small"><?= e($ex['reference_number'] ?: '—') ?></td>
                                     <td class="small text-muted"><?= e($ex['reason'] ?: '—') ?></td>
-                                    <td class="text-end fw-bold text-danger">-₹<?= number_format((float)$ex['amount'], 2) ?></td>
+                                    <td class="text-end fw-bold text-danger">-<?= formatCurrency((float)((float)$ex['amount'])) ?></td>
                                     <td class="small text-muted"><?= e($ex['user_name'] ?? 'System') ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -398,7 +398,7 @@ declare(strict_types=1);
                                     <td><strong class="text-dark"><i class="bi bi-bank me-1 text-primary"></i><?= e($bd['bank_name']) ?></strong></td>
                                     <td class="font-monospace small"><?= e($bd['slip_number'] ?: '—') ?></td>
                                     <td class="small text-muted"><?= e($bd['remarks'] ?: '—') ?></td>
-                                    <td class="text-end fw-bold text-primary">₹<?= number_format((float)$bd['amount'], 2) ?></td>
+                                    <td class="text-end fw-bold text-primary"><?= formatCurrency((float)((float)$bd['amount'])) ?></td>
                                     <td class="small text-muted"><?= e($bd['user_name'] ?? 'System') ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -521,13 +521,13 @@ declare(strict_types=1);
                     <div class="p-3 bg-light rounded-3 border mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div>
                             <div class="text-uppercase small fw-bold text-muted" style="font-size: 11px;">Expected Cash in Drawer Till</div>
-                            <div class="fs-4 fw-bold text-primary" id="reconcileExpectedDisplay">₹<?= number_format((float)($activeShift['expected_drawer'] ?? 0), 2) ?></div>
+                            <div class="fs-4 fw-bold text-primary" id="reconcileExpectedDisplay"><?= formatCurrency((float)((float)($activeShift['expected_drawer'] ?? 0))) ?></div>
                         </div>
                         <div class="text-muted small text-end">
-                            Sales: <span class="text-success">+₹<?= number_format((float)($activeShift['total_sales'] ?? 0), 2) ?></span> · 
-                            Exp: <span class="text-danger">-₹<?= number_format((float)($activeShift['total_expenses'] ?? 0), 2) ?></span><br>
-                            Refunds: <span class="text-danger">-₹<?= number_format((float)($activeShift['total_refunds'] ?? 0), 2) ?></span> · 
-                            Drops: <span class="text-info">-₹<?= number_format((float)($activeShift['total_bank_drops'] ?? 0), 2) ?></span>
+                            Sales: <span class="text-success">+<?= formatCurrency((float)((float)($activeShift['total_sales'] ?? 0))) ?></span> · 
+                            Exp: <span class="text-danger">-<?= formatCurrency((float)((float)($activeShift['total_expenses'] ?? 0))) ?></span><br>
+                            Refunds: <span class="text-danger">-<?= formatCurrency((float)((float)($activeShift['total_refunds'] ?? 0))) ?></span> · 
+                            Drops: <span class="text-info">-<?= formatCurrency((float)((float)($activeShift['total_bank_drops'] ?? 0))) ?></span>
                         </div>
                     </div>
 

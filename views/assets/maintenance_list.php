@@ -102,7 +102,7 @@
                             <td>
                                 <div class="small"><?= e($l['technician_name'] ?: ($l['serviced_by_vendor'] ?: 'In-House')) ?></div>
                             </td>
-                            <td class="text-center fw-bold">₹<?= number_format($l['service_cost'], 2) ?></td>
+                            <td class="text-center fw-bold"><?= formatCurrency((float)($l['service_cost'])) ?></td>
                             <td class="text-center"><?= $l['downtime_hours'] ?> hrs</td>
                             <td>
                                 <span class="badge <?= $l['status'] === 'COMPLETED' ? 'bg-success' : 'bg-warning text-dark' ?>">

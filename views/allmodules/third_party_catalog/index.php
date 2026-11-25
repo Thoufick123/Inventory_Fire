@@ -48,7 +48,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Avg. Selling Price</div>
-                    <div class="fs-3 fw-bold text-warning-emphasis mt-1">₹<?= number_format((float)($metrics['avg_selling'] ?? 0), 2) ?></div>
+                    <div class="fs-3 fw-bold text-warning-emphasis mt-1"><?= formatCurrency((float)((float)($metrics['avg_selling'] ?? 0))) ?></div>
                     <div class="small text-muted mt-2 text-truncate"><i class="bi bi-tag text-warning me-1"></i>Average selling value</div>
                 </div>
                 <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
@@ -62,7 +62,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Avg. MRP</div>
-                    <div class="fs-3 fw-bold text-success mt-1">₹<?= number_format((float)($metrics['avg_mrp'] ?? 0), 2) ?></div>
+                    <div class="fs-3 fw-bold text-success mt-1"><?= formatCurrency((float)((float)($metrics['avg_mrp'] ?? 0))) ?></div>
                     <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-success me-1"></i>Average maximum retail price</div>
                 </div>
                 <div class="bg-success-subtle text-success revenue-kpi-icon">
@@ -170,9 +170,9 @@
                                 <?php endif; ?>
                                 <span class="small text-muted ms-1">(<?= e($p['unit'] ?: 'PCS') ?>)</span>
                             </td>
-                            <td class="text-end font-monospace">₹<?= number_format((float)$p['purchase_rate'], 2) ?></td>
-                            <td class="text-end font-monospace text-muted">₹<?= number_format((float)$p['mrp'], 2) ?></td>
-                            <td class="text-end font-monospace fw-bold text-success">₹<?= number_format((float)$p['selling_price'], 2) ?></td>
+                            <td class="text-end font-monospace"><?= formatCurrency((float)((float)$p['purchase_rate'])) ?></td>
+                            <td class="text-end font-monospace text-muted"><?= formatCurrency((float)((float)$p['mrp'])) ?></td>
+                            <td class="text-end font-monospace fw-bold text-success"><?= formatCurrency((float)((float)$p['selling_price'])) ?></td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="<?= url('production/purchases/mapping/catalog/edit/' . $p['id']) ?>" class="btn btn-outline-primary" title="Edit Style">

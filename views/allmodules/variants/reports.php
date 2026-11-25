@@ -102,12 +102,12 @@
                             <span class="badge bg-info-subtle text-info border border-info-subtle"><?= e($r['design_name'] ?? '—') ?></span>
                             <span class="badge bg-warning-subtle text-dark border border-warning-subtle"><?= e($r['size_name'] ?? '—') ?></span>
                         </td>
-                        <td class="text-end">₹<?= number_format((float)$r['selling_price'], 2) ?></td>
+                        <td class="text-end"><?= formatCurrency((float)((float)$r['selling_price'])) ?></td>
                         <td class="text-center fw-bold <?= (float)$r['available_stock'] > 0 ? 'text-success' : 'text-muted' ?>">
                             <?= number_format((float)$r['available_stock']) ?> pcs
                         </td>
                         <td class="text-end pe-3 fw-bold text-dark">
-                            ₹<?= number_format((float)$r['stock_valuation'], 2) ?>
+                            <?= formatCurrency((float)((float)$r['stock_valuation'])) ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -146,7 +146,7 @@
                         <td class="text-center"><?= number_format($cs['catalog_count']) ?></td>
                         <td class="text-center"><?= number_format($cs['variant_count']) ?></td>
                         <td class="text-center fw-bold text-success fs-6"><?= number_format($cs['total_stock']) ?> pcs</td>
-                        <td class="text-end pe-3 fw-bold text-dark">₹<?= number_format((float)$cs['stock_valuation'], 2) ?></td>
+                        <td class="text-end pe-3 fw-bold text-dark"><?= formatCurrency((float)((float)$cs['stock_valuation'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -218,7 +218,7 @@
                         <td><?= e($cat['category_name'] ?? '—') ?></td>
                         <td class="text-center"><?= number_format($cat['variant_count']) ?></td>
                         <td class="text-center fw-bold text-success fs-6"><?= number_format($cat['total_stock']) ?> pcs</td>
-                        <td class="text-end pe-3 fw-bold text-dark">₹<?= number_format((float)$cat['stock_valuation'], 2) ?></td>
+                        <td class="text-end pe-3 fw-bold text-dark"><?= formatCurrency((float)((float)$cat['stock_valuation'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -364,7 +364,7 @@
                             <small class="text-muted"><?= e($vs['color_name'] ?? '—') ?> · <?= e($vs['design_name'] ?? '—') ?> · <?= e($vs['size_name'] ?? '—') ?></small>
                         </td>
                         <td class="text-center fw-bold fs-6 text-dark"><?= number_format((float)$vs['total_sold_qty']) ?> pcs</td>
-                        <td class="text-end pe-3 fw-bold text-success fs-6">₹<?= number_format((float)$vs['total_sales_revenue'], 2) ?></td>
+                        <td class="text-end pe-3 fw-bold text-success fs-6"><?= formatCurrency((float)((float)$vs['total_sales_revenue'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                     <?php endif; ?>
@@ -399,7 +399,7 @@
                     <tr>
                         <td class="ps-3 fw-bold text-dark"><?= e($csales['name']) ?></td>
                         <td class="text-center fw-bold text-dark fs-6"><?= number_format((float)$csales['total_sold_qty']) ?> pcs</td>
-                        <td class="text-end pe-3 fw-bold text-success fs-6">₹<?= number_format((float)$csales['total_revenue'], 2) ?></td>
+                        <td class="text-end pe-3 fw-bold text-success fs-6"><?= formatCurrency((float)((float)$csales['total_revenue'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                     <?php endif; ?>

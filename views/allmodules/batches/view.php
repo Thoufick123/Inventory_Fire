@@ -128,7 +128,7 @@ if (!empty($bill['total_amount'])) {
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Bill &amp; Invoice Total</div>
-                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($totalValuation, 2) ?></div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= formatCurrency((float)($totalValuation)) ?></div>
                     <div class="small text-muted mt-2 text-truncate"><i class="bi bi-receipt-cutoff text-success me-1"></i>Batch valuation</div>
                 </div>
                 <div class="bg-success-subtle text-success revenue-kpi-icon">
@@ -252,18 +252,18 @@ if (!empty($bill['total_amount'])) {
                                 </tr>
                                 <tr>
                                     <th class="text-muted fw-normal">Taxable Subtotal:</th>
-                                    <td class="fw-bold text-dark">₹<?= number_format((float)($bill['subtotal'] ?? 0), 2) ?></td>
+                                    <td class="fw-bold text-dark"><?= formatCurrency((float)((float)($bill['subtotal'] ?? 0))) ?></td>
                                 </tr>
                                 <tr>
                                     <th class="text-muted fw-normal">GST Breakdown:</th>
                                     <td class="small text-muted">
-                                        CGST: ₹<?= number_format((float)($bill['cgst_amount'] ?? 0), 2) ?> · SGST: ₹<?= number_format((float)($bill['sgst_amount'] ?? 0), 2) ?>
-                                        <?php if ((float)($bill['igst_amount'] ?? 0) > 0): ?> · IGST: ₹<?= number_format((float)$bill['igst_amount'], 2) ?><?php endif; ?>
+                                        CGST: <?= formatCurrency((float)((float)($bill['cgst_amount'] ?? 0))) ?> · SGST: <?= formatCurrency((float)((float)($bill['sgst_amount'] ?? 0))) ?>
+                                        <?php if ((float)($bill['igst_amount'] ?? 0) > 0): ?> · IGST: <?= formatCurrency((float)((float)$bill['igst_amount'])) ?><?php endif; ?>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th class="text-muted fw-normal">Total Invoice Value:</th>
-                                    <td class="fs-5 fw-bold text-success">₹<?= number_format((float)($bill['total_amount'] ?? 0), 2) ?></td>
+                                    <td class="fs-5 fw-bold text-success"><?= formatCurrency((float)((float)($bill['total_amount'] ?? 0))) ?></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -332,8 +332,8 @@ if (!empty($bill['total_amount'])) {
                                 <span class="badge bg-light text-dark border"><?= e($it['color_name'] ?: 'Std') ?></span>
                             </td>
                             <td class="text-center fw-bold text-success fs-6"><?= number_format($qty) ?> pcs</td>
-                            <td class="text-end">₹<?= number_format($price, 2) ?></td>
-                            <td class="text-end fw-bold">₹<?= number_format($rowTot, 2) ?></td>
+                            <td class="text-end"><?= formatCurrency((float)($price)) ?></td>
+                            <td class="text-end fw-bold"><?= formatCurrency((float)($rowTot)) ?></td>
                             <td>
                                 <?php if (empty($tags)): ?>
                                     <span class="text-muted small">No specific piece tags logged</span>
@@ -355,7 +355,7 @@ if (!empty($bill['total_amount'])) {
                     <td colspan="3" class="text-end">Total Packed Garments:</td>
                     <td class="text-center text-success"><?= number_format($totalQtyAll ?? 0) ?> pcs</td>
                     <td class="text-end">Total Taxable:</td>
-                    <td class="text-end">₹<?= number_format($totalSumAll ?? 0, 2) ?></td>
+                    <td class="text-end"><?= formatCurrency((float)($totalSumAll ?? 0)) ?></td>
                     <td></td>
                 </tr>
             </tfoot>

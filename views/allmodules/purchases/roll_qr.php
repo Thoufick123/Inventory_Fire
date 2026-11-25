@@ -306,11 +306,11 @@
                     <!-- Footer: Pricing -->
                     <div class="thermal-footer">
                         <?php if ((float)$stk['mrp'] > 0): ?>
-                            <div class="text-muted">MRP: ₹<?= number_format((float)$stk['mrp'], 2) ?></div>
+                            <div class="text-muted">MRP: <?= formatCurrency((float)((float)$stk['mrp'])) ?></div>
                         <?php else: ?>
                             <div class="text-muted" style="font-size: 8px;">PO: <?= e($stk['po_number']) ?></div>
                         <?php endif; ?>
-                        <div class="text-dark">PRICE: ₹<?= number_format((float)$stk['price'], 2) ?></div>
+                        <div class="text-dark">PRICE: <?= formatCurrency((float)((float)$stk['price'])) ?></div>
                     </div>
 
                     <!-- Sub-footer: Scannable string -->

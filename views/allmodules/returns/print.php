@@ -72,10 +72,10 @@ $returnFirmGstin = !empty($concernBrand['gst_number']) ? $concernBrand['gst_numb
                         <td><?= htmlspecialchars($item['hsn_code'] ?? '6109') ?></td>
                         <td class="center font-monospace"><?= htmlspecialchars($item['tag_code'] ?: '-') ?></td>
                         <td class="center"><?= (int)$item['quantity'] ?></td>
-                        <td class="right">₹<?= number_format((float)$item['unit_price'], 2) ?></td>
-                        <td class="right">₹<?= number_format((float)$item['taxable_amount'], 2) ?></td>
-                        <td class="right">₹<?= number_format((float)$item['tax_amount'], 2) ?></td>
-                        <td class="right">₹<?= number_format((float)$item['total_amount'], 2) ?></td>
+                        <td class="right"><?= formatCurrency((float)((float)$item['unit_price'])) ?></td>
+                        <td class="right"><?= formatCurrency((float)((float)$item['taxable_amount'])) ?></td>
+                        <td class="right"><?= formatCurrency((float)((float)$item['tax_amount'])) ?></td>
+                        <td class="right"><?= formatCurrency((float)((float)$item['total_amount'])) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -83,9 +83,9 @@ $returnFirmGstin = !empty($concernBrand['gst_number']) ? $concernBrand['gst_numb
     </div>
     <div class="section">
         <table class="summary">
-            <tr><td>Taxable Value Reversal</td><td class="right">₹<?= number_format((float)($return['subtotal'] ?? $return['subtotal_taxable'] ?? 0), 2) ?></td></tr>
-            <tr><td>GST Reversal Amount</td><td class="right">₹<?= number_format((float)($return['gst_reversal_amount'] ?? $return['total_gst_reversal'] ?? 0), 2) ?></td></tr>
-            <tr class="total"><td>Net Credit Note Amount</td><td class="right">₹<?= number_format((float)($return['net_amount'] ?? $return['total_credit_amount'] ?? 0), 2) ?></td></tr>
+            <tr><td>Taxable Value Reversal</td><td class="right"><?= formatCurrency((float)((float)($return['subtotal'] ?? $return['subtotal_taxable'] ?? 0))) ?></td></tr>
+            <tr><td>GST Reversal Amount</td><td class="right"><?= formatCurrency((float)((float)($return['gst_reversal_amount'] ?? $return['total_gst_reversal'] ?? 0))) ?></td></tr>
+            <tr class="total"><td>Net Credit Note Amount</td><td class="right"><?= formatCurrency((float)((float)($return['net_amount'] ?? $return['total_credit_amount'] ?? 0))) ?></td></tr>
         </table>
     </div>
     <div class="section">

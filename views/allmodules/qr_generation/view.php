@@ -172,8 +172,8 @@
                             · Color: <?= e($variantItem['variant_color_name'] ?: ($variantItem['color_name'] ?: '—')) ?>
                         </div>
                         <div class="small fw-bold mt-1">
-                            MRP: <del>₹<?= number_format((float)(($variantItem['variant_mrp'] ?? 0) > 0 ? $variantItem['variant_mrp'] : ($variantItem['base_price'] ?? 0)), 2) ?></del>
-                            · Selling: ₹<?= number_format((float)(($variantItem['variant_selling_price'] ?? 0) > 0 ? $variantItem['variant_selling_price'] : ($variantItem['discount_price'] ?? 0)), 2) ?>
+                            MRP: <del><?= formatCurrency((float)((float)(($variantItem['variant_mrp'] ?? 0) > 0 ? $variantItem['variant_mrp'] : ($variantItem['base_price'] ?? 0)))) ?></del>
+                            · Selling: <?= formatCurrency((float)((float)(($variantItem['variant_selling_price'] ?? 0) > 0 ? $variantItem['variant_selling_price'] : ($variantItem['discount_price'] ?? 0)))) ?>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -238,12 +238,12 @@
                                 <?php endif; ?>
                                 <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
                                 <div class="text-muted mb-1" style="font-size: 11px;">
-                                    MRP: <del>₹<?= number_format((float)$item['mrp'], 2) ?></del>
+                                    MRP: <del><?= formatCurrency((float)((float)$item['mrp'])) ?></del>
                                 </div>
                                 <?php endif; ?>
                                 <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
                                 <div class="fw-bold text-success mb-1" style="font-size: 11px;">
-                                    SALE: ₹<?= number_format((float)$item['selling_price'], 2) ?>
+                                    SALE: <?= formatCurrency((float)((float)$item['selling_price'])) ?>
                                 </div>
                                 <?php endif; ?>
                             </div>

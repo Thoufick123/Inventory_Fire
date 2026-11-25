@@ -65,9 +65,9 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
                             <div class="small text-muted"><?= htmlspecialchars(trim(($item['sku'] ?? '') . ' ' . ($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''))) ?></div>
                             <div class="small font-monospace text-muted"><?= htmlspecialchars(implode(', ', $item['tags'])) ?></div></td>
                         <td><span class="badge bg-light text-dark border font-monospace"><?= htmlspecialchars($item['hsn_code'] ?? '6109') ?></span></td><td class="text-center"><?= (int)$item['quantity'] ?></td>
-                        <td class="text-end">₹<?= number_format((float)$item['mrp'] * (int)$item['quantity'], 2) ?></td>
-                        <td class="text-end">₹<?= number_format((float)$item['discount_amount'], 2) ?></td>
-                        <td class="text-end">₹<?= number_format((float)$item['taxable_amount'], 2) ?></td>
+                        <td class="text-end"><?= formatCurrency((float)((float)$item['mrp'] * (int)$item['quantity'])) ?></td>
+                        <td class="text-end"><?= formatCurrency((float)((float)$item['discount_amount'])) ?></td>
+                        <td class="text-end"><?= formatCurrency((float)((float)$item['taxable_amount'])) ?></td>
                         <td>
                             <div><?= htmlspecialchars($item['gst_type'] ?? 'BOTH') ?> · <?= ($item['tax_input_type'] ?? 'PERCENT') === 'PERCENT' ? 'Percentage' : 'Fixed' ?></div>
                             <?php if (($item['gst_type'] ?? '') === 'BOTH'): ?>
@@ -80,8 +80,8 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
                                 <small class="text-muted">CGST <?= number_format((float)$item['cgst_rate'], 2) ?><?= ($item['tax_input_type'] ?? 'PERCENT') === 'PERCENT' ? '%' : ' ₹/piece' ?></small>
                             <?php endif; ?>
                         </td>
-                        <td class="text-end">₹<?= number_format((float)$item['tax_amount'], 2) ?></td>
-                        <td class="text-end fw-semibold">₹<?= number_format((float)$item['total_amount'], 2) ?></td>
+                        <td class="text-end"><?= formatCurrency((float)((float)$item['tax_amount'])) ?></td>
+                        <td class="text-end fw-semibold"><?= formatCurrency((float)((float)$item['total_amount'])) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -92,32 +92,32 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
 <div class="row justify-content-end">
     <div class="col-md-5 col-lg-4">
         <div class="card border-0 shadow-sm"><div class="card-body">
-            <div class="d-flex justify-content-between py-1"><span>Gross / MRP</span><strong>₹<?= number_format((float)$bill['gross_amount'], 2) ?></strong></div>
-            <div class="d-flex justify-content-between py-1"><span>Discount</span><strong>₹<?= number_format((float)$bill['discount_amount'], 2) ?></strong></div>
-            <div class="d-flex justify-content-between py-1"><span>Taxable Base</span><strong>₹<?= number_format((float)$bill['subtotal'], 2) ?></strong></div>
+            <div class="d-flex justify-content-between py-1"><span>Gross / MRP</span><strong><?= formatCurrency((float)((float)$bill['gross_amount'])) ?></strong></div>
+            <div class="d-flex justify-content-between py-1"><span>Discount</span><strong><?= formatCurrency((float)((float)$bill['discount_amount'])) ?></strong></div>
+            <div class="d-flex justify-content-between py-1"><span>Taxable Base</span><strong><?= formatCurrency((float)((float)$bill['subtotal'])) ?></strong></div>
             <?php if ((float)$bill['cgst_amount'] > 0): ?>
-                <div class="d-flex justify-content-between py-1"><span>CGST</span><strong>₹<?= number_format((float)$bill['cgst_amount'], 2) ?></strong></div>
+                <div class="d-flex justify-content-between py-1"><span>CGST</span><strong><?= formatCurrency((float)((float)$bill['cgst_amount'])) ?></strong></div>
             <?php endif; ?>
             <?php if ((float)$bill['sgst_amount'] > 0): ?>
-                <div class="d-flex justify-content-between py-1"><span>SGST</span><strong>₹<?= number_format((float)$bill['sgst_amount'], 2) ?></strong></div>
+                <div class="d-flex justify-content-between py-1"><span>SGST</span><strong><?= formatCurrency((float)((float)$bill['sgst_amount'])) ?></strong></div>
             <?php endif; ?>
             <?php if ((float)$bill['igst_amount'] > 0): ?>
-                <div class="d-flex justify-content-between py-1"><span>IGST</span><strong>₹<?= number_format((float)$bill['igst_amount'], 2) ?></strong></div>
+                <div class="d-flex justify-content-between py-1"><span>IGST</span><strong><?= formatCurrency((float)((float)$bill['igst_amount'])) ?></strong></div>
             <?php endif; ?>
-            <div class="d-flex justify-content-between py-1"><span>Total Taxes (Incl.)</span><strong>₹<?= number_format((float)$bill['tax_amount'], 2) ?></strong></div>
+            <div class="d-flex justify-content-between py-1"><span>Total Taxes (Incl.)</span><strong><?= formatCurrency((float)((float)$bill['tax_amount'])) ?></strong></div>
             <hr>
-            <div class="d-flex justify-content-between fs-5"><span class="fw-bold">Total</span><strong>₹<?= number_format((float)$bill['total_amount'], 2) ?></strong></div>
+            <div class="d-flex justify-content-between fs-5"><span class="fw-bold">Total</span><strong><?= formatCurrency((float)((float)$bill['total_amount'])) ?></strong></div>
             <div class="small text-muted mt-2">Payment: <?= htmlspecialchars($bill['payment_method']) ?> · <?= htmlspecialchars($bill['payment_status']) ?></div>
             <?php if (!empty($bill['staff_name'])): ?>
                 <div class="small text-muted"><i class="bi bi-person-badge me-1"></i>Billed By: <strong><?= htmlspecialchars($bill['staff_name']) ?></strong></div>
             <?php endif; ?>
             <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
                 <div class="small text-muted mt-1">
-                    Cash Tendered: <strong>₹<?= number_format((float)$bill['cash_given'], 2) ?></strong> · 
-                    Change Returned: <strong class="text-success">₹<?= number_format((float)($bill['change_returned'] ?? 0), 2) ?></strong>
+                    Cash Tendered: <strong><?= formatCurrency((float)((float)$bill['cash_given'])) ?></strong> · 
+                    Change Returned: <strong class="text-success"><?= formatCurrency((float)((float)($bill['change_returned'] ?? 0))) ?></strong>
                 </div>
             <?php endif; ?>
-            <?php if ($bill['payment_method'] === 'CASH_UPI'): ?><div class="small text-muted">Cash ₹<?= number_format((float)$bill['cash_amount'], 2) ?> · UPI ₹<?= number_format((float)$bill['upi_amount'], 2) ?></div><?php endif; ?>
+            <?php if ($bill['payment_method'] === 'CASH_UPI'): ?><div class="small text-muted">Cash <?= formatCurrency((float)((float)$bill['cash_amount'])) ?> · UPI <?= formatCurrency((float)((float)$bill['upi_amount'])) ?></div><?php endif; ?>
             <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
                 <div class="small mt-2">
                     <a href="<?= htmlspecialchars(uploadUrl($bill['upi_payment_screenshot_url']), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">

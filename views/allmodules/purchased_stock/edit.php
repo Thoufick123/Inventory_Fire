@@ -48,7 +48,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-semibold text-muted">Purchased Price (₹)</label>
-                    <input type="text" class="form-control form-control-sm bg-light" value="₹<?= number_format((float)($stock['purchase_price'] ?: $stock['unit_price']), 2) ?>" readonly>
+                    <input type="text" class="form-control form-control-sm bg-light" value="<?= formatCurrency((float)((float)($stock['purchase_price'] ?: $stock['unit_price']))) ?>" readonly>
                 </div>
                 <div class="col-md-8">
                     <label class="form-label small fw-semibold text-muted">Notes &amp; Remarks</label>

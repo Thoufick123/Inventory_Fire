@@ -829,7 +829,7 @@ function openCustomerHistoryModal() {
                         </div>
                         <div class="text-end">
                             <span class="badge bg-primary fs-6 px-3 py-2 mb-1">${summary.total_orders || bills.length} Orders Placed</span>
-                            <div class="small text-muted">Total Spent: <strong class="text-dark">₹${parseFloat(summary.lifetime_spent || 0).toFixed(2)}</strong></div>
+                            <div class="small text-muted">Total Spent: <strong class="text-dark">${formatCurrency(summary.lifetime_spent || 0)}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -853,7 +853,7 @@ function openCustomerHistoryModal() {
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="badge bg-secondary-subtle text-secondary border small">${b.payment_method}</span>
-                                        <strong class="text-primary fs-6">₹${parseFloat(b.total_amount).toFixed(2)}</strong>
+                                        <strong class="text-primary fs-6">${formatCurrency(b.total_amount)}</strong>
                                     </div>
                                 </div>
                             </button>
@@ -887,8 +887,8 @@ function openCustomerHistoryModal() {
                                 ${it.color_name ? `<span class="badge bg-light text-dark border">${it.color_name}</span>` : ''}
                             </td>
                             <td class="text-center fw-bold">${it.quantity}</td>
-                            <td class="text-end">₹${parseFloat(it.unit_price).toFixed(2)}</td>
-                            <td class="text-end fw-bold text-dark">₹${parseFloat(it.total_amount).toFixed(2)}</td>
+                            <td class="text-end">${formatCurrency(it.unit_price)}</td>
+                            <td class="text-end fw-bold text-dark">${formatCurrency(it.total_amount)}</td>
                             <td>
                                 ${it.tags_csv ? `<span class="small font-monospace badge bg-secondary-subtle text-dark border">${it.tags_csv}</span>` : '<span class="text-muted small">-</span>'}
                             </td>
@@ -960,14 +960,14 @@ function updateCashAndChange(total) {
         changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold font-monospace text-success fs-5 bg-white border-2 border-success';
         if (changeStatusHelp) {
             changeStatusHelp.innerHTML = change > 0 
-                ? `<span class="text-success fw-bold"><i class="bi bi-arrow-return-left me-1"></i> Return ₹${change.toFixed(2)} change to customer</span>` 
+                ? `<span class="text-success fw-bold"><i class="bi bi-arrow-return-left me-1"></i> Return ${formatCurrency(change)} change to customer</span>` 
                 : `<span class="text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> Exact amount received</span>`;
         }
     } else {
         changeToReturnInput.value = '0.00';
         changeToReturnInput.className = 'form-control form-control-lg text-end fw-bold font-monospace text-danger fs-5 bg-white border-2 border-danger';
         if (changeStatusHelp) {
-            changeStatusHelp.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle me-1"></i> ₹${Math.abs(change).toFixed(2)} remaining to collect</span>`;
+            changeStatusHelp.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle me-1"></i> ${formatCurrency(Math.abs(change))} remaining to collect</span>`;
         }
     }
 }
@@ -1012,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const upiScreenshotPreview = document.getElementById('upiScreenshotPreview');
     const upiScreenshotPreviewImage = document.getElementById('upiScreenshotPreviewImage');
     const upiScreenshotSelectedLabel = document.getElementById('upiScreenshotSelectedLabel');
-    const money = value => '₹' + Number(value || 0).toFixed(2);
+    const money = value => window.formatCurrency(value);
     let searchTimer;
     let toastTimer = null;
     let limitModalInstance = null;

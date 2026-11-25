@@ -45,9 +45,9 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Total Sales Value</div>
-                        <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($stats['total_amount'], 2) ?></div>
+                        <div class="fw-bold text-primary fs-3 mt-1"><?= formatCurrency((float)($stats['total_amount'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
-                            <span>Avg: <strong class="text-dark">₹<?= number_format($stats['avg_rate_per_kg'], 2) ?>/kg</strong></span>
+                            <span>Avg: <strong class="text-dark"><?= formatCurrency((float)($stats['avg_rate_per_kg'])) ?>/kg</strong></span>
                             <span class="badge bg-primary-subtle text-primary border">Total Billed</span>
                         </div>
                     </div>
@@ -64,7 +64,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Paid / Received</div>
-                        <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_paid'], 2) ?></div>
+                        <div class="fw-bold text-success fs-3 mt-1"><?= formatCurrency((float)($stats['total_paid'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
                             <span><?= number_format($stats['count_paid']) ?> Fully Paid</span>
                             <span class="badge bg-success-subtle text-success border">Realized</span>
@@ -83,7 +83,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Pending Receivables</div>
-                        <div class="fw-bold text-warning-emphasis fs-3 mt-1">₹<?= number_format($stats['total_pending'], 2) ?></div>
+                        <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= formatCurrency((float)($stats['total_pending'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
                             <span><?= number_format($stats['count_pending'] + $stats['count_partial']) ?> Unsettled</span>
                             <span class="badge bg-warning-subtle text-warning-emphasis border">Due</span>
@@ -250,7 +250,7 @@
                                     <!-- Weight & Rate -->
                                     <td class="text-end">
                                         <div class="fw-bold text-dark fs-7"><?= number_format($s['weight'], 2) ?> kg</div>
-                                        <small class="text-muted">@ ₹<?= number_format($s['rate_per_kg'], 2) ?>/kg</small>
+                                        <small class="text-muted">@ <?= formatCurrency((float)($s['rate_per_kg'])) ?>/kg</small>
                                     </td>
 
                                     <!-- Total Selling Amount -->
@@ -422,7 +422,7 @@
                                                             <div class="small text-muted mt-1 d-flex flex-wrap gap-2">
                                                                 <span>Total: <strong><?= number_format($cb['wastage_weight'], 2) ?> kg</strong></span>
                                                                 <span>•</span>
-                                                                <span>Rate: <strong>₹<?= number_format($costRate, 2) ?>/kg</strong></span>
+                                                                <span>Rate: <strong><?= formatCurrency((float)($costRate)) ?>/kg</strong></span>
                                                                 <?php if (!empty($cb['program_number'])): ?>
                                                                     <span>•</span>
                                                                     <span class="text-primary fw-semibold"><?= e($cb['program_number']) ?></span>
@@ -620,7 +620,7 @@
                                             data-seller="<?= e($cb['seller_name'] ?? '') ?>" 
                                             data-color="<?= e($cb['color'] ?? '') ?>" 
                                             data-design="<?= e($cb['design_name'] ?? '') ?>">
-                                            [<?= e($cb['batch_number']) ?>] <?= e($cb['name']) ?> • Wastage: <?= number_format($cb['wastage_weight'], 2) ?> kg (Avail: <?= number_format($cb['available_wastage_weight'], 2) ?> kg) • Rate: ₹<?= number_format($costRate, 2) ?>/kg
+                                            [<?= e($cb['batch_number']) ?>] <?= e($cb['name']) ?> • Wastage: <?= number_format($cb['wastage_weight'], 2) ?> kg (Avail: <?= number_format($cb['available_wastage_weight'], 2) ?> kg) • Rate: <?= formatCurrency((float)($costRate)) ?>/kg
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -1083,7 +1083,7 @@ function onCuttingBatchCheckChange() {
     document.getElementById('newInfoTotalWst').textContent = `${totalWst.toFixed(2)} kg`;
     document.getElementById('newInfoSoldWst').textContent = `${totalSold.toFixed(2)} kg`;
     document.getElementById('newInfoAvailWst').textContent = `${totalAvail.toFixed(2)} kg`;
-    document.getElementById('newInfoRate').textContent = `₹${avgRate.toFixed(2)}/kg`;
+    document.getElementById('newInfoRate').textContent = `${formatCurrency(avgRate)}/kg`;
     infoCard.classList.remove('d-none');
 
     // Auto set weight to total available weight
@@ -1159,13 +1159,13 @@ function onNewWeightChange() {
     if (r > 0) {
         const total = w * r;
         document.getElementById('newTotalAmount').value = total > 0 ? total.toFixed(2) : '';
-        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${r.toFixed(2)}/kg = ₹${total.toFixed(2)}`;
+        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ${formatCurrency(r)}/kg = ${formatCurrency(total)}`;
     } else if (t > 0 && w > 0) {
         const rate = t / w;
         document.getElementById('newRatePerKg').value = rate.toFixed(2);
-        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${rate.toFixed(2)}/kg = ₹${t.toFixed(2)}`;
+        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ${formatCurrency(rate)}/kg = ${formatCurrency(t)}`;
     } else {
-        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${r.toFixed(2)}/kg = ₹0.00`;
+        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ${formatCurrency(r)}/kg = ₹0.00`;
     }
     autoCheckNewPaymentStatus();
 }
@@ -1175,7 +1175,7 @@ function onNewRateChange() {
     const r = parseFloat(document.getElementById('newRatePerKg').value) || 0;
     const total = w * r;
     document.getElementById('newTotalAmount').value = total > 0 ? total.toFixed(2) : '';
-    document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${r.toFixed(2)}/kg = ₹${total.toFixed(2)}`;
+    document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ${formatCurrency(r)}/kg = ${formatCurrency(total)}`;
     autoCheckNewPaymentStatus();
 }
 
@@ -1185,9 +1185,9 @@ function onNewTotalChange() {
     if (w > 0 && t > 0) {
         const rate = t / w;
         document.getElementById('newRatePerKg').value = rate.toFixed(2);
-        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${rate.toFixed(2)}/kg = ₹${t.toFixed(2)}`;
+        document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ${formatCurrency(rate)}/kg = ${formatCurrency(t)}`;
     } else {
-        document.getElementById('newCalcPreview').textContent = `Total Price Entered: ₹${t.toFixed(2)}`;
+        document.getElementById('newCalcPreview').textContent = `Total Price Entered: ${formatCurrency(t)}`;
     }
     autoCheckNewPaymentStatus();
 }

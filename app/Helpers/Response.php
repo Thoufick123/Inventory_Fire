@@ -309,10 +309,47 @@ function e(mixed $value): string {
 }
 
 /**
- * Format currency in INR.
+ * Format a numeric amount using Indian numbering grouping (e.g. 1,00,000)
+ * and omit trailing .00 on whole numbers while keeping non-zero decimals (e.g. 10.98).
  */
-function formatCurrency(float $amount): string {
-    return '₹' . number_format($amount, 2, '.', ',');
+function formatINR(float|int|string $amount, int $decimals = 2, bool $stripWholeZero = true): string {
+    $num = (float)$amount;
+    if (!is_finite($num)) {
+        return '0';
+    }
+    $neg = $num < 0 ? '-' : '';
+    $fixed = number_format(abs($num), $decimals, '.', '');
+    $parts = explode('.', $fixed, 2);
+    $intPart = $parts[0];
+    $decPart = $parts[1] ?? '';
+
+    if (strlen($intPart) > 3) {
+        $lastThree = substr($intPart, -3);
+        $rest = substr($intPart, 0, -3);
+        $grouped = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $rest) . ',' . $lastThree;
+    } else {
+        $grouped = $intPart;
+    }
+
+    if ($decimals > 0 && $decPart !== '') {
+        if ($stripWholeZero && (int)$decPart === 0) {
+            return $neg . $grouped;
+        }
+        return $neg . $grouped . '.' . $decPart;
+    }
+
+    return $neg . $grouped;
+}
+
+/**
+ * Format currency in INR (Indian grouping, no .00 on whole numbers).
+ */
+function formatCurrency(float|int|string $amount): string {
+    $num = (float)$amount;
+    if (!is_finite($num)) {
+        return '₹0';
+    }
+    return ($num < 0 ? '-₹' : '₹') . formatINR(abs($num));
 }
 
 /**

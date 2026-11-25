@@ -195,8 +195,8 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">In-Stock Valuation</div>
-                    <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($remainingValue, 2) ?></div>
-                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-primary me-1"></i>Total: ₹<?= number_format($totalValue, 2) ?><?= $poTotalPieces > $totalPieces ? ' (PO: ₹' . number_format($poTotalValue, 2) . ')' : '' ?></div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= formatCurrency((float)($remainingValue)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-primary me-1"></i>Total: <?= formatCurrency((float)($totalValue)) ?><?= $poTotalPieces > $totalPieces ? ' (PO: ₹' . number_format($poTotalValue, 2) . ')' : '' ?></div>
                 </div>
                 <div class="bg-primary-subtle text-primary revenue-kpi-icon">
                     <i class="bi bi-currency-rupee fs-4"></i>
@@ -215,7 +215,7 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
         </div>
         <div class="d-flex flex-wrap gap-2">
             <span class="badge bg-secondary-subtle text-secondary border px-3 py-2">HSN: <?= e($hsnCode) ?></span>
-            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">Unit Price: ₹<?= number_format($unitPrice, 2) ?> / <?= e($unit) ?></span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">Unit Price: <?= formatCurrency((float)($unitPrice)) ?> / <?= e($unit) ?></span>
         </div>
     </div>
     <div class="card-body p-0">
@@ -249,8 +249,8 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
                         </td>
                         <td class="text-center fw-semibold"><?= number_format($poTotalPieces) ?> <?= e($unit) ?></td>
                         <td class="text-center fw-bold text-success"><?= number_format($totalPieces) ?> <?= e($unit) ?></td>
-                        <td class="text-end fw-semibold">₹<?= number_format($unitPrice, 2) ?></td>
-                        <td class="text-end fw-bold text-primary">₹<?= number_format($totalValue, 2) ?></td>
+                        <td class="text-end fw-semibold"><?= formatCurrency((float)($unitPrice)) ?></td>
+                        <td class="text-end fw-bold text-primary"><?= formatCurrency((float)($totalValue)) ?></td>
                         <td class="text-center">
                             <span class="badge bg-success-subtle text-success border"><i class="bi bi-check-circle me-1"></i>Inward Complete</span>
                         </td>
@@ -612,7 +612,7 @@ function renderPiecesView() {
                         <h6 class="fw-bold text-dark mb-1">${escapeHtml(p.product_name)}</h6>
                         <div class="small text-muted mb-2">${escapeHtml(p.category_name)} · PO: <strong>${escapeHtml(p.program_number)}</strong></div>
                         <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                            <span class="fw-bold text-primary">₹${parseFloat(p.unit_price).toFixed(2)}</span>
+                            <span class="fw-bold text-primary">${formatCurrency(parseFloat(p.unit_price))}</span>
                             <div class="btn-group btn-group-sm">
                                 <button type="button" class="btn btn-outline-primary btn-sm" onclick="printSinglePiece(${idx})" title="Print QR Sticker">
                                     <i class="bi bi-printer"></i>
@@ -652,7 +652,7 @@ function renderPiecesView() {
                 </div>
                 <div class="d-flex align-items-center gap-3">
                     <div class="text-end">
-                        <div class="fw-bold text-primary fs-6">₹${parseFloat(p.unit_price).toFixed(2)}</div>
+                        <div class="fw-bold text-primary fs-6">${formatCurrency(parseFloat(p.unit_price))}</div>
                         <small class="text-muted">Unit Valuation</small>
                     </div>
                     <div class="btn-group">
@@ -681,7 +681,7 @@ function renderPiecesView() {
                     <span class="fw-semibold text-dark">${escapeHtml(p.program_number)}</span>
                     <small class="text-muted d-block">HSN: ${escapeHtml(p.hsn_code || '—')}</small>
                 </td>
-                <td class="fw-bold text-primary">₹${parseFloat(p.unit_price).toFixed(2)}</td>
+                <td class="fw-bold text-primary">${formatCurrency(parseFloat(p.unit_price))}</td>
                 <td>
                     <span class="badge ${p.is_dispatched ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-success-subtle text-success border border-success-subtle'}">
                         ${p.is_dispatched ? 'Dispatched' : 'In Stock'}
@@ -789,7 +789,7 @@ function renderStickersToModal(itemsToPrint) {
                             <strong class="d-block text-dark text-truncate" style="max-width: 140px;">${escapeHtml(item.product_name)}</strong>
                             <div class="text-muted">Type: GARMENT SUPPLY</div>
                             <div>HSN: <strong>${escapeHtml(item.hsn_code || '—')}</strong></div>
-                            <div class="text-primary fw-bold">Price: ₹${parseFloat(item.unit_price).toFixed(2)}</div>
+                            <div class="text-primary fw-bold">Price: ${formatCurrency(parseFloat(item.unit_price))}</div>
                             <div class="font-monospace fw-bold text-dark mt-1">Code: ${escapeHtml(item.tag_code)}</div>
                         </div>
                     </div>

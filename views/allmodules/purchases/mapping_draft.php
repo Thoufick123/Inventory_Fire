@@ -470,8 +470,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         <td class="font-monospace"><?= e($item['hsn_code'] ?: '—') ?></td>
                         <td class="text-end font-monospace fw-semibold"><?= number_format((float)$item['quantity'], 2) ?></td>
                         <td><?= e($item['unit'] ?: 'PCS') ?></td>
-                        <td class="text-end font-monospace">₹<?= number_format((float)$item['unit_price'], 2) ?></td>
-                        <td class="text-end font-monospace">₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></td>
+                        <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['unit_price'])) ?></td>
+                        <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></td>
                         <td>
                             <?php if (!empty($item['batch_code'])): ?>
                                 <button type="button" class="badge bg-dark border-0 cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
@@ -682,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <option value="">-- Choose Purchase Order --</option>
                             <?php foreach ($candidatePurchases as $cand): ?>
                                 <option value="<?= (int)$cand['id'] ?>">
-                                    <?= e($cand['purchase_number']) ?> — <?= e(date('d M Y', strtotime($cand['purchase_date']))) ?><?= !empty($cand['invoice_number']) ? ' (Inv: ' . e($cand['invoice_number']) . ')' : '' ?> — ₹<?= number_format((float)$cand['total_amount'], 2) ?>
+                                    <?= e($cand['purchase_number']) ?> — <?= e(date('d M Y', strtotime($cand['purchase_date']))) ?><?= !empty($cand['invoice_number']) ? ' (Inv: ' . e($cand['invoice_number']) . ')' : '' ?> — <?= formatCurrency((float)((float)$cand['total_amount'])) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -1067,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">MRP / Selling Price</div>
-                                <div class="fw-bold text-success">₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                                <div class="fw-bold text-success"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Inventory Status</div>
@@ -1099,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
                                 </div>
                                 <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
-                                <div class="small text-muted mt-1">₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                                <div class="small text-muted mt-1"><?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>
@@ -1759,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (spNum > mrpNum) {
             mrpInpGen?.classList.add('is-invalid');
             spInpGen?.classList.add('is-invalid');
-            alert(`Validation Error: Selling Price (₹${spNum.toFixed(2)}) cannot exceed MRP (₹${mrpNum.toFixed(2)}).`);
+            alert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
             spInpGen?.focus();
             return;
         }

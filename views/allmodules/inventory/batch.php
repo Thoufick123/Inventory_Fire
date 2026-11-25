@@ -393,8 +393,8 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                                     <span class="badge bg-info-subtle text-info border"><?= e($it['color_name'] ?? 'Std') ?></span>
                                 </td>
                                 <td class="text-end fw-bold text-success"><?= number_format($it['passed_qty'] ?? $it['quantity'] ?? 0) ?> pcs</td>
-                                <td class="text-end font-monospace text-muted">₹<?= number_format($it['base_price'] ?? $it['mrp'] ?? 0, 2) ?></td>
-                                <td class="text-end font-monospace fw-bold text-primary">₹<?= number_format($it['discount_price'] ?? $it['selling_price'] ?? 0, 2) ?></td>
+                                <td class="text-end font-monospace text-muted"><?= formatCurrency((float)($it['base_price'] ?? $it['mrp'] ?? 0)) ?></td>
+                                <td class="text-end font-monospace fw-bold text-primary"><?= formatCurrency((float)($it['discount_price'] ?? $it['selling_price'] ?? 0)) ?></td>
                                 <td><span class="badge bg-success-subtle text-success border border-success-subtle">IN STOCK</span></td>
                                 <td class="text-end">
                                     <button type="button" class="btn btn-sm btn-outline-primary" onclick="printVariantGroupLabels('<?= e($it['size_name'] ?? '') ?>', '<?= e($it['color_name'] ?? '') ?>')">
@@ -427,7 +427,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                         <td><?= e($it['product_name'] ?? '') ?></td>
                         <td><?= e($it['size_name'] ?? '') ?> / <?= e($it['color_name'] ?? '') ?></td>
                         <td>Batch</td>
-                        <td>₹<?= number_format($it['discount_price'] ?? 0, 2) ?></td>
+                        <td><?= formatCurrency((float)($it['discount_price'] ?? 0)) ?></td>
                         <td><?= !empty($it['is_billed']) ? 'Sold' : 'Available' ?></td>
                         <td></td>
                     </tr>
@@ -560,7 +560,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                                     <span class="badge bg-dark font-monospace"><?= e($sold['tag_code'] ?? 'TAG') ?></span>
                                 </td>
                                 <td class="small text-muted"><?= !empty($sold['bill_date']) ? date('d M Y', strtotime($sold['bill_date'])) : (!empty($sold['sale_date']) ? date('d M Y', strtotime($sold['sale_date'])) : '—') ?></td>
-                                <td class="text-end font-monospace fw-bold text-success">₹<?= number_format($sold['price'] ?? 0, 2) ?></td>
+                                <td class="text-end font-monospace fw-bold text-success"><?= formatCurrency((float)($sold['price'] ?? 0)) ?></td>
                                 <td><span class="badge bg-light text-dark border"><?= e($sold['payment_mode'] ?? 'CASH') ?></span></td>
                                 <td><span class="badge bg-success text-white">PAID</span></td>
                                 <td class="text-end">
@@ -976,9 +976,9 @@ function buildInventoryPieceCards() {
         card.dataset.product = (vData.productName || '').toUpperCase();
 
         const mrpHtml = (vData.basePrice > vData.discountPrice)
-            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ₹${vData.basePrice.toFixed(2)}</span>`
+            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ${formatCurrency(vData.basePrice)}</span>`
             : '';
-        const priceHtml = `<span class="fw-bold text-primary">₹${vData.discountPrice.toFixed(2)}</span>`;
+        const priceHtml = `<span class="fw-bold text-primary">${formatCurrency(vData.discountPrice)}</span>`;
 
         const statusBadge = vData.availableQty > 0
             ? `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>${vData.availableQty} pcs Available</span>`
@@ -1079,7 +1079,7 @@ function buildInventoryPieceList() {
                 </div>
             </div>
             <div class="d-flex align-items-center gap-3">
-                <span class="fw-bold text-primary font-monospace">₹${parseFloat(p.discount_price || p.base_price || 0).toFixed(2)}</span>
+                <span class="fw-bold text-primary font-monospace">${formatCurrency(parseFloat(p.discount_price || p.base_price || 0))}</span>
                 ${statusBadge}
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="printSinglePieceLabel(${p.piece_no})">
                     <i class="bi bi-printer"></i>
@@ -1242,8 +1242,8 @@ function renderStickersToModal(pieces) {
                 <div class="font-monospace fw-bold small text-truncate">${escapeHtml(p.variant_sku || p.product_sku || 'SKU')}</div>
                 <div class="small text-muted" style="font-size: 10px;">${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}</div>
                 <div class="d-flex justify-content-center gap-1 small mt-0.5">
-                    ${parseFloat(p.base_price) > parseFloat(p.discount_price) ? `<span class="text-muted text-decoration-line-through">₹${parseFloat(p.base_price).toFixed(2)}</span>` : ''}
-                    <span class="fw-bold text-dark">₹${parseFloat(p.discount_price || p.base_price || 0).toFixed(2)}</span>
+                    ${parseFloat(p.base_price) > parseFloat(p.discount_price) ? `<span class="text-muted text-decoration-line-through">${formatCurrency(parseFloat(p.base_price))}</span>` : ''}
+                    <span class="fw-bold text-dark">${formatCurrency(parseFloat(p.discount_price || p.base_price || 0))}</span>
                 </div>
                 <div class="badge bg-dark text-warning font-monospace mt-1" style="font-size: 11px;">${escapeHtml(variantDisplayCode)}</div>
             </div>

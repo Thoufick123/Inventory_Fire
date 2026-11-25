@@ -753,7 +753,7 @@ function applyQuickPricesFromBar() {
     }
 
     if (discVal >= baseVal) {
-        alert(`Validation Error: Discount Price (₹${discVal.toFixed(2)}) must be lower than Base Price (₹${baseVal.toFixed(2)}). Base price amount must be higher!`);
+        alert(`Validation Error: Discount Price (${formatCurrency(discVal)}) must be lower than Base Price (${formatCurrency(baseVal)}). Base price amount must be higher!`);
         if (discInp) {
             discInp.classList.add('is-invalid', 'border-danger');
             discInp.focus();
@@ -788,7 +788,7 @@ function applyQuickPricesFromBar() {
     const statusMsg = document.getElementById('quickPriceStatusMsg');
     if (statusMsg) {
         const catLabel = targetCatalog === 'ALL' ? 'all variants' : `"${targetCatalog}"`;
-        statusMsg.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Loaded ₹${baseVal.toFixed(2)} / ₹${discVal.toFixed(2)} to ${appliedCount} items (${catLabel})!`;
+        statusMsg.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Loaded ${formatCurrency(baseVal)} / ${formatCurrency(discVal)} to ${appliedCount} items (${catLabel})!`;
         statusMsg.style.display = 'inline-block';
         setTimeout(() => { statusMsg.style.display = 'none'; }, 4000);
     }

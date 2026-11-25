@@ -410,7 +410,7 @@ tr.table-danger, tr.table-danger > td {
                             <div class="small mb-1">
                                 <span class="text-muted">Payment:</span> <span class="badge bg-success-subtle text-success border border-success-subtle py-0.5 px-1.5">Cash / Paid</span>
                                 <span class="mx-1 text-muted">·</span>
-                                <span class="text-muted">Bill Total:</span> <strong class="text-success">₹<?= number_format((float)$purchase['total_amount'], 2) ?></strong>
+                                <span class="text-muted">Bill Total:</span> <strong class="text-success"><?= formatCurrency((float)((float)$purchase['total_amount'])) ?></strong>
                             </div>
                             <div class="mt-2">
                                 <label for="inputInvoiceNumber" class="form-label small text-muted mb-1">Vendor Invoice Number</label>
@@ -442,7 +442,7 @@ tr.table-danger, tr.table-danger > td {
                             <tr>
                                 <td class="fw-bold fs-5 text-primary"><?= number_format($purchasedQty, 3) ?></td>
                                 <td class="fw-semibold text-secondary"><?= e($activeItem['unit'] ?: 'Pieces') ?></td>
-                                <td class="fw-semibold text-dark fs-6">₹<?= number_format($unitPrice, 2) ?></td>
+                                <td class="fw-semibold text-dark fs-6"><?= formatCurrency((float)($unitPrice)) ?></td>
                                 <td>
                                     <span class="badge <?= ($activeItem['tax_treatment'] ?? '') === 'INCLUDED' ? 'bg-info-subtle text-info border-info-subtle' : 'bg-secondary-subtle text-secondary' ?> border">
                                         <?= e($taxModeLabel) ?>
@@ -454,9 +454,9 @@ tr.table-danger, tr.table-danger > td {
                                 <td>
                                     <span class="badge bg-light text-dark border"><?= $gstRate > 0 ? number_format($gstRate, 2) . '% GST' : 'Exempted' ?></span>
                                 </td>
-                                <td class="fw-semibold text-dark">₹<?= number_format($taxAmount, 2) ?></td>
+                                <td class="fw-semibold text-dark"><?= formatCurrency((float)($taxAmount)) ?></td>
                                 <td class="fw-bold fs-5 text-success" style="background-color: #e8f5e9;">
-                                    ₹<?= number_format($totalValuation, 2) ?>
+                                    <?= formatCurrency((float)($totalValuation)) ?>
                                 </td>
                             </tr>
                         </tbody>
@@ -897,8 +897,8 @@ tr.table-danger, tr.table-danger > td {
                             </td>
                             <td class="font-monospace"><?= e($itemVar['hsn_code'] ?: $activeHsn) ?></td>
                             <td class="fw-bold"><?= number_format((float)($itemVar['allocated_qty'] ?? $itemVar['quantity']), 3) ?> <?= e($activeItem['unit'] ?: 'PCS') ?></td>
-                            <td>₹<?= number_format((float)($itemVar['purchase_rate'] ?? $itemVar['unit_price']), 2) ?></td>
-                            <td class="text-success fw-semibold">₹<?= number_format((float)$itemVar['mrp'], 2) ?> / ₹<?= number_format((float)$itemVar['selling_price'], 2) ?></td>
+                            <td><?= formatCurrency((float)((float)($itemVar['purchase_rate'] ?? $itemVar['unit_price']))) ?></td>
+                            <td class="text-success fw-semibold"><?= formatCurrency((float)((float)$itemVar['mrp'])) ?> / <?= formatCurrency((float)((float)$itemVar['selling_price'])) ?></td>
                             <td>
                                 <?php if (!empty($itemVar['batch_code'])): ?>
                                     <button type="button" class="badge bg-dark border-0 cursor-pointer p-2" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
@@ -1190,7 +1190,7 @@ tr.table-danger, tr.table-danger > td {
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">MRP / Selling Price</div>
-                                <div class="fw-bold text-success">₹<?= number_format((float)$itemVar['mrp'], 2) ?> / ₹<?= number_format((float)$itemVar['selling_price'], 2) ?></div>
+                                <div class="fw-bold text-success"><?= formatCurrency((float)((float)$itemVar['mrp'])) ?> / <?= formatCurrency((float)((float)$itemVar['selling_price'])) ?></div>
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Inventory Status</div>
@@ -1219,7 +1219,7 @@ tr.table-danger, tr.table-danger > td {
                                     <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
                                 </div>
                                 <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
-                                <div class="small text-muted mt-1">₹<?= number_format((float)$itemVar['selling_price'], 2) ?></div>
+                                <div class="small text-muted mt-1"><?= formatCurrency((float)((float)$itemVar['selling_price'])) ?></div>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>
@@ -1832,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const invalid = (mrp > 0 && sp > 0 && sp > mrp);
         mrpEl.classList.toggle('is-invalid', invalid);
         spEl.classList.toggle('is-invalid', invalid);
-        const msg = invalid ? `Selling Price (₹${sp.toFixed(2)}) must be less than or equal to MRP (₹${mrp.toFixed(2)}).` : '';
+        const msg = invalid ? `Selling Price (${formatCurrency(sp)}) must be less than or equal to MRP (${formatCurrency(mrp)}).` : '';
         mrpEl.title = msg;
         spEl.title = msg;
         return !invalid;

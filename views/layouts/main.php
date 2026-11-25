@@ -152,6 +152,29 @@ if (!empty($authUser['production_unit_name'])) {
             border-color: var(--primary) !important;
         }
     </style>
+    <script>
+        window.formatINR = function(value, decimals = 2) {
+            const num = Number(value || 0);
+            if (!Number.isFinite(num)) return '0';
+            const neg = num < 0 ? '-' : '';
+            const fixed = Math.abs(num).toFixed(decimals);
+            const parts = fixed.split('.');
+            const intPart = parts[0];
+            const decPart = parts[1] || '';
+            const lastThree = intPart.slice(-3);
+            const rest = intPart.slice(0, -3);
+            const grouped = rest ? rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree : lastThree;
+            if (decimals > 0 && decPart && Number(decPart) !== 0) {
+                return neg + grouped + '.' + decPart;
+            }
+            return neg + grouped;
+        };
+        window.formatCurrency = function(value, decimals = 2) {
+            const num = Number(value || 0);
+            if (!Number.isFinite(num)) return '₹0';
+            return (num < 0 ? '-₹' : '₹') + window.formatINR(Math.abs(num), decimals);
+        };
+    </script>
 </head>
 <body>
     <div class="app-layout">

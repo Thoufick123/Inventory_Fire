@@ -1,3 +1,11 @@
+<?php
+$activeTheme = class_exists('SettingsService') ? SettingsService::getThemeConfig() : [
+    'primary'       => '#4f46e5',
+    'primary_hover' => '#4338ca',
+    'primary_rgb'   => '79, 70, 229',
+    'sidebar_bg'    => '#1e293b',
+];
+?>
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
 <head>
@@ -11,9 +19,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary: <?= e($activeTheme['primary']) ?>;
+            --primary-hover: <?= e($activeTheme['primary_hover']) ?>;
+            --primary-rgb: <?= e($activeTheme['primary_rgb']) ?>;
+            --sidebar-bg: <?= e($activeTheme['sidebar_bg']) ?>;
+            --bg-gradient: linear-gradient(135deg, <?= e($activeTheme['sidebar_bg']) ?> 0%, <?= e($activeTheme['primary']) ?> 100%);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -71,7 +81,7 @@
         }
         .form-floating .form-control:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.14);
         }
         .btn-login {
             background: var(--primary);
@@ -87,7 +97,7 @@
         .btn-login:hover {
             background: var(--primary-hover);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.38);
             color: #fff;
         }
         .alert { border-radius: 10px; font-size: 0.875rem; }

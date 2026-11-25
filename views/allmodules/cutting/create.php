@@ -310,7 +310,7 @@ function buildRollOptionsHtml(selectedRollId = '', rollData = null) {
                 data-material="${escapeHtml(r.material_type || '')}" 
                 data-seller="${escapeHtml(sName)}" 
                 ${isSel ? 'selected' : ''}>
-                Roll #${escapeHtml(r.roll_number || r.id)} (${escapeHtml(r.color || 'Standard')} - ${escapeHtml(r.design_name || 'Plain')}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${parseFloat(w).toFixed(2)} kg / ₹${parseFloat(p).toFixed(2)}
+                Roll #${escapeHtml(r.roll_number || r.id)} (${escapeHtml(r.color || 'Standard')} - ${escapeHtml(r.design_name || 'Plain')}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${parseFloat(w).toFixed(2)} kg / ${formatCurrency(parseFloat(p))}
             </option>`;
         });
     }
@@ -329,7 +329,7 @@ function buildRollOptionsHtml(selectedRollId = '', rollData = null) {
             data-design="${escapeHtml(des)}" 
             data-seller="${escapeHtml(sName)}" 
             selected>
-            ${escapeHtml(num)} (${escapeHtml(col)} - ${escapeHtml(des)}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${w.toFixed(2)} kg / ₹${p.toFixed(2)}
+            ${escapeHtml(num)} (${escapeHtml(col)} - ${escapeHtml(des)}${sName ? ' — ' + escapeHtml(sName) : ''}) — ${w.toFixed(2)} kg / ${formatCurrency(p)}
         </option>`;
     }
     return html;
@@ -693,7 +693,7 @@ function renderRollWastageRows() {
             <div class="row g-2 align-items-center">
                 <div class="col-6 col-md-5">
                     <small class="text-muted d-block" style="font-size: 11px;">Weight &amp; Rate</small>
-                    <span class="small fw-semibold text-dark">${weight.toFixed(2)} kg <span class="text-muted">(@ ₹${rate.toFixed(2)}/kg)</span></span>
+                    <span class="small fw-semibold text-dark">${weight.toFixed(2)} kg <span class="text-muted">(@ ${formatCurrency(rate)}/kg)</span></span>
                 </div>
                 <div class="col-6 col-md-7">
                     <small class="text-danger fw-semibold d-block" style="font-size: 11px;">Wastage Weight (kg)</small>

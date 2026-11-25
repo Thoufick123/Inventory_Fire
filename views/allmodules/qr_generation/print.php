@@ -169,10 +169,10 @@
                 <div class="label-title"><?= e($batch['brand_name']) ?></div>
                 <div class="label-sku"><?= e($labelSubtitle) ?></div>
                 <?php if ((float)($item['mrp'] ?? 0) > 0): ?>
-                <div class="label-mrp"><strong>MRP:</strong> <del>₹<?= number_format((float)$item['mrp'], 2) ?></del></div>
+                <div class="label-mrp"><strong>MRP:</strong> <del><?= formatCurrency((float)((float)$item['mrp'])) ?></del></div>
                 <?php endif; ?>
                 <?php if ((float)($item['selling_price'] ?? 0) > 0): ?>
-                <div class="label-price"><strong>SALE:</strong> ₹<?= number_format((float)$item['selling_price'], 2) ?></div>
+                <div class="label-price"><strong>SALE:</strong> <?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>

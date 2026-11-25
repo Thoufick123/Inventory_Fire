@@ -103,15 +103,15 @@
                     </div>
                     <div class="d-flex justify-content-between py-1 border-bottom">
                         <span class="text-muted">Taxable Base Reversal:</span>
-                        <span class="fw-semibold">₹<?= number_format((float)$return['subtotal'], 2) ?></span>
+                        <span class="fw-semibold"><?= formatCurrency((float)((float)$return['subtotal'])) ?></span>
                     </div>
                     <div class="d-flex justify-content-between py-1 border-bottom">
                         <span class="text-muted">GST Tax Reversal:</span>
-                        <span class="fw-semibold text-info">₹<?= number_format((float)$return['gst_reversal_amount'], 2) ?></span>
+                        <span class="fw-semibold text-info"><?= formatCurrency((float)((float)$return['gst_reversal_amount'])) ?></span>
                     </div>
                     <div class="d-flex justify-content-between py-2 border-bottom">
                         <span class="fw-bold fs-6 text-dark">Net Credit / Refund Amount:</span>
-                        <strong class="text-danger fs-5">₹<?= number_format((float)$return['net_amount'], 2) ?></strong>
+                        <strong class="text-danger fs-5"><?= formatCurrency((float)((float)$return['net_amount'])) ?></strong>
                     </div>
                     <div class="small text-muted mt-2">
                         Settlement Mode: <strong class="text-dark"><?= e($return['refund_mode']) ?></strong>
@@ -204,8 +204,8 @@
                                         <span class="badge bg-secondary font-monospace"><?= (int)$it['quantity'] ?> pcs (bulk)</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-end">₹<?= number_format((float)$it['unit_price'], 2) ?></td>
-                                <td class="text-end fw-bold text-danger">₹<?= number_format((float)$it['total_amount'], 2) ?></td>
+                                <td class="text-end"><?= formatCurrency((float)((float)$it['unit_price'])) ?></td>
+                                <td class="text-end fw-bold text-danger"><?= formatCurrency((float)((float)$it['total_amount'])) ?></td>
                                 <td>
                                     <span class="text-dark small"><?= e($it['reason'] ?: 'Customer Return') ?></span>
                                 </td>

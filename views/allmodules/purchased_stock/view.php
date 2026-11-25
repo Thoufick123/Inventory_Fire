@@ -65,8 +65,8 @@
                     <?php endif; ?>
                 </div>
                 <div class="small text-muted">
-                    Purchased Price: <span class="fw-semibold text-dark">₹<?= number_format((float)($stock['purchase_price'] ?: $stock['unit_price']), 2) ?></span>
-                    · Total: <span class="fw-semibold text-success">₹<?= number_format((float)$stock['total_price'], 2) ?></span>
+                    Purchased Price: <span class="fw-semibold text-dark"><?= formatCurrency((float)((float)($stock['purchase_price'] ?: $stock['unit_price']))) ?></span>
+                    · Total: <span class="fw-semibold text-success"><?= formatCurrency((float)((float)$stock['total_price'])) ?></span>
                 </div>
             </div>
             <div class="col-md-4">

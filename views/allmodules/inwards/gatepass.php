@@ -130,7 +130,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="text-end">₹<?= number_format($item['selling_price'] ?? 0, 2) ?></td>
+                    <td class="text-end"><?= formatCurrency((float)($item['selling_price'] ?? 0)) ?></td>
                     <td class="text-end fw-bold fs-6"><?= number_format($item['quantity']) ?> pcs</td>
                 </tr>
             <?php endforeach; ?>

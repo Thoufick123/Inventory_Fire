@@ -459,7 +459,7 @@
                                 </div>
                             <?php endif; ?>
                             <div class="meta-line">
-                                <span>Price:</span> <strong>₹<?= number_format((float)$stk['unit_price'], 2) ?></strong>
+                                <span>Price:</span> <strong><?= formatCurrency((float)((float)$stk['unit_price'])) ?></strong>
                             </div>
                             <div class="meta-line">
                                 <span>Code:</span> <strong class="font-monospace" style="font-size: 10.5px; font-weight: 800; color: #0f172a; letter-spacing: 0.3px;"><?= htmlspecialchars($stk['code']) ?></strong>
@@ -958,7 +958,7 @@ function updateSupplyDamageLossCalculations(totalLoss) {
     const help = document.getElementById('supplyLossCalcHelp');
     if (lossInput) lossInput.value = totalLoss.toFixed(2);
     if (help) {
-        help.textContent = `Estimated loss for ${supplyDamageList.length} item(s): ₹${totalLoss.toFixed(2)}`;
+        help.textContent = `Estimated loss for ${supplyDamageList.length} item(s): ${formatCurrency(totalLoss)}`;
     }
 }
 

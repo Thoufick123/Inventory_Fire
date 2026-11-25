@@ -298,7 +298,7 @@ function showBillOptions(bills) {
         status.className = alreadyReturned ? 'badge bg-secondary' : 'badge bg-primary';
         status.textContent = alreadyReturned
             ? `Already processed${bill.active_return_number ? `: ${bill.active_return_number}` : ''}`
-            : `Select · ₹${Number(bill.total_amount || 0).toFixed(2)}`;
+            : `Select · ${formatCurrency(Number(bill.total_amount || 0))}`;
 
         option.append(details, status);
         if (!alreadyReturned) {
@@ -500,7 +500,7 @@ function handleUniversalScan() {
                             <td class="text-center">
                                 <span class="font-monospace badge bg-dark text-white px-2 py-1 fs-6">${tagObj.tag_code}</span>
                             </td>
-                            <td class="text-end fw-semibold">₹${parseFloat(item.unit_price).toFixed(2)}</td>
+                            <td class="text-end fw-semibold">${formatCurrency(parseFloat(item.unit_price))}</td>
                             <td>
                                 <input type="text" name="tags[${tagObj.tag_code}][reason]" class="form-control form-control-sm" 
                                        placeholder="Reason (e.g. Size fitting, exchange, flaw)" 
@@ -543,7 +543,7 @@ function handleUniversalScan() {
                                 </div>
                             `}
                         </td>
-                        <td class="text-end fw-semibold">₹${parseFloat(item.unit_price).toFixed(2)}</td>
+                        <td class="text-end fw-semibold">${formatCurrency(parseFloat(item.unit_price))}</td>
                         <td>
                             <input type="text" name="items[${item.id}][reason]" class="form-control form-control-sm" 
                                    placeholder="Reason" value="Customer return" ${isFullyReturned ? 'disabled' : ''}>
@@ -600,7 +600,7 @@ function calcReturnTotals() {
 
     const badge = document.getElementById('returnSelectedBadge');
     if (badge) {
-        badge.textContent = `${totalPcs} piece(s) selected (₹${totalAmount.toFixed(2)})`;
+        badge.textContent = `${totalPcs} piece(s) selected (${formatCurrency(totalAmount)})`;
         badge.className = totalPcs > 0 ? 'badge bg-success px-3 py-2 fs-6 shadow-sm' : 'badge bg-secondary px-3 py-2 fs-6 shadow-sm';
     }
 

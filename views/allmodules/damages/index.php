@@ -36,7 +36,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Estimated Loss Value</div>
-                    <div class="fw-bold text-warning-emphasis fs-3 mt-1">₹<?= number_format($stats['total_loss_amount'], 2) ?></div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= formatCurrency((float)($stats['total_loss_amount'])) ?></div>
                     <div class="small text-muted mt-2 text-truncate">
                         <i class="bi bi-currency-rupee text-warning me-1"></i><?= $stats['count_logged'] ?> pending action
                     </div>
@@ -68,7 +68,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Refunds Recovered</div>
-                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_refund_received'], 2) ?></div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= formatCurrency((float)($stats['total_refund_received'])) ?></div>
                     <div class="small text-muted mt-2 text-truncate">
                         <i class="bi bi-check2-circle text-success me-1"></i><?= $stats['count_refunded'] ?> debit claims
                     </div>
@@ -271,7 +271,7 @@
                                     <div class="fw-bold text-dark fs-7">₹ <?= number_format($d['loss_amount'], 2) ?></div>
                                     <?php if ($d['refund_amount'] > 0): ?>
                                         <small class="text-success fw-semibold d-block">
-                                            <i class="bi bi-check-all me-1"></i>₹<?= number_format($d['refund_amount'], 2) ?> Refunded
+                                            <i class="bi bi-check-all me-1"></i><?= formatCurrency((float)($d['refund_amount'])) ?> Refunded
                                         </small>
                                     <?php endif; ?>
                                 </td>
@@ -1006,8 +1006,8 @@ function renderDamageScannedLabels() {
 
         metadata.append(typeBadge, stockBadge, document.createTextNode(
             isSupply
-                ? `${item.sellerName} • ${item.rollNumber} • ₹${item.unitLoss.toFixed(2)}/pc • Subtotal: ₹${itemLoss.toFixed(2)}`
-                : `${item.sellerName} • ${item.rollNumber} • ${itemWeight.toFixed(2)} kg (${item.unitWeight.toFixed(2)} kg/pc) • ₹${itemLoss.toFixed(2)}`
+                ? `${item.sellerName} • ${item.rollNumber} • ${formatCurrency(item.unitLoss)}/pc • Subtotal: ${formatCurrency(itemLoss)}`
+                : `${item.sellerName} • ${item.rollNumber} • ${itemWeight.toFixed(2)} kg (${item.unitWeight.toFixed(2)} kg/pc) • ${formatCurrency(itemLoss)}`
         ));
         details.append(code, metadata);
 
@@ -1204,10 +1204,10 @@ function renderDamageScannedLabels() {
     if (weightHelp) weightHelp.textContent = `${damageScannedLabels.length} scanned QR code(s)`;
 
     const rateBadge = document.getElementById('reportRateBadge');
-    if (rateBadge) rateBadge.textContent = totalWeight > 0 ? `₹${(totalLoss / totalWeight).toFixed(2)} / kg` : '₹0.00 / kg';
+    if (rateBadge) rateBadge.textContent = totalWeight > 0 ? `${formatCurrency((totalLoss / totalWeight))} / kg` : '₹0.00 / kg';
 
     const lossHelp = document.getElementById('reportLossCalcHelp');
-    if (lossHelp) lossHelp.textContent = `Calculated: ${totalQty} pcs = ₹${totalLoss.toFixed(2)}`;
+    if (lossHelp) lossHelp.textContent = `Calculated: ${totalQty} pcs = ${formatCurrency(totalLoss)}`;
 }
 
 let currentDamageScanOption = 'AUTO';
@@ -1386,13 +1386,13 @@ function updateEditCalculations(m, weight) {
     if (lossInput) lossInput.value = lossVal.toFixed(2);
 
     const rateBadge = document.getElementById('editRateBadge');
-    if (rateBadge) rateBadge.textContent = `₹${m.ratePerKg.toFixed(2)} / kg`;
+    if (rateBadge) rateBadge.textContent = `${formatCurrency(m.ratePerKg)} / kg`;
 
     const weightHelp = document.getElementById('editWeightHelp');
     if (weightHelp) weightHelp.textContent = `Total: ${weight.toFixed(2)} kg`;
 
     const lossHelp = document.getElementById('editLossCalcHelp');
-    if (lossHelp) lossHelp.textContent = `Valuation: ₹${lossVal.toFixed(2)} (${weight.toFixed(2)} kg @ ₹${m.ratePerKg.toFixed(2)}/kg)`;
+    if (lossHelp) lossHelp.textContent = `Valuation: ${formatCurrency(lossVal)} (${weight.toFixed(2)} kg @ ${formatCurrency(m.ratePerKg)}/kg)`;
 
     const sellerSelect = document.getElementById('editSellerSelect');
     const sellerOption = sellerSelect.options[sellerSelect.selectedIndex];
@@ -1410,7 +1410,7 @@ function updateEditDamageLabelMeta(sellerName, rollNumber) {
     if (sellerName) details.push(sellerName);
     if (rollNumber) details.push(`Roll ${rollNumber}`);
     if (weight > 0) details.push(`${weight.toFixed(2)} kg`);
-    if (loss > 0) details.push(`₹${loss.toFixed(2)}`);
+    if (loss > 0) details.push(`${formatCurrency(loss)}`);
     meta.textContent = details.join(' • ');
 }
 

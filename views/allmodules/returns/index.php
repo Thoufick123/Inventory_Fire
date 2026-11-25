@@ -217,9 +217,9 @@
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-center fw-bold"><?= (int)$r['total_returned_qty'] ?> pcs</td>
-                                    <td class="text-end">₹<?= number_format((float)$r['subtotal'], 2) ?></td>
-                                    <td class="text-end text-muted">₹<?= number_format((float)$r['gst_reversal_amount'], 2) ?></td>
-                                    <td class="text-end fw-bold text-danger">₹<?= number_format((float)$r['net_amount'], 2) ?></td>
+                                    <td class="text-end"><?= formatCurrency((float)((float)$r['subtotal'])) ?></td>
+                                    <td class="text-end text-muted"><?= formatCurrency((float)((float)$r['gst_reversal_amount'])) ?></td>
+                                    <td class="text-end fw-bold text-danger"><?= formatCurrency((float)((float)$r['net_amount'])) ?></td>
                                     <td class="small text-muted"><?= date('d M Y', strtotime($r['created_at'])) ?></td>
                                     <td class="text-end">
                                         <div class="d-flex justify-content-end gap-1">

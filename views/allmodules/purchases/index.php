@@ -45,7 +45,7 @@
                 <div class="me-2" style="min-width: 0;">
                     <div class="text-uppercase fw-semibold text-muted small">Total Purchases</div>
                     <div class="fs-3 fw-bold text-success mt-1"><?= number_format((int)($metrics['total_count'] ?? count($purchases))) ?></div>
-                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-success me-1"></i>₹<?= number_format((float)$totalPurchaseValue, 2) ?> spend</div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-success me-1"></i><?= formatCurrency((float)((float)$totalPurchaseValue)) ?> spend</div>
                 </div>
                 <div class="bg-success-subtle text-success revenue-kpi-icon">
                     <i class="bi bi-bag-check fs-4"></i>
@@ -352,7 +352,7 @@
                             <?php endif; ?>
                         </td>
                         <td class="text-end fw-bold text-success fs-6">
-                            ₹<?= number_format((float)$purchase['total_amount'], 2) ?>
+                            <?= formatCurrency((float)((float)$purchase['total_amount'])) ?>
                         </td>
                         <td class="text-center text-nowrap">
                             <div class="purchase-action-buttons">
@@ -577,8 +577,8 @@ function openPurchaseBillLogs(purchaseId, poNumber) {
                             <td class="text-end">${origQ} ${escHtmlBillLog(it.unit || '')}</td>
                             <td class="text-end fw-bold ${extraQ > 0 ? 'text-primary' : 'text-muted'}">${extraQ > 0 ? '+' + extraQ : '0'}</td>
                             <td class="text-end fw-bold">${finalQ} ${escHtmlBillLog(it.unit || '')}</td>
-                            <td class="text-end">₹${Number(it.unit_price || 0).toFixed(2)} / ₹${Number(it.mrp || 0).toFixed(2)} / ₹${Number(it.selling_price || 0).toFixed(2)}</td>
-                            <td class="text-end fw-bold">₹${Number(it.total_price || 0).toFixed(2)}</td>
+                            <td class="text-end">${formatCurrency(Number(it.unit_price || 0))} / ${formatCurrency(Number(it.mrp || 0))} / ${formatCurrency(Number(it.selling_price || 0))}</td>
+                            <td class="text-end fw-bold">${formatCurrency(Number(it.total_price || 0))}</td>
                             <td>${sourceBadge}</td>
                             <td>${statusBadges}</td>
                         </tr>

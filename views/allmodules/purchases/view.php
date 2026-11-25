@@ -302,13 +302,13 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
                     <td><span class="badge bg-light text-dark border font-monospace"><?= e($item['hsn_code'] ?: '—') ?></span></td>
                     <td><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?><?= !empty($item['weight_kg']) ? '<br><small class="text-muted">' . number_format((float)$item['weight_kg'], 2) . ' kg</small>' : '' ?></td>
                     <td class="text-end">
-                        ₹<?= number_format((float)$item['unit_price'], 2) ?>
+                        <?= formatCurrency((float)((float)$item['unit_price'])) ?>
                         <small class="text-muted d-block" style="font-size:10px;"><?= (($item['tax_treatment'] ?? 'INCLUDED') === 'EXCLUDED') ? 'GST Excl.' : 'GST Incl.' ?></small>
                     </td>
-                    <td class="text-end font-monospace">₹<?= number_format($base, 2) ?></td>
+                    <td class="text-end font-monospace"><?= formatCurrency((float)($base)) ?></td>
                     <?php if ($hasSgst): ?>
                         <td class="text-end font-monospace">
-                            ₹<?= number_format($sgAmt, 2) ?>
+                            <?= formatCurrency((float)($sgAmt)) ?>
                             <?php if (count($sgstRates) > 1 && $isPercent && $sgstVal > 0): ?>
                                 <small class="text-muted d-block" style="font-size:10px;">(<?= ($sgstVal + 0) ?>%)</small>
                             <?php endif; ?>
@@ -316,7 +316,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
                     <?php endif; ?>
                     <?php if ($hasCgst): ?>
                         <td class="text-end font-monospace">
-                            ₹<?= number_format($cgAmt, 2) ?>
+                            <?= formatCurrency((float)($cgAmt)) ?>
                             <?php if (count($cgstRates) > 1 && $isPercent && $cgstVal > 0): ?>
                                 <small class="text-muted d-block" style="font-size:10px;">(<?= ($cgstVal + 0) ?>%)</small>
                             <?php endif; ?>
@@ -324,7 +324,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
                     <?php endif; ?>
                     <?php if ($hasIgst): ?>
                         <td class="text-end font-monospace">
-                            ₹<?= number_format($igAmt, 2) ?>
+                            <?= formatCurrency((float)($igAmt)) ?>
                             <?php if (count($igstRates) > 1 && $isPercent && $igstVal > 0): ?>
                                 <small class="text-muted d-block" style="font-size:10px;">(<?= ($igstVal + 0) ?>%)</small>
                             <?php endif; ?>
@@ -333,7 +333,7 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
                     <?php if (!$hasAnyTax): ?>
                         <td class="text-end text-muted">—</td>
                     <?php endif; ?>
-                    <td class="text-end fw-bold font-monospace">₹<?= number_format((float)$item['total_price'], 2) ?></td>
+                    <td class="text-end fw-bold font-monospace"><?= formatCurrency((float)((float)$item['total_price'])) ?></td>
                 </tr>
             <?php endforeach; ?>
                 <tr id="noItemsMatchRow" class="d-none">
@@ -345,22 +345,22 @@ $purchaseLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : 
             <tfoot class="table-light">
                 <tr>
                     <th colspan="5" class="text-end">Subtotal</th>
-                    <th class="text-end font-monospace">₹<?= number_format($subtotal, 2) ?></th>
-                    <?php if ($hasSgst): ?><th class="text-end font-monospace">₹<?= number_format($sgstTotal, 2) ?></th><?php endif; ?>
-                    <?php if ($hasCgst): ?><th class="text-end font-monospace">₹<?= number_format($cgstTotal, 2) ?></th><?php endif; ?>
-                    <?php if ($hasIgst): ?><th class="text-end font-monospace">₹<?= number_format($igstTotal, 2) ?></th><?php endif; ?>
+                    <th class="text-end font-monospace"><?= formatCurrency((float)($subtotal)) ?></th>
+                    <?php if ($hasSgst): ?><th class="text-end font-monospace"><?= formatCurrency((float)($sgstTotal)) ?></th><?php endif; ?>
+                    <?php if ($hasCgst): ?><th class="text-end font-monospace"><?= formatCurrency((float)($cgstTotal)) ?></th><?php endif; ?>
+                    <?php if ($hasIgst): ?><th class="text-end font-monospace"><?= formatCurrency((float)($igstTotal)) ?></th><?php endif; ?>
                     <?php if (!$hasAnyTax): ?><th class="text-end">—</th><?php endif; ?>
-                    <th class="text-end font-monospace">₹<?= number_format((float)$purchase['total_amount'], 2) ?></th>
+                    <th class="text-end font-monospace"><?= formatCurrency((float)((float)$purchase['total_amount'])) ?></th>
                 </tr>
                 <?php if ($hasAnyTax): ?>
                 <tr>
                     <th colspan="<?= 6 + $taxColCount ?>" class="text-end text-muted small">Total Taxes</th>
-                    <th class="text-end font-monospace text-muted small">₹<?= number_format($taxTotal, 2) ?></th>
+                    <th class="text-end font-monospace text-muted small"><?= formatCurrency((float)($taxTotal)) ?></th>
                 </tr>
                 <?php endif; ?>
                 <tr>
                     <th colspan="<?= 6 + $taxColCount ?>" class="text-end">Overall Total</th>
-                    <th class="text-end text-success font-monospace fs-6">₹<?= number_format((float)$purchase['total_amount'], 2) ?></th>
+                    <th class="text-end text-success font-monospace fs-6"><?= formatCurrency((float)((float)$purchase['total_amount'])) ?></th>
                 </tr>
             </tfoot>
         </table>

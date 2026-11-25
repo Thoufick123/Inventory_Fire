@@ -39,7 +39,7 @@
                             <?php if (!empty($qrLabel['hsn_code']) && $qrLabel['hsn_code'] !== '—'): ?>
                                 <div><span>HSN:</span> <strong class="font-monospace"><?= e($qrLabel['hsn_code']) ?></strong></div>
                             <?php endif; ?>
-                            <div><span>Price:</span> <strong>₹<?= number_format((float)($qrLabel['price'] ?? 0), 2) ?></strong></div>
+                            <div><span>Price:</span> <strong><?= formatCurrency((float)((float)($qrLabel['price'] ?? 0))) ?></strong></div>
                             <div><span>Code:</span> <strong class="font-monospace" style="font-size: 10.5px; font-weight: 800; color: #0f172a;"><?= e($qrLabel['code']) ?></strong></div>
                             <?php if (!empty($qrLabel['defect_reason'])): ?>
                                 <div class="text-danger fw-semibold mt-0.5" style="font-size: 8.5px;"><span>Defect:</span> <?= e($qrLabel['defect_reason']) ?></div>

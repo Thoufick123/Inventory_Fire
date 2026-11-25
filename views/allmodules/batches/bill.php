@@ -218,7 +218,7 @@
                         <td class="text-center fw-semibold"><?= htmlspecialchars($it['size_name'] ?: 'Std') ?></td>
                         <td class="text-center fw-semibold"><?= htmlspecialchars($it['color_name'] ?: 'Std') ?></td>
                         <td class="text-center fw-bold text-dark fs-6"><?= number_format($qty) ?> pcs</td>
-                        <td class="text-end font-monospace">₹<?= number_format($rate, 2) ?></td>
+                        <td class="text-end font-monospace"><?= formatCurrency((float)($rate)) ?></td>
                         <td class="text-center font-monospace">
                             <?php if ($itemGstType === 'IGST'): ?>
                                 <div class="fw-bold text-dark"><?= rtrim(rtrim(number_format($igstRate, 2), '0'), '.') ?>%</div>
@@ -240,19 +240,19 @@
                             <?php endif; ?>
                         </td>
                         <td class="text-end font-monospace">
-                            <div class="fw-bold text-dark">₹<?= number_format($taxAmount, 2) ?></div>
+                            <div class="fw-bold text-dark"><?= formatCurrency((float)($taxAmount)) ?></div>
                             <?php if ($itemGstType === 'BOTH' && $taxAmount > 0): ?>
                                 <div class="small text-muted mt-0.5" style="font-size: 10px; line-height: 1.25;">
-                                    <span>CGST: ₹<?= number_format($cgstAmount, 2) ?></span><br>
-                                    <span>SGST: ₹<?= number_format($sgstAmount, 2) ?></span>
+                                    <span>CGST: <?= formatCurrency((float)($cgstAmount)) ?></span><br>
+                                    <span>SGST: <?= formatCurrency((float)($sgstAmount)) ?></span>
                                 </div>
                             <?php elseif ($itemGstType === 'IGST' && $taxAmount > 0): ?>
                                 <div class="small text-muted mt-0.5" style="font-size: 10px;">
-                                    <span>IGST: ₹<?= number_format($igstAmount, 2) ?></span>
+                                    <span>IGST: <?= formatCurrency((float)($igstAmount)) ?></span>
                                 </div>
                             <?php endif; ?>
                         </td>
-                        <td class="text-end fw-bold font-monospace">₹<?= number_format($valuation, 2) ?></td>
+                        <td class="text-end fw-bold font-monospace"><?= formatCurrency((float)($valuation)) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -260,7 +260,7 @@
                 <tr class="fw-bold" style="background-color: #f8fafc;">
                     <td colspan="5" class="text-end text-uppercase">Total Packed Goods:</td>
                     <td class="text-center text-primary fs-6"><?= number_format($totalQty) ?> pcs</td>
-                    <td class="text-end font-monospace">₹<?= number_format($totalValuation, 2) ?></td>
+                    <td class="text-end font-monospace"><?= formatCurrency((float)($totalValuation)) ?></td>
                     <td class="text-center font-monospace small">
                         <?php if ($totalIgst > 0 && $totalCgst <= 0): ?>
                             <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size: 10px;">IGST</span>
@@ -269,18 +269,18 @@
                         <?php endif; ?>
                     </td>
                     <td class="text-end font-monospace text-primary">
-                        <div>₹<?= number_format($totalTax, 2) ?></div>
+                        <div><?= formatCurrency((float)($totalTax)) ?></div>
                         <?php if ($totalCgst > 0 || $totalSgst > 0): ?>
                             <div class="small text-muted fw-normal" style="font-size: 10px; line-height: 1.2;">
-                                CGST: ₹<?= number_format($totalCgst, 2) ?><br>SGST: ₹<?= number_format($totalSgst, 2) ?>
+                                CGST: <?= formatCurrency((float)($totalCgst)) ?><br>SGST: <?= formatCurrency((float)($totalSgst)) ?>
                             </div>
                         <?php elseif ($totalIgst > 0): ?>
                             <div class="small text-muted fw-normal" style="font-size: 10px;">
-                                IGST: ₹<?= number_format($totalIgst, 2) ?>
+                                IGST: <?= formatCurrency((float)($totalIgst)) ?>
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td class="text-end text-success fs-6 font-monospace">₹<?= number_format($totalValuation, 2) ?></td>
+                    <td class="text-end text-success fs-6 font-monospace"><?= formatCurrency((float)($totalValuation)) ?></td>
                 </tr>
             </tfoot>
         </table>

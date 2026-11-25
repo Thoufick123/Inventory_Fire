@@ -341,7 +341,7 @@
                                 <td class="text-end" id="roll-qty-<?= $rowKey ?>">
                                     <?= number_format((float)$roll['quantity'], 0) ?> <?= e($roll['unit'] ?: 'PCS') ?>
                                     <?php if ((float)$roll['weight_kg'] > 0): ?><small class="text-muted d-block"><?= number_format((float)$roll['weight_kg'], 2) ?> kg</small><?php endif; ?>
-                                    <?php if ((float)$roll['unit_price'] > 0): ?><small class="text-muted d-block">₹<?= number_format((float)$roll['unit_price'], 2) ?></small><?php endif; ?>
+                                    <?php if ((float)$roll['unit_price'] > 0): ?><small class="text-muted d-block"><?= formatCurrency((float)((float)$roll['unit_price'])) ?></small><?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if (!empty($roll['qr_generation_id'])): ?>

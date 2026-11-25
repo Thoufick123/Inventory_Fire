@@ -77,7 +77,7 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <span class="text-muted small d-block">Total Service Expense</span>
-                        <h4 class="fw-bold text-dark mb-0">₹<?= number_format($log['service_cost'], 2) ?></h4>
+                        <h4 class="fw-bold text-dark mb-0"><?= formatCurrency((float)($log['service_cost'])) ?></h4>
                     </div>
                     <div class="mb-3">
                         <span class="text-muted small d-block">Equipment Downtime</span>

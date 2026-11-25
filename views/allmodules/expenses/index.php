@@ -26,7 +26,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="me-2" style="min-width: 0;">
                         <div class="text-uppercase fw-semibold text-muted small">Total Production Spend</div>
-                        <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($stats['total_cost'], 2) ?></div>
+                        <div class="fw-bold text-primary fs-3 mt-1"><?= formatCurrency((float)($stats['total_cost'])) ?></div>
                         <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
                             <span><?= number_format($stats['total_records']) ?> Transaction(s)</span>
                             <span class="badge bg-light text-dark border">All Units Combined</span>
@@ -48,15 +48,15 @@
                         <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2 mt-2">
                             <div>
                                 <span class="badge bg-primary text-white me-1">U1</span>
-                                <strong class="text-info-emphasis">₹<?= number_format($stats['unit1_cost'], 2) ?></strong>
+                                <strong class="text-info-emphasis"><?= formatCurrency((float)($stats['unit1_cost'])) ?></strong>
                             </div>
                             <div>
                                 <span class="badge bg-info text-white me-1">U2</span>
-                                <strong class="text-info-emphasis">₹<?= number_format($stats['unit2_cost'], 2) ?></strong>
+                                <strong class="text-info-emphasis"><?= formatCurrency((float)($stats['unit2_cost'])) ?></strong>
                             </div>
                         </div>
                         <div class="small text-muted mt-2 text-truncate">
-                            <i class="bi bi-diagram-2 text-info me-1"></i>Common/Facility: ₹<?= number_format($stats['both_units_cost'], 2) ?>
+                            <i class="bi bi-diagram-2 text-info me-1"></i>Common/Facility: <?= formatCurrency((float)($stats['both_units_cost'])) ?>
                         </div>
                     </div>
                     <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
@@ -75,15 +75,15 @@
                         <div class="d-flex justify-content-between align-items-baseline gap-2 mt-2">
                             <div>
                                 <small class="text-muted d-block">Maint. &amp; Repairs</small>
-                                <strong class="text-danger">₹<?= number_format($stats['maintenance_cost'] + ($stats['machinery_cost'] ?? 0), 2) ?></strong>
+                                <strong class="text-danger"><?= formatCurrency((float)($stats['maintenance_cost'] + ($stats['machinery_cost'] ?? 0))) ?></strong>
                             </div>
                             <div class="text-end">
                                 <small class="text-muted d-block">Trims &amp; Threads</small>
-                                <strong class="text-success">₹<?= number_format($stats['sewing_materials_cost'], 2) ?></strong>
+                                <strong class="text-success"><?= formatCurrency((float)($stats['sewing_materials_cost'])) ?></strong>
                             </div>
                         </div>
                         <div class="small text-muted mt-2 text-truncate">
-                            <i class="bi bi-scissors text-success me-1"></i>Operations &amp; Utilities: ₹<?= number_format($stats['operations_cost'], 2) ?>
+                            <i class="bi bi-scissors text-success me-1"></i>Operations &amp; Utilities: <?= formatCurrency((float)($stats['operations_cost'])) ?>
                         </div>
                     </div>
                     <div class="bg-success-subtle text-success revenue-kpi-icon">
@@ -102,11 +102,11 @@
                         <div class="d-flex justify-content-between align-items-baseline gap-2 mt-2">
                             <div>
                                 <small class="text-muted d-block">Paid Settled</small>
-                                <strong class="text-success">₹<?= number_format($stats['total_paid'], 2) ?></strong>
+                                <strong class="text-success"><?= formatCurrency((float)($stats['total_paid'])) ?></strong>
                             </div>
                             <div class="text-end">
                                 <small class="text-muted d-block">Vendor Due</small>
-                                <strong class="text-danger">₹<?= number_format($stats['total_pending'], 2) ?></strong>
+                                <strong class="text-danger"><?= formatCurrency((float)($stats['total_pending'])) ?></strong>
                             </div>
                         </div>
                         <div class="small text-muted mt-2 text-truncate">
@@ -304,15 +304,15 @@
                                     <!-- Quantity & Rate -->
                                     <td class="text-end">
                                         <div class="fw-bold text-dark fs-7"><?= number_format($e['quantity'], 2) ?> <?= e($e['unit_type'] ?: 'PCS') ?></div>
-                                        <small class="text-muted">@ ₹<?= number_format($e['unit_cost'], 2) ?> / <?= e($e['unit_type'] ?: 'PCS') ?></small>
+                                        <small class="text-muted">@ <?= formatCurrency((float)($e['unit_cost'])) ?> / <?= e($e['unit_type'] ?: 'PCS') ?></small>
                                     </td>
 
                                     <!-- Total Cost -->
                                     <td class="text-end">
                                         <div class="fw-bold text-primary fs-6">₹ <?= number_format($e['total_cost'], 2) ?></div>
                                         <?php if ($e['paid_amount'] > 0 && $e['paid_amount'] < $e['total_cost']): ?>
-                                            <small class="text-muted d-block">Paid: ₹<?= number_format($e['paid_amount'], 2) ?></small>
-                                            <small class="text-danger fw-semibold d-block">Due: ₹<?= number_format($e['total_cost'] - $e['paid_amount'], 2) ?></small>
+                                            <small class="text-muted d-block">Paid: <?= formatCurrency((float)($e['paid_amount'])) ?></small>
+                                            <small class="text-danger fw-semibold d-block">Due: <?= formatCurrency((float)($e['total_cost'] - $e['paid_amount'])) ?></small>
                                         <?php elseif ($e['paid_amount'] >= $e['total_cost']): ?>
                                             <small class="text-success fw-semibold"><i class="bi bi-check-all me-1"></i>Settled</small>
                                         <?php else: ?>
@@ -1178,8 +1178,8 @@ function renderStagedExpenses() {
                 <input type="hidden" name="notes[]" value="${escapeHtml(item.reason)}">
             </td>
             <td class="text-center font-monospace">${item.qty} ${escapeHtml(item.unit)}</td>
-            <td class="text-end font-monospace">₹${item.price.toFixed(2)}</td>
-            <td class="text-end fw-bold text-primary font-monospace">₹${item.amount.toFixed(2)}</td>
+            <td class="text-end font-monospace">${formatCurrency(item.price)}</td>
+            <td class="text-end fw-bold text-primary font-monospace">${formatCurrency(item.amount)}</td>
             <td>
                 <span class="small text-muted">${item.reason ? escapeHtml(item.reason) : '<span class="text-secondary opacity-50">—</span>'}</span>
             </td>
@@ -1411,8 +1411,8 @@ function openExpenseNormalView(id) {
                             ${e.item_type ? '<span class="badge bg-light text-secondary border ms-2">' + e.item_type + '</span>' : ''}
                         </td>
                         <td class="text-end fw-semibold">${parseFloat(e.quantity || 1).toFixed(2)} ${e.unit_type || 'PCS'}</td>
-                        <td class="text-end">₹${parseFloat(e.unit_cost || 0).toFixed(2)}</td>
-                        <td class="text-end fw-bold text-dark">₹${totalCost.toFixed(2)}</td>
+                        <td class="text-end">${formatCurrency(parseFloat(e.unit_cost || 0))}</td>
+                        <td class="text-end fw-bold text-dark">${formatCurrency(totalCost)}</td>
                     </tr>
                 `;
                 document.getElementById('normExpFooterTotal').textContent = '₹' + totalCost.toFixed(2);
