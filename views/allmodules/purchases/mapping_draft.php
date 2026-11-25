@@ -114,11 +114,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     </button>
                 </li>
             </ul>
-            <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnHeaderAddProduct">
-                    <i class="bi bi-plus-circle me-1"></i>+ Add Another Product
-                </button>
-            </div>
         </div>
     </div>
     <div class="card-body">
@@ -226,6 +221,30 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                                     </button>
+                                </div>
+
+                                <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
+                                <div class="col-12 mt-2 d-none gen-variant-rates-wrap">
+                                    <div class="border rounded bg-light-subtle p-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-1.5">
+                                            <span class="small fw-bold text-dark"><i class="bi bi-sliders me-1 text-primary"></i>Selected Attributes — Qty &amp; Pricing</span>
+                                            <span class="text-muted" style="font-size: 11px;">Customize Qty, Purchase Rate, MRP &amp; Selling Price per attribute before saving.</span>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered bg-white align-middle mb-0" style="font-size: 12px;">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Attribute (Size / Color)</th>
+                                                        <th style="width: 110px;">Qty *</th>
+                                                        <th style="width: 140px;">Purchase Rate *</th>
+                                                        <th style="width: 140px;">MRP (₹) *</th>
+                                                        <th style="width: 140px;">Selling Price (₹) *</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="gen-variant-rates-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -406,11 +425,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleSavedVariantsHeight" title="Toggle table scroll height">
                     <i class="bi bi-arrows-expand me-1"></i>Expand
-                </button>
-            <?php endif; ?>
-            <?php if ($bill['status'] === 'DRAFT' && !$viewOnly): ?>
-                <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('productNameInput')?.focus(); window.scrollTo({top: 0, behavior: 'smooth'});">
-                    <i class="bi bi-plus-lg me-1"></i>+ Add Another Product
                 </button>
             <?php endif; ?>
         </div>
@@ -790,9 +804,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
                             </button>
                         </form>
-                        <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=map_' . $mappingBillId) ?>" class="btn btn-outline-secondary btn-sm w-100 py-1">
-                            <i class="bi bi-box-arrow-up-right me-1"></i>Open in QR Batch Generator
-                        </a>
                         <?php if (!empty($firstQrId)): ?>
                             <button type="button" class="btn btn-dark btn-sm w-100 py-1" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$firstQrId ?>">
                                 <i class="bi bi-eye me-1"></i>View QRs &amp; Stock in Popup
@@ -1214,16 +1225,31 @@ document.addEventListener('DOMContentLoaded', () => {
                             <?php foreach ($items as $vItem): if (!empty($vItem['qr_generation_id'])): 
                                 $isActiveVariant = ((int)$vItem['id'] === (int)$item['id']);
                                 $vCount = count($qrItemMap[(int)$vItem['qr_generation_id']] ?? []);
+                                $vGenId = (int)$vItem['qr_generation_id'];
+                                $vStocked = !empty($vItem['stock_added']);
                             ?>
-                                <button type="button" 
-                                        class="btn btn-sm <?= $isActiveVariant ? 'btn-primary' : 'btn-outline-secondary' ?>" 
-                                        data-bs-target="#modalQrBatch_<?= (int)$vItem['qr_generation_id'] ?>" 
-                                        data-bs-toggle="modal">
-                                    <i class="bi bi-box-seam me-1"></i><?= e($vItem['item_name']) ?>
-                                    <span class="opacity-75">(<?= e(trim(($vItem['color'] ?? '') . ' ' . ($vItem['size'] ?? ''))) ?>)</span>
-                                    <span class="badge bg-light text-dark ms-1">VID: #<?= (int)($vItem['variant_id'] ?? 0) ?></span>
-                                    <span class="badge <?= $isActiveVariant ? 'bg-dark text-white' : 'bg-secondary text-white' ?> ms-1"><?= $vCount ?> QRs</span>
-                                </button>
+                                <div class="btn-group btn-group-sm align-items-center">
+                                    <?php if (!$viewOnly && !$vStocked): ?>
+                                        <label class="btn btn-sm btn-outline-secondary d-flex align-items-center px-2" title="Select to add to inventory">
+                                            <input type="checkbox"
+                                                   class="form-check-input m-0 qr-stock-select-chk"
+                                                   value="<?= $vGenId ?>"
+                                                   <?= $isActiveVariant ? 'checked' : '' ?>>
+                                        </label>
+                                    <?php endif; ?>
+                                    <button type="button" 
+                                            class="btn btn-sm <?= $isActiveVariant ? 'btn-primary' : 'btn-outline-secondary' ?>" 
+                                            data-bs-target="#modalQrBatch_<?= $vGenId ?>" 
+                                            data-bs-toggle="modal">
+                                        <i class="bi bi-box-seam me-1"></i><?= e($vItem['item_name']) ?>
+                                        <span class="opacity-75">(<?= e(trim(($vItem['color'] ?? '') . ' ' . ($vItem['size'] ?? ''))) ?>)</span>
+                                        <span class="badge bg-light text-dark ms-1">VID: #<?= (int)($vItem['variant_id'] ?? 0) ?></span>
+                                        <span class="badge <?= $isActiveVariant ? 'bg-dark text-white' : 'bg-secondary text-white' ?> ms-1"><?= $vCount ?> QRs</span>
+                                        <?php if ($vStocked): ?>
+                                            <span class="badge bg-success ms-1">Stocked</span>
+                                        <?php endif; ?>
+                                    </button>
+                                </div>
                             <?php endif; endforeach; ?>
                         </div>
                     </div>
@@ -1291,18 +1317,29 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <?php if (!$viewOnly && empty($item['stock_added'])): ?>
-                        <div class="input-group input-group-sm" style="max-width: 320px;">
+                        <div class="input-group input-group-sm" style="max-width: 340px;">
                             <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Stock to:</span>
                             <select class="form-select" id="whSelect_<?= (int)$item['qr_generation_id'] ?>">
-                                <?php foreach (($warehouses ?? []) as $wh): ?>
-                                    <option value="<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?><?= !empty($wh['concern_name']) ? ' (' . e($wh['concern_name']) . ')' : '' ?></option>
+                                <?php
+                                $listedConcernIds = [];
+                                foreach (($warehouses ?? []) as $wh):
+                                    if (!empty($wh['concern_id'])) {
+                                        $listedConcernIds[(int)$wh['concern_id']] = true;
+                                    }
+                                ?>
+                                    <option value="wh:<?= (int)$wh['id'] ?>"><?= e($wh['name']) ?><?= !empty($wh['concern_name']) ? ' (' . e($wh['concern_name']) . ')' : '' ?></option>
+                                <?php endforeach; ?>
+                                <?php foreach (($concerns ?? []) as $con):
+                                    if (isset($listedConcernIds[(int)$con['id']])) continue;
+                                ?>
+                                    <option value="concern:<?= (int)$con['id'] ?>"><?= e(!empty($con['code']) ? $con['code'] . ' - ' . $con['name'] : $con['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <button type="button" class="btn btn-sm btn-success btn-add-inventory-draft"
                                 data-generation-id="<?= (int)$item['qr_generation_id'] ?>"
                                 data-mapping-bill-id="<?= $mappingBillId ?>">
-                            <i class="bi bi-box-seam me-1"></i>Add to Inventory
+                            <i class="bi bi-box-seam me-1"></i>Add Selected to Inventory
                         </button>
                     <?php elseif (!empty($item['stock_added'])): ?>
                         <span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Stock already added to warehouse</span>
@@ -1351,22 +1388,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 3. In-panel AJAX Add to Inventory
+    // 3. In-panel AJAX Add to Inventory (supports single or multiple selected QR batches)
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.btn-add-inventory-draft');
         if (!btn) return;
 
         const genId = btn.getAttribute('data-generation-id');
         const mappingBillId = btn.getAttribute('data-mapping-bill-id');
+        const modalEl = btn.closest('.modal');
         const whSelect = document.getElementById('whSelect_' + genId);
-        const whId = whSelect ? whSelect.value : '';
+        const stockTarget = whSelect ? whSelect.value : '';
+        if (!stockTarget) {
+            showDraftModernAlert('Please select a Concern / Warehouse in "Stock to:" first.');
+            return;
+        }
+
+        const checkedGenIds = modalEl
+            ? Array.from(modalEl.querySelectorAll('.qr-stock-select-chk:checked')).map(cb => cb.value).filter(Boolean)
+            : [];
+        const targetGenIds = checkedGenIds.length ? checkedGenIds : [genId];
 
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Adding...';
 
         const formData = new FormData();
-        formData.append('generation_id', genId);
-        formData.append('warehouse_id', whId);
+        formData.append('generation_id', targetGenIds[0]);
+        formData.append('generation_ids', targetGenIds.join(','));
+        formData.append('stock_target', stockTarget);
+        if (stockTarget.startsWith('wh:')) {
+            formData.append('warehouse_id', stockTarget.slice(3));
+        }
         formData.append('mapping_bill_id', mappingBillId);
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (csrfToken) formData.append('csrf_token', csrfToken);
@@ -1384,23 +1435,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 btn.className = 'btn btn-sm btn-success disabled';
                 btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Stock Added';
-                const statusEl = document.getElementById('modalStockStatus_' + genId);
-                if (statusEl) {
-                    statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
-                }
-                document.querySelectorAll('.qr-status-badge-' + genId).forEach(function(el) {
-                    el.innerHTML = '<span class="badge bg-success">Stocked</span>';
+                targetGenIds.forEach(function(gid) {
+                    const statusEl = document.getElementById('modalStockStatus_' + gid);
+                    if (statusEl) {
+                        statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
+                    }
+                    document.querySelectorAll('.qr-status-badge-' + gid).forEach(function(el) {
+                        el.innerHTML = '<span class="badge bg-success">Stocked</span>';
+                    });
                 });
                 showDraftModernAlert('Success: ' + (data.message || 'Stock added to inventory!'));
             } else {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+                btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add Selected to Inventory';
                 showDraftModernAlert('Error: ' + (data.message || 'Could not add stock.'));
             }
         })
         .catch(function(err) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
+            btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add Selected to Inventory';
             showDraftModernAlert('Server error: ' + err.message);
         });
     });
@@ -1878,6 +1931,65 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function renderVariantRateTable(card) {
+        if (!card) return;
+        const wrap = card.querySelector('.gen-variant-rates-wrap');
+        const rateBody = card.querySelector('.gen-variant-rates-body');
+        if (!wrap || !rateBody) return;
+
+        const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
+        const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
+        if (!sizes.length && !colors.length) {
+            wrap.classList.add('d-none');
+            rateBody.innerHTML = '';
+            return;
+        }
+
+        const existingMap = {};
+        rateBody.querySelectorAll('tr.gen-attr-rate-row').forEach(tr => {
+            existingMap[tr.dataset.key || ''] = {
+                qty: tr.querySelector('.attr-qty')?.value ?? '',
+                rate: tr.querySelector('.attr-rate')?.value ?? '',
+                mrp: tr.querySelector('.attr-mrp')?.value ?? '',
+                sp: tr.querySelector('.attr-sp')?.value ?? ''
+            };
+        });
+
+        const defQty = card.querySelector('.gen-qty')?.value || '1';
+        const defRate = card.querySelector('.gen-rate')?.value || '';
+        const defMrp = card.querySelector('.gen-mrp')?.value || '';
+        const defSp = card.querySelector('.gen-sp')?.value || '';
+
+        const sList = sizes.length ? sizes : [''];
+        const cList = colors.length ? colors : [''];
+        const rowsHtml = [];
+        sList.forEach(sz => {
+            cList.forEach(col => {
+                const key = `${sz}|||${col}`;
+                const prev = existingMap[key] || { qty: defQty, rate: defRate, mrp: defMrp, sp: defSp };
+                const label = [sz, col].filter(Boolean).join(' / ') || 'Standard';
+                rowsHtml.push(`
+                    <tr class="gen-attr-rate-row" data-key="${key.replace(/"/g, '&quot;')}" data-size="${sz.replace(/"/g, '&quot;')}" data-color="${col.replace(/"/g, '&quot;')}">
+                        <td class="fw-semibold text-dark">${label}</td>
+                        <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm attr-qty" value="${String(prev.qty || '1').replace(/"/g, '&quot;')}"></td>
+                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-rate" placeholder="0.00" value="${String(prev.rate || '').replace(/"/g, '&quot;')}"></td>
+                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-mrp" placeholder="0.00" value="${String(prev.mrp || '').replace(/"/g, '&quot;')}"></td>
+                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-sp" placeholder="0.00" value="${String(prev.sp || '').replace(/"/g, '&quot;')}"></td>
+                    </tr>
+                `);
+            });
+        });
+
+        rateBody.innerHTML = rowsHtml.join('');
+        wrap.classList.remove('d-none');
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('gen-sizes-input') || e.target.classList.contains('gen-colors-input')) {
+            renderVariantRateTable(e.target.closest('.tp-product-card'));
+        }
+    });
+
     document.addEventListener('click', function (e) {
         const chip = e.target.closest('.gen-size-chip, .gen-color-chip');
         if (chip) {
@@ -1896,6 +2008,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 current.splice(existsIdx, 1);
             }
             input.value = current.join(', ');
+            renderVariantRateTable(card);
             return;
         }
 
@@ -1933,22 +2046,56 @@ document.addEventListener('DOMContentLoaded', function() {
         const spInpGen = card.querySelector('.gen-sp');
         const mrpVal = mrpInpGen?.value || '';
         const spVal = spInpGen?.value || '';
-        const mrpNum = parseFloat(mrpVal || '0') || 0;
-        const spNum = parseFloat(spVal || '0') || 0;
-        if (mrpNum <= 0 || spNum <= 0) {
-            showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0.');
-            (mrpNum <= 0 ? mrpInpGen : spInpGen)?.focus();
-            return;
+
+        const attrRateRows = Array.from(card.querySelectorAll('.gen-attr-rate-row'));
+        const attrRateMap = {};
+        for (const rEl of attrRateRows) {
+            const rMrpInp = rEl.querySelector('.attr-mrp');
+            const rSpInp = rEl.querySelector('.attr-sp');
+            const rQty = rEl.querySelector('.attr-qty')?.value || qtyVal;
+            const rRate = rEl.querySelector('.attr-rate')?.value ?? rateVal;
+            const rMrp = parseFloat(rMrpInp?.value || mrpVal || '0') || 0;
+            const rSp = parseFloat(rSpInp?.value || spVal || '0') || 0;
+            if (rMrp <= 0 || rSp <= 0) {
+                showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0 for each selected attribute.');
+                (rMrp <= 0 ? rMrpInp : rSpInp)?.focus();
+                return;
+            }
+            if (rSp > rMrp) {
+                rMrpInp?.classList.add('is-invalid');
+                rSpInp?.classList.add('is-invalid');
+                showDraftModernAlert(`Validation Error: Selling Price (${formatCurrency(rSp)}) cannot exceed MRP (${formatCurrency(rMrp)}).`);
+                rSpInp?.focus();
+                return;
+            }
+            rMrpInp?.classList.remove('is-invalid');
+            rSpInp?.classList.remove('is-invalid');
+            attrRateMap[rEl.dataset.key || ''] = {
+                qty: rQty,
+                rate: rRate,
+                mrp: String(rMrp),
+                sp: String(rSp)
+            };
         }
-        if (spNum > mrpNum) {
-            mrpInpGen?.classList.add('is-invalid');
-            spInpGen?.classList.add('is-invalid');
-            showDraftModernAlert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
-            spInpGen?.focus();
-            return;
+
+        if (attrRateRows.length === 0) {
+            const mrpNum = parseFloat(mrpVal || '0') || 0;
+            const spNum = parseFloat(spVal || '0') || 0;
+            if (mrpNum <= 0 || spNum <= 0) {
+                showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0.');
+                (mrpNum <= 0 ? mrpInpGen : spInpGen)?.focus();
+                return;
+            }
+            if (spNum > mrpNum) {
+                mrpInpGen?.classList.add('is-invalid');
+                spInpGen?.classList.add('is-invalid');
+                showDraftModernAlert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
+                spInpGen?.focus();
+                return;
+            }
+            mrpInpGen?.classList.remove('is-invalid');
+            spInpGen?.classList.remove('is-invalid');
         }
-        mrpInpGen?.classList.remove('is-invalid');
-        spInpGen?.classList.remove('is-invalid');
 
         const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
         const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
@@ -1966,7 +2113,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 batchComboKeys.add(comboKey);
-                combos.push({ size: sz, color: col });
+                const rowRates = attrRateMap[`${sz}|||${col}`] || { qty: qtyVal, rate: rateVal, mrp: mrpVal, sp: spVal };
+                combos.push({ size: sz, color: col, ...rowRates });
             }
         }
 
@@ -1994,10 +2142,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (szInp) szInp.value = combo.size;
             if (colInp) colInp.value = combo.color;
-            if (qtyInp) qtyInp.value = qtyVal;
-            if (rateInp && rateVal !== '') rateInp.value = rateVal;
-            if (mrpInp && mrpVal !== '') mrpInp.value = mrpVal;
-            if (spInp && spVal !== '') spInp.value = spVal;
+            if (qtyInp) qtyInp.value = combo.qty;
+            if (rateInp && combo.rate !== '') rateInp.value = combo.rate;
+            if (mrpInp && combo.mrp !== '') mrpInp.value = combo.mrp;
+            if (spInp && combo.sp !== '') spInp.value = combo.sp;
             if (gstInp) gstInp.value = gstVal;
             if (hsnSel && hsnVal) {
                 if (!Array.from(hsnSel.options).some(o => o.value === hsnVal)) {

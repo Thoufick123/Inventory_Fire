@@ -3909,6 +3909,7 @@ class AllmodulesController {
         if (empty($warehouses)) {
             $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
         }
+        $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
         $existingRollProducts = Database::fetchAll("
             SELECT DISTINCT p.name, p.code, p.hsn_code, p.gst_percentage
             FROM products p
@@ -4014,6 +4015,7 @@ class AllmodulesController {
             'categoryAttributesMap' => $categoryAttributesMap,
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
+            'concerns' => $concerns,
             'existingRollProducts' => $existingRollProducts,
             'existingProducts' => $existingProducts,
             'hsnList' => $hsnList,
@@ -4745,6 +4747,29 @@ class AllmodulesController {
         $uniqueGenIds = array_values(array_unique(array_filter($rawGenIds, static fn($gid) => $gid > 0)));
 
         $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
+        $stockTarget = trim((string)($_POST['stock_target'] ?? ''));
+        if ($stockTarget !== '') {
+            if (str_starts_with($stockTarget, 'wh:')) {
+                $warehouseId = (int)substr($stockTarget, 3);
+            } elseif (str_starts_with($stockTarget, 'concern:')) {
+                $targetConcernId = (int)substr($stockTarget, 8);
+                if ($targetConcernId > 0) {
+                    $whRow = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ? AND is_active = 1 ORDER BY id ASC LIMIT 1", [$targetConcernId]);
+                    if ($whRow) {
+                        $warehouseId = (int)$whRow['id'];
+                    } else {
+                        $cRow = Database::fetchOne("SELECT name, code FROM concerns WHERE id = ?", [$targetConcernId]);
+                        $whName = ($cRow['name'] ?? 'Concern #' . $targetConcernId) . ' Warehouse';
+                        $whCode = 'WH-' . preg_replace('/[^A-Z0-9]/', '', strtoupper((string)($cRow['code'] ?? $targetConcernId))) . '-' . $targetConcernId;
+                        Database::execute(
+                            "INSERT INTO warehouses (concern_id, name, code, is_active, created_at) VALUES (?, ?, ?, 1, NOW())",
+                            [$targetConcernId, $whName, $whCode]
+                        );
+                        $warehouseId = (int)Database::lastInsertId();
+                    }
+                }
+            }
+        }
         $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
 
         if (empty($uniqueGenIds)) {
@@ -6227,6 +6252,7 @@ class AllmodulesController {
         if (empty($warehouses)) {
             $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
         }
+        $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
 
         Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
@@ -6244,6 +6270,7 @@ class AllmodulesController {
             'existingVariants' => $existingVariants,
             'savedVariants' => $savedVariants,
             'warehouses' => $warehouses,
+            'concerns' => $concerns,
             'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,
@@ -10951,7 +10978,35 @@ class AllmodulesController {
         ]);
     }
 
-    private static function encodeProductionVariantOptions(array $sizeIds, array $colorIds, ?string $currentAttributes = null): string {
+    private static function parseSubmittedCustomAttributes(): array {
+        $raw = $_POST['custom_attributes_json'] ?? '[]';
+        $decoded = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $clean = [];
+        foreach ($decoded as $attr) {
+            if (!is_array($attr)) continue;
+            $attrName = trim((string)($attr['name'] ?? ''));
+            if ($attrName === '') continue;
+            $vals = [];
+            foreach ((array)($attr['values'] ?? []) as $v) {
+                $vStr = trim((string)$v);
+                if ($vStr !== '' && !in_array($vStr, $vals, true)) {
+                    $vals[] = $vStr;
+                }
+            }
+            if (!empty($vals)) {
+                $clean[] = [
+                    'name' => $attrName,
+                    'values' => $vals,
+                ];
+            }
+        }
+        return $clean;
+    }
+
+    private static function encodeProductionVariantOptions(array $sizeIds, array $colorIds, ?string $currentAttributes = null, array $customAttributes = []): string {
         $attributes = json_decode((string)$currentAttributes, true);
         if (!is_array($attributes)) {
             $attributes = [];
@@ -10980,6 +11035,7 @@ class AllmodulesController {
             'color_ids' => array_map('intval', array_column($colors, 'id')),
             'colors' => array_values(array_column($colors, 'name')),
         ];
+        $attributes['custom_attributes'] = $customAttributes;
 
         return json_encode($attributes, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
@@ -11049,7 +11105,8 @@ class AllmodulesController {
         $activeConcernId = currentConcernId() ?: 1;
         $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
         $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
-        $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors);
+        $customAttributes = self::parseSubmittedCustomAttributes();
+        $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors, null, $customAttributes);
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
@@ -11353,8 +11410,9 @@ class AllmodulesController {
         $selectedColors = isset($_POST['colors']) && is_array($_POST['colors'])
             ? array_filter(array_map('intval', $_POST['colors']))
             : ($savedOptions['color_ids'] ?? []);
+        $customAttributes = self::parseSubmittedCustomAttributes();
         $attributes = $isDeferredVariants
-            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null)
+            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes)
             : ($product['attributes'] ?? null);
 
         if (!empty($qrCodePrefix)) {
