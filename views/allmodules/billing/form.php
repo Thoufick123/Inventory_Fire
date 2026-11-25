@@ -1160,10 +1160,15 @@ document.addEventListener('DOMContentLoaded', () => {
         playBeep('success');
     }
 
-    function getItemKey(item) {
+    function getGroupKey(item) {
         return (item.qc_item_id && item.qc_item_id > 0)
             ? `qc_${item.qc_item_id}`
-            : `var_${item.variant_id}_${item.unit_price}_${item.gst_percentage}`;
+            : `var_${item.variant_id || 0}`;
+    }
+
+    function getItemKey(item, tag = null) {
+        const t = tag || (Array.isArray(item.tags) && item.tags[0]) || '';
+        return `${getGroupKey(item)}__${String(t).toUpperCase()}`;
     }
 
     function assignedTags(excludeKey = '') {
@@ -1176,9 +1181,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return list;
     }
 
+    function poolTagsForGroup(item) {
+        const groupKey = getGroupKey(item);
+        const seen = new Set();
+        const pool = [];
+        const addTag = (t) => {
+            const clean = String(t || '').trim();
+            const upper = clean.toUpperCase();
+            if (clean && !seen.has(upper)) {
+                seen.add(upper);
+                pool.push(clean);
+            }
+        };
+        (item.available_tags || []).forEach(addTag);
+        cart.forEach((entry) => {
+            if (getGroupKey(entry) === groupKey) {
+                (entry.available_tags || []).forEach(addTag);
+                (entry.tags || []).forEach(addTag);
+            }
+        });
+        return pool;
+    }
+
     function selectableTags(item, excludeSelf = false) {
-        const assigned = new Set(assignedTags(excludeSelf ? getItemKey(item) : ''));
-        return (item.available_tags || []).filter(tag => !assigned.has(tag));
+        const selfKey = excludeSelf ? getItemKey(item) : '';
+        const assigned = new Set(assignedTags(selfKey).map(t => String(t).toUpperCase()));
+        return poolTagsForGroup(item).filter(tag => !assigned.has(String(tag).toUpperCase()));
     }
 
     function updateUnitDetails() {
@@ -1212,204 +1240,62 @@ document.addEventListener('DOMContentLoaded', () => {
         return m ? m[1].toUpperCase() : '';
     }
 
-    function syncPieceRows(itemKey, item, mainRow) {
-        if (!mainRow || !mainRow.parentNode) return;
-        cartBody.querySelectorAll(`tr.billing-piece-row[data-parent-key="${itemKey}"]`).forEach(el => el.remove());
+    function expandRowByPieces(sourceKey, addCount) {
+        const sourceItem = cart.get(sourceKey);
+        if (!sourceItem || addCount <= 0) return;
 
-        const tags = Array.isArray(item.tags) ? item.tags : [];
-        const variantCodeDisplay = resolveVariantCode(item);
-        const variantMeta = [
-            item.sku || '',
-            item.size_name ? `Size: ${item.size_name}` : '',
-            item.color_name ? `Color: ${item.color_name}` : ''
-        ].filter(Boolean).join(' · ');
-        const hsnVal = (item.hsn_code || '6109').trim() || '6109';
-        const discVal = Number(item.discount_percentage || 0).toFixed(2);
-        const unitPriceNum = Number(item.unit_price || 0);
-        const unitPriceInputVal = unitPriceNum.toFixed(2);
-        const gstRate = Number(item.gst_percentage || 0);
-        const gstType = String(item.gst_type || 'BOTH').toUpperCase();
-        const gstTypeLabel = gstType === 'IGST' ? 'IGST only' : (gstType === 'EXEMPTED' ? 'Exempted (0%)' : 'CGST + SGST');
-        let pieceTaxNum = 0;
-        if (gstRate > 0) {
-            const taxable = unitPriceNum / (1 + gstRate / 100);
-            pieceTaxNum = unitPriceNum - taxable;
-        }
-
-        let anchor = mainRow;
-        tags.forEach((tag, idx) => {
-            const pRow = document.createElement('tr');
-            pRow.className = 'billing-piece-row' + ((idx % 2 === 1) ? ' billing-piece-row-alt' : '');
-            pRow.dataset.parentKey = itemKey;
-
-            // 1. Product & Details (explicit Variant ID + Piece QR Tag)
-            const prodCell = pRow.insertCell();
-            prodCell.className = 'billing-product-cell ps-3';
-            const titleEl = document.createElement('div');
-            titleEl.className = 'fw-semibold text-dark small';
-            titleEl.textContent = item.product_name || '';
-            const badgeWrap = document.createElement('div');
-            badgeWrap.className = 'd-flex flex-wrap align-items-center gap-1 my-1';
-            if (variantCodeDisplay) {
-                const varBadge = document.createElement('span');
-                varBadge.className = 'badge bg-primary-subtle text-primary border font-monospace';
-                varBadge.textContent = `Variant: ${variantCodeDisplay}`;
-                badgeWrap.append(varBadge);
-            }
-            const tagBadge = document.createElement('span');
-            tagBadge.className = 'badge bg-dark text-white font-monospace';
-            tagBadge.textContent = `QR: ${tag}`;
-            badgeWrap.append(tagBadge);
-            const metaEl = document.createElement('div');
-            metaEl.className = 'small text-muted';
-            metaEl.textContent = variantMeta;
-            prodCell.append(titleEl, badgeWrap, metaEl);
-
-            // 2. Qty (1 pc per piece row, matching Row 1 alignment)
-            const qtyCell = pRow.insertCell();
-            qtyCell.className = 'text-center';
-            const qtyPill = document.createElement('span');
-            qtyPill.className = 'badge bg-light text-dark border font-monospace px-3 py-1';
-            qtyPill.textContent = '1 pc';
-            qtyCell.append(qtyPill);
-
-            // 3. MRP
-            const mrpCell = pRow.insertCell();
-            mrpCell.className = 'text-end fw-semibold text-muted font-monospace text-nowrap';
-            mrpCell.textContent = money(item.mrp);
-
-            // 4. Disc %
-            const discCell = pRow.insertCell();
-            const discReadout = document.createElement('span');
-            discReadout.className = 'form-control form-control-sm text-end font-monospace bg-light text-dark billing-rate-input d-inline-block';
-            discReadout.textContent = discVal;
-            discCell.append(discReadout);
-
-            // 5. Price / Pc incl. tax
-            const priceCell = pRow.insertCell();
-            const priceReadout = document.createElement('span');
-            priceReadout.className = 'form-control form-control-sm text-end font-monospace fw-semibold bg-light text-dark billing-price-input d-inline-block';
-            priceReadout.dataset.piecePriceFor = itemKey;
-            priceReadout.textContent = unitPriceInputVal;
-            priceCell.append(priceReadout);
-
-            // 6. HSN (next to Price / Pc)
-            const hsnCell = pRow.insertCell();
-            hsnCell.className = 'text-center';
-            const hsnReadout = document.createElement('span');
-            hsnReadout.className = 'form-control form-control-sm text-center font-monospace bg-light text-dark billing-hsn-input d-inline-block';
-            hsnReadout.dataset.pieceHsnFor = itemKey;
-            hsnReadout.textContent = hsnVal;
-            hsnCell.append(hsnReadout);
-
-            // 7. GST Details (mode + rate matching Row 1)
-            const gstCell = pRow.insertCell();
-            const gstWrap = document.createElement('div');
-            gstWrap.className = 'd-flex flex-column gap-1';
-            const gstModeReadout = document.createElement('div');
-            gstModeReadout.className = 'border rounded-1 bg-light text-dark text-center px-2 py-1';
-            gstModeReadout.style.fontSize = '12px';
-            gstModeReadout.textContent = gstTypeLabel;
-            const gstRateReadout = document.createElement('div');
-            gstRateReadout.className = 'border rounded-1 bg-light text-muted text-end font-monospace px-2 py-0';
-            gstRateReadout.style.fontSize = '12px';
-            gstRateReadout.textContent = `${gstRate.toFixed(2)} %`;
-            gstWrap.append(gstModeReadout, gstRateReadout);
-            gstCell.append(gstWrap);
-
-            // 8. Tax
-            const taxCell = pRow.insertCell();
-            taxCell.className = 'text-end font-monospace text-muted text-nowrap';
-            taxCell.textContent = money(pieceTaxNum);
-
-            // 9. Total
-            const totalCell = pRow.insertCell();
-            totalCell.className = 'text-end fw-bold font-monospace text-primary text-nowrap';
-            totalCell.textContent = money(unitPriceNum);
-
-            // 10. Remove individual piece button
-            const actCell = pRow.insertCell();
-            actCell.className = 'text-center';
-            const rmBtn = document.createElement('button');
-            rmBtn.type = 'button';
-            rmBtn.className = 'btn btn-outline-danger btn-sm py-0 px-2';
-            rmBtn.title = `Remove piece ${tag}`;
-            rmBtn.innerHTML = '<i class="bi bi-x"></i>';
-            rmBtn.addEventListener('click', () => {
-                item.tags = item.tags.filter(existing => existing !== tag);
-                if (!item.tags.length) {
-                    cart.delete(itemKey);
-                    renderCart();
-                } else {
-                    updateRowQuantity(itemKey, item.tags.length);
-                }
-            });
-            actCell.append(rmBtn);
-
-            anchor.insertAdjacentElement('afterend', pRow);
-            anchor = pRow;
-        });
-    }
-
-    function updateRowQuantity(itemKey, requestedQty) {
-        const item = cart.get(itemKey);
-        if (!item) return;
-        const allAvailable = selectableTags(item);
-        const maxStock = allAvailable.length;
-
-        let qty = parseInt(requestedQty, 10);
-        if (isNaN(qty) || qty < 1) {
-            qty = 1;
-        }
-        if (qty > maxStock) {
-            qty = maxStock;
-            const qInput = cartBody.querySelector(`[data-qty-input-for="${itemKey}"]`);
-            if (qInput) qInput.value = String(maxStock);
+        const availableToAssign = selectableTags(sourceItem);
+        const remainingCount = availableToAssign.length;
+        if (remainingCount <= 0) {
             showInventoryLimit(
                 'Available stock limit reached',
-                `Only ${maxStock} piece(s) are available in stock for ${item.product_name}.`,
-                qInput
+                `All available piece(s) in stock for ${sourceItem.product_name} are already added to this bill.`
+            );
+            return;
+        }
+
+        const actualAdd = Math.min(addCount, remainingCount);
+        if (addCount > remainingCount) {
+            showInventoryLimit(
+                'Available stock limit reached',
+                `Only ${remainingCount} more piece(s) are available in stock for ${sourceItem.product_name}.`
             );
         }
 
-        item.tags = allAvailable.slice(0, qty);
-        const remainingStock = Math.max(0, maxStock - qty);
+        const pool = poolTagsForGroup(sourceItem);
+        const newEntries = availableToAssign.slice(0, actualAdd).map(nextTag => {
+            const cloned = {
+                ...sourceItem,
+                available_tags: [...pool],
+                tags: [nextTag]
+            };
+            return [getItemKey(cloned, nextTag), cloned];
+        });
 
-        const row = cartBody.querySelector(`tr[data-row-key="${itemKey}"]`);
-        if (row) {
-            const rowIndex = row.dataset.rowIndex;
-
-            // Update remaining Stock counter below Qty input dynamically
-            const stockEl = row.querySelector(`[data-stock-for="${itemKey}"]`);
-            if (stockEl) {
-                stockEl.textContent = String(remainingStock);
-            }
-
-            // Update hidden tags inputs in quantityCell
-            const hiddenTagsContainer = row.querySelector('.hidden-tags-container');
-            if (hiddenTagsContainer) {
-                hiddenTagsContainer.innerHTML = '';
-                item.tags.forEach(tag => {
-                    const hiddenTag = document.createElement('input');
-                    hiddenTag.type = 'hidden';
-                    hiddenTag.name = `items[${rowIndex}][tags][]`;
-                    hiddenTag.value = tag;
-                    hiddenTagsContainer.append(hiddenTag);
+        const rebuilt = new Map();
+        cart.forEach((val, key) => {
+            rebuilt.set(key, val);
+            if (key === sourceKey) {
+                newEntries.forEach(([newKey, newVal]) => {
+                    rebuilt.set(newKey, newVal);
                 });
             }
+        });
 
-            // Update qty input display if not currently focused
-            const qInput = row.querySelector(`[data-qty-input-for="${itemKey}"]`);
-            if (qInput && !qInput.matches(':focus')) {
-                qInput.value = String(qty);
-            }
+        cart.clear();
+        rebuilt.forEach((val, key) => cart.set(key, val));
 
-            // Sync piece-by-piece rows directly below this variant row
-            syncPieceRows(itemKey, item, row);
+        renderCart();
+        showSuccessToast();
+    }
 
-            // Update line total and tax
-            const price = Number(item.unit_price || 0);
-            const netLine = price * qty;
+    function updateRowTotals(itemKey) {
+        const item = cart.get(itemKey);
+        if (!item) return;
+        const row = cartBody.querySelector(`tr[data-row-key="${itemKey}"]`);
+        if (row) {
+            const qty = Math.max(1, Array.isArray(item.tags) ? item.tags.length : 1);
+            const netLine = Number(item.unit_price || 0) * qty;
             const gstRate = Number(item.gst_percentage || 0);
             let taxable = netLine;
             let lineTax = 0;
@@ -1422,7 +1308,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lineTotalCell) lineTotalCell.textContent = money(netLine);
             if (taxCell) taxCell.textContent = money(lineTax);
         }
-
         updateTotals();
     }
 
@@ -1439,12 +1324,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = cartBody.insertRow();
             row.dataset.rowKey = itemKey;
             row.dataset.rowIndex = String(index);
-            const currentQty = item.tags.length;
-            const allAvailable = selectableTags(item);
-            const maxStock = allAvailable.length;
-            const remainingStock = Math.max(0, maxStock - currentQty);
+            const pieceTag = (Array.isArray(item.tags) && item.tags[0]) ? String(item.tags[0]) : '';
+            const remainingStock = selectableTags(item).length;
 
-            // 1. Product & Details (clean, HSN moved next to Price / Pc)
+            // 1. Product & Details (1 piece = 1 full editable row with Variant ID + Piece QR Tag)
             const productCell = row.insertCell();
             productCell.className = 'billing-product-cell';
             const productTitle = document.createElement('strong');
@@ -1452,20 +1335,30 @@ document.addEventListener('DOMContentLoaded', () => {
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
 
+            const badgeWrap = document.createElement('div');
+            badgeWrap.className = 'd-flex flex-wrap align-items-center gap-1 my-1';
             const mainVarCode = resolveVariantCode(item);
             if (mainVarCode) {
                 const mainVarBadge = document.createElement('span');
-                mainVarBadge.className = 'badge bg-primary-subtle text-primary border font-monospace my-1 me-1';
+                mainVarBadge.className = 'badge bg-primary-subtle text-primary border font-monospace';
                 mainVarBadge.textContent = `Variant: ${mainVarCode}`;
-                productCell.append(mainVarBadge);
+                badgeWrap.append(mainVarBadge);
             }
-
+            if (pieceTag) {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'badge bg-dark text-white font-monospace';
+                tagBadge.textContent = `QR: ${pieceTag}`;
+                badgeWrap.append(tagBadge);
+            }
             if (item.price_edited) {
                 const priceBadge = document.createElement('span');
-                priceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning my-1';
+                priceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning';
                 priceBadge.title = item.price_alert || 'Price was recently revised';
                 priceBadge.innerHTML = '<i class="bi bi-tag-fill me-1"></i>Price Checked';
-                productCell.append(priceBadge);
+                badgeWrap.append(priceBadge);
+            }
+            if (badgeWrap.childNodes.length) {
+                productCell.append(badgeWrap);
             }
 
             const details = document.createElement('div');
@@ -1485,7 +1378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hiddenVar.value = item.variant_id || 0;
             productCell.append(hiddenVar);
 
-            // 2. Quantity cell
+            // 2. Quantity cell (each piece row is Qty 1; + or typing >1 spawns independent editable piece rows)
             const quantityCell = row.insertCell();
             quantityCell.className = 'text-center';
 
@@ -1497,13 +1390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             minusBtn.className = 'btn btn-outline-secondary';
             minusBtn.innerHTML = '<i class="bi bi-dash"></i>';
             minusBtn.addEventListener('click', () => {
-                if (item.tags.length > 1) {
-                    const newQty = item.tags.length - 1;
-                    quantityInput.value = String(newQty);
-                    updateRowQuantity(itemKey, newQty);
-                } else {
-                    showStockToast('Minimum quantity is 1', 'To remove this product completely, click the trash button on the right.');
-                }
+                showStockToast('Minimum quantity is 1', 'To remove this piece, click the trash button on the right.');
             });
 
             const quantityInput = document.createElement('input');
@@ -1511,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             quantityInput.inputMode = 'numeric';
             quantityInput.autocomplete = 'off';
             quantityInput.setAttribute('aria-label', 'Quantity');
-            quantityInput.value = String(currentQty);
+            quantityInput.value = '1';
             quantityInput.className = 'form-control form-control-sm text-center fw-bold font-monospace billing-qty-input';
             quantityInput.dataset.qtyInputFor = itemKey;
 
@@ -1520,52 +1407,43 @@ document.addEventListener('DOMContentLoaded', () => {
             plusBtn.className = 'btn btn-outline-secondary';
             plusBtn.innerHTML = '<i class="bi bi-plus"></i>';
             plusBtn.addEventListener('click', () => {
-                if (item.tags.length < maxStock) {
-                    const newQty = item.tags.length + 1;
-                    quantityInput.value = String(newQty);
-                    updateRowQuantity(itemKey, newQty);
-                    showSuccessToast();
-                } else {
-                    showInventoryLimit(
-                        'Available stock limit reached',
-                        `All ${maxStock} available piece(s) in stock for ${item.product_name} are already added to this bill.`,
-                        quantityInput
-                    );
-                }
+                expandRowByPieces(itemKey, 1);
             });
 
             bindNumericInputValidation(quantityInput, {
                 allowDecimal: false,
                 min: 1,
-                max: Math.max(1, maxStock),
+                max: Math.max(1, remainingStock + 1),
                 allowEmpty: false,
                 defaultValue: '1',
                 onNormalize: (val) => {
                     const qty = parseInt(val || '1', 10);
-                    updateRowQuantity(itemKey, isNaN(qty) ? 1 : qty);
+                    if (qty > 1) {
+                        quantityInput.value = '1';
+                        expandRowByPieces(itemKey, qty - 1);
+                    } else {
+                        quantityInput.value = '1';
+                    }
                 }
             });
 
-            // INSTANT calculation on input keystroke
             quantityInput.addEventListener('input', () => {
                 const rawVal = quantityInput.value.trim();
                 if (rawVal === '') return;
                 const requestedQuantity = parseInt(rawVal, 10);
-                if (requestedQuantity > 0) {
-                    updateRowQuantity(itemKey, requestedQuantity);
+                if (requestedQuantity > 1) {
+                    quantityInput.value = '1';
+                    expandRowByPieces(itemKey, requestedQuantity - 1);
                 }
             });
 
             quantityInput.addEventListener('change', () => {
                 const requestedQuantity = parseInt(quantityInput.value, 10);
-                if (isNaN(requestedQuantity) || requestedQuantity < 1) {
+                if (isNaN(requestedQuantity) || requestedQuantity <= 1) {
                     quantityInput.value = '1';
-                    updateRowQuantity(itemKey, 1);
-                } else if (requestedQuantity > maxStock) {
-                    quantityInput.value = String(maxStock);
-                    updateRowQuantity(itemKey, maxStock);
                 } else {
-                    updateRowQuantity(itemKey, requestedQuantity);
+                    quantityInput.value = '1';
+                    expandRowByPieces(itemKey, requestedQuantity - 1);
                 }
             });
 
@@ -1577,10 +1455,10 @@ document.addEventListener('DOMContentLoaded', () => {
             limitHelper.innerHTML = `Stock: <strong class="text-dark" data-stock-for="${itemKey}">${remainingStock}</strong> pcs`;
             quantityCell.append(limitHelper);
 
-            // Hidden tags container
+            // Hidden tag input for this piece row
             const hiddenTagsContainer = document.createElement('div');
             hiddenTagsContainer.className = 'hidden-tags-container';
-            item.tags.forEach(tag => {
+            (Array.isArray(item.tags) ? item.tags : []).forEach(tag => {
                 const hiddenTag = document.createElement('input');
                 hiddenTag.type = 'hidden';
                 hiddenTag.name = `items[${index}][tags][]`;
@@ -1610,7 +1488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.discount_percentage = discount;
                 item.unit_price = Number(item.mrp || 0) * (1 - discount / 100);
                 priceInput.value = item.unit_price.toFixed(2);
-                updateRowQuantity(itemKey, item.tags.length);
+                updateRowTotals(itemKey);
             };
             bindNumericInputValidation(discountInput, {
                 allowDecimal: true,
@@ -1641,7 +1519,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
                 item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
                 discountInput.value = item.discount_percentage.toFixed(2);
-                updateRowQuantity(itemKey, item.tags.length);
+                updateRowTotals(itemKey);
             };
             bindNumericInputValidation(priceInput, {
                 allowDecimal: true,
@@ -1679,10 +1557,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             hsnInput.addEventListener('input', () => {
                 item.hsn_code = hsnInput.value.trim();
-                const displayHsn = item.hsn_code || '6109';
-                cartBody.querySelectorAll(`[data-piece-hsn-for="${itemKey}"]`).forEach(el => {
-                    el.textContent = displayHsn;
-                });
             });
             hsnCell.append(hsnInput);
 
@@ -1717,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const applyGstRateValue = (rawRate) => {
                 const parsed = parseFloat(rawRate);
                 item.gst_percentage = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
-                updateRowQuantity(itemKey, item.tags.length);
+                updateRowTotals(itemKey);
             };
             bindNumericInputValidation(taxRateInput, {
                 allowDecimal: true,
@@ -1738,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     taxRateInput.value = '5.00';
                     item.gst_percentage = 5;
                 }
-                updateRowQuantity(itemKey, item.tags.length);
+                updateRowTotals(itemKey);
             });
 
             taxRateInput.addEventListener('input', () => {
@@ -1748,33 +1622,34 @@ document.addEventListener('DOMContentLoaded', () => {
             taxGroup.append(taxModeSelect, taxRateGroup);
             gstCell.append(taxGroup);
 
-            // 7. Tax amount cell
+            // 8. Tax amount cell
+            const netLine = Number(item.unit_price || 0);
+            const gstRate = Number(item.gst_percentage || 0);
+            const lineTax = gstRate > 0 ? (netLine - (netLine / (1 + gstRate / 100))) : 0;
+
             const taxAmountCell = row.insertCell();
             taxAmountCell.className = 'text-end font-monospace text-muted text-nowrap';
             taxAmountCell.dataset.taxFor = itemKey;
-            taxAmountCell.textContent = money(0);
+            taxAmountCell.textContent = money(lineTax);
 
-            // 8. Line Total cell
+            // 9. Line Total cell
             const totalCell = row.insertCell();
             totalCell.className = 'text-end fw-bold font-monospace text-primary text-nowrap';
             totalCell.dataset.totalFor = itemKey;
-            totalCell.textContent = money(0);
+            totalCell.textContent = money(netLine);
 
-            // 9. Remove item cell
+            // 10. Remove item cell
             const removeCell = row.insertCell();
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'btn btn-outline-danger btn-sm';
             removeBtn.innerHTML = '<i class="bi bi-trash"></i>';
-            removeBtn.title = 'Remove item from cart';
+            removeBtn.title = 'Remove piece from cart';
             removeBtn.addEventListener('click', () => {
                 cart.delete(itemKey);
                 renderCart();
             });
             removeCell.append(removeBtn);
-
-            // Render piece-by-piece rows immediately below this variant row
-            syncPieceRows(itemKey, item, row);
 
             index++;
         });
@@ -1834,88 +1709,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addResult(item, selectedTag) {
-        const assigned = assignedTags();
         const availableTags = Array.isArray(item.available_tags) ? item.available_tags : [];
-        const key = getItemKey(item);
+        const pool = poolTagsForGroup({ ...item, available_tags: availableTags });
+        const unassigned = selectableTags({ ...item, available_tags: pool });
 
-        if (cart.has(key)) {
-            const cartItem = cart.get(key);
-            cartItem.available_tags = [...new Set([...(cartItem.available_tags || []), ...availableTags])];
-            const allAvailable = selectableTags(cartItem);
-            const currentCount = cartItem.tags.length;
-            const maxAllowed = allAvailable.length;
-
-            if (selectedTag) {
-                const upperSelected = selectedTag.toUpperCase();
-                const alreadyInThisItem = cartItem.tags.some(t => t.toUpperCase() === upperSelected);
-                if (alreadyInThisItem) {
-                    // Item/Variant scanned again: allocate next available unassigned piece
-                    const assignedUpper = cartItem.tags.map(t => t.toUpperCase());
-                    const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()) && !assigned.includes(t.toUpperCase()));
-                    if (nextTag) {
-                        cartItem.tags.push(nextTag);
-                        updateRowQuantity(key, cartItem.tags.length);
-                        showSuccessToast();
-                        if (item.price_edited && item.price_alert) {
-                            showStockToast('Price Cross-Check', item.price_alert);
-                        }
-                        return;
-                    }
-                    showStockToast('All available pieces in cart', `All ${maxAllowed} piece(s) for <strong>${cartItem.product_name}</strong> are already in this bill.`);
-                    return;
-                }
-                const alreadyInOther = assigned.some(t => t.toUpperCase() === upperSelected);
-                if (alreadyInOther) {
-                    showStockToast('Tag already allocated', `Tag <strong>${selectedTag}</strong> is assigned to another cart item.`);
-                    return;
-                }
-                cartItem.tags.push(selectedTag);
-                updateRowQuantity(key, cartItem.tags.length);
-                showSuccessToast();
-                if (item.price_edited && item.price_alert) {
-                    showStockToast('Price Cross-Check', item.price_alert);
-                }
-                return;
-            } else {
-                if (currentCount >= maxAllowed) {
-                    showInventoryLimit(
-                        'Available stock limit reached',
-                        `All ${maxAllowed} piece(s) in stock for ${cartItem.product_name} are already in this bill.`
-                    );
-                    return;
-                }
-                const assignedUpper = cartItem.tags.map(t => t.toUpperCase());
-                const nextTag = allAvailable.find(t => !assignedUpper.includes(t.toUpperCase()) && !assigned.includes(t.toUpperCase()));
-                if (nextTag) {
-                    cartItem.tags.push(nextTag);
-                    updateRowQuantity(key, cartItem.tags.length);
-                    showSuccessToast();
-                    if (item.price_edited && item.price_alert) {
-                        showStockToast('Price Cross-Check', item.price_alert);
-                    }
-                    return;
-                }
-            }
-        } else {
-            const entry = { ...item };
-            entry.tags = [];
-            const allAvailable = selectableTags(entry);
-            if (!allAvailable.length) {
-                showInventoryLimit(
-                    'No stock available',
-                    `No unassigned pieces available for ${entry.product_name}.`
-                );
-                return;
-            }
-            if (selectedTag) {
-                entry.tags = [selectedTag];
-            } else {
-                entry.tags = [allAvailable[0]];
-            }
-            cart.set(key, entry);
-            renderCart();
-            showSuccessToast();
+        if (!unassigned.length) {
+            showInventoryLimit(
+                'Available stock limit reached',
+                `All available piece(s) in stock for ${item.product_name} are already in this bill.`
+            );
+            return;
         }
+
+        let chosenTag = unassigned[0];
+        if (selectedTag) {
+            const upperSelected = String(selectedTag).toUpperCase();
+            const matchUnassigned = unassigned.find(t => String(t).toUpperCase() === upperSelected);
+            if (matchUnassigned) {
+                chosenTag = matchUnassigned;
+            } else {
+                // Tag already in cart; allocate next available unassigned piece as a new editable row
+                chosenTag = unassigned[0];
+            }
+        }
+
+        const entry = {
+            ...item,
+            available_tags: [...pool],
+            tags: [chosenTag]
+        };
+        const pieceKey = getItemKey(entry, chosenTag);
+        cart.set(pieceKey, entry);
+        renderCart();
+        showSuccessToast();
 
         if (item.price_edited && item.price_alert) {
             showStockToast('Price Cross-Check', item.price_alert);
@@ -2093,19 +1919,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Add batch items into cart Map
+                // Add batch items into cart Map (1 editable row per piece)
                 let totalTags = 0;
                 items.forEach(it => {
-                    const key = getItemKey(it);
                     const tags = Array.isArray(it.tags) ? it.tags : [];
                     totalTags += tags.length;
-                    if (cart.has(key)) {
-                        const existing = cart.get(key);
-                        existing.available_tags = [...new Set([...(existing.available_tags || []), ...tags])];
-                        existing.tags = [...new Set([...(existing.tags || []), ...tags])];
-                    } else {
-                        cart.set(key, {
+                    tags.forEach(tag => {
+                        const entry = {
                             qc_item_id: it.qc_item_id || 0,
+                            variant_id: it.variant_id || 0,
+                            variant_code: it.variant_code || '',
                             product_name: it.product_name || 'Finished Product',
                             sku: it.sku || '',
                             hsn_code: it.hsn_code || '6109',
@@ -2122,10 +1945,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             sgst_rate: Number(it.sgst_rate || 2.5),
                             cgst_rate: Number(it.cgst_rate || 2.5),
                             igst_rate: Number(it.igst_rate || 0),
-                            tags: [...tags],
+                            tags: [tag],
                             available_tags: [...tags]
-                        });
-                    }
+                        };
+                        cart.set(getItemKey(entry, tag), entry);
+                    });
                 });
 
                 renderCart();
@@ -2148,10 +1972,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    // Populate initial items
+    // Populate initial items (1 editable row per piece)
     initialItems.forEach(it => {
-        const key = getItemKey(it);
-        cart.set(key, { ...it });
+        const tags = Array.isArray(it.tags) && it.tags.length ? it.tags : [''];
+        tags.forEach(tag => {
+            const entry = {
+                ...it,
+                tags: tag ? [tag] : [],
+                available_tags: Array.isArray(it.available_tags) && it.available_tags.length ? [...it.available_tags] : [...tags]
+            };
+            cart.set(getItemKey(entry, tag), entry);
+        });
     });
 
     updateUnitDetails();
