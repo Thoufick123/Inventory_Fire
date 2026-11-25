@@ -350,6 +350,61 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
     </div>
 </div>
 
+<!-- Inventory Stock History Card -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <div class="bg-info bg-opacity-10 text-info p-2 rounded">
+                <i class="bi bi-clock-history fs-5"></i>
+            </div>
+            <div>
+                <h5 class="card-title mb-0 fw-bold text-dark">Inventory Stock History</h5>
+                <small class="text-muted">All inward, outward, sale, and adjustment movements for this item</small>
+            </div>
+        </div>
+        <span class="badge bg-secondary-subtle text-secondary border"><?= count($stockHistory ?? []) ?> record(s)</span>
+    </div>
+    <div class="card-body p-0">
+        <?php if (!empty($stockHistory)): ?>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-uppercase text-muted">
+                        <tr>
+                            <th>Date / Time</th>
+                            <th>Type</th>
+                            <th class="text-end">Qty</th>
+                            <th>Location</th>
+                            <th>Reference</th>
+                            <th>By</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($stockHistory as $sh):
+                            $txType = strtoupper((string)($sh['transaction_type'] ?? $sh['movement_type'] ?? 'MOVEMENT'));
+                            $isIn = in_array($txType, ['IN', 'INWARD', 'PURCHASE', 'RETURN', 'ADJUST_IN'], true) || (float)($sh['quantity'] ?? 0) > 0 && $txType !== 'OUT';
+                        ?>
+                            <tr>
+                                <td class="text-muted"><?= !empty($sh['created_at']) ? date('d M Y, h:i A', strtotime($sh['created_at'])) : '—' ?></td>
+                                <td><span class="badge <?= $isIn ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle' ?>"><?= e($txType) ?></span></td>
+                                <td class="text-end fw-bold"><?= number_format((float)($sh['quantity'] ?? 0), 2) ?></td>
+                                <td><?= e($sh['location_name'] ?? ($sh['location_type'] ?? '—')) ?></td>
+                                <td class="font-monospace"><?= e(($sh['reference_type'] ?? '') . (!empty($sh['reference_id']) ? ' #' . $sh['reference_id'] : '')) ?: '—' ?></td>
+                                <td><?= e($sh['actor_name'] ?? 'System') ?></td>
+                                <td class="text-muted"><?= e($sh['notes'] ?? '—') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="p-4 text-center text-muted small">
+                <i class="bi bi-clock-history me-1"></i>No stock ledger transactions recorded yet for this variant.
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
 <!-- Fast 2D QR Code Search & Filter Bar (Exact styling of QC Batch) -->
 <div class="card shadow-sm mb-4 border-primary" id="qrSection">
     <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
