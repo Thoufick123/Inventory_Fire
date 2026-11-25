@@ -282,45 +282,12 @@ foreach ($hierarchicalModules as $m) {
                             <?php endforeach; ?>
                         </div>
 
-                        <!-- Default Concern for Login Session -->
-                        <div class="row g-3">
-                            <div class="col-12 col-md-6">
-                                <label for="default_concern_id" class="form-label fw-semibold">
-                                    <i class="bi bi-star-fill text-warning me-1"></i>Default Active Concern (Upon Login) <span class="text-danger">*</span>
-                                </label>
-                                <select name="default_concern_id" id="default_concern_id" class="form-select" required>
-                                    <?php 
-                                    $hasDefaultOpt = false;
-                                    foreach (($concerns ?? []) as $c): 
-                                        $cid = (int)$c['id'];
-                                        $isAssigned = in_array($cid, $staffConcerns ?? [], true);
-                                        if ($isAssigned):
-                                            $isDef = ($cid === (int)($defaultConcernId ?? 0));
-                                            if ($isDef) $hasDefaultOpt = true;
-                                    ?>
-                                        <option value="<?= $cid ?>" <?= $isDef ? 'selected' : '' ?>>
-                                            <?= e(!empty($c['code']) ? $c['code'] . ' - ' . $c['name'] : $c['name']) ?>
-                                        </option>
-                                    <?php 
-                                        endif;
-                                    endforeach; 
-                                    if (!$hasDefaultOpt && !empty($concerns)):
-                                        $firstC = $concerns[0];
-                                    ?>
-                                        <option value="<?= (int)$firstC['id'] ?>" selected>
-                                            <?= e(!empty($firstC['code']) ? $firstC['code'] . ' - ' . $firstC['name'] : $firstC['name']) ?>
-                                        </option>
-                                    <?php endif; ?>
-                                </select>
-                                <div class="form-text text-muted">The entity automatically activated when this staff member signs in. Must be one of their authorized concerns.</div>
-                            </div>
-                            <div class="col-12 col-md-6 d-flex align-items-center">
-                                <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
-                                    <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
-                                    <div class="small">
-                                        Staff members will only be able to view documents, batches, and switch between entities that are checked above.
-                                    </div>
-                                </div>
+                        <input type="hidden" name="default_concern_id" id="default_concern_id" value="<?= (int)$activeOpConcernId ?>">
+
+                        <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
+                            <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
+                            <div class="small">
+                                Staff members will only be able to view documents, batches, and switch between entities that are checked above. Their selected primary operational concern will be active upon login.
                             </div>
                         </div>
                     </div>
@@ -983,35 +950,22 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.syncDefaultConcernOptions = function() {
-        const select = document.getElementById('default_concern_id');
-        if (!select) return;
+        const hiddenInput = document.getElementById('default_concern_id');
+        if (!hiddenInput) return;
 
         const checkboxes = document.querySelectorAll('.concern-checkbox');
-        const curVal = parseInt(select.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>;
-        
-        select.innerHTML = '';
-        let hasSelected = false;
-        let checkedCount = 0;
+        const checkedRadio = document.querySelector('.dept-concern-radio:checked');
+        const preferredVal = checkedRadio ? parseInt(checkedRadio.value) : (parseInt(hiddenInput.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>);
+        const checkedIds = [];
 
         checkboxes.forEach(cb => {
             const card = cb.closest('.concern-select-card');
             if (cb.checked) {
-                checkedCount++;
+                checkedIds.push(parseInt(cb.value));
                 if (card) {
                     card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
                     card.classList.remove('bg-light', 'bg-opacity-25');
                 }
-                const cid = parseInt(cb.value);
-                const name = cb.getAttribute('data-concern-name') || ('Concern #' + cid);
-                const code = cb.getAttribute('data-concern-code') || '';
-                const opt = document.createElement('option');
-                opt.value = cid;
-                opt.textContent = code ? `${code} - ${name}` : name;
-                if (cid === curVal) {
-                    opt.selected = true;
-                    hasSelected = true;
-                }
-                select.appendChild(opt);
             } else {
                 if (card) {
                     card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
@@ -1020,18 +974,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        if (!hasSelected && select.options.length > 0) {
-            select.options[0].selected = true;
-        }
+        const activeCid = checkedIds.includes(preferredVal) ? preferredVal : (checkedIds[0] || '');
+        hiddenInput.value = activeCid;
 
-        if (checkedCount === 0) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = '-- Select at least one authorized concern above --';
-            select.appendChild(opt);
-        }
-
-        const activeCid = select.value;
         if (activeCid) {
             const rad = document.getElementById('dept_concern_' + activeCid);
             if (rad && !rad.checked) {
@@ -1046,19 +991,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    const defConcernSelect = document.getElementById('default_concern_id');
-    if (defConcernSelect) {
-        defConcernSelect.addEventListener('change', function() {
-            const val = this.value;
-            const rad = document.getElementById('dept_concern_' + val);
-            if (rad) {
-                rad.checked = true;
-                handleOperationalConcernSelection(val);
-            }
-        });
-    }
-
-    // Initialize concern dropdown options
+    // Initialize concern hidden default value
     syncDefaultConcernOptions();
 
     // =========================================================================
