@@ -5486,11 +5486,34 @@ class AllmodulesController {
             return;
         }
 
+        $stockedItemMap = [];
+        try {
+            $stockedRows = Database::fetchAll(
+                "SELECT DISTINCT qg.source_purchase_item_id AS item_id
+                 FROM qr_generations qg
+                 WHERE qg.source_purchase_id = ? AND qg.stock_added = 1 AND qg.source_purchase_item_id IS NOT NULL
+                 UNION
+                 SELECT DISTINCT tpv.purchase_item_id AS item_id
+                 FROM third_party_product_variants tpv
+                 INNER JOIN qr_generations qg ON qg.id = tpv.qr_generation_id
+                 WHERE qg.stock_added = 1",
+                [$purchaseId]
+            );
+            foreach ($stockedRows as $sr) {
+                if (!empty($sr['item_id'])) {
+                    $stockedItemMap[(int)$sr['item_id']] = true;
+                }
+            }
+        } catch (\Throwable $e) {}
+
         foreach ($items as &$item) {
             $item['parsed_attributes'] = [];
             if (!empty($item['mapped_attributes'])) {
                 $item['parsed_attributes'] = json_decode($item['mapped_attributes'], true) ?: [];
             }
+            $item['has_stock_added'] = !empty($item['is_inwarded'])
+                || (float)($item['inwarded_qty'] ?? 0) > 0
+                || !empty($stockedItemMap[(int)$item['id']]);
         }
         unset($item);
 
