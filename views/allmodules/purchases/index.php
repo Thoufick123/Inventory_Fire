@@ -122,7 +122,7 @@
                     <a href="<?= url('purchases?type=RAW_MATERIAL') ?>" class="btn <?= ($filterType === 'RAW_MATERIAL') ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary' ?>">Raw Materials</a>
                     <a href="<?= url('purchases?type=THIRD_PARTY') ?>" class="btn <?= ($filterType === 'THIRD_PARTY') ? 'btn-info text-white' : 'btn-outline-secondary' ?>">3rd-Party</a>
                     <a href="<?= url('purchases?type=MIXED') ?>" class="btn <?= ($filterType === 'MIXED') ? 'btn-dark text-white' : 'btn-outline-secondary' ?>" title="Invoices containing multiple product types">Combined</a>
-                    <a href="<?= url('purchases?type=MAPPING') ?>" class="btn <?= ($filterType === 'MAPPING') ? 'text-white' : 'btn-outline-secondary' ?>" style="<?= ($filterType === 'MAPPING') ? 'background-color:#6f42c1;' : '' ?>" title="Purchases created or linked from Purchase Item Mapping"><i class="bi bi-diagram-3 me-1"></i>From Mapping</a>
+                    <a href="<?= url('purchases?type=MAPPING') ?>" class="btn <?= ($filterType === 'MAPPING') ? 'text-white' : 'btn-outline-secondary' ?>" style="<?= ($filterType === 'MAPPING') ? 'background-color:#6f42c1;' : '' ?>" title="Purchases created or linked from Purchase Item Mapping"><i class="bi bi-diagram-3 me-1"></i>From Mapping<?php if (!empty($pendingMappingCount)): ?> <span class="badge bg-warning text-dark ms-1"><?= (int)$pendingMappingCount ?> Pending</span><?php endif; ?></a>
                 </div>
                 <input type="text" id="purchasesSearchInput" class="form-control form-control-sm" placeholder="🔍 Search PO #, supplier, invoice..." style="width: 240px;" oninput="filterPurchasesTable(this.value)">
             </div>
@@ -168,6 +168,11 @@
                                     <a href="<?= !empty($purchase['mapping_bill_id']) ? url('purchases/mapping/draft/' . (int)$purchase['mapping_bill_id']) : url('purchases/mapping') ?>" class="badge text-white text-decoration-none mt-1 shadow-sm" style="background-color: #6f42c1;" title="Originates from Purchase Item Mapping Draft">
                                         <i class="bi bi-diagram-3 me-1"></i>From Mapping<?= !empty($purchase['mapping_invoice_number']) ? ': ' . e($purchase['mapping_invoice_number']) : '' ?>
                                     </a>
+                                    <?php if (($purchase['accounts_status'] ?? '') === 'PENDING_ACCOUNTS'): ?>
+                                        <span class="badge bg-warning text-dark mt-1"><i class="bi bi-hourglass-split me-1"></i>Pending Accounts Bill</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle mt-1"><i class="bi bi-shield-check me-1"></i>Accounts Verified</span>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </td>
@@ -354,6 +359,14 @@
                                     <a class="btn btn-action-icon btn-outline-primary" href="<?= url('production/purchases/edit/' . $purchase['id']) ?>" title="Edit Purchase">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    <?php if (($purchase['accounts_status'] ?? '') === 'PENDING_ACCOUNTS'): ?>
+                                        <form method="POST" action="<?= url('allmodules/purchases/verify-accounts/' . (int)$purchase['id']) ?>" class="d-inline" onsubmit="return confirm('Mark bill <?= e(addslashes($purchase['purchase_number'])) ?> as Accounts Verified?')">
+                                            <?= CSRF::field() ?>
+                                            <button type="submit" class="btn btn-action-icon btn-outline-success" title="Verify &amp; Finalize Accounts Bill">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                                 <?php if (hasPermission('production_purchases', 'delete') || hasPermission('sellers', 'delete')): ?>
                                     <button type="button" class="btn btn-action-icon btn-outline-danger" title="Delete Purchase" onclick="confirmDeletePurchase('<?= url('production/purchases/delete/' . $purchase['id']) ?>', '<?= e(addslashes($purchase['purchase_number'])) ?>')">

@@ -1302,6 +1302,7 @@ class AllmodulesController {
     }
 
     public function productionPurchaseList(): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
         $filterType = !empty($_GET['type']) ? strtoupper(trim((string)$_GET['type'])) : '';
         $search = !empty($_GET['search']) ? trim((string)$_GET['search']) : '';
         $where = [];
@@ -1336,7 +1337,8 @@ class AllmodulesController {
         // Explicit column projection (avoiding SELECT *)
         $purchases = Database::fetchAll(
             "SELECT pp.id, pp.purchase_number, pp.purchase_type, pp.seller_id, pp.purchase_date,
-                    pp.invoice_number, pp.document_url, pp.document_urls, pp.notes, pp.total_amount, pp.created_by, pp.created_at,
+                    pp.invoice_number, pp.document_url, pp.document_urls, pp.notes, pp.total_amount,
+                    pp.accounts_status, pp.accounts_verified_at, pp.created_by, pp.created_at,
                     s.name AS seller_name, s.company, s.seller_type,
                     mb.id AS mapping_bill_id, mb.invoice_number AS mapping_invoice_number
              FROM production_purchases pp
@@ -1397,12 +1399,19 @@ class AllmodulesController {
         );
         $totalPurchaseValue = (float)($metrics['total_value'] ?? 0);
 
+        $pendingMappingWhere = $metricWhere ? ($metricWhereSql . " AND accounts_status = 'PENDING_ACCOUNTS'") : "WHERE accounts_status = 'PENDING_ACCOUNTS'";
+        $pendingMappingCount = (int)(Database::fetchOne(
+            "SELECT COUNT(*) AS cnt FROM production_purchases $pendingMappingWhere",
+            $metricParams
+        )['cnt'] ?? 0);
+
         Response::view('allmodules.purchases.index', [
             'pageTitle' => 'Purchases & Procurement',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-all',
             'purchases' => $purchases,
             'totalPurchaseValue' => $totalPurchaseValue,
+            'pendingMappingCount' => $pendingMappingCount,
             'metrics' => $metrics,
             'filterType' => $filterType,
             'search' => $search,
@@ -1740,6 +1749,38 @@ class AllmodulesController {
             'items'    => $items,
             'logs'     => $logs,
         ]);
+    }
+
+    /**
+     * Mark a From-Mapping purchase bill as Accounts Verified without re-inwarding stock.
+     */
+    public function verifyPurchaseAccounts(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token.');
+            Response::back();
+            return;
+        }
+        $purchaseId = (int)$id;
+        $purchase = Database::fetchOne("SELECT * FROM production_purchases WHERE id = ? LIMIT 1", [$purchaseId]);
+        if (!$purchase) {
+            Session::flash('error', 'Purchase bill not found.');
+            Response::redirect(url('purchases'));
+            return;
+        }
+        $userId = (int)(Session::get('user_id') ?? 0) ?: (int)(Auth::id() ?? 0);
+        Database::execute(
+            "UPDATE production_purchases
+             SET accounts_status = 'VERIFIED',
+                 accounts_verified_by = ?,
+                 accounts_verified_at = NOW(),
+                 updated_at = NOW()
+             WHERE id = ?",
+            [$userId ?: null, $purchaseId]
+        );
+        AuditService::log('purchases', 'VERIFY_ACCOUNTS', 'production_purchases', $purchaseId, ['accounts_status' => $purchase['accounts_status'] ?? 'PENDING_ACCOUNTS'], ['accounts_status' => 'VERIFIED']);
+        Session::flash('success', "Purchase bill {$purchase['purchase_number']} marked as Accounts Verified.");
+        Response::redirect(url('purchases?type=MAPPING'));
     }
 
     public function viewProductionPurchase(string $id): void {
@@ -2402,6 +2443,21 @@ class AllmodulesController {
         if (!$purchase) {
             Session::flash('error', 'Purchase record not found or does not belong to active concern.');
             Response::redirect(url('purchases'));
+            return;
+        }
+
+        $hasStockedMappingItem = Database::fetchOne(
+            "SELECT ppi.id
+             FROM production_purchase_items ppi
+             LEFT JOIN qr_generations qg ON qg.source_purchase_item_id = ppi.id
+             WHERE ppi.purchase_id = ?
+               AND (ppi.is_inwarded = 1 OR ppi.inwarded_qty > 0 OR qg.stock_added = 1)
+             LIMIT 1",
+            [$purchaseId]
+        );
+        if ($hasStockedMappingItem && (($purchase['accounts_status'] ?? '') === 'PENDING_ACCOUNTS' || str_contains((string)($purchase['notes'] ?? ''), 'Mapping'))) {
+            Session::flash('error', "Purchase bill {$purchase['purchase_number']} already has inwarded inventory stock. Please edit & verify the bill in Accounts instead of deleting.");
+            Response::redirect(url('purchases?type=MAPPING'));
             return;
         }
 
@@ -4930,8 +4986,8 @@ class AllmodulesController {
                 $tempNumber = 'TMP-PP-' . bin2hex(random_bytes(12));
                 Database::execute(
                     "INSERT INTO production_purchases
-                        (concern_id, purchase_number, purchase_type, seller_id, purchase_date, invoice_number, notes, total_amount, created_by, created_at)
-                     VALUES (?, ?, 'THIRD_PARTY', ?, ?, ?, ?, 0, ?, NOW())",
+                        (concern_id, purchase_number, purchase_type, seller_id, purchase_date, invoice_number, notes, total_amount, accounts_status, created_by, created_at)
+                     VALUES (?, ?, 'THIRD_PARTY', ?, ?, ?, ?, 0, 'PENDING_ACCOUNTS', ?, NOW())",
                     [
                         $concernId,
                         $tempNumber,

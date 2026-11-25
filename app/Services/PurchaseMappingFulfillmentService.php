@@ -171,6 +171,9 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('production_purchase_items', 'original_quantity', 'DECIMAL(12,3) DEFAULT NULL AFTER quantity');
         Database::ensureColumn('production_purchase_items', 'extra_added_qty', 'DECIMAL(12,3) NOT NULL DEFAULT 0.000 AFTER original_quantity');
         Database::ensureColumn('production_purchase_items', 'is_extra_purchase_item', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER extra_added_qty');
+        Database::ensureColumn('production_purchases', 'accounts_status', "VARCHAR(30) NOT NULL DEFAULT 'VERIFIED'");
+        Database::ensureColumn('production_purchases', 'accounts_verified_by', 'INT UNSIGNED DEFAULT NULL');
+        Database::ensureColumn('production_purchases', 'accounts_verified_at', 'DATETIME DEFAULT NULL');
         Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_bills (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             concern_id INT UNSIGNED NOT NULL,
