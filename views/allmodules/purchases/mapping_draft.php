@@ -125,91 +125,152 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         <div class="tab-content" id="mappingEntryTabContent">
             <!-- PANE 1: Third-Party Products -->
             <div class="tab-pane fade show active" id="tabThirdParty" role="tabpanel">
-                <div class="alert alert-light border d-flex align-items-center justify-content-between flex-wrap gap-2 py-2 px-3 mb-3" style="background-color: #f8faff;">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-info-circle-fill text-primary fs-5"></i>
-                        <div class="small text-muted">
-                            <strong>Multi-Product Inward:</strong> You can add multiple products (e.g. <em>Shirt</em>, <em>Pant</em>, etc.) below before saving. Click <strong>"+ Add Another Product"</strong> to add more products to this invoice.
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnBannerAddProduct">
-                        <i class="bi bi-plus-circle me-1"></i>+ Add Another Product (e.g. Pant)
-                    </button>
-                </div>
                 <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftProductForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="THIRD_PARTY">
 
                     <div id="tpProductsContainer">
-                        <!-- Product Card 0 -->
-                        <div class="tp-product-card card border mb-4 shadow-sm" data-product-index="0" style="background-color: #fafbfc;">
-                            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                        <!-- Product Block 0 -->
+                        <div class="tp-product-card border rounded-3 mb-3 p-3 bg-white" data-product-index="0">
+                            <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-primary text-white rounded-pill px-2 py-1 tp-product-badge">Product #1</span>
                                     <strong class="text-dark tp-product-title-display">New Product</strong>
                                 </div>
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-product" style="display: none;" title="Remove this product">
-                                        <i class="bi bi-trash me-1"></i>Remove Product
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-product" style="display: none;" title="Remove this product">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                            </div>
+
+                            <!-- Step 1: Compact Product, Category & Attributes Generator -->
+                            <div class="row g-2 align-items-end mb-3 p-2.5 rounded-3 bg-light-subtle border">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
+                                    <input class="form-control form-control-sm tp-product-name-input" name="products[0][product_name]" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. Shirt, Pant..." autocomplete="off">
+                                    <datalist id="tpProductSuggestions">
+                                        <?php foreach (($existingProducts ?? []) as $ep): ?>
+                                            <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
+                                        <?php endforeach; ?>
+                                    </datalist>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Unit</label>
+                                    <select class="form-select form-select-sm" name="products[0][unit]">
+                                        <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Category <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm gen-category">
+                                        <option value="">-- Category --</option>
+                                        <?php foreach ($categories as $cat): ?>
+                                            <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Sub Category</label>
+                                    <select class="form-select form-select-sm gen-subcategory">
+                                        <option value="">-- Sub Category --</option>
+                                        <?php foreach ($subcategories as $sc): ?>
+                                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Sub Sub Category</label>
+                                    <select class="form-select form-select-sm gen-subsubcategory">
+                                        <option value="">-- Sub Sub --</option>
+                                        <?php foreach ($subSubcategories as $ssc): ?>
+                                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold mb-1">HSN Code</label>
+                                    <select class="form-select form-select-sm gen-hsn font-monospace">
+                                        <option value="">Select HSN</option>
+                                        <?php foreach (($hsnList ?? []) as $hsnItem): ?>
+                                            <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>">
+                                                <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 22, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
+                                    <label class="form-label small fw-semibold mb-1">GST %</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-gst" value="5">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Qty / Variant</label>
+                                    <input type="text" inputmode="numeric" class="form-control form-control-sm gen-qty" value="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Purchase Rate</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-rate" placeholder="0.00">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">MRP (₹)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-mrp" placeholder="0.00">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-semibold mb-1">Selling (₹)</label>
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-sp" placeholder="0.00">
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(click or type comma-separated)</span></label>
+                                    <div class="d-flex flex-wrap gap-1 mb-1">
+                                        <?php foreach (['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'] as $szChip): ?>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-size-chip" data-val="<?= e($szChip) ?>"><?= e($szChip) ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="e.g. S, M, L, XL">
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(click or type comma-separated)</span></label>
+                                    <div class="d-flex flex-wrap gap-1 mb-1">
+                                        <?php foreach (['Red', 'Blue', 'Black', 'White', 'Green', 'Grey', 'Navy'] as $colChip): ?>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-color-chip" data-val="<?= e($colChip) ?>"><?= e($colChip) ?></button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="e.g. Red, Blue, Black">
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
+                                        <i class="bi bi-lightning-charge me-1"></i>Generate List
                                     </button>
                                 </div>
                             </div>
-                            <div class="card-body p-3 bg-white">
-                                <div class="row g-3 mb-3">
-                                    <div class="col-md-10">
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <label class="form-label fw-semibold mb-0">
-                                                Product / Style Name <span class="text-danger">*</span>
-                                            </label>
-                                            <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
-                                                <i class="bi bi-plus-circle me-1"></i>Auto-Created if New
-                                            </span>
-                                        </div>
-                                        <input class="form-control tp-product-name-input" name="products[0][product_name]" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. Shirt, Pant..." autocomplete="off">
-                                        <datalist id="tpProductSuggestions">
-                                            <?php foreach (($existingProducts ?? []) as $ep): ?>
-                                                <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
-                                            <?php endforeach; ?>
-                                        </datalist>
-                                        <div class="form-text small text-muted">
-                                            <i class="bi bi-info-circle me-1"></i>Type any new product name or pick an existing one from the catalog.
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label fw-semibold">Unit</label>
-                                        <select class="form-select" name="products[0][unit]">
-                                            <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
-                                        </select>
-                                    </div>
-                                </div>
 
-                                <div class="table-responsive mb-2">
-                                    <table class="table table-bordered align-middle table-sm mb-1" style="min-width: 1200px;">
-                                        <thead class="table-light small text-uppercase text-muted">
-                                            <tr>
-                                                <th style="width: 110px; min-width: 110px;">Size</th>
-                                                <th style="width: 120px; min-width: 120px;">Color</th>
-                                                <th style="width: 95px; min-width: 90px;">Qty *</th>
-                                                <th style="width: 115px; min-width: 110px;">Purchase Rate *</th>
-                                                <th style="width: 115px; min-width: 110px;">MRP *</th>
-                                                <th style="width: 115px; min-width: 110px;">Selling *</th>
-                                                <th style="width: 90px; min-width: 85px;">GST %</th>
-                                                <th style="width: 220px; min-width: 200px;">HSN Code</th>
-                                                <th style="width: 260px; min-width: 250px;">Category hierarchy *</th>
-                                                <th style="width: 50px; min-width: 50px;"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="tp-variant-rows">
-                                            <?php $variantRow(0, 0); ?>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <!-- Step 2: Compact Variant Log List -->
+                            <div class="table-responsive mb-2">
+                                <table class="table table-bordered align-middle table-sm mb-1" style="min-width: 1120px;">
+                                    <thead class="table-light small text-uppercase text-muted">
+                                        <tr>
+                                            <th style="width: 105px;">Size</th>
+                                            <th style="width: 115px;">Color</th>
+                                            <th style="width: 85px;">Qty *</th>
+                                            <th style="width: 105px;">Rate *</th>
+                                            <th style="width: 105px;">MRP *</th>
+                                            <th style="width: 105px;">Selling *</th>
+                                            <th style="width: 80px;">GST %</th>
+                                            <th style="width: 190px;">HSN Code</th>
+                                            <th style="width: 240px;">Category *</th>
+                                            <th style="width: 44px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="tp-variant-rows">
+                                        <?php $variantRow(0, 0); ?>
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                <div class="d-flex justify-content-between align-items-center pt-2">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm btn-add-variant-row">
-                                        <i class="bi bi-plus-lg me-1"></i>Add Variant Row
-                                    </button>
-                                </div>
+                            <div class="d-flex justify-content-between align-items-center pt-1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-add-variant-row">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Variant Row
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1346,6 +1407,150 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 alert('Server error: ' + err.message);
             });
+        });
+    });
+    // Compact Variant Attribute Generator (Category -> Subcategory -> Sub-Subcategory + Sizes x Colors -> Log List)
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('gen-category')) {
+            const card = e.target.closest('.tp-product-card');
+            const catId = e.target.value;
+            const subSel = card?.querySelector('.gen-subcategory');
+            const ssSel = card?.querySelector('.gen-subsubcategory');
+            if (subSel) {
+                Array.from(subSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== catId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                subSel.value = '';
+            }
+            if (ssSel) {
+                Array.from(ssSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = true;
+                    if (opt.selected) opt.selected = false;
+                });
+                ssSel.value = '';
+            }
+        } else if (e.target.classList.contains('gen-subcategory')) {
+            const card = e.target.closest('.tp-product-card');
+            const subId = e.target.value;
+            const ssSel = card?.querySelector('.gen-subsubcategory');
+            if (ssSel) {
+                Array.from(ssSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== subId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                ssSel.value = '';
+            }
+        } else if (e.target.classList.contains('gen-hsn')) {
+            const card = e.target.closest('.tp-product-card');
+            const opt = e.target.selectedOptions[0];
+            const gst = opt?.dataset?.gst;
+            const gstInput = card?.querySelector('.gen-gst');
+            if (gstInput && gst !== undefined && gst !== '') {
+                gstInput.value = gst;
+            }
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        const chip = e.target.closest('.gen-size-chip, .gen-color-chip');
+        if (chip) {
+            const isSize = chip.classList.contains('gen-size-chip');
+            const card = chip.closest('.tp-product-card');
+            const input = card?.querySelector(isSize ? '.gen-sizes-input' : '.gen-colors-input');
+            if (!input) return;
+            const val = chip.getAttribute('data-val') || '';
+            chip.classList.toggle('btn-primary');
+            chip.classList.toggle('btn-outline-secondary');
+            const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+            const existsIdx = current.findIndex(s => s.toLowerCase() === val.toLowerCase());
+            if (chip.classList.contains('btn-primary')) {
+                if (existsIdx === -1) current.push(val);
+            } else if (existsIdx !== -1) {
+                current.splice(existsIdx, 1);
+            }
+            input.value = current.join(', ');
+            return;
+        }
+
+        const genBtn = e.target.closest('.btn-generate-variants');
+        if (!genBtn) return;
+        const card = genBtn.closest('.tp-product-card');
+        if (!card) return;
+
+        const pIndex = card.getAttribute('data-product-index') || '0';
+        const tbody = card.querySelector('.tp-variant-rows');
+        const templateRow = tbody?.querySelector('.mapping-variant-row');
+        if (!tbody || !templateRow) return;
+
+        const catVal = card.querySelector('.gen-category')?.value || '';
+        const subVal = card.querySelector('.gen-subcategory')?.value || '';
+        const ssVal = card.querySelector('.gen-subsubcategory')?.value || '';
+        const hsnVal = card.querySelector('.gen-hsn')?.value || '';
+        const gstVal = card.querySelector('.gen-gst')?.value || '5';
+        const qtyVal = card.querySelector('.gen-qty')?.value || '1';
+        const rateVal = card.querySelector('.gen-rate')?.value || '';
+        const mrpVal = card.querySelector('.gen-mrp')?.value || '';
+        const spVal = card.querySelector('.gen-sp')?.value || '';
+
+        const sizes = (card.querySelector('.gen-sizes-input')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const colors = (card.querySelector('.gen-colors-input')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const sizeList = sizes.length ? sizes : [''];
+        const colorList = colors.length ? colors : [''];
+
+        const combos = [];
+        for (const sz of sizeList) {
+            for (const col of colorList) {
+                combos.push({ size: sz, color: col });
+            }
+        }
+
+        const rowCloneBase = templateRow.cloneNode(true);
+        tbody.innerHTML = '';
+
+        combos.forEach((combo, vIdx) => {
+            const row = rowCloneBase.cloneNode(true);
+            row.querySelectorAll('input, select').forEach(el => {
+                if (el.name) {
+                    el.name = el.name.replace(/products\[\d+\]\[variants\]\[\d+\]/, `products[${pIndex}][variants][${vIdx}]`);
+                }
+            });
+            const szInp = row.querySelector('input[name*="[size]"]');
+            const colInp = row.querySelector('input[name*="[color]"]');
+            const qtyInp = row.querySelector('.map-qty');
+            const rateInp = row.querySelector('.map-rate');
+            const mrpInp = row.querySelector('.map-mrp');
+            const spInp = row.querySelector('.map-sp');
+            const gstInp = row.querySelector('.map-gst');
+            const hsnSel = row.querySelector('.mapping-hsn-select');
+            const catSel = row.querySelector('.mapping-category');
+            const subSel = row.querySelector('.mapping-subcategory');
+            const ssSel = row.querySelector('.mapping-subsubcategory');
+
+            if (szInp) szInp.value = combo.size;
+            if (colInp) colInp.value = combo.color;
+            if (qtyInp) qtyInp.value = qtyVal;
+            if (rateInp && rateVal !== '') rateInp.value = rateVal;
+            if (mrpInp && mrpVal !== '') mrpInp.value = mrpVal;
+            if (spInp && spVal !== '') spInp.value = spVal;
+            if (gstInp) gstInp.value = gstVal;
+            if (hsnSel && hsnVal) hsnSel.value = hsnVal;
+
+            if (catSel && catVal) {
+                catSel.value = catVal;
+                catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                if (subSel && subVal) {
+                    subSel.value = subVal;
+                    subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (ssSel && ssVal) {
+                        ssSel.value = ssVal;
+                    }
+                }
+            }
+            tbody.appendChild(row);
         });
     });
 });
