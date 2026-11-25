@@ -65,11 +65,6 @@
                             <td class="text-end pe-4">
                                 <div class="d-flex align-items-center justify-content-end gap-2 flex-nowrap">
                                     <?php if (hasPermission('roles', 'edit')): ?>
-                                    <a href="<?= url('admin/roles/permissions/' . $r['id']) ?>"
-                                       class="btn btn-sm btn-outline-primary"
-                                       title="Manage Permissions">
-                                        <i class="bi bi-key me-1"></i>Permissions
-                                    </a>
                                     <a href="<?= url('admin/roles/edit/' . $r['id']) ?>"
                                        class="btn btn-sm btn-outline-secondary"
                                        title="Edit Role">

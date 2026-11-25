@@ -214,6 +214,12 @@
                                 <a href="<?= url('admin/concerns/edit/' . $c['id']) ?>" class="btn btn-sm btn-outline-secondary" title="Edit Concern &amp; Staff">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        title="Delete Concern"
+                                        onclick="openDeleteConcernModal(<?= (int)$c['id'] ?>, <?= htmlspecialchars(json_encode((string)$c['name']), ENT_QUOTES, 'UTF-8') ?>)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -409,4 +415,44 @@ function updateModalStaffCount(cId) {
         if (valSpan) valSpan.textContent = checked.length;
     }
 }
+
+function openDeleteConcernModal(concernId, concernName) {
+    const form = document.getElementById('deleteConcernForm');
+    const nameEl = document.getElementById('deleteConcernName');
+    if (form) {
+        form.action = '<?= url('admin/concerns/delete/') ?>' + concernId;
+    }
+    if (nameEl) {
+        nameEl.textContent = concernName || 'this concern';
+    }
+    const modalEl = document.getElementById('deleteConcernModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+}
 </script>
+
+<!-- Delete Concern Confirmation Modal -->
+<div class="modal fade" id="deleteConcernModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="" id="deleteConcernForm" class="modal-content border-0 shadow">
+            <?= CSRF::field() ?>
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Delete Business Concern
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Are you sure you want to delete <strong id="deleteConcernName">this concern</strong>?</p>
+                <p class="text-muted small mb-0">This action cannot be undone. Concerns with linked units, warehouses, shops, or transactions cannot be deleted.</p>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash me-1"></i>Delete Concern
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

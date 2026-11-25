@@ -686,6 +686,7 @@ class Router {
         $this->post('admin/concerns/modules/{id}', 'ConcernController', 'updateModules', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->get('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->post('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/delete/{id}', 'ConcernController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->get('system/concerns/switch/{id}', 'ConcernController', 'switch', ['AuthMiddleware']);
     }
 }

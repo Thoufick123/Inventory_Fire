@@ -827,6 +827,84 @@ class ConcernController {
     }
 
     /**
+     * Delete a business concern when no operational records depend on it.
+     */
+    public function delete(string $id): void {
+        $this->authorizeAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $concernId = (int)$id;
+        $concern = Database::fetchOne("SELECT * FROM concerns WHERE id = ?", [$concernId]);
+        if (!$concern) {
+            Session::flash('error', 'Concern not found.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $totalCount = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns");
+        if ($totalCount <= 1) {
+            Session::flash('error', 'Cannot delete the only business concern.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        if ((int)($concern['is_active'] ?? 0) === 1) {
+            $otherActive = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns WHERE is_active = 1 AND id != ?", [$concernId]);
+            if ($otherActive <= 0) {
+                Session::flash('error', 'Cannot delete the only active business concern.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+        }
+
+        $linkedChecks = [
+            'production_units' => 'production units',
+            'warehouses' => 'warehouses',
+            'shops' => 'shops',
+            'production_purchases' => 'purchases',
+            'production_bills' => 'bills',
+        ];
+        foreach ($linkedChecks as $table => $label) {
+            try {
+                $cnt = (int)Database::fetchColumn("SELECT COUNT(*) FROM {$table} WHERE concern_id = ?", [$concernId]);
+                if ($cnt > 0) {
+                    Session::flash('error', "Cannot delete '{$concern['name']}' because it has linked {$label}. Deactivate it from Edit instead.");
+                    Response::redirect(url('admin/concerns'));
+                    return;
+                }
+            } catch (Exception $e) {
+                // Ignore if a table does not exist in this installation
+            }
+        }
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+
+        try {
+            $db->prepare("DELETE FROM concern_modules WHERE concern_id = ?")->execute([$concernId]);
+            $db->prepare("DELETE FROM user_concerns WHERE concern_id = ?")->execute([$concernId]);
+            $db->prepare("UPDATE users SET default_concern_id = NULL WHERE default_concern_id = ?")->execute([$concernId]);
+            $db->prepare("DELETE FROM concerns WHERE id = ?")->execute([$concernId]);
+            $db->commit();
+
+            if (method_exists('Session', 'getActiveConcernId') && Session::getActiveConcernId() === $concernId) {
+                Session::set('active_concern_id', null);
+            }
+
+            Session::flash('success', "Business Concern '{$concern['name']}' deleted successfully.");
+        } catch (Exception $e) {
+            $db->rollBack();
+            Session::flash('error', 'Cannot delete concern because it is referenced by existing records. Deactivate it from Edit instead.');
+        }
+
+        Response::redirect(url('admin/concerns'));
+    }
+
+    /**
      * Validate contact and operating address fields for concern create/update.
      */
     private function validateConcernContactFields(
