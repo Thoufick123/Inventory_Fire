@@ -77,6 +77,290 @@ class AdminController {
     }
 
     /**
+     * Resolve authorized dashboard concern scope from query parameter or active session context.
+     */
+    private function resolveDashboardConcernScope(?string $requestedConcernParam = null): ?array {
+        $isGlobalAdmin = isSuperAdmin();
+        $availableConcerns = getAvailableUserConcerns();
+        $allowedConcernIds = array_values(array_unique(array_map(
+            'intval',
+            array_column($availableConcerns, 'id')
+        )));
+
+        $concernMap = [];
+        foreach ($availableConcerns as $concernRow) {
+            $concernMap[(int)$concernRow['id']] = $concernRow;
+        }
+
+        if (!$isGlobalAdmin && empty($allowedConcernIds)) {
+            return null;
+        }
+
+        $selectedConcernId = null;
+        if ($requestedConcernParam !== null && $requestedConcernParam !== '') {
+            $normalized = strtolower(trim($requestedConcernParam));
+            if ($normalized === 'all' || $normalized === '0') {
+                $selectedConcernId = ($isGlobalAdmin || count($allowedConcernIds) > 1)
+                    ? null
+                    : $allowedConcernIds[0];
+            } else {
+                $cid = filter_var($requestedConcernParam, FILTER_VALIDATE_INT);
+                if ($cid === false || $cid < 1 || !isset($concernMap[(int)$cid])) {
+                    return ['unauthorized' => true];
+                }
+                $selectedConcernId = (int)$cid;
+            }
+        } else {
+            $activeCid = currentConcernId();
+            if ($activeCid !== null && isset($concernMap[$activeCid])) {
+                $selectedConcernId = $activeCid;
+            } elseif (!$isGlobalAdmin && count($allowedConcernIds) === 1) {
+                $selectedConcernId = $allowedConcernIds[0];
+            }
+        }
+
+        return [
+            'unauthorized'      => false,
+            'isGlobalAdmin'     => $isGlobalAdmin,
+            'availableConcerns' => $availableConcerns,
+            'allowedConcernIds' => $allowedConcernIds,
+            'concernMap'        => $concernMap,
+            'selectedConcernId' => $selectedConcernId,
+            'selectedConcern'   => $selectedConcernId !== null ? ($concernMap[$selectedConcernId] ?? null) : null,
+        ];
+    }
+
+    /**
+     * Build SQL concern_id filter fragment and bound parameters.
+     */
+    private function buildRevenueConcernFilter(
+        string $columnRef,
+        ?int $selectedConcernId,
+        array $allowedConcernIds,
+        bool $isGlobalAdmin
+    ): array {
+        if ($selectedConcernId !== null) {
+            if ($selectedConcernId === 1) {
+                return [" AND ({$columnRef} = ? OR {$columnRef} IS NULL)", [1]];
+            }
+            return [" AND {$columnRef} = ?", [$selectedConcernId]];
+        }
+
+        if ($isGlobalAdmin) {
+            return ['', []];
+        }
+
+        if (empty($allowedConcernIds)) {
+            return [' AND 1 = 0', []];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($allowedConcernIds), '?'));
+        if (in_array(1, $allowedConcernIds, true)) {
+            return [" AND ({$columnRef} IN ({$placeholders}) OR {$columnRef} IS NULL)", $allowedConcernIds];
+        }
+        return [" AND {$columnRef} IN ({$placeholders})", $allowedConcernIds];
+    }
+
+    /**
+     * Compute dashboard KPI cards and revenue chart datasets for the selected concern scope.
+     */
+    private function getDashboardRevenueAnalytics(array $scope, int $months = 12): array {
+        $months = in_array($months, [6, 12], true) ? $months : 12;
+        $isGlobalAdmin     = $scope['isGlobalAdmin'];
+        $availableConcerns = $scope['availableConcerns'];
+        $allowedConcernIds = $scope['allowedConcernIds'];
+        $concernMap        = $scope['concernMap'];
+        $selectedConcernId = $scope['selectedConcernId'];
+        $selectedConcern   = $scope['selectedConcern'];
+
+        // 1. Total Concerns Count
+        $totalConcerns = ($selectedConcernId !== null) ? 1 : count($availableConcerns);
+        $concernsSubtitle = $selectedConcern
+            ? ($selectedConcern['name'] . ' (' . $selectedConcern['code'] . ')')
+            : 'All Active Business Entities';
+
+        // 2. Total Staff Count (active non-superadmin staff within concern scope)
+        $staffSql = "SELECT COUNT(DISTINCT u.id) AS cnt
+                     FROM users u
+                     LEFT JOIN roles r ON u.role_id = r.id
+                     WHERE u.is_active = 1
+                       AND (u.role_id != 1 AND u.username != 'admin' AND (r.slug NOT IN ('admin', 'super_admin') OR r.slug IS NULL))";
+        $staffParams = [];
+        if ($selectedConcernId !== null) {
+            $staffSql .= " AND (EXISTS (SELECT 1 FROM user_concerns uc WHERE uc.user_id = u.id AND uc.concern_id = ?) OR u.default_concern_id = ?)";
+            $staffParams[] = $selectedConcernId;
+            $staffParams[] = $selectedConcernId;
+        } elseif (!$isGlobalAdmin) {
+            if (!empty($allowedConcernIds)) {
+                $placeholders = implode(',', array_fill(0, count($allowedConcernIds), '?'));
+                $staffSql .= " AND (EXISTS (SELECT 1 FROM user_concerns uc WHERE uc.user_id = u.id AND uc.concern_id IN ({$placeholders})) OR u.default_concern_id IN ({$placeholders}))";
+                $staffParams = array_merge($allowedConcernIds, $allowedConcernIds);
+            } else {
+                $staffSql .= " AND 1 = 0";
+            }
+        }
+        $totalStaff = (int)(Database::fetchOne($staffSql, $staffParams)['cnt'] ?? 0);
+        $staffSubtitle = $selectedConcern
+            ? ('Assigned to ' . $selectedConcern['code'])
+            : 'Active Workforce Directory';
+
+        // 3. Total Purchase Amount (production_purchases)
+        [$purFilter, $purParams] = $this->buildRevenueConcernFilter('pp.concern_id', $selectedConcernId, $allowedConcernIds, $isGlobalAdmin);
+        $purchaseRow = Database::fetchOne(
+            "SELECT COUNT(*) AS purchase_count,
+                    COALESCE(SUM(pp.total_amount), 0) AS total_purchase_amount
+             FROM production_purchases pp
+             WHERE 1=1{$purFilter}",
+            $purParams
+        );
+        $purchaseCount       = (int)($purchaseRow['purchase_count'] ?? 0);
+        $totalPurchaseAmount = round((float)($purchaseRow['total_purchase_amount'] ?? 0), 2);
+
+        // 4. Total Selling Amount (production_bills)
+        [$billFilter, $billParams] = $this->buildRevenueConcernFilter('pb.concern_id', $selectedConcernId, $allowedConcernIds, $isGlobalAdmin);
+        $sellingRow = Database::fetchOne(
+            "SELECT COUNT(*) AS selling_count,
+                    COALESCE(SUM(pb.total_amount), 0) AS total_selling_amount,
+                    COALESCE(SUM(CASE WHEN pb.payment_status = 'PAID' THEN pb.total_amount ELSE 0 END), 0) AS paid_selling_amount,
+                    COALESCE(SUM(CASE WHEN pb.payment_status != 'PAID' THEN pb.total_amount ELSE 0 END), 0) AS pending_selling_amount
+             FROM production_bills pb
+             WHERE 1=1{$billFilter}",
+            $billParams
+        );
+        $sellingCount         = (int)($sellingRow['selling_count'] ?? 0);
+        $totalSellingAmount   = round((float)($sellingRow['total_selling_amount'] ?? 0), 2);
+        $paidSellingAmount    = round((float)($sellingRow['paid_selling_amount'] ?? 0), 2);
+        $pendingSellingAmount = round((float)($sellingRow['pending_selling_amount'] ?? 0), 2);
+        $netRevenueBalance    = round($totalSellingAmount - $totalPurchaseAmount, 2);
+
+        // 5. Monthly Revenue Trend (Last N Months)
+        $monthKeys = [];
+        $monthLabels = [];
+        $baseTs = strtotime(date('Y-m-01'));
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $ts = strtotime("-{$i} months", $baseTs);
+            $ym = date('Y-m', $ts);
+            $monthKeys[] = $ym;
+            $monthLabels[] = date('M Y', $ts);
+        }
+        $startDate = $monthKeys[0] . '-01';
+
+        $monthlyPurchaseRows = Database::fetchAll(
+            "SELECT DATE_FORMAT(pp.purchase_date, '%Y-%m') AS ym,
+                    COALESCE(SUM(pp.total_amount), 0) AS total_amt
+             FROM production_purchases pp
+             WHERE pp.purchase_date >= ?{$purFilter}
+             GROUP BY DATE_FORMAT(pp.purchase_date, '%Y-%m')",
+            array_merge([$startDate], $purParams)
+        ) ?: [];
+        $monthlyPurchaseMap = [];
+        foreach ($monthlyPurchaseRows as $row) {
+            $monthlyPurchaseMap[$row['ym']] = round((float)$row['total_amt'], 2);
+        }
+
+        $monthlySellingRows = Database::fetchAll(
+            "SELECT DATE_FORMAT(pb.bill_date, '%Y-%m') AS ym,
+                    COALESCE(SUM(pb.total_amount), 0) AS total_amt
+             FROM production_bills pb
+             WHERE pb.bill_date >= ?{$billFilter}
+             GROUP BY DATE_FORMAT(pb.bill_date, '%Y-%m')",
+            array_merge([$startDate], $billParams)
+        ) ?: [];
+        $monthlySellingMap = [];
+        foreach ($monthlySellingRows as $row) {
+            $monthlySellingMap[$row['ym']] = round((float)$row['total_amt'], 2);
+        }
+
+        $trendPurchases = [];
+        $trendSelling = [];
+        foreach ($monthKeys as $ym) {
+            $trendPurchases[] = $monthlyPurchaseMap[$ym] ?? 0.0;
+            $trendSelling[]   = $monthlySellingMap[$ym] ?? 0.0;
+        }
+
+        // 6. Concern-wise Purchase vs Selling Breakdown
+        $concernsToCompare = $selectedConcern ? [$selectedConcern] : $availableConcerns;
+        $hasConcernOne = isset($concernMap[1]);
+        $purExpr = $hasConcernOne ? 'COALESCE(pp.concern_id, 1)' : 'pp.concern_id';
+        $billExpr = $hasConcernOne ? 'COALESCE(pb.concern_id, 1)' : 'pb.concern_id';
+
+        $purByConcernRows = Database::fetchAll(
+            "SELECT {$purExpr} AS cid, COALESCE(SUM(pp.total_amount), 0) AS total_amt
+             FROM production_purchases pp
+             WHERE 1=1{$purFilter}
+             GROUP BY {$purExpr}",
+            $purParams
+        ) ?: [];
+        $purByConcern = [];
+        foreach ($purByConcernRows as $r) {
+            if ($r['cid'] !== null) {
+                $purByConcern[(int)$r['cid']] = round((float)$r['total_amt'], 2);
+            }
+        }
+
+        $sellByConcernRows = Database::fetchAll(
+            "SELECT {$billExpr} AS cid, COALESCE(SUM(pb.total_amount), 0) AS total_amt
+             FROM production_bills pb
+             WHERE 1=1{$billFilter}
+             GROUP BY {$billExpr}",
+            $billParams
+        ) ?: [];
+        $sellByConcern = [];
+        foreach ($sellByConcernRows as $r) {
+            if ($r['cid'] !== null) {
+                $sellByConcern[(int)$r['cid']] = round((float)$r['total_amt'], 2);
+            }
+        }
+
+        $comparisonLabels = [];
+        $comparisonPurchases = [];
+        $comparisonSelling = [];
+        foreach ($concernsToCompare as $cRow) {
+            $cid = (int)$cRow['id'];
+            $comparisonLabels[]    = $cRow['name'] . ' (' . $cRow['code'] . ')';
+            $comparisonPurchases[] = $purByConcern[$cid] ?? 0.0;
+            $comparisonSelling[]   = $sellByConcern[$cid] ?? 0.0;
+        }
+
+        return [
+            'selectedConcernId' => $selectedConcernId ? (string)$selectedConcernId : 'all',
+            'selectedScopeName' => $selectedConcern
+                ? ($selectedConcern['name'] . ' (' . $selectedConcern['code'] . ')')
+                : 'All Concerns (Overall)',
+            'months' => $months,
+            'cards' => [
+                'totalConcerns'        => $totalConcerns,
+                'concernsSubtitle'     => $concernsSubtitle,
+                'totalStaff'           => $totalStaff,
+                'staffSubtitle'        => $staffSubtitle,
+                'totalPurchaseAmount'  => $totalPurchaseAmount,
+                'purchaseCount'        => $purchaseCount,
+                'totalSellingAmount'   => $totalSellingAmount,
+                'sellingCount'         => $sellingCount,
+                'paidSellingAmount'    => $paidSellingAmount,
+                'pendingSellingAmount' => $pendingSellingAmount,
+                'netRevenueBalance'    => $netRevenueBalance,
+            ],
+            'charts' => [
+                'monthlyTrend' => [
+                    'labels'    => $monthLabels,
+                    'purchases' => $trendPurchases,
+                    'selling'   => $trendSelling,
+                ],
+                'revenueSplit' => [
+                    'labels' => ['Total Selling', 'Total Purchases'],
+                    'values' => [$totalSellingAmount, $totalPurchaseAmount],
+                ],
+                'concernComparison' => [
+                    'labels'    => $comparisonLabels,
+                    'purchases' => $comparisonPurchases,
+                    'selling'   => $comparisonSelling,
+                ],
+            ],
+        ];
+    }
+
+    /**
      * Admin Dashboard.
      */
     public function dashboard(): void {
@@ -197,78 +481,45 @@ class AdminController {
             return;
         }
 
-        // Aggregate KPIs
-        $data = [
-            'pageTitle'    => 'Dashboard',
-            'activeMenu'   => 'dashboard',
-            'breadcrumb'   => [['label' => 'Dashboard']],
-        ];
+        $requestedConcern = isset($_GET['concern_id']) ? (string)$_GET['concern_id'] : null;
+        $requestedMonths  = isset($_GET['months']) ? (int)$_GET['months'] : 12;
+        $scope = $this->resolveDashboardConcernScope($requestedConcern);
 
-        $isGlobalAdmin = isSuperAdmin();
-        $concernId = $isGlobalAdmin ? null : currentConcernId();
-        if (!$isGlobalAdmin && !$concernId) {
+        if ($scope === null || !empty($scope['unauthorized'])) {
             Response::error(403, 'Select an assigned business concern to view its dashboard.');
             return;
         }
 
-        $concernFilter = '';
-        $concernParams = [];
-        if ($concernId !== null) {
-            $concernFilter = $concernId === 1
-                ? ' AND (concern_id = ? OR concern_id IS NULL)'
-                : ' AND concern_id = ?';
-            $concernParams[] = $concernId;
+        $analytics = $this->getDashboardRevenueAnalytics($scope, $requestedMonths);
+
+        Response::view('admin.dashboard', [
+            'pageTitle'           => 'Dashboard',
+            'activeMenu'          => 'dashboard',
+            'breadcrumb'          => [['label' => 'Dashboard']],
+            'availableConcerns'   => $scope['availableConcerns'],
+            'canSelectAllConcerns'=> $scope['isGlobalAdmin'] || count($scope['allowedConcernIds']) > 1,
+            'analytics'           => $analytics,
+        ]);
+    }
+
+    /**
+     * AJAX endpoint: Return concern-filtered KPI cards and revenue charts JSON.
+     */
+    public function ajaxDashboardRevenue(): void {
+        if (!hasPermission('dashboard', 'view')) {
+            Response::jsonError('Access denied: You do not have permission to view dashboard analytics.', [], 403);
         }
 
-        // Production Units & Staff KPI counts
-        $productionUnits = ProductionUnit::getAll();
-        $managerFilters  = ['is_active' => 1];
-        if ($concernId !== null) {
-            $managerFilters['concern_id'] = $concernId;
+        $requestedConcern = isset($_GET['concern_id']) ? (string)$_GET['concern_id'] : 'all';
+        $requestedMonths  = isset($_GET['months']) ? (int)$_GET['months'] : 12;
+        $scope = $this->resolveDashboardConcernScope($requestedConcern);
+
+        if ($scope === null || !empty($scope['unauthorized'])) {
+            Response::jsonError('Unauthorized or invalid concern selection.', [], 403);
         }
-        $managersList = User::getAll($managerFilters);
 
-        $data['totalProductionUnits'] = count($productionUnits);
-        $data['totalStaff']           = count($managersList);
-
-        // Total products
-        $result = Database::fetchOne("SELECT COUNT(*) as cnt FROM products WHERE is_active = 1");
-        $data['totalProducts'] = $result['cnt'] ?? 0;
-
-        // Pending production programs
-        $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM production_programs
-             WHERE status IN ('DRAFT', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS'){$concernFilter}",
-            $concernParams
-        );
-        $data['pendingProduction'] = $result['cnt'] ?? 0;
-
-        // Pending QC
-        $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM qc_batches WHERE status = 'PENDING'{$concernFilter}",
-            $concernParams
-        );
-        $data['pendingQC'] = $result['cnt'] ?? 0;
-
-        // Active cutting batches
-        $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM cutting_batches WHERE status IN ('PENDING', 'IN_PROGRESS'){$concernFilter}",
-            $concernParams
-        );
-        $data['activeCutting'] = $result['cnt'] ?? 0;
-
-        // Active stitching batches
-        $result = Database::fetchOne(
-            "SELECT COUNT(*) as cnt FROM stitching_batches WHERE status IN ('PENDING', 'IN_PROGRESS'){$concernFilter}",
-            $concernParams
-        );
-        $data['activeStitching'] = $result['cnt'] ?? 0;
-
-        // Recent Audit Activity Logs
-        $data['recentAuditLogs'] = AuditService::getLogs([], 6, 0);
-        $data['auditStats'] = AuditService::getStats();
-
-        Response::view('admin.dashboard', $data);
+        $analytics = $this->getDashboardRevenueAnalytics($scope, $requestedMonths);
+        Response::jsonSuccess('Dashboard revenue metrics loaded.', $analytics);
     }
 
     /**
