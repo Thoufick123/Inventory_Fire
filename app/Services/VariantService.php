@@ -339,13 +339,17 @@ class VariantService {
      */
     public static function getVariantStock(int $variantId, ?int $productionUnitId = null): array {
         $params = [$variantId];
-        $sql = "SELECT sb.*, pu.name as unit_name
+        $sql = "SELECT sb.*,
+                       CASE WHEN sb.location_type = 'WAREHOUSE' THEN w.name ELSE pu.name END AS unit_name
                 FROM stock_balances sb
-                LEFT JOIN production_units pu ON pu.id = sb.location_id
-                WHERE sb.variant_id = ? AND sb.location_type = 'PRODUCTION_UNIT' AND sb.stock_state = 'AVAILABLE'";
+                LEFT JOIN production_units pu ON sb.location_type = 'PRODUCTION_UNIT' AND pu.id = sb.location_id
+                LEFT JOIN warehouses w ON sb.location_type = 'WAREHOUSE' AND w.id = sb.location_id
+                WHERE sb.variant_id = ?
+                  AND sb.location_type IN ('PRODUCTION_UNIT', 'WAREHOUSE')
+                  AND sb.stock_state = 'AVAILABLE'";
 
         if ($productionUnitId) {
-            $sql .= " AND sb.location_id = ?";
+            $sql .= " AND sb.location_type = 'PRODUCTION_UNIT' AND sb.location_id = ?";
             $params[] = $productionUnitId;
         }
 
@@ -356,10 +360,15 @@ class VariantService {
         foreach ($rows as $r) {
             $qty = (float)$r['quantity'];
             $total += $qty;
+            $locLabel = $r['unit_name'] ?? (($r['location_type'] === 'WAREHOUSE' ? 'Warehouse #' : 'Unit #') . $r['location_id']);
+            if ($r['location_type'] === 'WAREHOUSE' && !empty($r['unit_name'])) {
+                $locLabel .= ' (Warehouse)';
+            }
             $breakdown[] = [
-                'unit_id'   => (int)$r['location_id'],
-                'unit_name' => $r['unit_name'] ?? ('Unit #' . $r['location_id']),
-                'quantity'  => $qty
+                'unit_id'       => (int)$r['location_id'],
+                'location_type' => $r['location_type'],
+                'unit_name'     => $locLabel,
+                'quantity'      => $qty
             ];
         }
 

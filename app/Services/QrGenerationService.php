@@ -444,7 +444,21 @@ class QrGenerationService {
         if ($subcatCode) $prefixParts[] = $subcatCode;
         if ($subSubcatCode) $prefixParts[] = $subSubcatCode;
 
-        if ($variant && !empty($variant['sku'])) {
+        $permanentVariantQr = '';
+        if ($variant) {
+            $permanentVariantQr = strtoupper(trim((string)($variant['qr_code'] ?: ($variant['variant_code'] ?? ''))));
+            if ($permanentVariantQr === '' && class_exists('VariantService')) {
+                $permanentVariantQr = VariantService::generateNextVariantCode();
+                Database::execute(
+                    "UPDATE product_variants SET variant_code = COALESCE(NULLIF(variant_code, ''), ?), qr_code = ? WHERE id = ?",
+                    [$permanentVariantQr, $permanentVariantQr, $variantId]
+                );
+            }
+        }
+
+        if ($permanentVariantQr !== '') {
+            $qrPrefix = $permanentVariantQr;
+        } elseif ($variant && !empty($variant['sku'])) {
             $qrPrefix = $brandCode . '-' . $variant['sku'];
         } else {
             $qrPrefix = implode('-', $prefixParts) . '-' . $product['code'];
@@ -507,19 +521,30 @@ class QrGenerationService {
                 "INSERT INTO qr_generation_items (generation_id, qr_code, sequence_num, status) VALUES (?, ?, ?, 'ACTIVE')"
             );
 
-            for ($i = 0; $i < $quantity; $i++) {
-                $currSeq = $startSeq + $i;
-                $seqStr = str_pad((string)$currSeq, 4, '0', STR_PAD_LEFT);
-                $qrCode = $qrPrefix . '-' . $seqStr;
-
-                while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$qrCode])) {
-                    $currSeq++;
+            if ($permanentVariantQr !== '') {
+                $existingQrItem = Database::fetchOne(
+                    "SELECT id FROM qr_generation_items WHERE qr_code = ? LIMIT 1",
+                    [$permanentVariantQr]
+                );
+                if (!$existingQrItem) {
+                    $insertItemStmt->execute([$generationId, $permanentVariantQr, 1]);
+                }
+                $generatedCodes[] = $permanentVariantQr;
+            } else {
+                for ($i = 0; $i < $quantity; $i++) {
+                    $currSeq = $startSeq + $i;
                     $seqStr = str_pad((string)$currSeq, 4, '0', STR_PAD_LEFT);
                     $qrCode = $qrPrefix . '-' . $seqStr;
-                }
 
-                $insertItemStmt->execute([$generationId, $qrCode, $currSeq]);
-                $generatedCodes[] = $qrCode;
+                    while (Database::fetchOne("SELECT id FROM qr_generation_items WHERE qr_code = ?", [$qrCode])) {
+                        $currSeq++;
+                        $seqStr = str_pad((string)$currSeq, 4, '0', STR_PAD_LEFT);
+                        $qrCode = $qrPrefix . '-' . $seqStr;
+                    }
+
+                    $insertItemStmt->execute([$generationId, $qrCode, $currSeq]);
+                    $generatedCodes[] = $qrCode;
+                }
             }
 
             if ($variantId > 0 && !empty($generatedCodes[0])) {

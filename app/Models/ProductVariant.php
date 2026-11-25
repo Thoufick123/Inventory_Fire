@@ -14,9 +14,9 @@ class ProductVariant {
             "SELECT pv.*,
                     p.name as product_name, p.code as parent_sku, p.category_id, p.subcategory_id, p.sub_subcategory_id,
                     p.brand_id, p.hsn_code as product_hsn, p.gst_percentage as product_gst,
-                    c.name as category_name, c.code as category_code,
-                    sc.name as subcategory_name, sc.code as subcategory_code,
-                    ssc.name as sub_subcategory_name, ssc.code as sub_subcategory_code,
+                    COALESCE(c.name, tc.name) as category_name, COALESCE(c.code, tc.code) as category_code,
+                    COALESCE(sc.name, tsc.name) as subcategory_name, COALESCE(sc.code, tsc.code) as subcategory_code,
+                    COALESCE(ssc.name, tssc.name) as sub_subcategory_name, COALESCE(ssc.code, tssc.code) as sub_subcategory_code,
                     b.name as brand_name,
                     col.name as color_name, col.hex_code as color_hex,
                     d.name as design_name, d.code as design_code,
@@ -26,6 +26,12 @@ class ProductVariant {
              LEFT JOIN categories c ON c.id = p.category_id
              LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
              LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+             LEFT JOIN third_party_product_variants tpv ON tpv.id = (
+                 SELECT id FROM third_party_product_variants WHERE product_variant_id = pv.id ORDER BY id DESC LIMIT 1
+             )
+             LEFT JOIN third_party_categories tc ON tc.id = tpv.third_party_category_id
+             LEFT JOIN third_party_subcategories tsc ON tsc.id = tpv.third_party_subcategory_id
+             LEFT JOIN third_party_sub_subcategories tssc ON tssc.id = tpv.third_party_sub_subcategory_id
              LEFT JOIN brands b ON b.id = p.brand_id
              LEFT JOIN colors col ON col.id = pv.color_id
              LEFT JOIN designs d ON d.id = pv.design_id
