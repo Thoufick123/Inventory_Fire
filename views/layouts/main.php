@@ -31,10 +31,121 @@ if (!empty($authUser['production_unit_name'])) {
     <!-- Fonts & Icons & Bootstrap CSS (Fast Local Assets with Zero External Latency) -->
     <link href="<?= asset('css/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= asset('css/bootstrap-icons.min.css') ?>" rel="stylesheet">
-    <link href="<?= asset('css/style.css') ?>" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="<?= asset('css/style.css') ?>?v=<?= file_exists(BASE_PATH . '/public/assets/css/style.css') ? filemtime(BASE_PATH . '/public/assets/css/style.css') : '1.1' ?>" rel="stylesheet">
     <link href="<?= asset('css/reports.css') ?>?v=<?= file_exists(BASE_PATH . '/public/assets/css/reports.css') ? filemtime(BASE_PATH . '/public/assets/css/reports.css') : '1' ?>" rel="stylesheet">
+    <?php
+    if (!class_exists('SettingsService') && defined('BASE_PATH') && file_exists(BASE_PATH . '/app/Services/SettingsService.php')) {
+        require_once BASE_PATH . '/app/Services/SettingsService.php';
+    }
+    $activeTheme = class_exists('SettingsService') ? SettingsService::getThemeConfig() : [
+        'primary'       => '#4f46e5',
+        'primary_hover' => '#3d34d3',
+        'primary_light' => '#ededfc',
+        'primary_tint'  => '#9e99f1',
+        'primary_rgb'   => '79, 70, 229',
+        'sidebar_bg'    => '#1e293b',
+        'sidebar_text'  => '#94a3b8',
+        'navbar_bg'     => '#ffffff',
+        'page_bg'       => '#f8fafc',
+    ];
+    ?>
+    <style id="appDynamicThemeStyles">
+        :root {
+            --primary: <?= e($activeTheme['primary']) ?>;
+            --primary-hover: <?= e($activeTheme['primary_hover']) ?>;
+            --primary-light: <?= e($activeTheme['primary_light']) ?>;
+            --primary-rgb: <?= e($activeTheme['primary_rgb']) ?>;
+            --sidebar-bg: <?= e($activeTheme['sidebar_bg']) ?>;
+            --sidebar-text: <?= e($activeTheme['sidebar_text']) ?>;
+            --navbar-bg: <?= e($activeTheme['navbar_bg']) ?>;
+            --page-bg: <?= e($activeTheme['page_bg']) ?>;
+            --bs-primary: var(--primary);
+            --bs-primary-rgb: var(--primary-rgb);
+            --bs-link-color: var(--primary);
+            --bs-link-hover-color: var(--primary-hover);
+            --bs-link-color-rgb: var(--primary-rgb);
+        }
+        body {
+            background-color: var(--page-bg) !important;
+        }
+        .sidebar {
+            background: var(--sidebar-bg) !important;
+        }
+        .sidebar-brand i,
+        .submenu li a.active {
+            color: var(--primary-tint, var(--primary)) !important;
+        }
+        .sidebar .nav-item .nav-link,
+        .submenu li a {
+            color: var(--sidebar-text);
+        }
+        .sidebar .nav-item .nav-link.active {
+            color: #ffffff;
+            background: rgba(var(--primary-rgb), 0.22) !important;
+            border-left-color: var(--primary) !important;
+        }
+        .top-navbar {
+            background: var(--navbar-bg) !important;
+        }
+        .btn-primary {
+            --bs-btn-bg: var(--primary);
+            --bs-btn-border-color: var(--primary);
+            --bs-btn-hover-bg: var(--primary-hover);
+            --bs-btn-hover-border-color: var(--primary-hover);
+            --bs-btn-active-bg: var(--primary-hover);
+            --bs-btn-active-border-color: var(--primary-hover);
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+        .btn-primary:hover,
+        .btn-primary:focus,
+        .btn-primary:active {
+            background-color: var(--primary-hover) !important;
+            border-color: var(--primary-hover) !important;
+            box-shadow: 0 4px 10px rgba(var(--primary-rgb), 0.3);
+        }
+        .btn-outline-primary {
+            --bs-btn-color: var(--primary);
+            --bs-btn-border-color: var(--primary);
+            --bs-btn-hover-bg: var(--primary);
+            --bs-btn-hover-border-color: var(--primary);
+            --bs-btn-active-bg: var(--primary);
+            --bs-btn-active-border-color: var(--primary);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-outline-primary:hover,
+        .btn-outline-primary:active {
+            color: #ffffff !important;
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+        .bg-primary {
+            background-color: var(--primary) !important;
+        }
+        .bg-primary-subtle {
+            background-color: var(--primary-light) !important;
+        }
+        .border-primary {
+            border-color: var(--primary) !important;
+        }
+        .text-primary {
+            color: var(--primary) !important;
+        }
+        .nav-pills .nav-link.active,
+        .nav-pills .show > .nav-link {
+            background-color: var(--primary) !important;
+        }
+        .page-item.active .page-link {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+        .form-check-input:checked {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-layout">
