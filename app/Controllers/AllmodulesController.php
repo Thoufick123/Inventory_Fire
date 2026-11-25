@@ -5622,9 +5622,18 @@ class AllmodulesController {
         // Sync any newly created main catalog categories into third_party_* tables so they appear in mapping dropdowns
         $this->syncCatalogCategoriesToThirdParty();
 
-        // Fetch categories
+        // Fetch categories (exclude legacy hard-coded seeded categories unless saved in main catalog or already mapped)
         $categories = Database::fetchAll(
-            "SELECT id, name, code, is_complementary FROM third_party_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+            "SELECT tpc.id, tpc.name, tpc.code, tpc.is_complementary
+             FROM third_party_categories tpc
+             WHERE tpc.is_active = 1
+               AND (
+                   LOWER(TRIM(tpc.name)) NOT IN ('non feeding', 'feeding', 'kids wear', 'women ethnic', 'men casual')
+                   OR EXISTS (SELECT 1 FROM categories c WHERE c.is_active = 1 AND LOWER(TRIM(c.name)) = LOWER(TRIM(tpc.name)))
+                   OR tpc.id = ?
+               )
+             ORDER BY tpc.sort_order ASC, tpc.name ASC",
+            [(int)($activeItem['mapped_third_party_category_id'] ?? 0)]
         );
         $allSubcategories = Database::fetchAll(
             "SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
@@ -6294,11 +6303,18 @@ class AllmodulesController {
             $igstAmtNew = round($baseSubtotal * ($igstPct / 100), 2);
             $totalPriceNew = round($baseSubtotal + $sgstAmtNew + $cgstAmtNew + $igstAmtNew, 2);
 
+            $origQty = isset($item['original_quantity']) && $item['original_quantity'] !== null
+                ? (float)$item['original_quantity']
+                : $purchasedQtyNow;
+            $extraQty = max(0.0, round($totalAllocatedQty - $origQty, 3));
+
             Database::execute(
                 "UPDATE production_purchase_items
-                 SET quantity = ?, sgst_amount = ?, cgst_amount = ?, igst_amount = ?, total_price = ?
+                 SET original_quantity = COALESCE(original_quantity, ?),
+                     extra_added_qty = ?,
+                     quantity = ?, sgst_amount = ?, cgst_amount = ?, igst_amount = ?, total_price = ?
                  WHERE id = ?",
-                [$totalAllocatedQty, $sgstAmtNew, $cgstAmtNew, $igstAmtNew, $totalPriceNew, $itemId]
+                [$origQty, $extraQty, $totalAllocatedQty, $sgstAmtNew, $cgstAmtNew, $igstAmtNew, $totalPriceNew, $itemId]
             );
             Database::execute(
                 "UPDATE production_purchases
@@ -6717,7 +6733,7 @@ class AllmodulesController {
             $stmt = $db->prepare("
                 INSERT INTO production_purchase_items (
                     purchase_id, item_type, item_name, product_code, vendor_sku,
-                    quantity, inwarded_qty, unit, unit_price, mrp, selling_price,
+                    quantity, original_quantity, extra_added_qty, is_extra_purchase_item, inwarded_qty, unit, unit_price, mrp, selling_price,
                     total_price, gst_type, tax_input_type, tax_treatment,
                     sgst_value, cgst_value, igst_value, sgst_amount, cgst_amount, igst_amount,
                     color, size, hsn_code, is_complementary,
@@ -6727,7 +6743,7 @@ class AllmodulesController {
                     is_mapped, created_at
                 ) VALUES (
                     ?, ?, ?, ?, ?,
-                    ?, 0, ?, ?, ?, ?,
+                    ?, 0, ?, 1, 0, ?, ?, ?, ?,
                     ?, ?, 'PERCENT', 'EXCLUDED',
                     ?, ?, 0, ?, ?, 0,
                     ?, ?, ?, ?,
@@ -6742,6 +6758,7 @@ class AllmodulesController {
                 $itemName,
                 $vendorSku,
                 $vendorSku,
+                $qty,
                 $qty,
                 $unit,
                 $rate,

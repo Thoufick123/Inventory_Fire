@@ -650,6 +650,34 @@ tr.table-danger, tr.table-danger > td {
                     </button>
                 </div>
             </div>
+            <!-- Overall Batch Apply Bar: Size + Category + Sub Category + Sub Sub Category -->
+            <div class="bg-light-subtle border-bottom px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="small fw-semibold text-muted text-uppercase"><i class="bi bi-sliders me-1 text-primary"></i>Apply to All Rows:</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="text" class="form-control form-control-sm" id="batchInputSize" placeholder="Size (e.g. M, L, XL)" style="width: 145px;" autocomplete="off">
+                    <select class="form-select form-select-sm" id="batchSelectCategory" style="width: 170px;">
+                        <option value="">-- Main Category --</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select class="form-select form-select-sm" id="batchSelectSubcategory" style="width: 170px;">
+                        <option value="">-- Sub Category --</option>
+                        <?php foreach ($allSubcategories as $sc): ?>
+                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select class="form-select form-select-sm" id="batchSelectSubSubcategory" style="width: 180px;">
+                        <option value="">-- Sub Sub Category --</option>
+                        <?php foreach ($allSubSubcategories as $ssc): ?>
+                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Size &amp; Category Hierarchy to all variant rows">
+                        <i class="bi bi-check2-all me-1"></i>Apply to All
+                    </button>
+                </div>
+            </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1360px;">
@@ -660,7 +688,7 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 120px; min-width: 120px;">Color <span class="text-danger">*</span></th>
                                 <th style="width: 170px; min-width: 160px;">SKU <span class="text-danger">*</span></th>
                                 <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
-                                <th style="width: 115px; min-width: 110px;" class="text-end">Rate (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 130px; min-width: 125px;" class="text-end">Purchased Rate (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 115px; min-width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 115px; min-width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 90px; min-width: 85px;" class="text-end">GST %</th>
@@ -1350,6 +1378,80 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnHeaderAutoDistribute) {
         btnHeaderAutoDistribute.addEventListener('click', autoDistributeQuantities);
+    }
+
+    // 4b. Overall Batch Apply (Size + Main Category + Sub Category + Sub Sub Category)
+    const batchInputSize = document.getElementById('batchInputSize');
+    const batchSelectCategory = document.getElementById('batchSelectCategory');
+    const batchSelectSubcategory = document.getElementById('batchSelectSubcategory');
+    const batchSelectSubSubcategory = document.getElementById('batchSelectSubSubcategory');
+    const btnApplyAllAttributes = document.getElementById('btnApplyAllAttributes');
+
+    if (batchSelectCategory && batchSelectSubcategory && batchSelectSubSubcategory) {
+        batchSelectCategory.addEventListener('change', function () {
+            const catId = this.value;
+            Array.from(batchSelectSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = opt.dataset.parent !== catId;
+                if (opt.hidden && opt.selected) opt.selected = false;
+            });
+            batchSelectSubcategory.value = '';
+            Array.from(batchSelectSubSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = true;
+                if (opt.selected) opt.selected = false;
+            });
+            batchSelectSubSubcategory.value = '';
+        });
+
+        batchSelectSubcategory.addEventListener('change', function () {
+            const subId = this.value;
+            Array.from(batchSelectSubSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = opt.dataset.parent !== subId;
+                if (opt.hidden && opt.selected) opt.selected = false;
+            });
+            batchSelectSubSubcategory.value = '';
+        });
+    }
+
+    if (btnApplyAllAttributes && tbodyVariantRows) {
+        btnApplyAllAttributes.addEventListener('click', function () {
+            const sizeVal = (batchInputSize?.value || '').trim();
+            const catVal = batchSelectCategory?.value || '';
+            const subVal = batchSelectSubcategory?.value || '';
+            const subSubVal = batchSelectSubSubcategory?.value || '';
+
+            if (!sizeVal && !catVal && !subVal && !subSubVal) {
+                alert('Enter a Size or select a Category to apply to all rows.');
+                return;
+            }
+
+            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                if (sizeVal) {
+                    const szInput = row.querySelector('.var-size');
+                    if (szInput) szInput.value = sizeVal;
+                }
+                if (catVal) {
+                    const catSel = row.querySelector('.var-category');
+                    if (catSel) {
+                        catSel.value = catVal;
+                        catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (subVal) {
+                        const subSel = row.querySelector('.var-subcategory');
+                        if (subSel) {
+                            subSel.value = subVal;
+                            subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        if (subSubVal) {
+                            const ssSel = row.querySelector('.var-subsubcategory');
+                            if (ssSel) ssSel.value = subSubVal;
+                        }
+                    }
+                }
+            });
+        });
     }
 
     // 5. Price Replicator
