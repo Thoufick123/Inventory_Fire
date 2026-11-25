@@ -186,25 +186,12 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     <label class="form-label small fw-semibold mb-1">HSN Code</label>
                                     <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
                                 </div>
-                                <div class="col-md-1">
+                                <div class="col-md-2">
                                     <label class="form-label small fw-semibold mb-1">GST %</label>
                                     <input type="text" inputmode="decimal" class="form-control form-control-sm gen-gst" value="5">
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">Qty / Variant</label>
-                                    <input type="text" inputmode="numeric" class="form-control form-control-sm gen-qty" value="1">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">Purchase Rate</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-rate" placeholder="0.00">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">MRP (₹)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-mrp" placeholder="0.00">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">Selling (₹)</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-sp" placeholder="0.00">
+                                <div class="col-md-7 d-flex align-items-end">
+                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Select a Category above to load attributes, then set Qty, Purchase Rate, MRP &amp; Selling Price per attribute below.</small>
                                 </div>
 
                                 <div class="col-md-5">
@@ -1773,6 +1760,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const sName = (subSel && subSel.selectedOptions[0]?.value ? subSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
         const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
 
+        if (!cName) {
+            sizeWrap.innerHTML = '<span class="small text-muted">Select a Category above to load Sizes...</span>';
+            colorWrap.innerHTML = '<span class="small text-muted">Select a Category above to load Colors...</span>';
+            return;
+        }
+
         let attr = null;
         if (cName && sName && ssName && draftCategoryAttrMap[`${cName}|${sName}|${ssName}`]) {
             attr = draftCategoryAttrMap[`${cName}|${sName}|${ssName}`];
@@ -1955,10 +1948,10 @@ document.addEventListener('DOMContentLoaded', function() {
             };
         });
 
-        const defQty = card.querySelector('.gen-qty')?.value || '1';
-        const defRate = card.querySelector('.gen-rate')?.value || '';
-        const defMrp = card.querySelector('.gen-mrp')?.value || '';
-        const defSp = card.querySelector('.gen-sp')?.value || '';
+        const defQty = '1';
+        const defRate = '';
+        const defMrp = '';
+        const defSp = '';
 
         const sList = sizes.length ? sizes : [''];
         const cList = colors.length ? colors : [''];
@@ -2040,22 +2033,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const hsnVal = (card.querySelector('.gen-hsn')?.value || '').trim();
         const gstVal = card.querySelector('.gen-gst')?.value || '5';
-        const qtyVal = card.querySelector('.gen-qty')?.value || '1';
-        const rateVal = card.querySelector('.gen-rate')?.value || '';
-        const mrpInpGen = card.querySelector('.gen-mrp');
-        const spInpGen = card.querySelector('.gen-sp');
-        const mrpVal = mrpInpGen?.value || '';
-        const spVal = spInpGen?.value || '';
+        const qtyVal = '1';
+        const rateVal = '';
+        const mrpVal = '';
+        const spVal = '';
 
         const attrRateRows = Array.from(card.querySelectorAll('.gen-attr-rate-row'));
+        if (attrRateRows.length === 0) {
+            showDraftModernAlert('Please select or type at least one Size or Color attribute to enter Qty, Purchase Rate, MRP & Selling Price.');
+            card.querySelector('.gen-sizes-input')?.focus();
+            return;
+        }
         const attrRateMap = {};
         for (const rEl of attrRateRows) {
             const rMrpInp = rEl.querySelector('.attr-mrp');
             const rSpInp = rEl.querySelector('.attr-sp');
             const rQty = rEl.querySelector('.attr-qty')?.value || qtyVal;
             const rRate = rEl.querySelector('.attr-rate')?.value ?? rateVal;
-            const rMrp = parseFloat(rMrpInp?.value || mrpVal || '0') || 0;
-            const rSp = parseFloat(rSpInp?.value || spVal || '0') || 0;
+            const rMrp = parseFloat(rMrpInp?.value || '0') || 0;
+            const rSp = parseFloat(rSpInp?.value || '0') || 0;
             if (rMrp <= 0 || rSp <= 0) {
                 showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0 for each selected attribute.');
                 (rMrp <= 0 ? rMrpInp : rSpInp)?.focus();
@@ -2076,25 +2072,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 mrp: String(rMrp),
                 sp: String(rSp)
             };
-        }
-
-        if (attrRateRows.length === 0) {
-            const mrpNum = parseFloat(mrpVal || '0') || 0;
-            const spNum = parseFloat(spVal || '0') || 0;
-            if (mrpNum <= 0 || spNum <= 0) {
-                showDraftModernAlert('Please enter valid MRP and Selling Price greater than 0.');
-                (mrpNum <= 0 ? mrpInpGen : spInpGen)?.focus();
-                return;
-            }
-            if (spNum > mrpNum) {
-                mrpInpGen?.classList.add('is-invalid');
-                spInpGen?.classList.add('is-invalid');
-                showDraftModernAlert(`Validation Error: Selling Price (${formatCurrency(spNum)}) cannot exceed MRP (${formatCurrency(mrpNum)}).`);
-                spInpGen?.focus();
-                return;
-            }
-            mrpInpGen?.classList.remove('is-invalid');
-            spInpGen?.classList.remove('is-invalid');
         }
 
         const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
