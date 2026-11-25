@@ -344,10 +344,18 @@ tr.table-danger, tr.table-danger > td {
                     <!-- Column 1: Product Identity -->
                     <div class="col-md-4">
                         <div class="border rounded-3 p-3 bg-light-subtle h-100">
-                            <div class="d-flex align-items-center gap-1.5 text-uppercase text-muted fw-bold small mb-2">
-                                <i class="bi bi-box-seam text-primary"></i> Product Identity
+                            <div class="d-flex align-items-center justify-content-between gap-1.5 text-uppercase text-muted fw-bold small mb-2">
+                                <span><i class="bi bi-box-seam text-primary"></i> Product Identity</span>
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;"><i class="bi bi-pencil me-1"></i>Editable</span>
                             </div>
-                            <div class="fw-bold fs-5 text-dark mb-1"><?= e($activeItem['item_name']) ?></div>
+                            <input type="text"
+                                   class="form-control form-control-sm fw-bold fs-6 text-dark mb-1"
+                                   id="inputPurchasedItemName"
+                                   name="item_name"
+                                   value="<?= e($activeItem['item_name']) ?>"
+                                   required
+                                   maxlength="255"
+                                   placeholder="Purchased Product Name">
                             <div class="d-flex flex-wrap gap-1.5 align-items-center mt-2">
                                 <span class="badge bg-light text-dark border font-monospace">
                                     Item Code: <?= e($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'FG-' . sprintf('%04d', $activeItemId))) ?>
@@ -583,25 +591,34 @@ tr.table-danger, tr.table-danger > td {
             <td style="width: 115px; min-width: 110px;">
                 <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
             </td>
-            <td style="width: 260px; min-width: 250px;">
-                <select class="form-select form-select-sm var-category mb-1" name="variants[<?= $index ?>][category_id]" required>
-                    <option value="">-- Main Category --</option>
-                    <?php foreach ($categories as $cat): ?>
-                        <option value="<?= (int)$cat['id'] ?>" <?= $vCatId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select form-select-sm var-subcategory mb-1" name="variants[<?= $index ?>][subcategory_id]">
-                    <option value="">-- Sub Category --</option>
-                    <?php foreach ($allSubcategories as $sc): ?>
-                        <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= $vSubcatId === (int)$sc['id'] ? 'selected' : '' ?> <?= (int)$sc['category_id'] !== $vCatId ? 'hidden' : '' ?>><?= e($sc['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select form-select-sm var-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
-                    <option value="">-- Sub Sub Category --</option>
-                    <?php foreach ($allSubSubcategories as $ssc): ?>
-                        <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= $vSubSubcatId === (int)$ssc['id'] ? 'selected' : '' ?> <?= (int)$ssc['subcategory_id'] !== $vSubcatId ? 'hidden' : '' ?>><?= e($ssc['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+            <td style="width: 280px; min-width: 265px;">
+                <div class="input-group input-group-sm mb-1">
+                    <select class="form-select form-select-sm var-category" name="variants[<?= $index ?>][category_id]" required>
+                        <option value="">-- Main Category --</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= (int)$cat['id'] ?>" <?= $vCatId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-primary btn-quick-add-tier1" title="Create Main Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="input-group input-group-sm mb-1">
+                    <select class="form-select form-select-sm var-subcategory" name="variants[<?= $index ?>][subcategory_id]">
+                        <option value="">-- Sub Category --</option>
+                        <?php foreach ($allSubcategories as $sc): ?>
+                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= $vSubcatId === (int)$sc['id'] ? 'selected' : '' ?> <?= (int)$sc['category_id'] !== $vCatId ? 'hidden' : '' ?>><?= e($sc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-info btn-quick-add-tier2" title="Create Sub Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="input-group input-group-sm">
+                    <select class="form-select form-select-sm var-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
+                        <option value="">-- Sub Sub Category --</option>
+                        <?php foreach ($allSubSubcategories as $ssc): ?>
+                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= $vSubSubcatId === (int)$ssc['id'] ? 'selected' : '' ?> <?= (int)$ssc['subcategory_id'] !== $vSubcatId ? 'hidden' : '' ?>><?= e($ssc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-success btn-quick-add-tier3" title="Create Sub Sub Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
             </td>
             <td class="text-center" style="width: 50px; min-width: 50px;">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Remove variant"><i class="bi bi-x-lg"></i></button>
@@ -1099,7 +1116,7 @@ tr.table-danger, tr.table-danger > td {
 
 <!-- ========================================================================= -->
 <!-- CLIENT-SIDE ENGINE (JAVASCRIPT)                                           -->
-========================================================================= -->
+<!-- ========================================================================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
@@ -1524,7 +1541,74 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 9. Quick Add Modals (AJAX Integration)
+    // 8b. Live MRP vs Selling Price Validation (Selling Price must not exceed MRP)
+    function validateMrpSpPair(mrpEl, spEl) {
+        if (!mrpEl || !spEl) return true;
+        const mrp = parseFloat(mrpEl.value || '0') || 0;
+        const sp = parseFloat(spEl.value || '0') || 0;
+        const invalid = (mrp > 0 && sp > 0 && sp > mrp);
+        mrpEl.classList.toggle('is-invalid', invalid);
+        spEl.classList.toggle('is-invalid', invalid);
+        const msg = invalid ? `Selling Price (₹${sp.toFixed(2)}) must be less than or equal to MRP (₹${mrp.toFixed(2)}).` : '';
+        mrpEl.title = msg;
+        spEl.title = msg;
+        return !invalid;
+    }
+
+    if (tbodyVariantRows) {
+        tbodyVariantRows.addEventListener('input', function (e) {
+            if (e.target.classList.contains('var-mrp') || e.target.classList.contains('var-sp')) {
+                const row = e.target.closest('.variant-row');
+                if (row) validateMrpSpPair(row.querySelector('.var-mrp'), row.querySelector('.var-sp'));
+            }
+        });
+    }
+    if (batchInputMrp && batchInputSp) {
+        [batchInputMrp, batchInputSp].forEach(el => {
+            el.addEventListener('input', () => validateMrpSpPair(batchInputMrp, batchInputSp));
+        });
+    }
+    const newBillMrpEl = document.getElementById('newBillMrp');
+    const newBillSpEl = document.getElementById('newBillSellingPrice');
+    if (newBillMrpEl && newBillSpEl) {
+        [newBillMrpEl, newBillSpEl].forEach(el => {
+            el.addEventListener('input', () => validateMrpSpPair(newBillMrpEl, newBillSpEl));
+        });
+    }
+
+    // 9. Quick Add Modals (AJAX Integration for Tier 1, Tier 2 & Tier 3)
+    let activeQuickAddRow = null;
+
+    document.addEventListener('click', function (e) {
+        const btn1 = e.target.closest('.btn-quick-add-tier1');
+        if (btn1) {
+            activeQuickAddRow = btn1.closest('.variant-row');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddCategory')).show();
+            return;
+        }
+        const btn2 = e.target.closest('.btn-quick-add-tier2');
+        if (btn2) {
+            activeQuickAddRow = btn2.closest('.variant-row');
+            const catVal = activeQuickAddRow?.querySelector('.var-category')?.value || '';
+            if (!catVal) {
+                alert('Please select a Main Category (Tier 1) first.');
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubcategory')).show();
+            return;
+        }
+        const btn3 = e.target.closest('.btn-quick-add-tier3');
+        if (btn3) {
+            activeQuickAddRow = btn3.closest('.variant-row');
+            const subVal = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
+            if (!subVal) {
+                alert('Please select a Sub Category (Tier 2) first.');
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubSubcategory')).show();
+        }
+    });
+
     const btnSubmitModalTier1 = document.getElementById('btnSubmitModalTier1');
     if (btnSubmitModalTier1) {
         btnSubmitModalTier1.addEventListener('click', function () {
@@ -1552,11 +1636,20 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data.success) {
                         if (tbodyVariantRows) {
                             tbodyVariantRows.querySelectorAll('.var-category').forEach(sel => {
-                                const opt = document.createElement('option');
-                                opt.value = data.id;
-                                opt.textContent = data.name;
-                                sel.appendChild(opt);
+                                if (!Array.from(sel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    sel.appendChild(opt);
+                                }
                             });
+                        }
+                        if (activeQuickAddRow) {
+                            const sel = activeQuickAddRow.querySelector('.var-category');
+                            if (sel) {
+                                sel.value = String(data.id);
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
                         }
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddCategory')).hide();
                         nameInput.value = '';
@@ -1566,6 +1659,127 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 })
                 .catch(err => alert('Failed to create category: ' + err.message));
+        });
+    }
+
+    const btnSubmitModalTier2 = document.getElementById('btnSubmitModalTier2');
+    if (btnSubmitModalTier2) {
+        btnSubmitModalTier2.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalTier2Name');
+            const codeInput = document.getElementById('modalTier2Code');
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim().toUpperCase();
+            const categoryId = activeQuickAddRow?.querySelector('.var-category')?.value || '';
+            if (!categoryId) {
+                alert('Please select a Main Category first.');
+                return;
+            }
+            if (!name) {
+                alert('Please enter a Sub Category name.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('category_id', categoryId);
+            formData.append('name', name);
+            formData.append('code', code);
+            formData.append('catalog_source', 'THIRD_PARTY');
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/subcategories/quick-add`, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (tbodyVariantRows) {
+                            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                                const subSel = row.querySelector('.var-subcategory');
+                                const rowCatId = row.querySelector('.var-category')?.value || '';
+                                if (subSel && !Array.from(subSel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    opt.dataset.parent = String(categoryId);
+                                    opt.hidden = (String(rowCatId) !== String(categoryId));
+                                    subSel.appendChild(opt);
+                                }
+                            });
+                        }
+                        if (activeQuickAddRow) {
+                            const subSel = activeQuickAddRow.querySelector('.var-subcategory');
+                            if (subSel) {
+                                subSel.value = String(data.id);
+                                subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubcategory')).hide();
+                        nameInput.value = '';
+                        codeInput.value = '';
+                    } else {
+                        alert(data.message || 'Error creating sub category.');
+                    }
+                })
+                .catch(err => alert('Failed to create sub category: ' + err.message));
+        });
+    }
+
+    const btnSubmitModalTier3 = document.getElementById('btnSubmitModalTier3');
+    if (btnSubmitModalTier3) {
+        btnSubmitModalTier3.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalTier3Name');
+            const codeInput = document.getElementById('modalTier3Code');
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim().toUpperCase();
+            const subcategoryId = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
+            if (!subcategoryId) {
+                alert('Please select a Sub Category first.');
+                return;
+            }
+            if (!name) {
+                alert('Please enter a Sub Sub Category name.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('subcategory_id', subcategoryId);
+            formData.append('name', name);
+            formData.append('code', code);
+            formData.append('catalog_source', 'THIRD_PARTY');
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/sub-subcategories/quick-add`, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (tbodyVariantRows) {
+                            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                                const ssSel = row.querySelector('.var-subsubcategory');
+                                const rowSubId = row.querySelector('.var-subcategory')?.value || '';
+                                if (ssSel && !Array.from(ssSel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    opt.dataset.parent = String(subcategoryId);
+                                    opt.hidden = (String(rowSubId) !== String(subcategoryId));
+                                    ssSel.appendChild(opt);
+                                }
+                            });
+                        }
+                        if (activeQuickAddRow) {
+                            const ssSel = activeQuickAddRow.querySelector('.var-subsubcategory');
+                            if (ssSel) {
+                                ssSel.value = String(data.id);
+                            }
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubSubcategory')).hide();
+                        nameInput.value = '';
+                        codeInput.value = '';
+                    } else {
+                        alert(data.message || 'Error creating sub sub category.');
+                    }
+                })
+                .catch(err => alert('Failed to create sub sub category: ' + err.message));
         });
     }
 

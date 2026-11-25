@@ -5448,6 +5448,95 @@ class AllmodulesController {
     }
 
     /**
+     * Sync active categories/subcategories/sub-subcategories from main catalog
+     * into third_party_* tables so newly created catalog categories appear in mapping dropdowns.
+     */
+    private function syncCatalogCategoriesToThirdParty(): void {
+        try {
+            $mainCats = Database::fetchAll("SELECT id, name, code, slug, sort_order FROM categories WHERE is_active = 1");
+            $catMap = [];
+            foreach ($mainCats as $mc) {
+                $name = trim((string)$mc['name']);
+                if ($name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_categories WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$name]
+                );
+                if ($existing) {
+                    $catMap[(int)$mc['id']] = (int)$existing['id'];
+                } else {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mc['code'] ?: $name), 0, 3)) ?: 'CAT';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_categories WHERE code = ?", [$code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $mc['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, 1)",
+                        [$name, $code, $slug, (int)($mc['sort_order'] ?? 0)]
+                    );
+                    $catMap[(int)$mc['id']] = (int)Database::lastInsertId();
+                }
+            }
+
+            $mainSubs = Database::fetchAll("SELECT id, category_id, name, code, slug, sort_order FROM subcategories WHERE is_active = 1");
+            $subMap = [];
+            foreach ($mainSubs as $ms) {
+                $tpCatId = $catMap[(int)$ms['category_id']] ?? 0;
+                $name = trim((string)$ms['name']);
+                if ($tpCatId <= 0 || $name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_subcategories WHERE category_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$tpCatId, $name]
+                );
+                if ($existing) {
+                    $subMap[(int)$ms['id']] = (int)$existing['id'];
+                } else {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $ms['code'] ?: $name), 0, 3)) ?: 'SUB';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_subcategories WHERE category_id = ? AND code = ?", [$tpCatId, $code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $ms['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_subcategories (category_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                        [$tpCatId, $name, $code, $slug, (int)($ms['sort_order'] ?? 0)]
+                    );
+                    $subMap[(int)$ms['id']] = (int)Database::lastInsertId();
+                }
+            }
+
+            $mainSubSubs = Database::fetchAll("SELECT id, subcategory_id, name, code, slug, sort_order FROM sub_subcategories WHERE is_active = 1");
+            foreach ($mainSubSubs as $mss) {
+                $tpSubId = $subMap[(int)$mss['subcategory_id']] ?? 0;
+                $name = trim((string)$mss['name']);
+                if ($tpSubId <= 0 || $name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$tpSubId, $name]
+                );
+                if (!$existing) {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mss['code'] ?: $name), 0, 3)) ?: 'SSC';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND code = ?", [$tpSubId, $code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $mss['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_sub_subcategories (subcategory_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                        [$tpSubId, $name, $code, $slug, (int)($mss['sort_order'] ?? 0)]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('syncCatalogCategoriesToThirdParty failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Show all purchase lines together so the bill can be mapped in one pass.
      */
     public function thirdPartyMappingBill(string $id): void {
@@ -5529,6 +5618,9 @@ class AllmodulesController {
                 $activeItem = $items[0];
             }
         }
+
+        // Sync any newly created main catalog categories into third_party_* tables so they appear in mapping dropdowns
+        $this->syncCatalogCategoriesToThirdParty();
 
         // Fetch categories
         $categories = Database::fetchAll(
@@ -5843,6 +5935,15 @@ class AllmodulesController {
         $subcategoryCode = trim((string)($_POST['subcategory_code'] ?? ''));
         $subSubcategoryCode = trim((string)($_POST['sub_subcategory_code'] ?? ''));
         $qrKey = trim((string)($_POST['qr_key'] ?? ''));
+
+        $editedItemName = trim((string)($_POST['item_name'] ?? ''));
+        if ($editedItemName !== '' && $editedItemName !== (string)$item['item_name']) {
+            Database::execute(
+                "UPDATE production_purchase_items SET item_name = ? WHERE id = ?",
+                [$editedItemName, $itemId]
+            );
+            $item['item_name'] = $editedItemName;
+        }
 
         $styleCode = mb_strtoupper(trim((string)($_POST['style_code'] ?? '')));
         $styleName = trim((string)($_POST['style_name'] ?? ''));
