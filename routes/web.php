@@ -175,28 +175,34 @@ class Router {
         // ==========================================
         // MASTER DATA / CATALOG AJAX ROUTES
         // ==========================================
-        $this->get('api/categories', 'AllmodulesController', 'ajaxCategories', ['AuthMiddleware']);
-        $this->post('api/categories/quick-add', 'AllmodulesController', 'ajaxQuickAddCategory', ['AuthMiddleware']);
-        $this->post('api/categories/update/{id}', 'AllmodulesController', 'ajaxUpdateCategory', ['AuthMiddleware']);
-        $this->post('api/categories/delete/{id}', 'AllmodulesController', 'ajaxDeleteCategory', ['AuthMiddleware']);
-        $this->get('api/subcategories/{category_id}', 'AllmodulesController', 'ajaxSubcategories', ['AuthMiddleware']);
-        $this->post('api/subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubcategory', ['AuthMiddleware']);
-        $this->post('api/subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubcategory', ['AuthMiddleware']);
-        $this->post('api/subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubcategory', ['AuthMiddleware']);
-        $this->get('api/sub-subcategories/{subcategory_id}', 'AllmodulesController', 'ajaxSubSubcategories', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubSubcategory', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubSubcategory', ['AuthMiddleware']);
-        $this->post('api/sub-subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubSubcategory', ['AuthMiddleware']);
-        $this->get('api/categories/attributes/{category_id}', 'AllmodulesController', 'ajaxGetCategoryAttributes', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/quick-add', 'AllmodulesController', 'ajaxQuickAddCategoryAttribute', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/add-option', 'AllmodulesController', 'ajaxAddCategoryAttributeOption', ['AuthMiddleware']);
-        $this->post('api/categories/attributes/delete-option', 'AllmodulesController', 'ajaxDeleteCategoryAttributeOption', ['AuthMiddleware']);
+        $taxonomyViewPerms   = [['catalog', 'view'], ['variants', 'view'], ['programs', 'view'], ['production_purchases', 'view'], ['production_purchase_mapping', 'view'], ['qr_generation', 'view']];
+        $taxonomyCreatePerms = [['catalog', 'create'], ['catalog', 'edit'], ['variants', 'create'], ['variants', 'edit'], ['programs', 'create'], ['production_purchases', 'create'], ['production_purchase_mapping', 'create'], ['production_purchase_mapping', 'edit']];
+        $taxonomyEditPerms   = [['catalog', 'edit'], ['variants', 'edit'], ['production_purchase_mapping', 'edit']];
+        $taxonomyDeletePerms = [['catalog', 'delete'], ['catalog', 'edit'], ['variants', 'delete'], ['production_purchase_mapping', 'delete']];
+        $hsnCreatePerms      = [['production_hsn', 'create'], ['hsn_config', 'create'], ['production_purchases', 'create'], ['production_purchases', 'edit'], ['catalog', 'create']];
 
-        $this->post('api/brands/quick-add', 'AllmodulesController', 'ajaxQuickAddBrand', ['AuthMiddleware']);
-        $this->post('api/sizes/quick-add', 'AllmodulesController', 'ajaxQuickAddSize', ['AuthMiddleware']);
-        $this->post('api/sizes/delete/{id}', 'AllmodulesController', 'ajaxDeleteSize', ['AuthMiddleware']);
-        $this->post('api/colors/quick-add', 'AllmodulesController', 'ajaxQuickAddColor', ['AuthMiddleware']);
-        $this->post('api/colors/delete/{id}', 'AllmodulesController', 'ajaxDeleteColor', ['AuthMiddleware']);
+        $this->get('api/categories', 'AllmodulesController', 'ajaxCategories', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyViewPerms]]);
+        $this->post('api/categories/quick-add', 'AllmodulesController', 'ajaxQuickAddCategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/categories/update/{id}', 'AllmodulesController', 'ajaxUpdateCategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyEditPerms]]);
+        $this->post('api/categories/delete/{id}', 'AllmodulesController', 'ajaxDeleteCategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
+        $this->get('api/subcategories/{category_id}', 'AllmodulesController', 'ajaxSubcategories', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyViewPerms]]);
+        $this->post('api/subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyEditPerms]]);
+        $this->post('api/subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
+        $this->get('api/sub-subcategories/{subcategory_id}', 'AllmodulesController', 'ajaxSubSubcategories', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyViewPerms]]);
+        $this->post('api/sub-subcategories/quick-add', 'AllmodulesController', 'ajaxQuickAddSubSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/sub-subcategories/update/{id}', 'AllmodulesController', 'ajaxUpdateSubSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyEditPerms]]);
+        $this->post('api/sub-subcategories/delete/{id}', 'AllmodulesController', 'ajaxDeleteSubSubcategory', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
+        $this->get('api/categories/attributes/{category_id}', 'AllmodulesController', 'ajaxGetCategoryAttributes', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyViewPerms]]);
+        $this->post('api/categories/attributes/quick-add', 'AllmodulesController', 'ajaxQuickAddCategoryAttribute', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/categories/attributes/add-option', 'AllmodulesController', 'ajaxAddCategoryAttributeOption', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/categories/attributes/delete-option', 'AllmodulesController', 'ajaxDeleteCategoryAttributeOption', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
+
+        $this->post('api/brands/quick-add', 'AllmodulesController', 'ajaxQuickAddBrand', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/sizes/quick-add', 'AllmodulesController', 'ajaxQuickAddSize', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/sizes/delete/{id}', 'AllmodulesController', 'ajaxDeleteSize', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
+        $this->post('api/colors/quick-add', 'AllmodulesController', 'ajaxQuickAddColor', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyCreatePerms]]);
+        $this->post('api/colors/delete/{id}', 'AllmodulesController', 'ajaxDeleteColor', ['AuthMiddleware', ['PermissionMiddleware', $taxonomyDeletePerms]]);
         $this->get('api/products/search', 'AllmodulesController', 'searchProducts', ['AuthMiddleware']);
         $this->get('api/variants/search', 'AllmodulesController', 'searchVariants', ['AuthMiddleware']);
         $this->get('api/stock/check/{variant_id}', 'AllmodulesController', 'checkStock', ['AuthMiddleware']);
@@ -205,8 +211,8 @@ class Router {
         $this->get('api/catalog/variants', 'AllmodulesController', 'ajaxCatalogVariants', ['AuthMiddleware']);
         $this->get('api/catalog/check-qr-code', 'AllmodulesController', 'ajaxCheckQRCode', ['AuthMiddleware']);
         $this->get('api/hsn-codes', 'AllmodulesController', 'ajaxHsnCodesList', ['AuthMiddleware']);
-        $this->post('api/hsn-codes/store', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
-        $this->post('allmodules/hsn/store-ajax', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware']);
+        $this->post('api/hsn-codes/store', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware', ['PermissionMiddleware', $hsnCreatePerms]]);
+        $this->post('allmodules/hsn/store-ajax', 'AllmodulesController', 'ajaxStoreHsnCode', ['AuthMiddleware', ['PermissionMiddleware', $hsnCreatePerms]]);
         $this->post('api/operators/quick-add', 'AllmodulesController', 'ajaxQuickAddOperator', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
         $this->post('api/tailors/quick-add', 'AllmodulesController', 'ajaxQuickAddTailor', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
 
@@ -294,13 +300,16 @@ class Router {
         $this->post('allmodules/purchases/mapping/catalog/delete/{id}', 'AllmodulesController', 'deleteThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
 
         // Purchased Stock Sub-Module (Fabric Rolls, Raw Materials, Third-Party)
-        $this->get('allmodules/purchased-stock', 'AllmodulesController', 'purchasedStockIndex', ['AuthMiddleware']);
-        $this->get('allmodules/purchased-stock/view/{id}', 'AllmodulesController', 'purchasedStockView', ['AuthMiddleware']);
-        $this->get('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockEdit', ['AuthMiddleware']);
-        $this->post('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockUpdate', ['AuthMiddleware']);
-        $this->get('allmodules/purchased-stock/details/{id}', 'AllmodulesController', 'ajaxPurchasedStockDetails', ['AuthMiddleware']);
-        $this->post('allmodules/purchased-stock/update/{id}', 'AllmodulesController', 'ajaxPurchasedStockUpdate', ['AuthMiddleware']);
-        $this->post('allmodules/purchased-stock/delete/{id}', 'AllmodulesController', 'ajaxPurchasedStockDelete', ['AuthMiddleware']);
+        $purchasedStockViewPerms   = [['qr_generation', 'view'], ['catalog', 'view'], ['production_purchases', 'view']];
+        $purchasedStockEditPerms   = [['qr_generation', 'create'], ['qr_generation', 'edit'], ['catalog', 'edit'], ['production_purchases', 'edit']];
+        $purchasedStockDeletePerms = [['qr_generation', 'delete'], ['catalog', 'delete'], ['production_purchases', 'delete']];
+        $this->get('allmodules/purchased-stock', 'AllmodulesController', 'purchasedStockIndex', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockViewPerms]]);
+        $this->get('allmodules/purchased-stock/view/{id}', 'AllmodulesController', 'purchasedStockView', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockViewPerms]]);
+        $this->get('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockEdit', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockEditPerms]]);
+        $this->post('allmodules/purchased-stock/edit/{id}', 'AllmodulesController', 'purchasedStockUpdate', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockEditPerms]]);
+        $this->get('allmodules/purchased-stock/details/{id}', 'AllmodulesController', 'ajaxPurchasedStockDetails', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockViewPerms]]);
+        $this->post('allmodules/purchased-stock/update/{id}', 'AllmodulesController', 'ajaxPurchasedStockUpdate', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockEditPerms]]);
+        $this->post('allmodules/purchased-stock/delete/{id}', 'AllmodulesController', 'ajaxPurchasedStockDelete', ['AuthMiddleware', ['PermissionMiddleware', $purchasedStockDeletePerms]]);
 
         // Common Purchases Clean Aliases
         $this->get('purchases', 'AllmodulesController', 'productionPurchaseList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchases', 'view']]);
@@ -463,13 +472,15 @@ class Router {
         $this->post('allmodules/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
 
         // Variant & Design AJAX APIs
-        $this->get('api/variants/catalogs', 'VariantController', 'ajaxCatalogs', ['AuthMiddleware']);
-        $this->get('api/variants/preview-sku', 'VariantController', 'ajaxPreviewSku', ['AuthMiddleware']);
-        $this->get('api/variants/check-duplicate', 'VariantController', 'ajaxCheckDuplicate', ['AuthMiddleware']);
-        $this->get('api/variants/resolve-qr', 'VariantController', 'ajaxResolveQr', ['AuthMiddleware']);
-        $this->post('api/variants/resolve-qr', 'VariantController', 'ajaxResolveQr', ['AuthMiddleware']);
-        $this->get('api/designs', 'VariantController', 'ajaxDesignsList', ['AuthMiddleware']);
-        $this->post('api/designs/quick-add', 'VariantController', 'ajaxQuickAddDesign', ['AuthMiddleware']);
+        $variantViewPerms = [['variants', 'view'], ['catalog', 'view'], ['qr_generation', 'view'], ['production_billing', 'create']];
+        $designCreatePerms = [['variants', 'create'], ['variants', 'edit'], ['catalog', 'create'], ['catalog', 'edit']];
+        $this->get('api/variants/catalogs', 'VariantController', 'ajaxCatalogs', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->get('api/variants/preview-sku', 'VariantController', 'ajaxPreviewSku', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->get('api/variants/check-duplicate', 'VariantController', 'ajaxCheckDuplicate', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->get('api/variants/resolve-qr', 'VariantController', 'ajaxResolveQr', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->post('api/variants/resolve-qr', 'VariantController', 'ajaxResolveQr', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->get('api/designs', 'VariantController', 'ajaxDesignsList', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
+        $this->post('api/designs/quick-add', 'VariantController', 'ajaxQuickAddDesign', ['AuthMiddleware', ['PermissionMiddleware', $designCreatePerms]]);
 
         // Production Programs
         $this->get('allmodules/programs', 'AllmodulesController', 'programList', ['AuthMiddleware', ['PermissionMiddleware', 'programs', 'view']]);

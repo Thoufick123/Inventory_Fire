@@ -28,6 +28,10 @@ class AllmodulesController {
      */
     public static function ensureDatabaseSchema(): void {
         if (self::$schemaEnsured) return;
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_schema_checked'])) {
+            self::$schemaEnsured = true;
+            return;
+        }
         self::$schemaEnsured = true;
         try {
             $col1 = Database::fetchOne("SHOW COLUMNS FROM production_purchase_items LIKE 'hsn_code'");
@@ -148,10 +152,17 @@ class AllmodulesController {
                  ) NOT NULL DEFAULT 'LOGGED'"
             );
         }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['_allmodules_schema_checked'] = true;
+        }
     }
 
     private static function ensureProgramRollAttributesSchema(): void {
         if (self::$programRollAttributesSchemaEnsured) return;
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_program_roll_attr_schema_checked'])) {
+            self::$programRollAttributesSchemaEnsured = true;
+            return;
+        }
 
         $column = Database::fetchOne("SHOW COLUMNS FROM production_program_rolls LIKE 'attributes'");
         if (!$column) {
@@ -162,10 +173,17 @@ class AllmodulesController {
         }
 
         self::$programRollAttributesSchemaEnsured = true;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['_program_roll_attr_schema_checked'] = true;
+        }
     }
 
     private static function ensureCuttingBatchRollAttributesSchema(): void {
         if (self::$cuttingBatchRollAttributesSchemaEnsured) return;
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_cutting_roll_attr_schema_checked'])) {
+            self::$cuttingBatchRollAttributesSchemaEnsured = true;
+            return;
+        }
 
         try {
             $column = Database::fetchOne("SHOW COLUMNS FROM cutting_batch_rolls LIKE 'attributes'");
@@ -178,6 +196,9 @@ class AllmodulesController {
         } catch (\Throwable $e) {}
 
         self::$cuttingBatchRollAttributesSchemaEnsured = true;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['_cutting_roll_attr_schema_checked'] = true;
+        }
     }
 
     /**

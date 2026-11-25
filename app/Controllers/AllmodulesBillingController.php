@@ -12,6 +12,10 @@ class AllmodulesBillingController
         if ($checked) {
             return;
         }
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_billing_schema_checked'])) {
+            $checked = true;
+            return;
+        }
         $checked = true;
 
         try {
@@ -25,6 +29,9 @@ class AllmodulesBillingController
             $idx = Database::fetchOne("SHOW INDEX FROM production_bills WHERE Key_name = 'idx_production_bills_direct'");
             if (!$idx) {
                 Database::execute("ALTER TABLE production_bills ADD INDEX idx_production_bills_direct (is_direct_bill)");
+            }
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                $_SESSION['_allmodules_billing_schema_checked'] = true;
             }
         } catch (\Throwable $e) {}
     }

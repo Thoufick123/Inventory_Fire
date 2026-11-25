@@ -7,11 +7,36 @@
 class PermissionMiddleware {
     /**
      * Handle the permission check.
-     * 
-     * @param string $module Module name (e.g., 'production', 'warehouse')
-     * @param string $action Action name (e.g., 'view', 'create', 'edit', 'delete', 'approve', 'print', 'export')
+     *
+     * @param string|array $module Module name (e.g., 'production') or list of [module, action] pairs (any match grants access)
+     * @param string|null $action Action name (e.g., 'view', 'create', 'edit', 'delete', 'approve', 'print', 'export')
      */
-    public function handle(string $module, string $action): void {
+    public function handle(string|array $module, ?string $action = null): void {
+        if (is_array($module)) {
+            $labels = [];
+            foreach ($module as $pair) {
+                if (!is_array($pair) || count($pair) < 2) {
+                    continue;
+                }
+                [$mod, $act] = $pair;
+                if (hasPermission((string)$mod, (string)$act)) {
+                    return;
+                }
+                $labels[] = ucwords(str_replace('_', ' ', (string)$mod)) . ' (' . strtolower((string)$act) . ')';
+            }
+
+            $joined = !empty($labels) ? implode(' or ', array_unique($labels)) : 'this module';
+            if ($this->isAjax()) {
+                Response::json([
+                    'success' => false,
+                    'error'   => "Access restricted: You do not have permission for {$joined}.",
+                    'message' => "Access restricted: You do not have permission for {$joined}.",
+                ], 403);
+            }
+            Response::error(403, "Your assigned role does not have permission for {$joined}.");
+        }
+
+        $action = (string)($action ?? 'view');
         if (!hasPermission($module, $action)) {
             // Allow access to seller edit mode if user has edit permission
             if ($module === 'wh_sellers' && $action === 'create') {
@@ -55,10 +80,11 @@ class PermissionMiddleware {
     }
 
     /**
-     * Check if request is AJAX.
+     * Check if request is AJAX or expects JSON.
      */
     private function isAjax(): bool {
-        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        return (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')
+            || str_starts_with(trim((string)($_GET['url'] ?? ''), '/'), 'api/');
     }
 }
