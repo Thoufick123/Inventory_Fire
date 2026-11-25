@@ -12,19 +12,19 @@
 <div class="row g-3 mb-4">
     <!-- Card 1: Total Revenue -->
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Bills Revenue' : (($activeTab ?? 'normal') === 'all' ? 'All Billed Revenue' : 'Standard Billed Revenue') ?></span>
-                    <div class="p-2 bg-success bg-opacity-10 text-success rounded-circle">
-                        <i class="bi bi-currency-rupee fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Bills Revenue' : (($activeTab ?? 'normal') === 'all' ? 'All Billed Revenue' : 'Standard Billed Revenue') ?></div>
+                    <div class="fw-bold text-success fs-3 mt-1">₹<?= number_format($stats['total_revenue'] ?? 0, 2) ?></div>
+                    <div class="small text-muted mt-2 d-flex align-items-center gap-1 flex-wrap">
+                        <span class="text-success fw-semibold">₹<?= number_format($stats['paid_revenue'] ?? 0, 2) ?></span> Paid
+                        <span class="text-muted">&bull;</span>
+                        <span class="text-warning-emphasis fw-semibold">₹<?= number_format($stats['pending_revenue'] ?? 0, 2) ?></span> Pending
                     </div>
                 </div>
-                <h3 class="fw-bold text-dark mb-1">₹<?= number_format($stats['total_revenue'] ?? 0, 2) ?></h3>
-                <div class="small text-muted d-flex align-items-center gap-1">
-                    <span class="text-success fw-semibold">₹<?= number_format($stats['paid_revenue'] ?? 0, 2) ?></span> Paid
-                    <span class="text-muted">&bull;</span>
-                    <span class="text-warning fw-semibold">₹<?= number_format($stats['pending_revenue'] ?? 0, 2) ?></span> Pending
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-currency-rupee fs-4"></i>
                 </div>
             </div>
         </div>
@@ -32,18 +32,18 @@
 
     <!-- Card 2: Total Bills -->
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Invoices' : (($activeTab ?? 'normal') === 'all' ? 'Total Invoices' : 'Standard Invoices') ?></span>
-                    <div class="p-2 bg-primary bg-opacity-10 text-primary rounded-circle">
-                        <i class="bi bi-receipt-cutoff fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small"><?= ($activeTab ?? 'normal') === 'direct' ? 'Direct Invoices' : (($activeTab ?? 'normal') === 'all' ? 'Total Invoices' : 'Standard Invoices') ?></div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($stats['total_bills'] ?? 0) ?></div>
+                    <div class="small text-muted mt-2 d-flex align-items-center gap-1 flex-wrap">
+                        <span class="badge bg-success-subtle text-success"><?= $stats['paid_count'] ?? 0 ?> Settled</span>
+                        <span class="badge bg-warning-subtle text-warning-emphasis"><?= $stats['pending_count'] ?? 0 ?> Unsettled</span>
                     </div>
                 </div>
-                <h3 class="fw-bold text-dark mb-1"><?= number_format($stats['total_bills'] ?? 0) ?></h3>
-                <div class="small text-muted d-flex align-items-center gap-1">
-                    <span class="badge bg-success-subtle text-success"><?= $stats['paid_count'] ?? 0 ?> Settled</span>
-                    <span class="badge bg-warning-subtle text-warning-emphasis"><?= $stats['pending_count'] ?? 0 ?> Unsettled</span>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-receipt-cutoff fs-4"></i>
                 </div>
             </div>
         </div>
@@ -51,17 +51,17 @@
 
     <!-- Card 3: Bill-based Customers -->
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Billed Customers</span>
-                    <div class="p-2 bg-info bg-opacity-10 text-info rounded-circle">
-                        <i class="bi bi-people-fill fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Billed Customers</div>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($stats['unique_customers'] ?? 0) ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-people-fill text-info me-1"></i><span class="fw-semibold text-info-emphasis">Unique Clients</span> billed across QC inventory
                     </div>
                 </div>
-                <h3 class="fw-bold text-dark mb-1"><?= number_format($stats['unique_customers'] ?? 0) ?></h3>
-                <div class="small text-muted">
-                    <span class="fw-semibold text-info">Unique Clients</span> billed across QC inventory
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-people-fill fs-4"></i>
                 </div>
             </div>
         </div>
@@ -69,17 +69,17 @@
 
     <!-- Card 4: Realization Ratio -->
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body p-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Realization Ratio</span>
-                    <div class="p-2 bg-warning bg-opacity-10 text-warning rounded-circle">
-                        <i class="bi bi-check2-circle fs-5"></i>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Realization Ratio</div>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= !empty($stats['total_revenue']) ? round(($stats['paid_revenue'] / $stats['total_revenue']) * 100, 1) . '%' : '0%' ?></div>
+                    <div class="small text-muted mt-2 text-truncate">
+                        <i class="bi bi-check2-circle text-warning me-1"></i>Payment collection conversion rate
                     </div>
                 </div>
-                <h3 class="fw-bold text-dark mb-1"><?= !empty($stats['total_revenue']) ? round(($stats['paid_revenue'] / $stats['total_revenue']) * 100, 1) . '%' : '0%' ?></h3>
-                <div class="small text-muted">
-                    <span>Payment collection conversion rate</span>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-check2-circle fs-4"></i>
                 </div>
             </div>
         </div>

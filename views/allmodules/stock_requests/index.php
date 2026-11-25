@@ -119,37 +119,39 @@ $isSentTab = ($activeTab === 'sent');
     <div class="row g-3 mb-4">
         <!-- 1. Total Requests -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">
+            <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">
                             <?= $isSentTab ? 'Total Sent Requirements' : 'Total Incoming Requirements' ?>
-                        </span>
-                        <div class="p-2 rounded-circle <?= $isSentTab ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-dark' ?>">
-                            <i class="bi <?= $isSentTab ? 'bi-send' : 'bi-inbox' ?> fs-5"></i>
+                        </div>
+                        <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($stats['total_requests'] ?? 0) ?></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            Total Asked: <strong class="text-dark"><?= number_format($stats['total_requested_pieces'] ?? 0) ?> pcs</strong>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-dark mb-1"><?= number_format($stats['total_requests'] ?? 0) ?></h3>
-                    <div class="small text-muted">Total Asked: <strong class="text-dark"><?= number_format($stats['total_requested_pieces'] ?? 0) ?> pcs</strong></div>
+                    <div class="<?= $isSentTab ? 'bg-primary-subtle text-primary' : 'bg-warning-subtle text-warning-emphasis' ?> revenue-kpi-icon">
+                        <i class="bi <?= $isSentTab ? 'bi-send' : 'bi-inbox' ?> fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 2. Pending Send Area Receipt -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">
+            <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">
                             <?= $isSentTab ? 'Awaiting Send Area' : 'Awaiting Your Receipt' ?>
-                        </span>
-                        <div class="p-2 rounded-circle bg-warning-subtle text-warning">
-                            <i class="bi bi-clock-history fs-5"></i>
+                        </div>
+                        <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= number_format($stats['pending_receipt_count'] ?? 0) ?></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-clock-history text-warning me-1"></i><?= $isSentTab ? 'Waiting for supplying area' : 'Action needed: Acknowledge &amp; Prep' ?>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-warning mb-1"><?= number_format($stats['pending_receipt_count'] ?? 0) ?></h3>
-                    <div class="small text-muted">
-                        <?= $isSentTab ? 'Waiting for supplying area' : 'Action needed: Acknowledge &amp; Prep' ?>
+                    <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                        <i class="bi bi-clock-history fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -157,37 +159,41 @@ $isSentTab = ($activeTab === 'sent');
 
         <!-- 3. Acknowledged / In Preparation -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">
+            <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">
                             <?= $isSentTab ? 'Accepted by Send Area' : 'Acknowledged &amp; In Prep' ?>
-                        </span>
-                        <div class="p-2 rounded-circle bg-info-subtle text-info">
-                            <i class="bi bi-box-arrow-in-down fs-5"></i>
+                        </div>
+                        <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= number_format($stats['received_send_area_count'] ?? 0) ?></div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-box-arrow-in-down text-info me-1"></i>Ready to Dispatch / Prepare
                         </div>
                     </div>
-                    <h3 class="fw-bold text-info mb-1"><?= number_format($stats['received_send_area_count'] ?? 0) ?></h3>
-                    <div class="small text-muted">Ready to Dispatch / Prepare</div>
+                    <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                        <i class="bi bi-box-arrow-in-down fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 4. Dispatched & Fulfilled -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Fulfilled &amp; In Transit</span>
-                        <div class="p-2 rounded-circle bg-success-subtle text-success">
-                            <i class="bi bi-check2-circle fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Fulfilled &amp; In Transit</div>
+                        <div class="fw-bold text-success fs-3 mt-1">
+                            <?= number_format($stats['fulfilled_count'] ?? 0) ?>
+                            <span class="fs-6 fw-normal text-muted">(<?= number_format($stats['dispatched_count'] ?? 0) ?> In Transit)</span>
+                        </div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            Dispatched: <strong class="text-success"><?= number_format($stats['total_dispatched_pieces'] ?? 0) ?> pcs</strong>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-success mb-1">
-                        <?= number_format($stats['fulfilled_count'] ?? 0) ?>
-                        <span class="fs-6 fw-normal text-muted">(<?= number_format($stats['dispatched_count'] ?? 0) ?> In Transit)</span>
-                    </h3>
-                    <div class="small text-muted">Dispatched: <strong class="text-success"><?= number_format($stats['total_dispatched_pieces'] ?? 0) ?> pcs</strong></div>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
+                        <i class="bi bi-check2-circle fs-4"></i>
+                    </div>
                 </div>
             </div>
         </div>

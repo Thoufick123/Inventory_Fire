@@ -652,6 +652,8 @@ class Router {
         // System: Settings Hub (Role-Based Access)
         $this->get('system/settings', 'SystemController', 'settings', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->post('system/settings/update', 'SystemController', 'updateSettings', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'edit']]);
+        $this->post('system/settings/presets/save', 'SystemController', 'saveThemePreset', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'edit']]);
+        $this->post('system/settings/presets/delete', 'SystemController', 'deleteThemePreset', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'edit']]);
 
         // System: Backup & Recovery (Role-Based Access)
         $this->get('system/backup', 'SystemController', 'backupList', ['AuthMiddleware', ['PermissionMiddleware', 'backup', 'view']]);

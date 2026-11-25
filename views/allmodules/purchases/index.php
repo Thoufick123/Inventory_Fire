@@ -40,45 +40,57 @@
 <!-- Metrics Cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase fw-semibold">Total Purchases</div>
-                    <div class="fs-3 fw-bold text-dark"><?= number_format((int)($metrics['total_count'] ?? count($purchases))) ?></div>
-                    <div class="small text-muted">₹<?= number_format((float)$totalPurchaseValue, 2) ?> spend</div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Purchases</div>
+                    <div class="fs-3 fw-bold text-success mt-1"><?= number_format((int)($metrics['total_count'] ?? count($purchases))) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-currency-rupee text-success me-1"></i>₹<?= number_format((float)$totalPurchaseValue, 2) ?> spend</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-bag-check fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase fw-semibold">Fabric Roll Purchases</div>
-                    <div class="fs-3 fw-bold text-primary"><?= number_format((int)($metrics['fabric_roll_count'] ?? 0)) ?></div>
-                    <div class="small text-muted">Fabric roll orders</div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Fabric Roll Purchases</div>
+                    <div class="fs-3 fw-bold text-primary mt-1"><?= number_format((int)($metrics['fabric_roll_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-vinyl text-primary me-1"></i>Fabric roll orders</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-vinyl fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase fw-semibold">Raw Materials Purchases</div>
-                    <div class="fs-3 fw-bold text-warning"><?= number_format((int)($metrics['raw_material_count'] ?? 0)) ?></div>
-                    <div class="small text-muted">Yarn, threads & accessories</div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Raw Materials Purchases</div>
+                    <div class="fs-3 fw-bold text-warning-emphasis mt-1"><?= number_format((int)($metrics['raw_material_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-boxes text-warning me-1"></i>Yarn, threads &amp; accessories</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-boxes fs-4"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <div class="text-muted small text-uppercase fw-semibold">Third-Party Purchases</div>
-                    <div class="fs-3 fw-bold text-info"><?= number_format((int)($metrics['third_party_count'] ?? 0)) ?></div>
-                    <div class="small text-muted">Third-party orders</div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Third-Party Purchases</div>
+                    <div class="fs-3 fw-bold text-info-emphasis mt-1"><?= number_format((int)($metrics['third_party_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-shop text-info me-1"></i>Third-party orders</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-shop fs-4"></i>
                 </div>
             </div>
         </div>

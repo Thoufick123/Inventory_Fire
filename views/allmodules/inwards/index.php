@@ -89,21 +89,19 @@ $canVerify = hasPermission('inward', 'verify');
     <div class="row g-3 mb-3">
         <!-- 1. Awaiting GRN -->
         <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm border-start border-danger border-4 h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div style="min-width: 0;">
-                            <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title" style="font-size: 0.75rem;">Awaiting GRN (Missing Stock)</span>
-                            <h4 class="mb-0 fw-bold text-danger mt-1 metric-card-value">
-                                <?= number_format($pendingBatchesCount ?? 0) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
-                            </h4>
-                            <small class="text-danger fw-semibold mt-1 d-block text-truncate">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i><?= number_format($totalPendingMissingQty ?? 0) ?> pcs pending verification
-                            </small>
+            <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small text-truncate metric-card-title">Awaiting GRN (Missing Stock)</div>
+                        <div class="fw-bold text-danger fs-3 mt-1 metric-card-value">
+                            <?= number_format($pendingBatchesCount ?? 0) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
                         </div>
-                        <div class="rounded-circle bg-danger bg-opacity-10 p-2 p-xl-3 text-danger flex-shrink-0 ms-2">
-                            <i class="bi bi-hourglass-split fs-4"></i>
+                        <div class="small text-danger fw-semibold mt-2 text-truncate">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i><?= number_format($totalPendingMissingQty ?? 0) ?> pcs pending verification
                         </div>
+                    </div>
+                    <div class="bg-danger-subtle text-danger revenue-kpi-icon">
+                        <i class="bi bi-hourglass-split fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -111,21 +109,19 @@ $canVerify = hasPermission('inward', 'verify');
 
         <!-- 2. Received & Stock Credited -->
         <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div style="min-width: 0;">
-                            <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title" style="font-size: 0.75rem;">Received &amp; Stock Credited</span>
-                            <h4 class="mb-0 fw-bold text-success mt-1 metric-card-value">
-                                <?= number_format($receivedBatchesCount ?? 0) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
-                            </h4>
-                            <small class="text-success fw-semibold mt-1 d-block text-truncate">
-                                <i class="bi bi-check2-circle me-1"></i><?= number_format($totalReceivedQty ?? 0) ?> pcs in warehouse stock
-                            </small>
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small text-truncate metric-card-title">Received &amp; Stock Credited</div>
+                        <div class="fw-bold text-success fs-3 mt-1 metric-card-value">
+                            <?= number_format($receivedBatchesCount ?? 0) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
                         </div>
-                        <div class="rounded-circle bg-success bg-opacity-10 p-2 p-xl-3 text-success flex-shrink-0 ms-2">
-                            <i class="bi bi-shield-check fs-4"></i>
+                        <div class="small text-success fw-semibold mt-2 text-truncate">
+                            <i class="bi bi-check2-circle me-1"></i><?= number_format($totalReceivedQty ?? 0) ?> pcs in warehouse stock
                         </div>
+                    </div>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
+                        <i class="bi bi-shield-check fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -133,21 +129,19 @@ $canVerify = hasPermission('inward', 'verify');
 
         <!-- 3. Total Inward Dispatches -->
         <div class="col-12 col-md-4">
-            <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div style="min-width: 0;">
-                            <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title" style="font-size: 0.75rem;">Total Inward Dispatches</span>
-                            <h4 class="mb-0 fw-bold text-primary mt-1 metric-card-value">
-                                <?= number_format(count($batches)) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
-                            </h4>
-                            <small class="text-muted mt-1 d-block text-truncate">
-                                <i class="bi bi-truck me-1"></i><?= number_format(($totalPendingMissingQty ?? 0) + ($totalReceivedQty ?? 0)) ?> total dispatched pcs
-                            </small>
+            <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small text-truncate metric-card-title">Total Inward Dispatches</div>
+                        <div class="fw-bold text-primary fs-3 mt-1 metric-card-value">
+                            <?= number_format(count($batches)) ?> <small class="fs-6 text-muted fw-normal">Batches</small>
                         </div>
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-2 p-xl-3 text-primary flex-shrink-0 ms-2">
-                            <i class="bi bi-box-seam fs-4"></i>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-truck text-primary me-1"></i><?= number_format(($totalPendingMissingQty ?? 0) + ($totalReceivedQty ?? 0)) ?> total dispatched pcs
                         </div>
+                    </div>
+                    <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                        <i class="bi bi-box-seam fs-4"></i>
                     </div>
                 </div>
             </div>

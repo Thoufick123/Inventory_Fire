@@ -15,43 +15,71 @@
 
 <!-- Top Summary Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm border">
-            <div class="small text-muted mb-1"><i class="bi bi-kanban me-1 text-primary"></i>Total Planned Production</div>
-            <div class="fw-bold fs-4 text-primary"><?= number_format($totalPrograms['planned'] ?? 0) ?> pcs</div>
-            <small class="text-muted"><?= number_format($totalPrograms['cnt'] ?? 0) ?> total programs</small>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Planned Production</div>
+                    <div class="fw-bold text-primary fs-3 mt-1"><?= number_format($totalPrograms['planned'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-kanban me-1 text-primary"></i><?= number_format($totalPrograms['cnt'] ?? 0) ?> total programs</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-kanban fs-4"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm border">
-            <div class="small text-muted mb-1"><i class="bi bi-check-circle me-1 text-success"></i>Finished & Delivered</div>
-            <div class="fw-bold fs-4 text-success"><?= number_format($totalPrograms['completed'] ?? 0) ?> pcs</div>
-            <?php 
-                $compRate = ($totalPrograms['planned'] ?? 0) > 0 ? round((($totalPrograms['completed'] ?? 0) / $totalPrograms['planned']) * 100, 1) : 0;
-            ?>
-            <small class="text-muted"><?= $compRate ?>% overall completion rate</small>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Finished &amp; Delivered</div>
+                    <div class="fw-bold text-success fs-3 mt-1"><?= number_format($totalPrograms['completed'] ?? 0) ?> <span class="fs-6 fw-normal text-muted">pcs</span></div>
+                    <?php 
+                        $compRate = ($totalPrograms['planned'] ?? 0) > 0 ? round((($totalPrograms['completed'] ?? 0) / $totalPrograms['planned']) * 100, 1) : 0;
+                    ?>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check-circle me-1 text-success"></i><?= $compRate ?>% overall completion rate</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-check-circle fs-4"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm border">
-            <div class="small text-muted mb-1"><i class="bi bi-scissors me-1 text-info"></i>Cutting Wastage Rate</div>
-            <?php 
-                $cutTotal = ($totalCutting['cut'] ?? 0) + ($totalCutting['wastage'] ?? 0);
-                $wasteRate = $cutTotal > 0 ? round((($totalCutting['wastage'] ?? 0) / $cutTotal) * 100, 1) : 0;
-            ?>
-            <div class="fw-bold fs-4 text-warning"><?= $wasteRate ?>%</div>
-            <small class="text-muted"><?= number_format($totalCutting['wastage'] ?? 0) ?> pcs wastage / <?= number_format($totalCutting['cut'] ?? 0) ?> cut</small>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Cutting Wastage Rate</div>
+                    <?php 
+                        $cutTotal = ($totalCutting['cut'] ?? 0) + ($totalCutting['wastage'] ?? 0);
+                        $wasteRate = $cutTotal > 0 ? round((($totalCutting['wastage'] ?? 0) / $cutTotal) * 100, 1) : 0;
+                    ?>
+                    <div class="fw-bold text-warning-emphasis fs-3 mt-1"><?= $wasteRate ?>%</div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-scissors me-1 text-warning"></i><?= number_format($totalCutting['wastage'] ?? 0) ?> pcs wastage / <?= number_format($totalCutting['cut'] ?? 0) ?> cut</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-scissors fs-4"></i>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-3 shadow-sm border">
-            <div class="small text-muted mb-1"><i class="bi bi-patch-check me-1 text-danger"></i>QC Pass Rate</div>
-            <?php 
-                $qcTotal = $totalQC['inspected'] ?? 0;
-                $passRate = $qcTotal > 0 ? round((($totalQC['passed'] ?? 0) / $qcTotal) * 100, 1) : 0;
-            ?>
-            <div class="fw-bold fs-4 text-success"><?= $passRate ?>%</div>
-            <small class="text-muted"><?= number_format($totalQC['passed'] ?? 0) ?> passed / <?= number_format($totalQC['rejected'] ?? 0) ?> rejected</small>
+    <div class="col-md-3 col-sm-6">
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">QC Pass Rate</div>
+                    <?php 
+                        $qcTotal = $totalQC['inspected'] ?? 0;
+                        $passRate = $qcTotal > 0 ? round((($totalQC['passed'] ?? 0) / $qcTotal) * 100, 1) : 0;
+                    ?>
+                    <div class="fw-bold text-info-emphasis fs-3 mt-1"><?= $passRate ?>%</div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-patch-check me-1 text-info"></i><?= number_format($totalQC['passed'] ?? 0) ?> passed / <?= number_format($totalQC['rejected'] ?? 0) ?> rejected</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-patch-check fs-4"></i>
+                </div>
+            </div>
         </div>
     </div>
 </div>

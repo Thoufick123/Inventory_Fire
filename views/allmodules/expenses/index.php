@@ -22,18 +22,18 @@
     <div class="row g-3 mb-4">
         <!-- 1. Total Production Expense Spend -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Total Production Spend</span>
-                        <div class="p-2 rounded-circle bg-primary-subtle text-primary">
-                            <i class="bi bi-currency-rupee fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Total Production Spend</div>
+                        <div class="fw-bold text-primary fs-3 mt-1">₹<?= number_format($stats['total_cost'], 2) ?></div>
+                        <div class="small text-muted mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <span><?= number_format($stats['total_records']) ?> Transaction(s)</span>
+                            <span class="badge bg-light text-dark border">All Units Combined</span>
                         </div>
                     </div>
-                    <h3 class="fw-bold text-primary mb-1">₹ <?= number_format($stats['total_cost'], 2) ?></h3>
-                    <div class="small text-muted d-flex justify-content-between align-items-center">
-                        <span><?= number_format($stats['total_records']) ?> Transaction(s)</span>
-                        <span class="badge bg-light text-dark border">All Units Combined</span>
+                    <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                        <i class="bi bi-currency-rupee fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -41,27 +41,26 @@
 
         <!-- 2. Unit 1 vs Unit 2 Spend -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Unit 1 &amp; Unit 2 Costs</span>
-                        <div class="p-2 rounded-circle bg-info-subtle text-info">
-                            <i class="bi bi-diagram-2 fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2 flex-grow-1" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Unit 1 &amp; Unit 2 Costs</div>
+                        <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2 mt-2">
+                            <div>
+                                <span class="badge bg-primary text-white me-1">U1</span>
+                                <strong class="text-info-emphasis">₹<?= number_format($stats['unit1_cost'], 2) ?></strong>
+                            </div>
+                            <div>
+                                <span class="badge bg-info text-white me-1">U2</span>
+                                <strong class="text-info-emphasis">₹<?= number_format($stats['unit2_cost'], 2) ?></strong>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-diagram-2 text-info me-1"></i>Common/Facility: ₹<?= number_format($stats['both_units_cost'], 2) ?>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-baseline mb-1">
-                        <div>
-                            <span class="badge bg-primary text-white me-1">Unit 1</span>
-                            <strong class="text-dark">₹ <?= number_format($stats['unit1_cost'], 2) ?></strong>
-                        </div>
-                        <div>
-                            <span class="badge bg-info text-white me-1">Unit 2</span>
-                            <strong class="text-dark">₹ <?= number_format($stats['unit2_cost'], 2) ?></strong>
-                        </div>
-                    </div>
-                    <div class="small text-muted d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
-                        <span>Common/Facility: ₹<?= number_format($stats['both_units_cost'], 2) ?></span>
-                        <span class="badge bg-info-subtle text-info border">By Unit</span>
+                    <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                        <i class="bi bi-diagram-2 fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -69,27 +68,26 @@
 
         <!-- 3. Materials & Maintenance -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Materials &amp; Maintenance</span>
-                        <div class="p-2 rounded-circle bg-success-subtle text-success">
-                            <i class="bi bi-scissors fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2 flex-grow-1" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Materials &amp; Maintenance</div>
+                        <div class="d-flex justify-content-between align-items-baseline gap-2 mt-2">
+                            <div>
+                                <small class="text-muted d-block">Maint. &amp; Repairs</small>
+                                <strong class="text-danger">₹<?= number_format($stats['maintenance_cost'] + ($stats['machinery_cost'] ?? 0), 2) ?></strong>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Trims &amp; Threads</small>
+                                <strong class="text-success">₹<?= number_format($stats['sewing_materials_cost'], 2) ?></strong>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-scissors text-success me-1"></i>Operations &amp; Utilities: ₹<?= number_format($stats['operations_cost'], 2) ?>
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-baseline mb-1">
-                        <div>
-                            <small class="text-muted d-block">Maintenance &amp; Repairs</small>
-                            <strong class="text-danger">₹<?= number_format($stats['maintenance_cost'] + ($stats['machinery_cost'] ?? 0), 2) ?></strong>
-                        </div>
-                        <div class="text-end">
-                            <small class="text-muted d-block">Threads / Needles / Trims</small>
-                            <strong class="text-success">₹<?= number_format($stats['sewing_materials_cost'], 2) ?></strong>
-                        </div>
-                    </div>
-                    <div class="small text-muted d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
-                        <span>Operations &amp; Utilities: ₹<?= number_format($stats['operations_cost'], 2) ?></span>
-                        <span class="badge bg-success-subtle text-success border">Floor Breakdown</span>
+                    <div class="bg-success-subtle text-success revenue-kpi-icon">
+                        <i class="bi bi-scissors fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -97,27 +95,26 @@
 
         <!-- 4. Settlement & Payables -->
         <div class="col-xl-3 col-md-6">
-            <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Settlement &amp; Payables</span>
-                        <div class="p-2 rounded-circle bg-danger-subtle text-danger">
-                            <i class="bi bi-clock-history fs-5"></i>
+            <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="me-2 flex-grow-1" style="min-width: 0;">
+                        <div class="text-uppercase fw-semibold text-muted small">Settlement &amp; Payables</div>
+                        <div class="d-flex justify-content-between align-items-baseline gap-2 mt-2">
+                            <div>
+                                <small class="text-muted d-block">Paid Settled</small>
+                                <strong class="text-success">₹<?= number_format($stats['total_paid'], 2) ?></strong>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Vendor Due</small>
+                                <strong class="text-danger">₹<?= number_format($stats['total_pending'], 2) ?></strong>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2 text-truncate">
+                            <i class="bi bi-clock-history text-danger me-1"></i><?= number_format(($stats['count_pending'] ?? 0) + ($stats['count_partial'] ?? 0)) ?> Unsettled Bills
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-baseline mb-1">
-                        <div>
-                            <small class="text-muted d-block">Paid Settled</small>
-                            <strong class="text-success">₹<?= number_format($stats['total_paid'], 2) ?></strong>
-                        </div>
-                        <div class="text-end">
-                            <small class="text-muted d-block">Vendor Due</small>
-                            <strong class="text-danger">₹<?= number_format($stats['total_pending'], 2) ?></strong>
-                        </div>
-                    </div>
-                    <div class="small text-muted d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
-                        <span><?= number_format(($stats['count_pending'] ?? 0) + ($stats['count_partial'] ?? 0)) ?> Unsettled Bills</span>
-                        <span class="badge bg-danger-subtle text-danger border">Payables</span>
+                    <div class="bg-danger-subtle text-danger revenue-kpi-icon">
+                        <i class="bi bi-clock-history fs-4"></i>
                     </div>
                 </div>
             </div>
@@ -744,27 +741,21 @@
                 <!-- 1. Top KPI Summary Cards -->
                 <div class="row g-3 mb-4">
                     <div class="col-sm-4">
-                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
-                            <div class="card-body p-3">
-                                <span class="text-muted small fw-semibold text-uppercase d-block" style="font-size: 11px;">Total Spend</span>
-                                <h4 class="fw-bold text-primary mb-0 mt-1" id="normExpTotalSpend">₹0.00</h4>
-                            </div>
+                        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+                            <div class="text-uppercase fw-semibold text-muted small" style="font-size: 11px;">Total Spend</div>
+                            <h4 class="fw-bold text-primary mb-0 mt-1" id="normExpTotalSpend">₹0.00</h4>
                         </div>
                     </div>
                     <div class="col-sm-4">
-                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
-                            <div class="card-body p-3">
-                                <span class="text-muted small fw-semibold text-uppercase d-block" style="font-size: 11px;">Amount Paid</span>
-                                <h4 class="fw-bold text-success mb-0 mt-1" id="normExpAmountPaid">₹0.00</h4>
-                            </div>
+                        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+                            <div class="text-uppercase fw-semibold text-muted small" style="font-size: 11px;">Amount Paid</div>
+                            <h4 class="fw-bold text-success mb-0 mt-1" id="normExpAmountPaid">₹0.00</h4>
                         </div>
                     </div>
                     <div class="col-sm-4">
-                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
-                            <div class="card-body p-3">
-                                <span class="text-muted small fw-semibold text-uppercase d-block" style="font-size: 11px;">Balance Due</span>
-                                <h4 class="fw-bold text-danger mb-0 mt-1" id="normExpBalanceDue">₹0.00</h4>
-                            </div>
+                        <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
+                            <div class="text-uppercase fw-semibold text-muted small" style="font-size: 11px;">Balance Due</div>
+                            <h4 class="fw-bold text-danger mb-0 mt-1" id="normExpBalanceDue">₹0.00</h4>
                         </div>
                     </div>
                 </div>

@@ -13,44 +13,64 @@
 <!-- Metrics Summary -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Total Concerns</div>
-                <div class="fs-3 fw-bold text-dark"><?= number_format($totalConcerns) ?></div>
-                <div class="small text-muted">Registered business firms</div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Concerns</div>
+                    <div class="fs-3 fw-bold text-primary mt-1"><?= number_format($totalConcerns) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-buildings text-primary me-1"></i>Registered business firms</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-buildings fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Active Concerns</div>
-                <div class="fs-3 fw-bold text-success"><?= number_format($activeConcerns) ?></div>
-                <div class="small text-muted">Operational entities</div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Active Concerns</div>
+                    <div class="fs-3 fw-bold text-success mt-1"><?= number_format($activeConcerns) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-check-circle text-success me-1"></i>Operational entities</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-check-circle fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Currently Active Context</div>
-                <?php $curC = currentConcern(); ?>
-                <?php if (!empty($curC['is_global'])): ?>
-                    <div class="fs-4 fw-bold text-dark text-truncate"><i class="bi bi-shield-lock-fill text-warning me-1"></i>Global Super Admin</div>
-                    <div class="small text-muted font-monospace"><span class="badge bg-dark text-white">ADMIN</span> All Concerns (Global Context)</div>
-                <?php else: ?>
-                    <div class="fs-4 fw-bold text-primary text-truncate"><?= e($curC['name'] ?? 'Not Selected') ?></div>
-                    <div class="small text-muted font-monospace"><span class="badge bg-primary text-white"><?= e($curC['code'] ?? 'CN-01') ?></span> Scoped Session Context</div>
-                <?php endif; ?>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Currently Active Context</div>
+                    <?php $curC = currentConcern(); ?>
+                    <?php if (!empty($curC['is_global'])): ?>
+                        <div class="fs-4 fw-bold text-warning-emphasis text-truncate mt-1"><i class="bi bi-shield-lock-fill text-warning me-1"></i>Global Super Admin</div>
+                        <div class="small text-muted font-monospace mt-2 text-truncate"><span class="badge bg-dark text-white">ADMIN</span> All Concerns (Global Context)</div>
+                    <?php else: ?>
+                        <div class="fs-4 fw-bold text-warning-emphasis text-truncate mt-1"><?= e($curC['name'] ?? 'Not Selected') ?></div>
+                        <div class="small text-muted font-monospace mt-2 text-truncate"><span class="badge bg-primary text-white"><?= e($curC['code'] ?? 'CN-01') ?></span> Scoped Session Context</div>
+                    <?php endif; ?>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-person-badge fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Enterprise Architecture</div>
-                <div class="fs-4 fw-bold text-info"><i class="bi bi-shield-check me-1"></i>Multi-Tenant</div>
-                <div class="small text-muted">Data partitioned by Concern ID</div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Enterprise Architecture</div>
+                    <div class="fs-4 fw-bold text-info-emphasis mt-1"><i class="bi bi-shield-check me-1"></i>Multi-Tenant</div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-database-lock text-info me-1"></i>Data partitioned by Concern ID</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-shield-check fs-4"></i>
+                </div>
             </div>
         </div>
     </div>

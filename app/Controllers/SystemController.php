@@ -161,7 +161,7 @@ class SystemController {
             $defaults = SettingsService::getDefaults()['theme'];
             $presets = SettingsService::getThemePresets();
             if (!empty($_POST['reset_theme_defaults'])) {
-                $settingsData = $defaults;
+                $settingsData = array_merge($defaults, ['theme_hidden_presets' => '[]']);
             } else {
                 $presetKey = trim((string)($settingsData['theme_preset'] ?? $defaults['theme_preset']));
                 if ($presetKey !== 'custom' && !isset($presets[$presetKey])) {
@@ -186,6 +186,51 @@ class SystemController {
         }
 
         Response::redirect(url('system/settings?tab=' . $group));
+    }
+
+    public function saveThemePreset(): void {
+        if (!hasPermission('settings', 'edit') && !hasPermission('settings', 'create')) {
+            Response::error(403, 'Your assigned role does not have permission to update Settings.');
+            return;
+        }
+
+        $presetName = trim((string)($_POST['preset_name'] ?? ''));
+        $settingsData = is_array($_POST['settings'] ?? null) ? $_POST['settings'] : [];
+
+        try {
+            SettingsService::saveCustomThemePreset($presetName, [
+                'primary'      => $settingsData['theme_primary'] ?? null,
+                'sidebar_bg'   => $settingsData['theme_sidebar_bg'] ?? null,
+                'sidebar_text' => $settingsData['theme_sidebar_text'] ?? null,
+                'navbar_bg'    => $settingsData['theme_navbar_bg'] ?? null,
+                'page_bg'      => $settingsData['theme_page_bg'] ?? null,
+            ], true);
+            Session::setFlash('success', 'Custom Quick Color Preset saved and applied.');
+        } catch (Throwable $e) {
+            Session::setFlash('error', 'Failed to save Quick Color Preset: ' . $e->getMessage());
+        }
+
+        Response::redirect(url('system/settings?tab=theme'));
+    }
+
+    public function deleteThemePreset(): void {
+        if (!hasPermission('settings', 'edit') && !hasPermission('settings', 'create')) {
+            Response::error(403, 'Your assigned role does not have permission to update Settings.');
+            return;
+        }
+
+        $presetId = trim((string)($_POST['preset_id'] ?? ''));
+        try {
+            if (SettingsService::deleteThemePreset($presetId)) {
+                Session::setFlash('success', 'Quick Color Preset deleted.');
+            } else {
+                Session::setFlash('error', 'Selected Quick Color Preset was not found.');
+            }
+        } catch (Throwable $e) {
+            Session::setFlash('error', 'Failed to delete Quick Color Preset: ' . $e->getMessage());
+        }
+
+        Response::redirect(url('system/settings?tab=theme'));
     }
 
     // =========================================================================

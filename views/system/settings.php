@@ -276,33 +276,59 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
 
                         <!-- Quick Color Presets -->
                         <div class="mb-4">
-                            <label class="form-label fw-semibold small text-uppercase text-muted mb-2">Quick Color Presets</label>
-                            <div class="row g-2">
-                                <?php foreach ($presetsList as $presetId => $preset): ?>
-                                    <?php $isPresetActive = ($currentPreset === $presetId); ?>
-                                    <div class="col-sm-6 col-lg-4">
-                                        <button type="button"
-                                                class="btn w-100 text-start p-3 border rounded-3 bg-white shadow-xs theme-preset-btn <?= $isPresetActive ? 'border-primary border-2 bg-light' : '' ?>"
-                                                data-preset="<?= e($presetId) ?>"
-                                                data-primary="<?= e($preset['primary']) ?>"
-                                                data-sidebar-bg="<?= e($preset['sidebar_bg']) ?>"
-                                                data-sidebar-text="<?= e($preset['sidebar_text']) ?>"
-                                                data-navbar-bg="<?= e($preset['navbar_bg']) ?>"
-                                                data-page-bg="<?= e($preset['page_bg']) ?>">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <span class="fw-semibold text-dark small"><?= e($preset['label']) ?></span>
-                                                <i class="bi bi-check-circle-fill text-primary preset-check <?= $isPresetActive ? '' : 'd-none' ?>"></i>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-1">
-                                                <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['sidebar_bg']) ?>;" title="Sidebar"></span>
-                                                <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['primary']) ?>;" title="Primary Accent"></span>
-                                                <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['navbar_bg']) ?>;" title="Top Bar"></span>
-                                                <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['page_bg']) ?>;" title="Page Background"></span>
-                                            </div>
-                                        </button>
-                                    </div>
-                                <?php endforeach; ?>
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <label class="form-label fw-semibold small text-uppercase text-muted mb-0">Quick Color Presets</label>
+                                <span class="small text-muted"><?= count($presetsList) ?> saved preset<?= count($presetsList) === 1 ? '' : 's' ?></span>
                             </div>
+                            <?php if (empty($presetsList)): ?>
+                                <div class="alert alert-light border small text-muted mb-0">
+                                    No quick presets currently listed. Enter a preset name below to save your own, or click <strong>Reset to Default</strong> to restore the built-in presets.
+                                </div>
+                            <?php else: ?>
+                                <div class="row g-2">
+                                    <?php foreach ($presetsList as $presetId => $preset): ?>
+                                        <?php $isPresetActive = ($currentPreset === $presetId); ?>
+                                        <div class="col-sm-6 col-lg-4">
+                                            <div class="position-relative h-100">
+                                                <button type="button"
+                                                        class="btn w-100 h-100 text-start p-3 <?= $canEditSettings ? 'pe-5' : '' ?> border rounded-3 bg-white shadow-xs theme-preset-btn <?= $isPresetActive ? 'border-primary border-2 bg-light' : '' ?>"
+                                                        data-preset="<?= e($presetId) ?>"
+                                                        data-primary="<?= e($preset['primary']) ?>"
+                                                        data-sidebar-bg="<?= e($preset['sidebar_bg']) ?>"
+                                                        data-sidebar-text="<?= e($preset['sidebar_text']) ?>"
+                                                        data-navbar-bg="<?= e($preset['navbar_bg']) ?>"
+                                                        data-page-bg="<?= e($preset['page_bg']) ?>">
+                                                    <div class="d-flex justify-content-between align-items-center gap-1 mb-2">
+                                                        <div class="d-flex align-items-center gap-1 text-truncate">
+                                                            <span class="fw-semibold text-dark small text-truncate"><?= e($preset['label']) ?></span>
+                                                            <?php if (!empty($preset['is_custom'])): ?>
+                                                                <span class="badge bg-primary-subtle text-primary border" style="font-size: 9px;">Custom</span>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <i class="bi bi-check-circle-fill text-primary preset-check flex-shrink-0 <?= $isPresetActive ? '' : 'd-none' ?>"></i>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['sidebar_bg']) ?>;" title="Sidebar"></span>
+                                                        <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['primary']) ?>;" title="Primary Accent"></span>
+                                                        <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['navbar_bg']) ?>;" title="Top Bar"></span>
+                                                        <span class="rounded-circle border" style="width: 20px; height: 20px; background: <?= e($preset['page_bg']) ?>;" title="Page Background"></span>
+                                                    </div>
+                                                </button>
+                                                <?php if ($canEditSettings): ?>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-link text-danger p-1 position-absolute top-0 end-0 mt-2 me-2 theme-preset-delete-btn"
+                                                            data-delete-preset="<?= e($presetId) ?>"
+                                                            data-preset-label="<?= e($preset['label']) ?>"
+                                                            title="Delete preset <?= e($preset['label']) ?>"
+                                                            aria-label="Delete preset <?= e($preset['label']) ?>">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="row g-4 align-items-start">
@@ -383,6 +409,32 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                             </div>
                         </div>
 
+                        <?php if ($canEditSettings): ?>
+                        <div class="mt-4 p-3 border rounded-3 bg-light">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-semibold mb-1" for="customPresetNameInput">
+                                        <i class="bi bi-bookmark-plus text-primary me-1"></i>Save Current Colors to Quick Color Presets
+                                    </label>
+                                    <input type="text"
+                                           name="preset_name"
+                                           id="customPresetNameInput"
+                                           maxlength="50"
+                                           class="form-control"
+                                           placeholder="Enter a preset name (e.g. Store Gold &amp; Navy)">
+                                </div>
+                                <div class="col-md-4 d-grid">
+                                    <button type="submit"
+                                            formaction="<?= url('system/settings/presets/save') ?>"
+                                            id="saveQuickPresetBtn"
+                                            class="btn btn-outline-primary fw-semibold">
+                                        <i class="bi bi-plus-circle me-1"></i> Add to Quick Presets
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <?php if ($canEditSettings): ?>
                                 <button type="submit" name="reset_theme_defaults" value="1" class="btn btn-outline-secondary" onclick="return confirm('Reset software colors back to Indigo Classic defaults?');">
@@ -396,6 +448,12 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                         </div>
                         </fieldset>
                     </form>
+                    <?php if ($canEditSettings): ?>
+                    <form method="POST" action="<?= url('system/settings/presets/delete') ?>" id="deleteThemePresetForm" class="d-none">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="preset_id" id="deletePresetIdInput" value="">
+                    </form>
+                    <?php endif; ?>
                 </div>
 
             </div>
@@ -458,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const primary = pickers.theme_primary.value;
         const primaryHover = shadeHex(primary, -18);
         const primaryLight = mixWithWhite(primary, 0.90);
+        const primaryTint = mixWithWhite(primary, 0.45);
         const primaryRgb = hexToRgbTuple(primary);
         const sidebarBg = pickers.theme_sidebar_bg.value;
         const sidebarText = pickers.theme_sidebar_text.value;
@@ -469,6 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         root.style.setProperty('--primary', primary);
         root.style.setProperty('--primary-hover', primaryHover);
         root.style.setProperty('--primary-light', primaryLight);
+        root.style.setProperty('--primary-tint', primaryTint);
         root.style.setProperty('--primary-rgb', primaryRgb);
         root.style.setProperty('--bs-primary', primary);
         root.style.setProperty('--bs-primary-rgb', primaryRgb);
@@ -567,6 +627,38 @@ document.addEventListener('DOMContentLoaded', () => {
         hexEl.addEventListener('blur', () => {
             const targetPicker = document.getElementById(hexEl.dataset.hexFor);
             if (targetPicker) hexEl.value = targetPicker.value.toUpperCase();
+        });
+    });
+
+    const saveQuickPresetBtn = document.getElementById('saveQuickPresetBtn');
+    const customPresetNameInput = document.getElementById('customPresetNameInput');
+    if (saveQuickPresetBtn && customPresetNameInput) {
+        saveQuickPresetBtn.addEventListener('click', (e) => {
+            if (customPresetNameInput.value.trim() === '') {
+                e.preventDefault();
+                customPresetNameInput.classList.add('is-invalid');
+                customPresetNameInput.focus();
+                alert('Please enter a name for your Quick Color Preset.');
+            }
+        });
+        customPresetNameInput.addEventListener('input', () => {
+            customPresetNameInput.classList.remove('is-invalid');
+        });
+    }
+
+    const deletePresetForm = document.getElementById('deleteThemePresetForm');
+    const deletePresetIdInput = document.getElementById('deletePresetIdInput');
+    document.querySelectorAll('.theme-preset-delete-btn').forEach(delBtn => {
+        delBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!deletePresetForm || !deletePresetIdInput) return;
+            const presetId = delBtn.dataset.deletePreset || '';
+            const presetLabel = delBtn.dataset.presetLabel || 'this preset';
+            if (!presetId) return;
+            if (!confirm(`Delete Quick Color Preset "${presetLabel}"?`)) return;
+            deletePresetIdInput.value = presetId;
+            deletePresetForm.submit();
         });
     });
 });

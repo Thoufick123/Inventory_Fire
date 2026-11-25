@@ -10,38 +10,58 @@
 <!-- KPI Cards -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Total Stock Batches</div>
-                <div class="fs-3 fw-bold text-dark" id="kpi-total-batches"><?= number_format((int)($metrics['total_batches'] ?? 0)) ?></div>
-                <div class="small text-muted"><span id="kpi-total-units"><?= number_format((float)($metrics['total_units'] ?? 0)) ?></span> QR units in stock</div>
+        <div class="card revenue-kpi-card border-0 border-start border-success border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Total Stock Batches</div>
+                    <div class="fs-3 fw-bold text-success mt-1" id="kpi-total-batches"><?= number_format((int)($metrics['total_batches'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-boxes text-success me-1"></i><span id="kpi-total-units"><?= number_format((float)($metrics['total_units'] ?? 0)) ?></span> QR units in stock</div>
+                </div>
+                <div class="bg-success-subtle text-success revenue-kpi-icon">
+                    <i class="bi bi-boxes fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Fabric Rolls in Stock</div>
-                <div class="fs-3 fw-bold text-primary" id="kpi-fabric-count"><?= number_format((int)($metrics['fabric_count'] ?? 0)) ?></div>
-                <div class="small text-muted">Stocked fabric rolls</div>
+        <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Fabric Rolls in Stock</div>
+                    <div class="fs-3 fw-bold text-primary mt-1" id="kpi-fabric-count"><?= number_format((int)($metrics['fabric_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-vinyl text-primary me-1"></i>Stocked fabric rolls</div>
+                </div>
+                <div class="bg-primary-subtle text-primary revenue-kpi-icon">
+                    <i class="bi bi-vinyl fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Raw Materials in Stock</div>
-                <div class="fs-3 fw-bold text-warning" id="kpi-raw-count"><?= number_format((int)($metrics['raw_count'] ?? 0)) ?></div>
-                <div class="small text-muted">Stocked raw materials</div>
+        <div class="card revenue-kpi-card border-0 border-start border-warning border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Raw Materials in Stock</div>
+                    <div class="fs-3 fw-bold text-warning-emphasis mt-1" id="kpi-raw-count"><?= number_format((int)($metrics['raw_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-layers text-warning me-1"></i>Stocked raw materials</div>
+                </div>
+                <div class="bg-warning-subtle text-warning-emphasis revenue-kpi-icon">
+                    <i class="bi bi-layers fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase fw-semibold">Third-Party Products</div>
-                <div class="fs-3 fw-bold text-info" id="kpi-third-party-count"><?= number_format((int)($metrics['third_party_count'] ?? 0)) ?></div>
-                <div class="small text-muted">Stocked third-party lines</div>
+        <div class="card revenue-kpi-card border-0 border-start border-info border-4 p-3 shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0;">
+                    <div class="text-uppercase fw-semibold text-muted small">Third-Party Products</div>
+                    <div class="fs-3 fw-bold text-info-emphasis mt-1" id="kpi-third-party-count"><?= number_format((int)($metrics['third_party_count'] ?? 0)) ?></div>
+                    <div class="small text-muted mt-2 text-truncate"><i class="bi bi-shop text-info me-1"></i>Stocked third-party lines</div>
+                </div>
+                <div class="bg-info-subtle text-info-emphasis revenue-kpi-icon">
+                    <i class="bi bi-shop fs-4"></i>
+                </div>
             </div>
         </div>
     </div>
