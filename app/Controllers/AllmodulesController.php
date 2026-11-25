@@ -5811,6 +5811,63 @@ class AllmodulesController {
 
         $standardSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size', '4XL'];
         $standardColors = ['Red', 'Blue', 'Black', 'White', 'Green', 'Yellow', 'Navy Blue', 'Maroon', 'Grey', 'Pink', 'Purple', 'Orange', 'Beige', 'Brown'];
+        $masterSizes = Database::fetchAll("SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY name ASC");
+        $masterColors = Database::fetchAll("SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC");
+
+        $categoryAttributesMap = [];
+        try {
+            $attrRows = Database::fetchAll("
+                SELECT LOWER(TRIM(COALESCE(c.name, ''))) AS cat_name,
+                       LOWER(TRIM(COALESCE(sc.name, ''))) AS sub_name,
+                       LOWER(TRIM(COALESCE(ssc.name, ''))) AS sub_sub_name,
+                       TRIM(COALESCE(sz.name, '')) AS size_name,
+                       TRIM(COALESCE(col.name, '')) AS color_name
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+                LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+                LEFT JOIN product_variants pv ON pv.product_id = p.id
+                LEFT JOIN sizes sz ON sz.id = pv.size_id AND sz.is_active = 1
+                LEFT JOIN colors col ON col.id = pv.color_id AND col.is_active = 1
+                WHERE p.is_active = 1
+                UNION
+                SELECT LOWER(TRIM(COALESCE(tc.name, ''))) AS cat_name,
+                       LOWER(TRIM(COALESCE(tsc.name, ''))) AS sub_name,
+                       LOWER(TRIM(COALESCE(tssc.name, ''))) AS sub_sub_name,
+                       TRIM(COALESCE(tpv.size, '')) AS size_name,
+                       TRIM(COALESCE(tpv.color, '')) AS color_name
+                FROM third_party_product_variants tpv
+                LEFT JOIN third_party_categories tc ON tc.id = tpv.third_party_category_id
+                LEFT JOIN third_party_subcategories tsc ON tsc.id = tpv.third_party_subcategory_id
+                LEFT JOIN third_party_sub_subcategories tssc ON tssc.id = tpv.third_party_sub_subcategory_id
+                WHERE tpv.is_active = 1
+            ");
+            foreach ($attrRows as $ar) {
+                $cName = $ar['cat_name'] ?? '';
+                if ($cName === '') continue;
+                $sName = $ar['sub_name'] ?? '';
+                $ssName = $ar['sub_sub_name'] ?? '';
+                $keys = array_unique(array_filter([
+                    $cName,
+                    $sName !== '' ? "$cName|$sName" : '',
+                    ($sName !== '' && $ssName !== '') ? "$cName|$sName|$ssName" : '',
+                ]));
+                foreach ($keys as $k) {
+                    if (!isset($categoryAttributesMap[$k])) {
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                    }
+                    if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
+                        $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
+                    }
+                    if (!empty($ar['color_name']) && !in_array($ar['color_name'], $categoryAttributesMap[$k]['colors'], true)) {
+                        $categoryAttributesMap[$k]['colors'][] = $ar['color_name'];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('categoryAttributesMap build failed: ' . $e->getMessage());
+        }
+
         $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
 
         Response::view('allmodules.purchases.mapping_bill', [
@@ -5832,6 +5889,9 @@ class AllmodulesController {
             'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,
+            'masterSizes' => $masterSizes,
+            'masterColors' => $masterColors,
+            'categoryAttributesMap' => $categoryAttributesMap,
             'breadcrumb' => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => 'Product Mapping', 'url' => url('purchases/mapping')],
@@ -23899,9 +23959,16 @@ class AllmodulesController {
     public function ajaxHsnCodesList(): void {
         try {
             $codes = Database::fetchAll("
-                SELECT id, hsn_code, description, gst_rate FROM hsn_codes
+                SELECT id, hsn_code, description, gst_rate,
+                       NULL AS category_name, NULL AS subcategory_name, NULL AS sub_subcategory_name
+                FROM hsn_codes
                 UNION
-                SELECT id, hsn_code, COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description, gst_percentage AS gst_rate 
+                SELECT id, hsn_code,
+                       COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description,
+                       gst_percentage AS gst_rate,
+                       categories AS category_name,
+                       subcategories AS subcategory_name,
+                       sub_subcategories AS sub_subcategory_name
                 FROM production_hsn_config WHERE is_active = 1
                 ORDER BY hsn_code ASC
             ");

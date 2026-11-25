@@ -545,7 +545,16 @@ tr.table-danger, tr.table-danger > td {
             </div>
         </div>
         <?php
-        $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId): void {
+        $allSizeNames = array_values(array_unique(array_filter(array_merge(
+            array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []),
+            $standardSizes ?? ['Free Size']
+        ))));
+        $allColorNames = array_values(array_unique(array_filter(array_merge(
+            array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []),
+            $standardColors ?? ['Default']
+        ))));
+
+        $renderVariantRow = static function (int $index, array $v = []) use ($categories, $allSubcategories, $allSubSubcategories, $activeItem, $unitPrice, $defaultMrp, $defaultSp, $gstRate, $activeHsn, $activeCatId, $activeSubcatId, $activeSubSubcatId, $allSizeNames, $allColorNames): void {
             $vSize = !empty($v['size']) ? $v['size'] : ($activeItem['size'] ?: 'Free Size');
             $vColor = !empty($v['color']) ? $v['color'] : ($activeItem['color'] ?: 'Default');
             $vSku = !empty($v['sku']) ? $v['sku'] : ($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']));
@@ -561,36 +570,11 @@ tr.table-danger, tr.table-danger > td {
             }
             $vSubcatId = !empty($v['third_party_subcategory_id']) ? (int)$v['third_party_subcategory_id'] : (!empty($v['subcategory_id']) ? (int)$v['subcategory_id'] : $activeSubcatId);
             $vSubSubcatId = !empty($v['third_party_sub_subcategory_id']) ? (int)$v['third_party_sub_subcategory_id'] : (!empty($v['sub_subcategory_id']) ? (int)$v['sub_subcategory_id'] : $activeSubSubcatId);
+            $rowSizes = in_array($vSize, $allSizeNames, true) ? $allSizeNames : array_merge([$vSize], $allSizeNames);
+            $rowColors = in_array($vColor, $allColorNames, true) ? $allColorNames : array_merge([$vColor], $allColorNames);
         ?>
         <tr class="variant-row" data-index="<?= $index ?>">
             <td class="text-center text-muted fw-bold row-num" style="width: 45px; min-width: 45px;"><?= $index + 1 ?></td>
-            <td style="width: 110px; min-width: 110px;">
-                <input class="form-control form-control-sm var-size" name="variants[<?= $index ?>][size]" value="<?= e($vSize) ?>" placeholder="Size" required style="min-width: 95px;">
-            </td>
-            <td style="width: 120px; min-width: 120px;">
-                <input class="form-control form-control-sm var-color" name="variants[<?= $index ?>][color]" value="<?= e($vColor) ?>" placeholder="Color" required style="min-width: 105px;">
-            </td>
-            <td style="width: 170px; min-width: 160px;">
-                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required style="min-width: 150px;">
-            </td>
-            <td style="width: 95px; min-width: 90px;">
-                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="text" inputmode="numeric" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;" autocomplete="off">
-            </td>
-            <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="text" inputmode="decimal" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate" style="min-width: 95px;" autocomplete="off">
-            </td>
-            <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP" style="min-width: 95px;" autocomplete="off">
-            </td>
-            <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale" style="min-width: 95px;" autocomplete="off">
-            </td>
-            <td style="width: 90px; min-width: 85px;">
-                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %" style="min-width: 75px;" autocomplete="off">
-            </td>
-            <td style="width: 115px; min-width: 110px;">
-                <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
-            </td>
             <td style="width: 280px; min-width: 265px;">
                 <div class="input-group input-group-sm mb-1">
                     <select class="form-select form-select-sm var-category" name="variants[<?= $index ?>][category_id]" required>
@@ -619,6 +603,47 @@ tr.table-danger, tr.table-danger > td {
                     </select>
                     <button type="button" class="btn btn-outline-success btn-quick-add-tier3" title="Create Sub Sub Category"><i class="bi bi-plus-lg"></i></button>
                 </div>
+            </td>
+            <td style="width: 155px; min-width: 145px;">
+                <div class="input-group input-group-sm">
+                    <select class="form-select form-select-sm var-size" name="variants[<?= $index ?>][size]" required>
+                        <?php foreach ($rowSizes as $szOpt): ?>
+                            <option value="<?= e($szOpt) ?>" <?= strcasecmp($vSize, $szOpt) === 0 ? 'selected' : '' ?>><?= e($szOpt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-secondary btn-quick-add-size" title="Create New Size"><i class="bi bi-plus-lg"></i></button>
+                </div>
+            </td>
+            <td style="width: 165px; min-width: 155px;">
+                <div class="input-group input-group-sm">
+                    <select class="form-select form-select-sm var-color" name="variants[<?= $index ?>][color]" required>
+                        <?php foreach ($rowColors as $colOpt): ?>
+                            <option value="<?= e($colOpt) ?>" <?= strcasecmp($vColor, $colOpt) === 0 ? 'selected' : '' ?>><?= e($colOpt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-secondary btn-quick-add-color" title="Create New Color"><i class="bi bi-plus-lg"></i></button>
+                </div>
+            </td>
+            <td style="width: 170px; min-width: 160px;">
+                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required style="min-width: 150px;">
+            </td>
+            <td style="width: 95px; min-width: 90px;">
+                <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="text" inputmode="numeric" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;" autocomplete="off">
+            </td>
+            <td style="width: 130px; min-width: 125px;">
+                <input class="form-control form-control-sm text-end var-rate" name="variants[<?= $index ?>][purchase_rate]" type="text" inputmode="decimal" value="<?= number_format($vRate, 2, '.', '') ?>" required placeholder="Rate" style="min-width: 95px;" autocomplete="off">
+            </td>
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm text-end fw-semibold var-mrp" name="variants[<?= $index ?>][mrp]" type="text" inputmode="decimal" value="<?= number_format($vMrp, 2, '.', '') ?>" required placeholder="MRP" style="min-width: 95px;" autocomplete="off">
+            </td>
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm text-end fw-bold text-dark var-sp" name="variants[<?= $index ?>][selling_price]" type="text" inputmode="decimal" value="<?= number_format($vSp, 2, '.', '') ?>" required placeholder="Sale" style="min-width: 95px;" autocomplete="off">
+            </td>
+            <td style="width: 90px; min-width: 85px;">
+                <input class="form-control form-control-sm text-end var-gst" name="variants[<?= $index ?>][gst_rate]" type="text" inputmode="decimal" value="<?= number_format($vGst, 2, '.', '') ?>" required placeholder="GST %" style="min-width: 75px;" autocomplete="off">
+            </td>
+            <td style="width: 115px; min-width: 110px;">
+                <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
             </td>
             <td class="text-center" style="width: 50px; min-width: 50px;">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Remove variant"><i class="bi bi-x-lg"></i></button>
@@ -650,42 +675,54 @@ tr.table-danger, tr.table-danger > td {
                     </button>
                 </div>
             </div>
-            <!-- Overall Batch Apply Bar: Size + Category + Sub Category + Sub Sub Category -->
+            <!-- Overall Batch Apply Bar: Category Hierarchy First + Size + Color -->
             <div class="bg-light-subtle border-bottom px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <span class="small fw-semibold text-muted text-uppercase"><i class="bi bi-sliders me-1 text-primary"></i>Apply to All Rows:</span>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <input type="text" class="form-control form-control-sm" id="batchInputSize" placeholder="Size (e.g. M, L, XL)" style="width: 145px;" autocomplete="off">
-                    <select class="form-select form-select-sm" id="batchSelectCategory" style="width: 170px;">
+                    <select class="form-select form-select-sm" id="batchSelectCategory" style="width: 165px;">
                         <option value="">-- Main Category --</option>
                         <?php foreach ($categories as $cat): ?>
                             <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <select class="form-select form-select-sm" id="batchSelectSubcategory" style="width: 170px;">
+                    <select class="form-select form-select-sm" id="batchSelectSubcategory" style="width: 165px;">
                         <option value="">-- Sub Category --</option>
                         <?php foreach ($allSubcategories as $sc): ?>
                             <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <select class="form-select form-select-sm" id="batchSelectSubSubcategory" style="width: 180px;">
+                    <select class="form-select form-select-sm" id="batchSelectSubSubcategory" style="width: 175px;">
                         <option value="">-- Sub Sub Category --</option>
                         <?php foreach ($allSubSubcategories as $ssc): ?>
                             <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Size &amp; Category Hierarchy to all variant rows">
+                    <select class="form-select form-select-sm" id="batchInputSize" style="width: 130px;">
+                        <option value="">-- Size --</option>
+                        <?php foreach ($allSizeNames as $szOpt): ?>
+                            <option value="<?= e($szOpt) ?>"><?= e($szOpt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select class="form-select form-select-sm" id="batchSelectColor" style="width: 135px;">
+                        <option value="">-- Color --</option>
+                        <?php foreach ($allColorNames as $colOpt): ?>
+                            <option value="<?= e($colOpt) ?>"><?= e($colOpt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Category Hierarchy, Size &amp; Color to all variant rows">
                         <i class="bi bi-check2-all me-1"></i>Apply to All
                     </button>
                 </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1360px;">
+                    <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1460px;">
                         <thead class="table-light small text-uppercase text-muted">
                             <tr>
                                 <th style="width: 45px; min-width: 45px;" class="text-center">#</th>
-                                <th style="width: 110px; min-width: 110px;">Size <span class="text-danger">*</span></th>
-                                <th style="width: 120px; min-width: 120px;">Color <span class="text-danger">*</span></th>
+                                <th style="width: 280px; min-width: 265px;">Category Hierarchy <span class="text-danger">*</span></th>
+                                <th style="width: 155px; min-width: 145px;">Size <span class="text-danger">*</span></th>
+                                <th style="width: 165px; min-width: 155px;">Color <span class="text-danger">*</span></th>
                                 <th style="width: 170px; min-width: 160px;">SKU <span class="text-danger">*</span></th>
                                 <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
                                 <th style="width: 130px; min-width: 125px;" class="text-end">Purchased Rate (₹) <span class="text-danger">*</span></th>
@@ -693,7 +730,6 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 115px; min-width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 90px; min-width: 85px;" class="text-end">GST %</th>
                                 <th style="width: 115px; min-width: 110px;">HSN Code <span class="text-danger">*</span></th>
-                                <th style="width: 260px; min-width: 250px;">Category Hierarchy <span class="text-danger">*</span></th>
                                 <th style="width: 50px; min-width: 50px;" class="text-center"></th>
                             </tr>
                         </thead>
@@ -1040,6 +1076,54 @@ tr.table-danger, tr.table-danger > td {
     </div>
 </div>
 
+<!-- Quick Add Size Modal -->
+<div class="modal fade" id="modalQuickAddSize" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h6 class="modal-title fw-bold"><i class="bi bi-rulers me-2"></i>New Size</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Size Code / Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm text-uppercase" id="modalNewSizeCode" placeholder="e.g. XL, 32, Free Size">
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnSubmitModalSize">Add Size</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Add Color Modal -->
+<div class="modal fade" id="modalQuickAddColor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h6 class="modal-title fw-bold"><i class="bi bi-palette me-2"></i>New Color</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Color Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm text-uppercase" id="modalNewColorName" placeholder="e.g. Navy Blue, Olive">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold">Color Swatch</label>
+                    <input type="color" class="form-control form-control-color form-control-sm" id="modalNewColorHex" value="#2563eb">
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnSubmitModalColor">Add Color</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ========================================================================= -->
 <!-- QR CODE MODALS FOR GENERATED BATCHES (IN-PANEL VIEW)                      -->
 <!-- ========================================================================= -->
@@ -1380,8 +1464,9 @@ document.addEventListener('DOMContentLoaded', function () {
         btnHeaderAutoDistribute.addEventListener('click', autoDistributeQuantities);
     }
 
-    // 4b. Overall Batch Apply (Size + Main Category + Sub Category + Sub Sub Category)
+    // 4b. Overall Batch Apply (Category Hierarchy + Size + Color)
     const batchInputSize = document.getElementById('batchInputSize');
+    const batchSelectColor = document.getElementById('batchSelectColor');
     const batchSelectCategory = document.getElementById('batchSelectCategory');
     const batchSelectSubcategory = document.getElementById('batchSelectSubcategory');
     const batchSelectSubSubcategory = document.getElementById('batchSelectSubSubcategory');
@@ -1418,20 +1503,17 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnApplyAllAttributes && tbodyVariantRows) {
         btnApplyAllAttributes.addEventListener('click', function () {
             const sizeVal = (batchInputSize?.value || '').trim();
+            const colorVal = (batchSelectColor?.value || '').trim();
             const catVal = batchSelectCategory?.value || '';
             const subVal = batchSelectSubcategory?.value || '';
             const subSubVal = batchSelectSubSubcategory?.value || '';
 
-            if (!sizeVal && !catVal && !subVal && !subSubVal) {
-                alert('Enter a Size or select a Category to apply to all rows.');
+            if (!sizeVal && !colorVal && !catVal && !subVal && !subSubVal) {
+                alert('Select a Category, Size, or Color to apply to all rows.');
                 return;
             }
 
             tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
-                if (sizeVal) {
-                    const szInput = row.querySelector('.var-size');
-                    if (szInput) szInput.value = sizeVal;
-                }
                 if (catVal) {
                     const catSel = row.querySelector('.var-category');
                     if (catSel) {
@@ -1446,8 +1528,35 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                         if (subSubVal) {
                             const ssSel = row.querySelector('.var-subsubcategory');
-                            if (ssSel) ssSel.value = subSubVal;
+                            if (ssSel) {
+                                ssSel.value = subSubVal;
+                                ssSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
                         }
+                    }
+                }
+                if (sizeVal) {
+                    const szSel = row.querySelector('.var-size');
+                    if (szSel) {
+                        if (!Array.from(szSel.options).some(o => o.value === sizeVal)) {
+                            const opt = document.createElement('option');
+                            opt.value = sizeVal;
+                            opt.textContent = sizeVal;
+                            szSel.appendChild(opt);
+                        }
+                        szSel.value = sizeVal;
+                    }
+                }
+                if (colorVal) {
+                    const colSel = row.querySelector('.var-color');
+                    if (colSel) {
+                        if (!Array.from(colSel.options).some(o => o.value === colorVal)) {
+                            const opt = document.createElement('option');
+                            opt.value = colorVal;
+                            opt.textContent = colorVal;
+                            colSel.appendChild(opt);
+                        }
+                        colSel.value = colorVal;
                     }
                 }
             });
@@ -1944,11 +2053,45 @@ document.addEventListener('DOMContentLoaded', function () {
         currentHsnMatches = [];
     }
 
+    function applyCategoryHierarchyFromHsn(row, hsnItem) {
+        if (!row || !hsnItem) return;
+        const catName = String(hsnItem.category_name || '').trim().toLowerCase();
+        const subName = String(hsnItem.subcategory_name || '').trim().toLowerCase();
+        const subSubName = String(hsnItem.sub_subcategory_name || '').trim().toLowerCase();
+        if (!catName) return;
+
+        const catSel = row.querySelector('.var-category');
+        const subSel = row.querySelector('.var-subcategory');
+        const ssSel = row.querySelector('.var-subsubcategory');
+        if (!catSel) return;
+
+        const catOpt = Array.from(catSel.options).find(o => o.value && o.textContent.trim().toLowerCase() === catName);
+        if (!catOpt) return;
+        catSel.value = catOpt.value;
+        catSel.dispatchEvent(new Event('change', { bubbles: true }));
+
+        if (subName && subSel) {
+            const subOpt = Array.from(subSel.options).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === subName);
+            if (subOpt) {
+                subSel.value = subOpt.value;
+                subSel.dispatchEvent(new Event('change', { bubbles: true }));
+
+                if (subSubName && ssSel) {
+                    const ssOpt = Array.from(ssSel.options).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === subSubName);
+                    if (ssOpt) {
+                        ssSel.value = ssOpt.value;
+                        ssSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }
+        }
+    }
+
     function applyHsnSelection(item) {
         if (!activeHsnInput || !item) return;
         activeHsnInput.value = item.hsn_code;
+        const row = activeHsnInput.closest('.variant-row');
         if (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') {
-            const row = activeHsnInput.closest('.variant-row');
             if (row) {
                 const gstEl = row.querySelector('.var-gst');
                 if (gstEl) gstEl.value = Number(item.gst_rate).toFixed(2);
@@ -1957,8 +2100,196 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (modalGst) modalGst.value = String(item.gst_rate);
             }
         }
+        if (row) {
+            applyCategoryHierarchyFromHsn(row, item);
+        }
         activeHsnInput.dispatchEvent(new Event('change', { bubbles: true }));
         hideHsnDropdown();
+    }
+
+    // Also auto-load Category Hierarchy when typing/changing a full HSN code directly
+    document.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('var-hsn')) return;
+        const code = e.target.value.trim().toUpperCase();
+        if (!code || hsnMasterList.length === 0) return;
+        const matched = hsnMasterList.find(h => String(h.hsn_code || '').toUpperCase() === code && h.category_name);
+        if (matched) {
+            const row = e.target.closest('.variant-row');
+            if (row) {
+                if (matched.gst_rate !== null && matched.gst_rate !== undefined && matched.gst_rate !== '') {
+                    const gstEl = row.querySelector('.var-gst');
+                    if (gstEl) gstEl.value = Number(matched.gst_rate).toFixed(2);
+                }
+                applyCategoryHierarchyFromHsn(row, matched);
+            }
+        }
+    });
+
+    // 12. Category-Based Size & Color Dropdown Filtering + Quick-Add Size & Color
+    const categoryAttributesMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const globalSizeList = <?= json_encode($allSizeNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const globalColorList = <?= json_encode($allColorNames ?? [], JSON_UNESCAPED_UNICODE) ?>;
+
+    function filterSizeColorForRow(row) {
+        if (!row) return;
+        const catSel = row.querySelector('.var-category');
+        const subSel = row.querySelector('.var-subcategory');
+        const ssSel = row.querySelector('.var-subsubcategory');
+        const sizeSel = row.querySelector('.var-size');
+        const colorSel = row.querySelector('.var-color');
+        if (!catSel || !sizeSel || !colorSel) return;
+
+        const cName = (catSel.selectedOptions[0]?.value ? catSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+        const sName = (subSel && subSel.selectedOptions[0]?.value ? subSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+        const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+
+        let attr = null;
+        if (cName && sName && ssName && categoryAttributesMap[`${cName}|${sName}|${ssName}`]) {
+            attr = categoryAttributesMap[`${cName}|${sName}|${ssName}`];
+        } else if (cName && sName && categoryAttributesMap[`${cName}|${sName}`]) {
+            attr = categoryAttributesMap[`${cName}|${sName}`];
+        } else if (cName && categoryAttributesMap[cName]) {
+            attr = categoryAttributesMap[cName];
+        }
+
+        const currentSize = sizeSel.value;
+        const targetSizes = (attr && Array.isArray(attr.sizes) && attr.sizes.length > 0)
+            ? Array.from(new Set([...attr.sizes, ...globalSizeList]))
+            : globalSizeList;
+        const finalSizes = currentSize && !targetSizes.includes(currentSize) ? [currentSize, ...targetSizes] : targetSizes;
+        sizeSel.innerHTML = '';
+        finalSizes.forEach(sz => {
+            const opt = document.createElement('option');
+            opt.value = sz;
+            opt.textContent = sz;
+            if (sz === currentSize) opt.selected = true;
+            sizeSel.appendChild(opt);
+        });
+
+        const currentColor = colorSel.value;
+        const targetColors = (attr && Array.isArray(attr.colors) && attr.colors.length > 0)
+            ? Array.from(new Set([...attr.colors, ...globalColorList]))
+            : globalColorList;
+        const finalColors = currentColor && !targetColors.includes(currentColor) ? [currentColor, ...targetColors] : targetColors;
+        colorSel.innerHTML = '';
+        finalColors.forEach(col => {
+            const opt = document.createElement('option');
+            opt.value = col;
+            opt.textContent = col;
+            if (col === currentColor) opt.selected = true;
+            colorSel.appendChild(opt);
+        });
+    }
+
+    if (tbodyVariantRows) {
+        tbodyVariantRows.addEventListener('change', function (e) {
+            if (e.target.classList.contains('var-category') || e.target.classList.contains('var-subcategory') || e.target.classList.contains('var-subsubcategory')) {
+                filterSizeColorForRow(e.target.closest('.variant-row'));
+            }
+        });
+    }
+
+    let activeAttrRow = null;
+    document.addEventListener('click', function (e) {
+        const sizeBtn = e.target.closest('.btn-quick-add-size');
+        if (sizeBtn) {
+            activeAttrRow = sizeBtn.closest('.variant-row');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSize')).show();
+            return;
+        }
+        const colorBtn = e.target.closest('.btn-quick-add-color');
+        if (colorBtn) {
+            activeAttrRow = colorBtn.closest('.variant-row');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddColor')).show();
+        }
+    });
+
+    const btnSubmitModalSize = document.getElementById('btnSubmitModalSize');
+    if (btnSubmitModalSize) {
+        btnSubmitModalSize.addEventListener('click', function () {
+            const input = document.getElementById('modalNewSizeCode');
+            const code = (input?.value || '').trim().toUpperCase();
+            if (!code) {
+                alert('Please enter a Size name/code.');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('code', code);
+            fd.append('name', code);
+            fd.append('_csrf_token', '<?= CSRF::token() ?>');
+            fd.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/sizes/quick-add`, { method: 'POST', body: fd })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const newSize = data.name || code;
+                        if (!globalSizeList.includes(newSize)) globalSizeList.push(newSize);
+                        document.querySelectorAll('.var-size, #batchInputSize').forEach(sel => {
+                            if (!Array.from(sel.options).some(o => o.value.toUpperCase() === newSize.toUpperCase())) {
+                                const opt = document.createElement('option');
+                                opt.value = newSize;
+                                opt.textContent = newSize;
+                                sel.appendChild(opt);
+                            }
+                        });
+                        if (activeAttrRow) {
+                            const rowSel = activeAttrRow.querySelector('.var-size');
+                            if (rowSel) rowSel.value = newSize;
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSize')).hide();
+                        input.value = '';
+                    } else {
+                        alert(data.message || 'Unable to create size.');
+                    }
+                })
+                .catch(err => alert('Failed to create size: ' + err.message));
+        });
+    }
+
+    const btnSubmitModalColor = document.getElementById('btnSubmitModalColor');
+    if (btnSubmitModalColor) {
+        btnSubmitModalColor.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalNewColorName');
+            const hexInput = document.getElementById('modalNewColorHex');
+            const name = (nameInput?.value || '').trim().toUpperCase();
+            const hex = (hexInput?.value || '#000000').trim();
+            if (!name) {
+                alert('Please enter a Color name.');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('name', name);
+            fd.append('hex_code', hex);
+            fd.append('_csrf_token', '<?= CSRF::token() ?>');
+            fd.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/colors/quick-add`, { method: 'POST', body: fd })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const newColor = data.name || name;
+                        if (!globalColorList.includes(newColor)) globalColorList.push(newColor);
+                        document.querySelectorAll('.var-color, #batchSelectColor').forEach(sel => {
+                            if (!Array.from(sel.options).some(o => o.value.toUpperCase() === newColor.toUpperCase())) {
+                                const opt = document.createElement('option');
+                                opt.value = newColor;
+                                opt.textContent = newColor;
+                                sel.appendChild(opt);
+                            }
+                        });
+                        if (activeAttrRow) {
+                            const rowSel = activeAttrRow.querySelector('.var-color');
+                            if (rowSel) rowSel.value = newColor;
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddColor')).hide();
+                        nameInput.value = '';
+                    } else {
+                        alert(data.message || 'Unable to create color.');
+                    }
+                })
+                .catch(err => alert('Failed to create color: ' + err.message));
+        });
     }
 
     function renderHsnDropdown(input) {
