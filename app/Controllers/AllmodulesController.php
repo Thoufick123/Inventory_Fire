@@ -18912,8 +18912,7 @@ class AllmodulesController {
             $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s, $s]);
         }
 
-        // Finished Goods Inventory is common across all concerns and modules
-        $cid = null;
+        $cid = currentConcernId();
         if ($cid) {
             if ($cid === 1) {
                 $sql .= " AND (qb.concern_id = ? OR qb.concern_id IS NULL)";
@@ -20937,6 +20936,125 @@ class AllmodulesController {
                     [(int)$supplyItem['variant_id']]
                 );
             } catch (\Throwable $e) {}
+        }
+
+        if (strtoupper((string)($supplyItem['item_type'] ?? '')) === 'THIRD_PARTY') {
+            $tpVariants = Database::fetchAll(
+                "SELECT tpv.*, pv.variant_code, pv.qr_code AS pv_qr_code, pv.sku AS pv_sku,
+                        tc.name AS tp_cat_name, tsc.name AS tp_sub_name, tssc.name AS tp_subsub_name
+                 FROM third_party_product_variants tpv
+                 LEFT JOIN product_variants pv ON pv.id = tpv.product_variant_id
+                 LEFT JOIN third_party_categories tc ON tc.id = tpv.third_party_category_id
+                 LEFT JOIN third_party_subcategories tsc ON tsc.id = tpv.third_party_subcategory_id
+                 LEFT JOIN third_party_sub_subcategories tssc ON tssc.id = tpv.third_party_sub_subcategory_id
+                 WHERE tpv.purchase_item_id = ?
+                 ORDER BY tpv.id ASC",
+                [$supplyItemId]
+            );
+            $batchPieceItems = [];
+            $tpVariantIds = [];
+            $seenPv = [];
+            foreach ($tpVariants as $tv) {
+                $pvId = (int)($tv['product_variant_id'] ?? 0);
+                if ($pvId > 0) $tpVariantIds[] = $pvId;
+                $vCode = strtoupper(trim((string)($tv['pv_qr_code'] ?: ($tv['variant_code'] ?? ''))));
+                $sku = $tv['pv_sku'] ?: ($tv['sku'] ?: ($supplyItem['product_sku'] ?? 'TP-' . $supplyItemId));
+                $qty = max(1, (int)round((float)($tv['allocated_qty'] ?? 1)));
+                if ($pvId > 0 && isset($seenPv[$pvId])) {
+                    $batchPieceItems[$seenPv[$pvId]]['qty_sum'] += $qty;
+                    continue;
+                }
+                $idx = count($batchPieceItems);
+                if ($pvId > 0) $seenPv[$pvId] = $idx;
+                $batchPieceItems[] = [
+                    'piece_no'         => $idx + 1,
+                    'tag_code'         => $vCode ?: $sku,
+                    'variant_code'     => $vCode ?: $sku,
+                    'qr_payload'       => $vCode ?: $sku,
+                    'product_name'     => $itemName,
+                    'sku'              => $sku,
+                    'product_sku'      => $sku,
+                    'category_name'    => $tv['tp_cat_name'] ?: ($supplyItem['category_name'] ?: 'Third-Party Products'),
+                    'subcategory_name' => $tv['tp_sub_name'] ?: '',
+                    'sub_subcategory_name' => $tv['tp_subsub_name'] ?: '',
+                    'size_name'        => $tv['size'] ?: 'Std',
+                    'color_name'       => $tv['color'] ?: 'Std',
+                    'base_price'       => (float)($tv['mrp'] ?: $supplyItem['mrp'] ?? $unitPrice),
+                    'discount_price'   => (float)($tv['selling_price'] ?: $supplyItem['selling_price'] ?? $unitPrice),
+                    'unit_price'       => (float)($tv['purchase_rate'] ?: $unitPrice),
+                    'hsn_code'         => $tv['hsn_code'] ?: $hsnCode,
+                    'program_number'   => $supplyItem['purchase_number'],
+                    'batch_created_at' => $supplyItem['inwarded_at'] ?: $supplyItem['purchase_date'],
+                    'is_dispatched'    => false,
+                    'is_billed'        => false,
+                    'qty_sum'          => $qty,
+                    'unit'             => $unit,
+                ];
+            }
+            if (empty($batchPieceItems)) {
+                $batchPieceItems = $pieceItems;
+            }
+            if (!empty($tpVariantIds)) {
+                $tpVariantIds = array_values(array_unique($tpVariantIds));
+                $vIn = implode(',', array_fill(0, count($tpVariantIds), '?'));
+                try {
+                    $stockHistory = Database::fetchAll(
+                        "SELECT st.*, pv.variant_code, pv.sku AS variant_sku, u.full_name AS actor_name,
+                                CASE WHEN st.location_type = 'WAREHOUSE' THEN w.name ELSE pu.name END AS location_name
+                         FROM stock_transactions st
+                         LEFT JOIN product_variants pv ON pv.id = st.variant_id
+                         LEFT JOIN users u ON u.id = st.created_by
+                         LEFT JOIN warehouses w ON st.location_type = 'WAREHOUSE' AND w.id = st.location_id
+                         LEFT JOIN production_units pu ON st.location_type = 'PRODUCTION_UNIT' AND pu.id = st.location_id
+                         WHERE st.variant_id IN ({$vIn})
+                         ORDER BY st.id DESC
+                         LIMIT 100",
+                        $tpVariantIds
+                    );
+                } catch (\Throwable $e) {}
+            }
+            $locationCards = [[
+                'location_id'   => (int)($supplyItem['concern_id'] ?? 1),
+                'location_name' => $supplierTitle ?: 'Warehouse Stock',
+                'location_code' => $supplyItem['purchase_number'] ?? 'TP',
+                'available_qty' => $remainingPieces,
+                'total_qty'     => $totalPieces,
+                'status'        => 'AVAILABLE',
+            ]];
+            Response::view('allmodules.inventory.batch', [
+                'pageTitle'           => 'Purchase #TP-' . $supplyItemId . ' — Inventory Detail',
+                'activeModule'        => 'production',
+                'activeMenu'          => 'prod-inventory',
+                'qcBatchId'           => 'TP-' . $supplyItemId,
+                'primarySku'          => $supplyItem['product_sku'] ?? ('TP-' . $supplyItemId),
+                'isInward'            => false,
+                'batchInfo'           => array_merge($supplyItem, [
+                    'product_name'  => $itemName,
+                    'program_number'=> $supplyItem['purchase_number'],
+                    'batch_created_at' => $supplyItem['inwarded_at'] ?: $supplyItem['purchase_date'],
+                ]),
+                'pieceItems'          => $batchPieceItems,
+                'rawItems'            => $tpVariants,
+                'qcOutcomeItems'      => [],
+                'locationCards'       => $locationCards,
+                'activeWarehouse'     => $locationCards[0],
+                'combinedTotalPieces' => $remainingPieces,
+                'damagedPiecesList'   => [],
+                'soldPiecesList'      => [],
+                'returnPiecesList'    => [],
+                'movementLogs'        => $outwards,
+                'stockHistory'        => $stockHistory,
+                'totalReworkPieces'   => 0,
+                'totalRejectedPieces' => 0,
+                'totalPieces'         => $totalPieces,
+                'totalValue'          => $totalValue,
+                'totalOutwardPieces'  => $totalOutwardPieces,
+                'totalBilledPieces'   => 0,
+                'remainingPieces'     => $remainingPieces,
+                'remainingValue'      => $remainingValue,
+                'outwards'            => $outwards,
+            ]);
+            return;
         }
 
         Response::view('allmodules.inventory.supply_batch', [
