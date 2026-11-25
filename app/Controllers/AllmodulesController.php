@@ -4462,20 +4462,50 @@ class AllmodulesController {
         }
 
         $generationId = (int)($_POST['generation_id'] ?? 0);
+        $rawGenIds = $_POST['generation_ids'] ?? [];
+        if (is_string($rawGenIds)) {
+            $rawGenIds = array_filter(array_map('intval', explode(',', $rawGenIds)));
+        } elseif (is_array($rawGenIds)) {
+            $rawGenIds = array_filter(array_map('intval', $rawGenIds));
+        } else {
+            $rawGenIds = [];
+        }
+        if ($generationId > 0 && !in_array($generationId, $rawGenIds, true)) {
+            $rawGenIds[] = $generationId;
+        }
+        $uniqueGenIds = array_values(array_unique(array_filter($rawGenIds, static fn($gid) => $gid > 0)));
+
         $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
         $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
 
-        if ($generationId <= 0) {
+        if (empty($uniqueGenIds)) {
             Response::json(['success' => false, 'message' => 'Invalid QR batch specified.'], 400);
             return;
         }
 
         try {
             $userId = (int)(Session::get('user_id') ?? 0) ?: (int)(Auth::id() ?? 0);
-            $result = QrGenerationService::addToStock($generationId, $userId, $warehouseId > 0 ? $warehouseId : null);
+            $totalAddedQty = 0;
+            $batchCodes = [];
+            foreach ($uniqueGenIds as $gid) {
+                $existingGen = Database::fetchOne("SELECT id, batch_code, stock_added FROM qr_generations WHERE id = ?", [$gid]);
+                if (!$existingGen || !empty($existingGen['stock_added'])) {
+                    continue;
+                }
+                $result = QrGenerationService::addToStock($gid, $userId, $warehouseId > 0 ? $warehouseId : null);
+                Database::execute("UPDATE qr_generations SET stock_added = 1 WHERE id = ?", [$gid]);
+                $totalAddedQty += (float)($result['quantity'] ?? 0);
+                if (!empty($result['batch_code'])) {
+                    $batchCodes[] = $result['batch_code'];
+                }
+            }
 
-            // Mark stock_added on qr_generations
-            Database::execute("UPDATE qr_generations SET stock_added = 1 WHERE id = ?", [$generationId]);
+            if (empty($batchCodes)) {
+                throw new RuntimeException('Selected QR batch(es) are already stocked or unavailable.');
+            }
+
+            $batchLabel = implode(', ', $batchCodes);
+            $msg = "Successfully added {$totalAddedQty} units (" . count($batchCodes) . " batch(es): {$batchLabel}) into inventory.";
 
             $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
                 || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
@@ -4483,17 +4513,17 @@ class AllmodulesController {
             if ($isAjax) {
                 Response::json([
                     'success' => true,
-                    'message' => "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.",
-                    'quantity' => $result['quantity'],
-                    'batch_code' => $result['batch_code'],
+                    'message' => $msg,
+                    'quantity' => $totalAddedQty,
+                    'batch_code' => $batchLabel,
                     'stock_added' => true,
                 ]);
                 return;
             }
 
-            Session::flash('success', "Successfully added {$result['quantity']} units of batch {$result['batch_code']} into inventory.");
+            Session::flash('success', $msg);
             if ($mappingBillId > 0) {
-                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . $generationId));
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId . '?open_qr=' . $uniqueGenIds[0]));
             } else {
                 Response::back();
             }
