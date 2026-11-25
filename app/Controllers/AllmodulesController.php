@@ -4702,6 +4702,8 @@ class AllmodulesController {
 
         try {
             if (!empty($variants)) {
+                // Group pending rows by resolved product_variant_id (or size+color+price key) so identical variants share ONE QR batch
+                $variantGroups = [];
                 foreach ($variants as $var) {
                     $pvId = (int)($var['product_variant_id'] ?? 0);
                     if ($pvId <= 0 && (int)$item['product_id'] > 0) {
@@ -4717,7 +4719,27 @@ class AllmodulesController {
                         Database::execute("UPDATE third_party_product_variants SET product_variant_id = ? WHERE id = ?", [$pvId, (int)$var['id']]);
                     }
 
-                    $qty = max(1, (int)ceil((float)$var['allocated_qty']));
+                    $groupKey = $pvId > 0
+                        ? 'pv_' . $pvId
+                        : 'attr_' . strtolower(trim((string)$var['size'])) . '|' . strtolower(trim((string)$var['color'])) . '|' . number_format((float)$var['mrp'], 2, '.', '') . '|' . number_format((float)$var['selling_price'], 2, '.', '');
+
+                    if (!isset($variantGroups[$groupKey])) {
+                        $variantGroups[$groupKey] = [
+                            'pv_id'      => $pvId,
+                            'first_var'  => $var,
+                            'var_ids'    => [],
+                            'total_qty'  => 0.0,
+                        ];
+                    }
+                    $variantGroups[$groupKey]['var_ids'][] = (int)$var['id'];
+                    $variantGroups[$groupKey]['total_qty'] += max(0.0, (float)$var['allocated_qty']);
+                }
+
+                foreach ($variantGroups as $grp) {
+                    $var = $grp['first_var'];
+                    $pvId = (int)$grp['pv_id'];
+                    $qty = max(1, (int)ceil($grp['total_qty']));
+
                     $result = QrGenerationService::generateCatalogQrs([
                         'product_id' => (int)$item['product_id'],
                         'variant_id' => $pvId,
@@ -4732,11 +4754,12 @@ class AllmodulesController {
                          WHERE id = ?",
                         [$purchaseId, $itemId, (int)$var['id'], (int)$result['generation_id']]
                     );
+                    $placeholders = implode(',', array_fill(0, count($grp['var_ids']), '?'));
                     Database::execute(
                         "UPDATE third_party_product_variants
                          SET qr_generation_id = ?, qr_batch_code = ?
-                         WHERE id = ?",
-                        [(int)$result['generation_id'], $result['batch_code'], (int)$var['id']]
+                         WHERE id IN ({$placeholders})",
+                        array_merge([(int)$result['generation_id'], $result['batch_code']], $grp['var_ids'])
                     );
                     Database::execute(
                         "UPDATE production_purchase_items

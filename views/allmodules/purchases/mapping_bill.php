@@ -681,6 +681,11 @@ tr.table-danger, tr.table-danger > td {
                     <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
                         <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
                     </button>
+                    <?php if (!empty($activeItem['is_mapped'])): ?>
+                        <button type="button" class="btn btn-sm btn-warning fw-semibold" id="btnUnlockMappingEdit" title="Unlock product details for editing">
+                            <i class="bi bi-pencil-square me-1"></i>Edit
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
             <!-- Overall Batch Apply Bar: Category Hierarchy First + Size + Color -->
@@ -895,9 +900,9 @@ tr.table-danger, tr.table-danger > td {
                 <i class="bi bi-info-circle me-1"></i>Purchase bill <strong><?= e($purchase['purchase_number']) ?></strong> is already entered in Purchases. Generate QR labels and print directly from this panel.
             </div>
             <?php if (!empty($savedVariants) && $pendingQrCount > 0): ?>
-                <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" onsubmit="return confirm('Generate QR batches for all pending variants?')">
+                <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" id="formGenerateAllVariantQr">
                     <?= CSRF::field() ?>
-                    <button class="btn btn-sm btn-outline-info fw-semibold" type="submit">
+                    <button class="btn btn-sm btn-outline-info fw-semibold" type="button" id="btnGenerateAllVariantQr">
                         <i class="bi bi-qr-code me-1"></i>Generate QR for All Pending Variants (<?= $pendingQrCount ?>)
                     </button>
                 </form>
@@ -2422,6 +2427,56 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     window.addEventListener('scroll', hideHsnDropdown, true);
+
+    // 13. Lock Product Details After Save + Top-Right Edit Unlock Toggle
+    const isItemAlreadyMapped = <?= json_encode(!empty($activeItem['is_mapped'])) ?>;
+    const btnUnlockMappingEdit = document.getElementById('btnUnlockMappingEdit');
+    const formMapForLock = document.getElementById('formMapProductBill');
+
+    function setMappingFormLocked(locked) {
+        if (!formMapForLock) return;
+        formMapForLock.querySelectorAll('input, select, button').forEach(el => {
+            if (el.id === 'btnUnlockMappingEdit') return;
+            if (el.getAttribute('onclick') && el.getAttribute('onclick').includes('unmapActiveItem')) return;
+            if (el.type === 'hidden') return;
+            if (el.classList.contains('btn-outline-secondary') && el.tagName === 'A') return;
+            el.disabled = locked;
+        });
+        if (btnUnlockMappingEdit) {
+            btnUnlockMappingEdit.classList.toggle('d-none', !locked);
+        }
+    }
+
+    if (isItemAlreadyMapped && formMapForLock) {
+        setMappingFormLocked(true);
+        if (btnUnlockMappingEdit) {
+            btnUnlockMappingEdit.addEventListener('click', function () {
+                setMappingFormLocked(false);
+            });
+        }
+    }
+
+    // 14. Single Modern UI Confirm for Generate All Variant QR (no double native alert)
+    const btnGenAllQr = document.getElementById('btnGenerateAllVariantQr');
+    const formGenAllQr = document.getElementById('formGenerateAllVariantQr');
+    if (btnGenAllQr && formGenAllQr) {
+        btnGenAllQr.addEventListener('click', function () {
+            if (typeof window.showModernConfirm === 'function') {
+                window.showModernConfirm({
+                    title: 'Generate Variant QR',
+                    message: 'Generate QR batches for all pending variants?',
+                    confirmText: 'Confirm',
+                    btnClass: 'btn-primary',
+                    iconClass: 'bi bi-qr-code text-primary',
+                    onConfirm: function () {
+                        formGenAllQr.submit();
+                    }
+                });
+            } else {
+                formGenAllQr.submit();
+            }
+        });
+    }
 
     // Initial allocation check
     updateAllocationStatus();
