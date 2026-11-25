@@ -20670,6 +20670,18 @@ class AllmodulesController {
         $hsnCode = !empty($supplyItem['hsn_code']) ? trim((string)$supplyItem['hsn_code']) : '—';
         $isIntQty = (floor($rawQty) === $rawQty);
 
+        // Resolve permanent Variant ID (e.g. V0016) if linked to product_variants
+        $permanentVariantCode = '';
+        if (!empty($supplyItem['variant_id'])) {
+            $pvRow = Database::fetchOne(
+                "SELECT variant_code, qr_code FROM product_variants WHERE id = ? LIMIT 1",
+                [(int)$supplyItem['variant_id']]
+            );
+            if ($pvRow) {
+                $permanentVariantCode = strtoupper(trim((string)($pvRow['qr_code'] ?: ($pvRow['variant_code'] ?? ''))));
+            }
+        }
+
         // Query specific inwarded QR codes for this variant
         $variantQrs = [];
         if (!empty($supplyItem['variant_id'])) {
@@ -20704,7 +20716,43 @@ class AllmodulesController {
 
         $pieceItems = [];
         $stickers = [];
-        if ($mode === 'package' || $displayPiecesCount > 100) {
+        if ($permanentVariantCode !== '') {
+            $isDispatched = ($totalOutwardPieces >= $totalPieces && $totalPieces > 0);
+            $pieceItems[] = [
+                'piece_no'        => 1,
+                'piece_seq'       => 1,
+                'tag_code'        => $permanentVariantCode,
+                'code'            => $permanentVariantCode,
+                'qr_payload'      => $permanentVariantCode,
+                'product_name'    => $itemName,
+                'product_sku'     => $permanentVariantCode,
+                'sku'             => $permanentVariantCode,
+                'category_name'   => $supplyItem['category_name'] ?: 'Garment Supplies',
+                'size_name'       => number_format($totalPieces) . ' ' . $unit,
+                'color_name'      => 'Standard',
+                'base_price'      => $unitPrice * $totalPieces,
+                'discount_price'  => $unitPrice * $totalPieces,
+                'unit_price'      => $unitPrice,
+                'total_price'     => $unitPrice * $totalPieces,
+                'hsn_code'        => $hsnCode,
+                'program_number'  => $supplyItem['purchase_number'],
+                'inspector_name'  => $supplyItem['inwarded_by_name'] ?: ($supplyItem['supplier_company'] ?: $supplyItem['supplier_name']),
+                'batch_created_at'=> $supplyItem['inwarded_at'] ?: $supplyItem['purchase_date'],
+                'is_dispatched'   => $isDispatched,
+                'can_delete'      => false,
+                'unit'            => $unit,
+                'is_package'      => true,
+            ];
+            $stickers[] = [
+                'code'           => $permanentVariantCode,
+                'display_title'  => $itemName,
+                'quantity_label' => number_format($totalPieces) . ' ' . $unit,
+                'unit_price'     => $unitPrice,
+                'hsn_code'       => $hsnCode,
+                'supplier_name'  => $supplierTitle,
+                'po_number'      => $supplyItem['purchase_number'],
+            ];
+        } elseif ($mode === 'package' || $displayPiecesCount > 100) {
             $pieceCode = !empty($inwardedQrCodes[0]) ? $inwardedQrCodes[0] : sprintf('%s%02d', $prefix, $globalStickerIndex);
             $isDispatched = ($totalOutwardPieces >= $totalPieces && $totalPieces > 0);
             $pieceItems[] = [
@@ -20804,6 +20852,25 @@ class AllmodulesController {
             } catch (\Throwable $e) {}
         }
 
+        // Fetch stock transaction history for this variant
+        $stockHistory = [];
+        if (!empty($supplyItem['variant_id'])) {
+            try {
+                $stockHistory = Database::fetchAll(
+                    "SELECT st.*, u.full_name AS actor_name,
+                            CASE WHEN st.location_type = 'WAREHOUSE' THEN w.name ELSE pu.name END AS location_name
+                     FROM stock_transactions st
+                     LEFT JOIN users u ON u.id = st.created_by
+                     LEFT JOIN warehouses w ON st.location_type = 'WAREHOUSE' AND w.id = st.location_id
+                     LEFT JOIN production_units pu ON st.location_type = 'PRODUCTION_UNIT' AND pu.id = st.location_id
+                     WHERE st.variant_id = ?
+                     ORDER BY st.id DESC
+                     LIMIT 50",
+                    [(int)$supplyItem['variant_id']]
+                );
+            } catch (\Throwable $e) {}
+        }
+
         Response::view('allmodules.inventory.supply_batch', [
             'pageTitle'           => 'Supply Inward #' . $supplyItemId . ' — Inventory Detail',
             'activeModule'        => 'production',
@@ -20820,6 +20887,7 @@ class AllmodulesController {
             'remainingPieces'     => $remainingPieces,
             'remainingValue'      => $remainingValue,
             'outwards'            => $outwards,
+            'stockHistory'        => $stockHistory,
             'mode'                => $mode,
             'breadcrumb'          => [
                 ['label' => 'Production', 'url' => url('purchases')],

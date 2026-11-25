@@ -1247,6 +1247,22 @@ tr.table-danger, tr.table-danger > td {
 </div>
 <?php endif; endforeach; endif; ?>
 
+<!-- Modern UI Alert Modal (replaces native browser showModernAlert()) -->
+<div class="modal fade" id="mappingModernAlertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-body p-4 text-center">
+                <div id="mappingModernAlertIconWrap" class="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle" style="width: 58px; height: 58px; background: #fef3c7; color: #d97706;">
+                    <i id="mappingModernAlertIcon" class="bi bi-exclamation-triangle-fill fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2" id="mappingModernAlertTitle">Notice</h5>
+                <p class="text-secondary small mb-3" id="mappingModernAlertMsg"></p>
+                <button type="button" class="btn btn-primary px-4 rounded-pill fw-semibold" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <!-- ========================================================================= -->
@@ -1257,6 +1273,42 @@ document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
+
+    function showModernAlert(message, title = 'Notice', type = 'warning') {
+        const modalEl = document.getElementById('mappingModernAlertModal');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+        const iconWrap = document.getElementById('mappingModernAlertIconWrap');
+        const iconEl = document.getElementById('mappingModernAlertIcon');
+        const titleEl = document.getElementById('mappingModernAlertTitle');
+        const msgEl = document.getElementById('mappingModernAlertMsg');
+        const styles = {
+            success: { bg: '#dcfce7', color: '#16a34a', icon: 'bi bi-check-circle-fill fs-3' },
+            danger:  { bg: '#fee2e2', color: '#dc2626', icon: 'bi bi-x-circle-fill fs-3' },
+            info:    { bg: '#dbeafe', color: '#2563eb', icon: 'bi bi-info-circle-fill fs-3' },
+            warning: { bg: '#fef3c7', color: '#d97706', icon: 'bi bi-exclamation-triangle-fill fs-3' },
+        };
+        const st = styles[type] || styles.warning;
+        if (iconWrap) { iconWrap.style.background = st.bg; iconWrap.style.color = st.color; }
+        if (iconEl) iconEl.className = st.icon;
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    function showModernConfirmDialog(title, message, onConfirm, confirmText = 'Confirm', btnClass = 'btn-primary') {
+        if (typeof window.showModernConfirm === 'function') {
+            window.showModernConfirm({
+                title: title,
+                message: message,
+                confirmText: confirmText,
+                btnClass: btnClass,
+                iconClass: 'bi bi-question-circle-fill text-primary',
+                onConfirm: onConfirm
+            });
+        } else {
+            onConfirm();
+        }
+    }
 
     const tbodyVariantRows = document.getElementById('tbodyVariantRows');
     const labelAllocationStatus = document.getElementById('labelAllocationStatus');
@@ -1355,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const allRows = tbodyVariantRows.querySelectorAll('.variant-row');
             if (allRows.length <= 1) {
-                alert('At least one variant row is required.');
+                showModernAlert('At least one variant row is required.');
                 return;
             }
 
@@ -1532,7 +1584,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const subSubVal = batchSelectSubSubcategory?.value || '';
 
             if (!sizeVal && !colorVal && !catVal && !subVal && !subSubVal) {
-                alert('Select a Category, Size, or Color to apply to all rows.');
+                showModernAlert('Select a Category, Size, or Color to apply to all rows.');
                 return;
             }
 
@@ -1597,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const rows = tbodyVariantRows.querySelectorAll('.variant-row');
             if (rows.length === 0) {
                 e.preventDefault();
-                alert('Please add at least one variant row.');
+                showModernAlert('Please add at least one variant row.');
                 return false;
             }
 
@@ -1628,22 +1680,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (pricingError) {
                 e.preventDefault();
-                alert('Validation Error: MRP cannot be lower than Selling Price on one or more variants.');
+                showModernAlert('Validation Error: MRP cannot be lower than Selling Price on one or more variants.');
                 return false;
             }
 
             if (zeroError) {
                 e.preventDefault();
-                alert('Validation Error: Please fill in all required fields (Size, Color, Qty, MRP, Selling Price, Category) on all variant rows.');
+                showModernAlert('Validation Error: Please fill in all required fields (Size, Color, Qty, MRP, Selling Price, Category) on all variant rows.');
                 return false;
             }
 
-            if (totalAllocated < purchasedQty - 0.001) {
-                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') is less than the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
-                if (!proceed) {
-                    e.preventDefault();
-                    return false;
-                }
+            if (totalAllocated < purchasedQty - 0.001 && formMapProductBill.dataset.confirmedShortfall !== '1') {
+                e.preventDefault();
+                showModernConfirmDialog(
+                    'Confirm Quantity',
+                    'The allocated variant quantity (' + totalAllocated + ') is less than the purchased bill quantity (' + purchasedQty + '). Proceed anyway?',
+                    function () {
+                        formMapProductBill.dataset.confirmedShortfall = '1';
+                        formMapProductBill.submit();
+                    },
+                    'Proceed'
+                );
+                return false;
             }
 
             return true;
@@ -1702,17 +1760,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (statusEl) {
                     statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
                 }
-                alert('Success: ' + (data.message || 'Stock added to inventory!'));
+                showModernAlert('Success: ' + (data.message || 'Stock added to inventory!'));
             } else {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
-                alert('Error: ' + (data.message || 'Could not add stock.'));
+                showModernAlert('Error: ' + (data.message || 'Could not add stock.'));
             }
         })
         .catch(function(err) {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-box-seam me-1"></i>Add to Inventory';
-            alert('Server error: ' + err.message);
+            showModernAlert('Server error: ' + err.message);
         });
     });
 
@@ -1806,7 +1864,7 @@ document.addEventListener('DOMContentLoaded', function () {
             activeQuickAddRow = btn2.closest('.variant-row');
             const catVal = activeQuickAddRow?.querySelector('.var-category')?.value || '';
             if (!catVal) {
-                alert('Please select a Main Category (Tier 1) first.');
+                showModernAlert('Please select a Main Category (Tier 1) first.');
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubcategory')).show();
@@ -1817,7 +1875,7 @@ document.addEventListener('DOMContentLoaded', function () {
             activeQuickAddRow = btn3.closest('.variant-row');
             const subVal = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
             if (!subVal) {
-                alert('Please select a Sub Category (Tier 2) first.');
+                showModernAlert('Please select a Sub Category (Tier 2) first.');
                 return;
             }
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubSubcategory')).show();
@@ -1832,7 +1890,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const name = nameInput.value.trim();
             const code = codeInput.value.trim().toUpperCase();
             if (!name) {
-                alert('Please enter a Category name.');
+                showModernAlert('Please enter a Category name.');
                 return;
             }
 
@@ -1870,10 +1928,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         nameInput.value = '';
                         codeInput.value = '';
                     } else {
-                        alert(data.message || 'Error creating category.');
+                        showModernAlert(data.message || 'Error creating category.');
                     }
                 })
-                .catch(err => alert('Failed to create category: ' + err.message));
+                .catch(err => showModernAlert('Failed to create category: ' + err.message));
         });
     }
 
@@ -1886,11 +1944,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const code = codeInput.value.trim().toUpperCase();
             const categoryId = activeQuickAddRow?.querySelector('.var-category')?.value || '';
             if (!categoryId) {
-                alert('Please select a Main Category first.');
+                showModernAlert('Please select a Main Category first.');
                 return;
             }
             if (!name) {
-                alert('Please enter a Sub Category name.');
+                showModernAlert('Please enter a Sub Category name.');
                 return;
             }
 
@@ -1931,10 +1989,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         nameInput.value = '';
                         codeInput.value = '';
                     } else {
-                        alert(data.message || 'Error creating sub category.');
+                        showModernAlert(data.message || 'Error creating sub category.');
                     }
                 })
-                .catch(err => alert('Failed to create sub category: ' + err.message));
+                .catch(err => showModernAlert('Failed to create sub category: ' + err.message));
         });
     }
 
@@ -1947,11 +2005,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const code = codeInput.value.trim().toUpperCase();
             const subcategoryId = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
             if (!subcategoryId) {
-                alert('Please select a Sub Category first.');
+                showModernAlert('Please select a Sub Category first.');
                 return;
             }
             if (!name) {
-                alert('Please enter a Sub Sub Category name.');
+                showModernAlert('Please enter a Sub Sub Category name.');
                 return;
             }
 
@@ -1991,10 +2049,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         nameInput.value = '';
                         codeInput.value = '';
                     } else {
-                        alert(data.message || 'Error creating sub sub category.');
+                        showModernAlert(data.message || 'Error creating sub sub category.');
                     }
                 })
-                .catch(err => alert('Failed to create sub sub category: ' + err.message));
+                .catch(err => showModernAlert('Failed to create sub sub category: ' + err.message));
         });
     }
 
@@ -2007,13 +2065,21 @@ document.addEventListener('DOMContentLoaded', function () {
             if (currentRows.length < targetRows) {
                 addVariantRows(targetRows - currentRows.length);
             } else if (currentRows.length > targetRows) {
-                if (!confirm(`Reduce rows from ${currentRows.length} to ${targetRows} to match Purchased Qty?`)) {
-                    return;
-                }
-                for (let i = currentRows.length - 1; i >= targetRows; i--) {
-                    currentRows[i].remove();
-                }
-                renumberRows();
+                showModernConfirmDialog(
+                    'Sync Rows to Purchased Qty',
+                    `Reduce rows from ${currentRows.length} to ${targetRows} to match Purchased Qty?`,
+                    function () {
+                        for (let i = currentRows.length - 1; i >= targetRows; i--) {
+                            currentRows[i].remove();
+                        }
+                        renumberRows();
+                        tbodyVariantRows.querySelectorAll('.var-qty').forEach(inp => { inp.value = '1'; });
+                        updateAllocationStatus();
+                    },
+                    'Reduce Rows',
+                    'btn-warning'
+                );
+                return;
             }
             tbodyVariantRows.querySelectorAll('.var-qty').forEach(inp => {
                 inp.value = '1';
@@ -2298,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const input = document.getElementById('modalNewSizeCode');
             const code = (input?.value || '').trim().toUpperCase();
             if (!code) {
-                alert('Please enter a Size name/code.');
+                showModernAlert('Please enter a Size name/code.');
                 return;
             }
             const fd = new FormData();
@@ -2322,10 +2388,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSize')).hide();
                         input.value = '';
                     } else {
-                        alert(data.message || 'Unable to create size.');
+                        showModernAlert(data.message || 'Unable to create size.');
                     }
                 })
-                .catch(err => alert('Failed to create size: ' + err.message));
+                .catch(err => showModernAlert('Failed to create size: ' + err.message));
         });
     }
 
@@ -2337,7 +2403,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const name = (nameInput?.value || '').trim().toUpperCase();
             const hex = (hexInput?.value || '#000000').trim();
             if (!name) {
-                alert('Please enter a Color name.');
+                showModernAlert('Please enter a Color name.');
                 return;
             }
             const fd = new FormData();
@@ -2361,10 +2427,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddColor')).hide();
                         nameInput.value = '';
                     } else {
-                        alert(data.message || 'Unable to create color.');
+                        showModernAlert(data.message || 'Unable to create color.');
                     }
                 })
-                .catch(err => alert('Failed to create color: ' + err.message));
+                .catch(err => showModernAlert('Failed to create color: ' + err.message));
         });
     }
 
@@ -2578,7 +2644,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     triggerBtn.disabled = false;
                     triggerBtn.innerHTML = origHtml;
                 }
-                alert('Error: ' + (data.message || 'Could not add selected QRs to stock.'));
+                showModernAlert('Error: ' + (data.message || 'Could not add selected QRs to stock.'));
             }
         })
         .catch(err => {
@@ -2586,7 +2652,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 triggerBtn.disabled = false;
                 triggerBtn.innerHTML = origHtml;
             }
-            alert('Server error: ' + err.message);
+            showModernAlert('Server error: ' + err.message);
         });
     }
 
@@ -2632,19 +2698,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Unmap helpers
     window.unmapActiveItem = function() {
-        if (!confirm("Are you sure you want to delete the mapping for '<?= e(addslashes($activeItem['item_name'])) ?>'? It will automatically be marked as unmapped.")) {
-            return;
-        }
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '<?= url('purchases/mapping/unmap/' . $activeItemId) ?>';
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
-        csrfInput.value = '<?= CSRF::token() ?>';
-        form.appendChild(csrfInput);
-        document.body.appendChild(form);
-        form.submit();
+        showModernConfirmDialog(
+            'Delete Mapping',
+            "Are you sure you want to delete the mapping for '<?= e(addslashes($activeItem['item_name'])) ?>'? It will automatically be marked as unmapped.",
+            function () {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '<?= url('purchases/mapping/unmap/' . $activeItemId) ?>';
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = '<?= CSRF::token() ?>';
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            },
+            'Yes, Unmap',
+            'btn-danger'
+        );
     };
 });
 </script>
