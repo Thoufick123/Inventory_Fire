@@ -168,6 +168,9 @@ class PurchaseMappingFulfillmentService {
         Database::ensureColumn('production_purchase_items', 'mapped_third_party_sub_subcategory_id', 'INT UNSIGNED DEFAULT NULL AFTER mapped_third_party_subcategory_id');
         Database::ensureColumn('qr_generations', 'source_mapping_item_id', 'INT UNSIGNED DEFAULT NULL AFTER source_purchase_item_id');
         Database::ensureColumn('qr_generations', 'source_variant_id', 'INT UNSIGNED DEFAULT NULL AFTER source_mapping_item_id');
+        Database::ensureColumn('production_purchase_items', 'original_quantity', 'DECIMAL(12,3) DEFAULT NULL AFTER quantity');
+        Database::ensureColumn('production_purchase_items', 'extra_added_qty', 'DECIMAL(12,3) NOT NULL DEFAULT 0.000 AFTER original_quantity');
+        Database::ensureColumn('production_purchase_items', 'is_extra_purchase_item', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER extra_added_qty');
         Database::execute("CREATE TABLE IF NOT EXISTS third_party_mapping_bills (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             concern_id INT UNSIGNED NOT NULL,
@@ -242,35 +245,7 @@ class PurchaseMappingFulfillmentService {
                AND mapped_third_party_category_id IS NULL"
         );
 
-        // Seed default third-party categories if empty so ERP taxonomy is immediately operational
-        $tpCatCount = (int)(Database::fetchOne("SELECT COUNT(*) AS cnt FROM third_party_categories")['cnt'] ?? 0);
-        if ($tpCatCount === 0) {
-            Database::execute("INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES
-                ('Non Feeding', 'NF', 'non-feeding', 1, 1),
-                ('Feeding', 'FD', 'feeding', 2, 1),
-                ('Kids Wear', 'KW', 'kids-wear', 3, 1),
-                ('Women Ethnic', 'WE', 'women-ethnic', 4, 1),
-                ('Men Casual', 'MC', 'men-casual', 5, 1)
-            ");
-
-            $nfCat = Database::fetchOne("SELECT id FROM third_party_categories WHERE code = 'NF' LIMIT 1");
-            if ($nfCat) {
-                Database::execute("INSERT INTO third_party_subcategories (category_id, name, code, slug, sort_order, is_active) VALUES
-                    (?, 'Full Length', 'FL', 'full-length', 1, 1),
-                    (?, 'Midi Dress', 'MD', 'midi-dress', 2, 1),
-                    (?, 'Short Top', 'ST', 'short-top', 3, 1)
-                ", [(int)$nfCat['id'], (int)$nfCat['id'], (int)$nfCat['id']]);
-
-                $flSubcat = Database::fetchOne("SELECT id FROM third_party_subcategories WHERE code = 'FL' AND category_id = ? LIMIT 1", [(int)$nfCat['id']]);
-                if ($flSubcat) {
-                    Database::execute("INSERT INTO third_party_sub_subcategories (subcategory_id, name, code, slug, sort_order, is_active) VALUES
-                        (?, 'Normal Sleeve', 'NS', 'normal-sleeve', 1, 1),
-                        (?, 'Sleeveless', 'SL', 'sleeveless', 2, 1),
-                        (?, '3/4th Sleeve', 'TQS', '3-4th-sleeve', 3, 1)
-                    ", [(int)$flSubcat['id'], (int)$flSubcat['id'], (int)$flSubcat['id']]);
-                }
-            }
-        }
+        // Hard-coded default third-party categories are no longer auto-seeded; only catalog-saved categories are used.
 
         if (session_status() === PHP_SESSION_ACTIVE) {
             $_SESSION['_pmf_schema_ensured_20261121_variant_qr'] = 1;

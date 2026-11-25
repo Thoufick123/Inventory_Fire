@@ -5448,6 +5448,95 @@ class AllmodulesController {
     }
 
     /**
+     * Sync active categories/subcategories/sub-subcategories from main catalog
+     * into third_party_* tables so newly created catalog categories appear in mapping dropdowns.
+     */
+    private function syncCatalogCategoriesToThirdParty(): void {
+        try {
+            $mainCats = Database::fetchAll("SELECT id, name, code, slug, sort_order FROM categories WHERE is_active = 1");
+            $catMap = [];
+            foreach ($mainCats as $mc) {
+                $name = trim((string)$mc['name']);
+                if ($name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_categories WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$name]
+                );
+                if ($existing) {
+                    $catMap[(int)$mc['id']] = (int)$existing['id'];
+                } else {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mc['code'] ?: $name), 0, 3)) ?: 'CAT';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_categories WHERE code = ?", [$code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $mc['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, 1)",
+                        [$name, $code, $slug, (int)($mc['sort_order'] ?? 0)]
+                    );
+                    $catMap[(int)$mc['id']] = (int)Database::lastInsertId();
+                }
+            }
+
+            $mainSubs = Database::fetchAll("SELECT id, category_id, name, code, slug, sort_order FROM subcategories WHERE is_active = 1");
+            $subMap = [];
+            foreach ($mainSubs as $ms) {
+                $tpCatId = $catMap[(int)$ms['category_id']] ?? 0;
+                $name = trim((string)$ms['name']);
+                if ($tpCatId <= 0 || $name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_subcategories WHERE category_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$tpCatId, $name]
+                );
+                if ($existing) {
+                    $subMap[(int)$ms['id']] = (int)$existing['id'];
+                } else {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $ms['code'] ?: $name), 0, 3)) ?: 'SUB';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_subcategories WHERE category_id = ? AND code = ?", [$tpCatId, $code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $ms['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_subcategories (category_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                        [$tpCatId, $name, $code, $slug, (int)($ms['sort_order'] ?? 0)]
+                    );
+                    $subMap[(int)$ms['id']] = (int)Database::lastInsertId();
+                }
+            }
+
+            $mainSubSubs = Database::fetchAll("SELECT id, subcategory_id, name, code, slug, sort_order FROM sub_subcategories WHERE is_active = 1");
+            foreach ($mainSubSubs as $mss) {
+                $tpSubId = $subMap[(int)$mss['subcategory_id']] ?? 0;
+                $name = trim((string)$mss['name']);
+                if ($tpSubId <= 0 || $name === '') continue;
+                $existing = Database::fetchOne(
+                    "SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                    [$tpSubId, $name]
+                );
+                if (!$existing) {
+                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mss['code'] ?: $name), 0, 3)) ?: 'SSC';
+                    $code = $codeBase;
+                    $cnt = 1;
+                    while (Database::fetchOne("SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND code = ?", [$tpSubId, $code])) {
+                        $code = $codeBase . $cnt++;
+                    }
+                    $slug = $mss['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                    Database::execute(
+                        "INSERT INTO third_party_sub_subcategories (subcategory_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                        [$tpSubId, $name, $code, $slug, (int)($mss['sort_order'] ?? 0)]
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('syncCatalogCategoriesToThirdParty failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Show all purchase lines together so the bill can be mapped in one pass.
      */
     public function thirdPartyMappingBill(string $id): void {
@@ -5530,9 +5619,21 @@ class AllmodulesController {
             }
         }
 
-        // Fetch categories
+        // Sync any newly created main catalog categories into third_party_* tables so they appear in mapping dropdowns
+        $this->syncCatalogCategoriesToThirdParty();
+
+        // Fetch categories (exclude legacy hard-coded seeded categories unless saved in main catalog or already mapped)
         $categories = Database::fetchAll(
-            "SELECT id, name, code, is_complementary FROM third_party_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+            "SELECT tpc.id, tpc.name, tpc.code, tpc.is_complementary
+             FROM third_party_categories tpc
+             WHERE tpc.is_active = 1
+               AND (
+                   LOWER(TRIM(tpc.name)) NOT IN ('non feeding', 'feeding', 'kids wear', 'women ethnic', 'men casual')
+                   OR EXISTS (SELECT 1 FROM categories c WHERE c.is_active = 1 AND LOWER(TRIM(c.name)) = LOWER(TRIM(tpc.name)))
+                   OR tpc.id = ?
+               )
+             ORDER BY tpc.sort_order ASC, tpc.name ASC",
+            [(int)($activeItem['mapped_third_party_category_id'] ?? 0)]
         );
         $allSubcategories = Database::fetchAll(
             "SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
@@ -5844,6 +5945,15 @@ class AllmodulesController {
         $subSubcategoryCode = trim((string)($_POST['sub_subcategory_code'] ?? ''));
         $qrKey = trim((string)($_POST['qr_key'] ?? ''));
 
+        $editedItemName = trim((string)($_POST['item_name'] ?? ''));
+        if ($editedItemName !== '' && $editedItemName !== (string)$item['item_name']) {
+            Database::execute(
+                "UPDATE production_purchase_items SET item_name = ? WHERE id = ?",
+                [$editedItemName, $itemId]
+            );
+            $item['item_name'] = $editedItemName;
+        }
+
         $styleCode = mb_strtoupper(trim((string)($_POST['style_code'] ?? '')));
         $styleName = trim((string)($_POST['style_name'] ?? ''));
         if ($styleName === '') {
@@ -6131,6 +6241,7 @@ class AllmodulesController {
         }
 
         // 2. Persist third_party_product_variants
+        $totalAllocatedQty = 0.0;
         if (!empty($submittedVariants) && is_array($submittedVariants)) {
             Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?", [$itemId]);
 
@@ -6139,6 +6250,7 @@ class AllmodulesController {
                 $vColor = trim($var['color'] ?? '') ?: $color;
                 $vSku = trim($var['sku'] ?? '') ?: ($styleCode . '-' . $vSize);
                 $vAllocQty = max(0, (float)($var['allocated_qty'] ?? ($var['quantity'] ?? 1)));
+                $totalAllocatedQty += $vAllocQty;
                 $vRate = (float)($var['purchase_rate'] ?? ($var['unit_price'] ?? $item['unit_price']));
                 $vMrp = (float)($var['mrp'] ?? $firstMrp);
                 $vSp = (float)($var['selling_price'] ?? $firstSp);
@@ -6176,6 +6288,41 @@ class AllmodulesController {
                     ]
                 );
             }
+        }
+
+        // Auto-sync purchased quantity & bill total if user added extra product qty beyond original purchase list
+        $purchasedQtyNow = (float)($item['quantity'] ?? 0);
+        if ($totalAllocatedQty > $purchasedQtyNow && $totalAllocatedQty > 0) {
+            $unitPriceNow = (float)($item['unit_price'] ?? 0);
+            $baseSubtotal = round($totalAllocatedQty * $unitPriceNow, 2);
+            $sgstPct = (float)($item['sgst_value'] ?? 0);
+            $cgstPct = (float)($item['cgst_value'] ?? 0);
+            $igstPct = (float)($item['igst_value'] ?? 0);
+            $sgstAmtNew = round($baseSubtotal * ($sgstPct / 100), 2);
+            $cgstAmtNew = round($baseSubtotal * ($cgstPct / 100), 2);
+            $igstAmtNew = round($baseSubtotal * ($igstPct / 100), 2);
+            $totalPriceNew = round($baseSubtotal + $sgstAmtNew + $cgstAmtNew + $igstAmtNew, 2);
+
+            $origQty = isset($item['original_quantity']) && $item['original_quantity'] !== null
+                ? (float)$item['original_quantity']
+                : $purchasedQtyNow;
+            $extraQty = max(0.0, round($totalAllocatedQty - $origQty, 3));
+
+            Database::execute(
+                "UPDATE production_purchase_items
+                 SET original_quantity = COALESCE(original_quantity, ?),
+                     extra_added_qty = ?,
+                     quantity = ?, sgst_amount = ?, cgst_amount = ?, igst_amount = ?, total_price = ?
+                 WHERE id = ?",
+                [$origQty, $extraQty, $totalAllocatedQty, $sgstAmtNew, $cgstAmtNew, $igstAmtNew, $totalPriceNew, $itemId]
+            );
+            Database::execute(
+                "UPDATE production_purchases
+                 SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                     updated_at = NOW()
+                 WHERE id = ?",
+                [$purchaseId, $purchaseId]
+            );
         }
 
         // 3. Update production_purchase_items
@@ -6586,7 +6733,7 @@ class AllmodulesController {
             $stmt = $db->prepare("
                 INSERT INTO production_purchase_items (
                     purchase_id, item_type, item_name, product_code, vendor_sku,
-                    quantity, inwarded_qty, unit, unit_price, mrp, selling_price,
+                    quantity, original_quantity, extra_added_qty, is_extra_purchase_item, inwarded_qty, unit, unit_price, mrp, selling_price,
                     total_price, gst_type, tax_input_type, tax_treatment,
                     sgst_value, cgst_value, igst_value, sgst_amount, cgst_amount, igst_amount,
                     color, size, hsn_code, is_complementary,
@@ -6596,7 +6743,7 @@ class AllmodulesController {
                     is_mapped, created_at
                 ) VALUES (
                     ?, ?, ?, ?, ?,
-                    ?, 0, ?, ?, ?, ?,
+                    ?, 0, ?, 1, 0, ?, ?, ?, ?,
                     ?, ?, 'PERCENT', 'EXCLUDED',
                     ?, ?, 0, ?, ?, 0,
                     ?, ?, ?, ?,
@@ -6611,6 +6758,7 @@ class AllmodulesController {
                 $itemName,
                 $vendorSku,
                 $vendorSku,
+                $qty,
                 $qty,
                 $unit,
                 $rate,

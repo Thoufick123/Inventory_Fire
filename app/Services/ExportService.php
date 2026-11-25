@@ -479,7 +479,11 @@ class ExportService
                         s.name AS supplier_name, s.company AS supplier_company,
                         c.code AS concern_code, c.name AS concern_name,
                         ppi.item_name, ppi.product_code, ppi.vendor_sku, ppi.color, ppi.size,
-                        ppi.unit, ppi.quantity, ppi.unit_price, ppi.mrp, ppi.selling_price, ppi.total_price,
+                        ppi.unit, ppi.quantity,
+                        COALESCE(ppi.original_quantity, ppi.quantity) AS original_purchased_qty,
+                        COALESCE(ppi.extra_added_qty, 0) AS extra_added_qty,
+                        COALESCE(ppi.is_extra_purchase_item, 0) AS is_extra_purchase_item,
+                        ppi.unit_price, ppi.mrp, ppi.selling_price, ppi.total_price,
                         ppi.hsn_code, ppi.is_mapped, ppi.mapped_at,
                         tc.name AS category_name, tsc.name AS subcategory_name, tssc.name AS sub_subcategory_name
                  FROM production_purchase_items ppi
@@ -1428,8 +1432,14 @@ class ExportService
         // 15. Third-Party Finished Products & Mapping
         if (!empty($data['third_party_products'])) {
             fputcsv($out, ['=== 15. THIRD-PARTY PRODUCTS & CATALOG MAPPING ===']);
-            fputcsv($out, ['PO Number', 'Purchase Date', 'Supplier', 'Invoice #', 'Product Name', 'Vendor SKU / Code', 'Color', 'Size', 'Unit', 'Quantity', 'Unit Cost (INR)', 'MRP (INR)', 'Selling Price (INR)', 'Total Cost (INR)', 'HSN Code', 'Mapped Category', 'Mapped Subcategory', 'Mapped Sub-Subcategory', 'Mapping Status', 'Concern']);
+            fputcsv($out, ['PO Number', 'Purchase Date', 'Supplier', 'Invoice #', 'Product Name', 'Vendor SKU / Code', 'Color', 'Size', 'Unit', 'Original Purchased Qty', 'Extra Added Stock Qty', 'Final Total Qty', 'Entry Source', 'Unit Cost (INR)', 'MRP (INR)', 'Selling Price (INR)', 'Total Cost (INR)', 'HSN Code', 'Mapped Category', 'Mapped Subcategory', 'Mapped Sub-Subcategory', 'Mapping Status', 'Concern']);
             foreach ($data['third_party_products'] as $tp) {
+                $origQty = (float)($tp['original_purchased_qty'] ?? $tp['quantity']);
+                $extraQty = (float)($tp['extra_added_qty'] ?? 0);
+                $isExtraLine = !empty($tp['is_extra_purchase_item']);
+                $entrySource = $isExtraLine
+                    ? 'NEWLY ADDED (NOT IN ORIGINAL PURCHASE LIST)'
+                    : ($extraQty > 0 ? 'PURCHASE LIST + EXTRA ADDED STOCK' : 'ORIGINAL PURCHASE LIST');
                 fputcsv($out, [
                     $tp['purchase_number'],
                     !empty($tp['purchase_date']) ? date('d M Y', strtotime($tp['purchase_date'])) : '-',
@@ -1440,7 +1450,10 @@ class ExportService
                     $tp['color'] ?: '-',
                     $tp['size'] ?: '-',
                     $tp['unit'] ?? 'Pieces',
+                    number_format($origQty, 2, '.', ''),
+                    number_format($extraQty, 2, '.', ''),
                     number_format((float)$tp['quantity'], 2, '.', ''),
+                    $entrySource,
                     number_format((float)$tp['unit_price'], 2, '.', ''),
                     number_format((float)$tp['mrp'], 2, '.', ''),
                     number_format((float)$tp['selling_price'], 2, '.', ''),

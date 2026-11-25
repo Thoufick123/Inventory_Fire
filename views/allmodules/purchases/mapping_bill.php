@@ -344,10 +344,18 @@ tr.table-danger, tr.table-danger > td {
                     <!-- Column 1: Product Identity -->
                     <div class="col-md-4">
                         <div class="border rounded-3 p-3 bg-light-subtle h-100">
-                            <div class="d-flex align-items-center gap-1.5 text-uppercase text-muted fw-bold small mb-2">
-                                <i class="bi bi-box-seam text-primary"></i> Product Identity
+                            <div class="d-flex align-items-center justify-content-between gap-1.5 text-uppercase text-muted fw-bold small mb-2">
+                                <span><i class="bi bi-box-seam text-primary"></i> Product Identity</span>
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;"><i class="bi bi-pencil me-1"></i>Editable</span>
                             </div>
-                            <div class="fw-bold fs-5 text-dark mb-1"><?= e($activeItem['item_name']) ?></div>
+                            <input type="text"
+                                   class="form-control form-control-sm fw-bold fs-6 text-dark mb-1"
+                                   id="inputPurchasedItemName"
+                                   name="item_name"
+                                   value="<?= e($activeItem['item_name']) ?>"
+                                   required
+                                   maxlength="255"
+                                   placeholder="Purchased Product Name">
                             <div class="d-flex flex-wrap gap-1.5 align-items-center mt-2">
                                 <span class="badge bg-light text-dark border font-monospace">
                                     Item Code: <?= e($activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'FG-' . sprintf('%04d', $activeItemId))) ?>
@@ -583,25 +591,34 @@ tr.table-danger, tr.table-danger > td {
             <td style="width: 115px; min-width: 110px;">
                 <input class="form-control form-control-sm font-monospace var-hsn" name="variants[<?= $index ?>][hsn_code]" value="<?= e($vHsn) ?>" maxlength="20" required placeholder="HSN" style="min-width: 95px;">
             </td>
-            <td style="width: 260px; min-width: 250px;">
-                <select class="form-select form-select-sm var-category mb-1" name="variants[<?= $index ?>][category_id]" required>
-                    <option value="">-- Main Category --</option>
-                    <?php foreach ($categories as $cat): ?>
-                        <option value="<?= (int)$cat['id'] ?>" <?= $vCatId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select form-select-sm var-subcategory mb-1" name="variants[<?= $index ?>][subcategory_id]">
-                    <option value="">-- Sub Category --</option>
-                    <?php foreach ($allSubcategories as $sc): ?>
-                        <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= $vSubcatId === (int)$sc['id'] ? 'selected' : '' ?> <?= (int)$sc['category_id'] !== $vCatId ? 'hidden' : '' ?>><?= e($sc['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select form-select-sm var-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
-                    <option value="">-- Sub Sub Category --</option>
-                    <?php foreach ($allSubSubcategories as $ssc): ?>
-                        <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= $vSubSubcatId === (int)$ssc['id'] ? 'selected' : '' ?> <?= (int)$ssc['subcategory_id'] !== $vSubcatId ? 'hidden' : '' ?>><?= e($ssc['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+            <td style="width: 280px; min-width: 265px;">
+                <div class="input-group input-group-sm mb-1">
+                    <select class="form-select form-select-sm var-category" name="variants[<?= $index ?>][category_id]" required>
+                        <option value="">-- Main Category --</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= (int)$cat['id'] ?>" <?= $vCatId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-primary btn-quick-add-tier1" title="Create Main Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="input-group input-group-sm mb-1">
+                    <select class="form-select form-select-sm var-subcategory" name="variants[<?= $index ?>][subcategory_id]">
+                        <option value="">-- Sub Category --</option>
+                        <?php foreach ($allSubcategories as $sc): ?>
+                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= $vSubcatId === (int)$sc['id'] ? 'selected' : '' ?> <?= (int)$sc['category_id'] !== $vCatId ? 'hidden' : '' ?>><?= e($sc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-info btn-quick-add-tier2" title="Create Sub Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="input-group input-group-sm">
+                    <select class="form-select form-select-sm var-subsubcategory" name="variants[<?= $index ?>][sub_subcategory_id]">
+                        <option value="">-- Sub Sub Category --</option>
+                        <?php foreach ($allSubSubcategories as $ssc): ?>
+                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= $vSubSubcatId === (int)$ssc['id'] ? 'selected' : '' ?> <?= (int)$ssc['subcategory_id'] !== $vSubcatId ? 'hidden' : '' ?>><?= e($ssc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-outline-success btn-quick-add-tier3" title="Create Sub Sub Category"><i class="bi bi-plus-lg"></i></button>
+                </div>
             </td>
             <td class="text-center" style="width: 50px; min-width: 50px;">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Remove variant"><i class="bi bi-x-lg"></i></button>
@@ -633,6 +650,34 @@ tr.table-danger, tr.table-danger > td {
                     </button>
                 </div>
             </div>
+            <!-- Overall Batch Apply Bar: Size + Category + Sub Category + Sub Sub Category -->
+            <div class="bg-light-subtle border-bottom px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="small fw-semibold text-muted text-uppercase"><i class="bi bi-sliders me-1 text-primary"></i>Apply to All Rows:</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="text" class="form-control form-control-sm" id="batchInputSize" placeholder="Size (e.g. M, L, XL)" style="width: 145px;" autocomplete="off">
+                    <select class="form-select form-select-sm" id="batchSelectCategory" style="width: 170px;">
+                        <option value="">-- Main Category --</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select class="form-select form-select-sm" id="batchSelectSubcategory" style="width: 170px;">
+                        <option value="">-- Sub Category --</option>
+                        <?php foreach ($allSubcategories as $sc): ?>
+                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select class="form-select form-select-sm" id="batchSelectSubSubcategory" style="width: 180px;">
+                        <option value="">-- Sub Sub Category --</option>
+                        <?php foreach ($allSubSubcategories as $ssc): ?>
+                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Size &amp; Category Hierarchy to all variant rows">
+                        <i class="bi bi-check2-all me-1"></i>Apply to All
+                    </button>
+                </div>
+            </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1360px;">
@@ -643,7 +688,7 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 120px; min-width: 120px;">Color <span class="text-danger">*</span></th>
                                 <th style="width: 170px; min-width: 160px;">SKU <span class="text-danger">*</span></th>
                                 <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
-                                <th style="width: 115px; min-width: 110px;" class="text-end">Rate (₹) <span class="text-danger">*</span></th>
+                                <th style="width: 130px; min-width: 125px;" class="text-end">Purchased Rate (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 115px; min-width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 115px; min-width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 90px; min-width: 85px;" class="text-end">GST %</th>
@@ -659,7 +704,17 @@ tr.table-danger, tr.table-danger > td {
                                     $renderVariantRow($idx, $v);
                                 }
                             } else {
-                                $renderVariantRow(0);
+                                $autoRowCount = $purchasedQty >= 1 ? min(200, max(1, (int)round($purchasedQty))) : 1;
+                                $baseSku = $activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
+                                for ($idx = 0; $idx < $autoRowCount; $idx++) {
+                                    $rowSku = $autoRowCount > 1
+                                        ? ($baseSku . '-' . str_pad((string)($idx + 1), 2, '0', STR_PAD_LEFT))
+                                        : $baseSku;
+                                    $renderVariantRow($idx, [
+                                        'allocated_qty' => $autoRowCount > 1 ? 1 : max(1, (int)$purchasedQty),
+                                        'sku' => $rowSku,
+                                    ]);
+                                }
                             }
                             ?>
                         </tbody>
@@ -676,6 +731,9 @@ tr.table-danger, tr.table-danger > td {
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
                                 <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
                             </button>
                         </div>
                         <div class="ms-md-3 fs-6" id="labelAllocationStatus">
@@ -1086,7 +1144,7 @@ tr.table-danger, tr.table-danger > td {
 
 <!-- ========================================================================= -->
 <!-- CLIENT-SIDE ENGINE (JAVASCRIPT)                                           -->
-========================================================================= -->
+<!-- ========================================================================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
@@ -1280,17 +1338,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const isMatch = (Math.abs(diff) < 0.001);
 
         if (isMatch) {
-            labelAllocationStatus.innerHTML = 
+            labelAllocationStatus.innerHTML = `
                 <span class="badge bg-success text-white py-1.5 px-3">
-                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces (Exact Match)
+                    <i class="bi bi-check-circle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (Exact Match)
                 </span>
-            ;
+            `;
+        } else if (diff > 0) {
+            labelAllocationStatus.innerHTML = `
+                <span class="badge bg-info text-dark py-1.5 px-3">
+                    <i class="bi bi-arrow-up-circle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (+${diff} extra — will auto-update Purchased List)
+                </span>
+            `;
         } else {
-            labelAllocationStatus.innerHTML = 
+            labelAllocationStatus.innerHTML = `
                 <span class="badge bg-warning text-dark py-1.5 px-3">
-                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated:  + totalAllocated +  /  + targetQty +  Pieces ( + (diff > 0 ? '+' : '') + diff +  variance)
+                    <i class="bi bi-exclamation-triangle-fill me-1.5"></i>Allocated: ${totalAllocated} / ${targetQty} Pieces (${diff} variance)
                 </span>
-            ;
+            `;
         }
     }
 
@@ -1314,6 +1378,80 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnHeaderAutoDistribute) {
         btnHeaderAutoDistribute.addEventListener('click', autoDistributeQuantities);
+    }
+
+    // 4b. Overall Batch Apply (Size + Main Category + Sub Category + Sub Sub Category)
+    const batchInputSize = document.getElementById('batchInputSize');
+    const batchSelectCategory = document.getElementById('batchSelectCategory');
+    const batchSelectSubcategory = document.getElementById('batchSelectSubcategory');
+    const batchSelectSubSubcategory = document.getElementById('batchSelectSubSubcategory');
+    const btnApplyAllAttributes = document.getElementById('btnApplyAllAttributes');
+
+    if (batchSelectCategory && batchSelectSubcategory && batchSelectSubSubcategory) {
+        batchSelectCategory.addEventListener('change', function () {
+            const catId = this.value;
+            Array.from(batchSelectSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = opt.dataset.parent !== catId;
+                if (opt.hidden && opt.selected) opt.selected = false;
+            });
+            batchSelectSubcategory.value = '';
+            Array.from(batchSelectSubSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = true;
+                if (opt.selected) opt.selected = false;
+            });
+            batchSelectSubSubcategory.value = '';
+        });
+
+        batchSelectSubcategory.addEventListener('change', function () {
+            const subId = this.value;
+            Array.from(batchSelectSubSubcategory.options).forEach(opt => {
+                if (!opt.value) return;
+                opt.hidden = opt.dataset.parent !== subId;
+                if (opt.hidden && opt.selected) opt.selected = false;
+            });
+            batchSelectSubSubcategory.value = '';
+        });
+    }
+
+    if (btnApplyAllAttributes && tbodyVariantRows) {
+        btnApplyAllAttributes.addEventListener('click', function () {
+            const sizeVal = (batchInputSize?.value || '').trim();
+            const catVal = batchSelectCategory?.value || '';
+            const subVal = batchSelectSubcategory?.value || '';
+            const subSubVal = batchSelectSubSubcategory?.value || '';
+
+            if (!sizeVal && !catVal && !subVal && !subSubVal) {
+                alert('Enter a Size or select a Category to apply to all rows.');
+                return;
+            }
+
+            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                if (sizeVal) {
+                    const szInput = row.querySelector('.var-size');
+                    if (szInput) szInput.value = sizeVal;
+                }
+                if (catVal) {
+                    const catSel = row.querySelector('.var-category');
+                    if (catSel) {
+                        catSel.value = catVal;
+                        catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (subVal) {
+                        const subSel = row.querySelector('.var-subcategory');
+                        if (subSel) {
+                            subSel.value = subVal;
+                            subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        if (subSubVal) {
+                            const ssSel = row.querySelector('.var-subsubcategory');
+                            if (ssSel) ssSel.value = subSubVal;
+                        }
+                    }
+                }
+            });
+        });
     }
 
     // 5. Price Replicator
@@ -1387,8 +1525,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 return false;
             }
 
-            if (Math.abs(totalAllocated - purchasedQty) > 0.001) {
-                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') differs from the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
+            if (totalAllocated < purchasedQty - 0.001) {
+                const proceed = confirm('The allocated variant quantity (' + totalAllocated + ') is less than the purchased bill quantity (' + purchasedQty + '). Proceed anyway?');
                 if (!proceed) {
                     e.preventDefault();
                     return false;
@@ -1489,7 +1627,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             errorBox.classList.add('d-none');
             addBillProductButton.disabled = true;
-            fetch(${BASE_URL}/purchases/mapping/add-product, { method: 'POST', body: formData })
+            fetch(`${BASE_URL}/purchases/mapping/add-product`, { method: 'POST', body: formData })
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok || !data.success) {
@@ -1505,7 +1643,74 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 9. Quick Add Modals (AJAX Integration)
+    // 8b. Live MRP vs Selling Price Validation (Selling Price must not exceed MRP)
+    function validateMrpSpPair(mrpEl, spEl) {
+        if (!mrpEl || !spEl) return true;
+        const mrp = parseFloat(mrpEl.value || '0') || 0;
+        const sp = parseFloat(spEl.value || '0') || 0;
+        const invalid = (mrp > 0 && sp > 0 && sp > mrp);
+        mrpEl.classList.toggle('is-invalid', invalid);
+        spEl.classList.toggle('is-invalid', invalid);
+        const msg = invalid ? `Selling Price (₹${sp.toFixed(2)}) must be less than or equal to MRP (₹${mrp.toFixed(2)}).` : '';
+        mrpEl.title = msg;
+        spEl.title = msg;
+        return !invalid;
+    }
+
+    if (tbodyVariantRows) {
+        tbodyVariantRows.addEventListener('input', function (e) {
+            if (e.target.classList.contains('var-mrp') || e.target.classList.contains('var-sp')) {
+                const row = e.target.closest('.variant-row');
+                if (row) validateMrpSpPair(row.querySelector('.var-mrp'), row.querySelector('.var-sp'));
+            }
+        });
+    }
+    if (batchInputMrp && batchInputSp) {
+        [batchInputMrp, batchInputSp].forEach(el => {
+            el.addEventListener('input', () => validateMrpSpPair(batchInputMrp, batchInputSp));
+        });
+    }
+    const newBillMrpEl = document.getElementById('newBillMrp');
+    const newBillSpEl = document.getElementById('newBillSellingPrice');
+    if (newBillMrpEl && newBillSpEl) {
+        [newBillMrpEl, newBillSpEl].forEach(el => {
+            el.addEventListener('input', () => validateMrpSpPair(newBillMrpEl, newBillSpEl));
+        });
+    }
+
+    // 9. Quick Add Modals (AJAX Integration for Tier 1, Tier 2 & Tier 3)
+    let activeQuickAddRow = null;
+
+    document.addEventListener('click', function (e) {
+        const btn1 = e.target.closest('.btn-quick-add-tier1');
+        if (btn1) {
+            activeQuickAddRow = btn1.closest('.variant-row');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddCategory')).show();
+            return;
+        }
+        const btn2 = e.target.closest('.btn-quick-add-tier2');
+        if (btn2) {
+            activeQuickAddRow = btn2.closest('.variant-row');
+            const catVal = activeQuickAddRow?.querySelector('.var-category')?.value || '';
+            if (!catVal) {
+                alert('Please select a Main Category (Tier 1) first.');
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubcategory')).show();
+            return;
+        }
+        const btn3 = e.target.closest('.btn-quick-add-tier3');
+        if (btn3) {
+            activeQuickAddRow = btn3.closest('.variant-row');
+            const subVal = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
+            if (!subVal) {
+                alert('Please select a Sub Category (Tier 2) first.');
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalQuickAddSubSubcategory')).show();
+        }
+    });
+
     const btnSubmitModalTier1 = document.getElementById('btnSubmitModalTier1');
     if (btnSubmitModalTier1) {
         btnSubmitModalTier1.addEventListener('click', function () {
@@ -1527,17 +1732,26 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('_csrf_token', '<?= CSRF::token() ?>');
             formData.append('csrf_token', '<?= CSRF::token() ?>');
 
-            fetch(${BASE_URL}/api/categories/quick-add, { method: 'POST', body: formData })
+            fetch(`${BASE_URL}/api/categories/quick-add`, { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
                         if (tbodyVariantRows) {
                             tbodyVariantRows.querySelectorAll('.var-category').forEach(sel => {
-                                const opt = document.createElement('option');
-                                opt.value = data.id;
-                                opt.textContent = data.name;
-                                sel.appendChild(opt);
+                                if (!Array.from(sel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    sel.appendChild(opt);
+                                }
                             });
+                        }
+                        if (activeQuickAddRow) {
+                            const sel = activeQuickAddRow.querySelector('.var-category');
+                            if (sel) {
+                                sel.value = String(data.id);
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
                         }
                         bootstrap.Modal.getInstance(document.getElementById('modalQuickAddCategory')).hide();
                         nameInput.value = '';
@@ -1549,6 +1763,295 @@ document.addEventListener('DOMContentLoaded', function () {
                 .catch(err => alert('Failed to create category: ' + err.message));
         });
     }
+
+    const btnSubmitModalTier2 = document.getElementById('btnSubmitModalTier2');
+    if (btnSubmitModalTier2) {
+        btnSubmitModalTier2.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalTier2Name');
+            const codeInput = document.getElementById('modalTier2Code');
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim().toUpperCase();
+            const categoryId = activeQuickAddRow?.querySelector('.var-category')?.value || '';
+            if (!categoryId) {
+                alert('Please select a Main Category first.');
+                return;
+            }
+            if (!name) {
+                alert('Please enter a Sub Category name.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('category_id', categoryId);
+            formData.append('name', name);
+            formData.append('code', code);
+            formData.append('catalog_source', 'THIRD_PARTY');
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/subcategories/quick-add`, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (tbodyVariantRows) {
+                            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                                const subSel = row.querySelector('.var-subcategory');
+                                const rowCatId = row.querySelector('.var-category')?.value || '';
+                                if (subSel && !Array.from(subSel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    opt.dataset.parent = String(categoryId);
+                                    opt.hidden = (String(rowCatId) !== String(categoryId));
+                                    subSel.appendChild(opt);
+                                }
+                            });
+                        }
+                        if (activeQuickAddRow) {
+                            const subSel = activeQuickAddRow.querySelector('.var-subcategory');
+                            if (subSel) {
+                                subSel.value = String(data.id);
+                                subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubcategory')).hide();
+                        nameInput.value = '';
+                        codeInput.value = '';
+                    } else {
+                        alert(data.message || 'Error creating sub category.');
+                    }
+                })
+                .catch(err => alert('Failed to create sub category: ' + err.message));
+        });
+    }
+
+    const btnSubmitModalTier3 = document.getElementById('btnSubmitModalTier3');
+    if (btnSubmitModalTier3) {
+        btnSubmitModalTier3.addEventListener('click', function () {
+            const nameInput = document.getElementById('modalTier3Name');
+            const codeInput = document.getElementById('modalTier3Code');
+            const name = nameInput.value.trim();
+            const code = codeInput.value.trim().toUpperCase();
+            const subcategoryId = activeQuickAddRow?.querySelector('.var-subcategory')?.value || '';
+            if (!subcategoryId) {
+                alert('Please select a Sub Category first.');
+                return;
+            }
+            if (!name) {
+                alert('Please enter a Sub Sub Category name.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('subcategory_id', subcategoryId);
+            formData.append('name', name);
+            formData.append('code', code);
+            formData.append('catalog_source', 'THIRD_PARTY');
+            formData.append('_csrf_token', '<?= CSRF::token() ?>');
+            formData.append('csrf_token', '<?= CSRF::token() ?>');
+
+            fetch(`${BASE_URL}/api/sub-subcategories/quick-add`, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (tbodyVariantRows) {
+                            tbodyVariantRows.querySelectorAll('.variant-row').forEach(row => {
+                                const ssSel = row.querySelector('.var-subsubcategory');
+                                const rowSubId = row.querySelector('.var-subcategory')?.value || '';
+                                if (ssSel && !Array.from(ssSel.options).some(o => String(o.value) === String(data.id))) {
+                                    const opt = document.createElement('option');
+                                    opt.value = data.id;
+                                    opt.textContent = data.name;
+                                    opt.dataset.parent = String(subcategoryId);
+                                    opt.hidden = (String(rowSubId) !== String(subcategoryId));
+                                    ssSel.appendChild(opt);
+                                }
+                            });
+                        }
+                        if (activeQuickAddRow) {
+                            const ssSel = activeQuickAddRow.querySelector('.var-subsubcategory');
+                            if (ssSel) {
+                                ssSel.value = String(data.id);
+                            }
+                        }
+                        bootstrap.Modal.getInstance(document.getElementById('modalQuickAddSubSubcategory')).hide();
+                        nameInput.value = '';
+                        codeInput.value = '';
+                    } else {
+                        alert(data.message || 'Error creating sub sub category.');
+                    }
+                })
+                .catch(err => alert('Failed to create sub sub category: ' + err.message));
+        });
+    }
+
+    // 10. Sync Variant Rows to Purchased Qty (1 row per unit)
+    const btnSyncRowsToPurchasedQty = document.getElementById('btnSyncRowsToPurchasedQty');
+    if (btnSyncRowsToPurchasedQty && tbodyVariantRows) {
+        btnSyncRowsToPurchasedQty.addEventListener('click', function () {
+            const targetRows = Math.max(1, Math.min(200, Math.round(purchasedQty) || 1));
+            const currentRows = tbodyVariantRows.querySelectorAll('.variant-row');
+            if (currentRows.length < targetRows) {
+                addVariantRows(targetRows - currentRows.length);
+            } else if (currentRows.length > targetRows) {
+                if (!confirm(`Reduce rows from ${currentRows.length} to ${targetRows} to match Purchased Qty?`)) {
+                    return;
+                }
+                for (let i = currentRows.length - 1; i >= targetRows; i--) {
+                    currentRows[i].remove();
+                }
+                renumberRows();
+            }
+            tbodyVariantRows.querySelectorAll('.var-qty').forEach(inp => {
+                inp.value = '1';
+            });
+            updateAllocationStatus();
+        });
+    }
+
+    // 11. HSN Code Prefix Auto-Suggestion (from /api/hsn-codes)
+    let hsnMasterList = [];
+    fetch(`${BASE_URL}/api/hsn-codes`, { headers: { 'Accept': 'application/json' } })
+        .then(res => res.json())
+        .then(payload => {
+            if (payload && payload.success && Array.isArray(payload.data)) {
+                const seen = new Set();
+                hsnMasterList = payload.data.filter(item => {
+                    const code = String(item.hsn_code || '').trim();
+                    if (!code || seen.has(code)) return false;
+                    seen.add(code);
+                    return true;
+                });
+            }
+        })
+        .catch(() => {});
+
+    const hsnDropdown = document.createElement('div');
+    hsnDropdown.id = 'hsnSuggestDropdown';
+    hsnDropdown.className = 'list-group shadow-lg border';
+    hsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:240px;overflow-y:auto;min-width:260px;background:#fff;border-radius:0.5rem;';
+    document.body.appendChild(hsnDropdown);
+
+    let activeHsnInput = null;
+    let activeHsnIndex = -1;
+    let currentHsnMatches = [];
+
+    function hideHsnDropdown() {
+        hsnDropdown.style.display = 'none';
+        hsnDropdown.innerHTML = '';
+        activeHsnInput = null;
+        activeHsnIndex = -1;
+        currentHsnMatches = [];
+    }
+
+    function applyHsnSelection(item) {
+        if (!activeHsnInput || !item) return;
+        activeHsnInput.value = item.hsn_code;
+        if (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') {
+            const row = activeHsnInput.closest('.variant-row');
+            if (row) {
+                const gstEl = row.querySelector('.var-gst');
+                if (gstEl) gstEl.value = Number(item.gst_rate).toFixed(2);
+            } else if (activeHsnInput.id === 'newBillHsn') {
+                const modalGst = document.getElementById('newBillGstRate');
+                if (modalGst) modalGst.value = String(item.gst_rate);
+            }
+        }
+        activeHsnInput.dispatchEvent(new Event('change', { bubbles: true }));
+        hideHsnDropdown();
+    }
+
+    function renderHsnDropdown(input) {
+        const q = input.value.trim().toUpperCase();
+        if (!q || hsnMasterList.length === 0) {
+            hideHsnDropdown();
+            return;
+        }
+        const prefixMatches = [];
+        const otherMatches = [];
+        for (const item of hsnMasterList) {
+            const code = String(item.hsn_code || '').toUpperCase();
+            const desc = String(item.description || '').toUpperCase();
+            if (code.startsWith(q)) {
+                prefixMatches.push(item);
+            } else if (code.includes(q) || desc.includes(q)) {
+                otherMatches.push(item);
+            }
+        }
+        currentHsnMatches = prefixMatches.concat(otherMatches).slice(0, 12);
+        if (currentHsnMatches.length === 0) {
+            hideHsnDropdown();
+            return;
+        }
+
+        activeHsnInput = input;
+        activeHsnIndex = 0;
+        const rect = input.getBoundingClientRect();
+        hsnDropdown.style.top = `${rect.bottom + 2}px`;
+        hsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+        hsnDropdown.style.width = `${Math.max(rect.width, 280)}px`;
+        hsnDropdown.innerHTML = '';
+
+        currentHsnMatches.forEach((item, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action py-1.5 px-2.5 text-start small' + (idx === 0 ? ' active' : '');
+            const gstText = (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '')
+                ? `${Number(item.gst_rate)}%`
+                : 'N/A';
+            const descText = item.description ? String(item.description).slice(0, 38) : '';
+            btn.innerHTML = `<div class="d-flex justify-content-between align-items-center gap-2">
+                <span class="font-monospace fw-bold">${item.hsn_code}</span>
+                <span class="badge bg-light text-dark border">${gstText}</span>
+            </div>${descText ? `<div class="text-truncate opacity-75" style="font-size:0.75rem;">${descText}</div>` : ''}`;
+            btn.addEventListener('mousedown', function (ev) {
+                ev.preventDefault();
+                applyHsnSelection(item);
+            });
+            hsnDropdown.appendChild(btn);
+        });
+        hsnDropdown.style.display = 'block';
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('var-hsn') || e.target.id === 'newBillHsn') {
+            renderHsnDropdown(e.target);
+        }
+    });
+    document.addEventListener('focusin', function (e) {
+        if (e.target.classList.contains('var-hsn') || e.target.id === 'newBillHsn') {
+            if (e.target.value.trim()) renderHsnDropdown(e.target);
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (!activeHsnInput || hsnDropdown.style.display === 'none') return;
+        const items = hsnDropdown.querySelectorAll('.list-group-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[activeHsnIndex]?.classList.remove('active');
+            activeHsnIndex = (activeHsnIndex + 1) % items.length;
+            items[activeHsnIndex]?.classList.add('active');
+            items[activeHsnIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[activeHsnIndex]?.classList.remove('active');
+            activeHsnIndex = (activeHsnIndex - 1 + items.length) % items.length;
+            items[activeHsnIndex]?.classList.add('active');
+            items[activeHsnIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeHsnIndex >= 0) {
+            e.preventDefault();
+            applyHsnSelection(currentHsnMatches[activeHsnIndex]);
+        } else if (e.key === 'Escape') {
+            hideHsnDropdown();
+        }
+    });
+    document.addEventListener('click', function (e) {
+        if (e.target !== activeHsnInput && !hsnDropdown.contains(e.target)) {
+            hideHsnDropdown();
+        }
+    });
+    window.addEventListener('scroll', hideHsnDropdown, true);
 
     // Initial allocation check
     updateAllocationStatus();
