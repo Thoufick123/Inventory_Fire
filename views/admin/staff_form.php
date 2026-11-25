@@ -534,6 +534,61 @@ foreach ($hierarchicalModules as $m) {
                     </div>
                 </div>
 
+                <!-- 2b. Left Sidebar Menu Order (All Modules) -->
+                <?php
+                $sidebarItemMap = [];
+                foreach (($sidebarItems ?? SidebarMenu::allModuleItems()) as $sItem) {
+                    $sidebarItemMap[$sItem['key']] = $sItem;
+                }
+                $orderedSidebarKeys = $savedSidebarOrder ?? array_keys($sidebarItemMap);
+                ?>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-ol me-2 text-primary"></i>Left Sidebar Menu Order</h5>
+                            <small class="text-muted">Drag &amp; drop or use arrows to set the left sidebar order for this staff member's allocated modules.</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input cursor-pointer" type="checkbox" id="toggleAllocatedOnly" checked>
+                                <label class="form-check-label small fw-semibold cursor-pointer" for="toggleAllocatedOnly">Show Allocated Only</label>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetSidebarOrder">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Default
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <input type="hidden" name="sidebar_order" id="sidebarOrderInput" value="<?= e(json_encode($orderedSidebarKeys)) ?>">
+                        <div id="sidebarOrderList" class="list-group">
+                            <?php foreach ($orderedSidebarKeys as $pos => $sKey):
+                                if (!isset($sidebarItemMap[$sKey])) continue;
+                                $sItem = $sidebarItemMap[$sKey];
+                            ?>
+                                <div class="list-group-item d-flex align-items-center justify-content-between gap-2 py-2 px-3 sidebar-order-item"
+                                     draggable="true"
+                                     data-key="<?= e($sItem['key']) ?>"
+                                     data-perms="<?= e(json_encode($sItem['permissions'])) ?>">
+                                    <div class="d-flex align-items-center gap-2.5">
+                                        <span class="text-muted cursor-grab" title="Drag to reorder"><i class="bi bi-grip-vertical fs-5"></i></span>
+                                        <span class="badge bg-light text-dark border sidebar-order-pos" style="min-width: 28px;"><?= $pos + 1 ?></span>
+                                        <span class="fw-semibold text-dark"><?= e($sItem['label']) ?></span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle sidebar-alloc-badge" style="font-size: 0.7rem;">Allocated</span>
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary btn-move-top" title="Move to top"><i class="bi bi-chevron-bar-up"></i></button>
+                                        <button type="button" class="btn btn-outline-secondary btn-move-up" title="Move up"><i class="bi bi-arrow-up"></i></button>
+                                        <button type="button" class="btn btn-outline-secondary btn-move-down" title="Move down"><i class="bi bi-arrow-down"></i></button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div id="sidebarOrderEmptyHint" class="text-center text-muted small py-3 d-none">
+                            No "All Modules" items have View permission allocated yet. Check View permissions above or uncheck "Show Allocated Only".
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 3. Form Actions -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body p-3 d-flex justify-content-between align-items-center">
@@ -1103,6 +1158,142 @@ document.addEventListener('DOMContentLoaded', function () {
             updateActiveCounterAndSwitches();
         }
     }
+    // =========================================================================
+    // Left Sidebar Menu Order Management
+    // =========================================================================
+    const sidebarOrderList = document.getElementById('sidebarOrderList');
+    const sidebarOrderInput = document.getElementById('sidebarOrderInput');
+    const toggleAllocatedOnly = document.getElementById('toggleAllocatedOnly');
+    const btnResetSidebarOrder = document.getElementById('btnResetSidebarOrder');
+    const sidebarOrderEmptyHint = document.getElementById('sidebarOrderEmptyHint');
+    const defaultSidebarKeys = <?= json_encode(array_column($sidebarItems ?? SidebarMenu::allModuleItems(), 'key')) ?>;
+
+    function getAllocatedViewSubmodules() {
+        const allocated = new Set();
+        document.querySelectorAll('.perm-checkbox[data-action="view"]:checked').forEach(cb => {
+            const sub = cb.getAttribute('data-submodule');
+            if (sub) allocated.add(sub);
+        });
+        return allocated;
+    }
+
+    function refreshSidebarOrderUI() {
+        if (!sidebarOrderList || !sidebarOrderInput) return;
+        const allocatedSet = getAllocatedViewSubmodules();
+        const showAllocatedOnly = toggleAllocatedOnly ? toggleAllocatedOnly.checked : true;
+        const keys = [];
+        let visibleCount = 0;
+
+        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach((item, idx) => {
+            const key = item.getAttribute('data-key');
+            if (key) keys.push(key);
+            let perms = [];
+            try { perms = JSON.parse(item.getAttribute('data-perms') || '[]'); } catch (e) {}
+            const isAllocated = perms.some(p => allocatedSet.has(p));
+
+            const badge = item.querySelector('.sidebar-alloc-badge');
+            if (badge) {
+                badge.className = isAllocated
+                    ? 'badge bg-success-subtle text-success border border-success-subtle sidebar-alloc-badge'
+                    : 'badge bg-light text-muted border sidebar-alloc-badge';
+                badge.textContent = isAllocated ? 'Allocated' : 'Not Allocated';
+            }
+
+            const posEl = item.querySelector('.sidebar-order-pos');
+            if (showAllocatedOnly && !isAllocated) {
+                item.classList.add('d-none');
+            } else {
+                item.classList.remove('d-none');
+                visibleCount++;
+                if (posEl) posEl.textContent = String(visibleCount);
+            }
+        });
+
+        sidebarOrderInput.value = JSON.stringify(keys);
+        if (sidebarOrderEmptyHint) {
+            sidebarOrderEmptyHint.classList.toggle('d-none', visibleCount > 0);
+        }
+    }
+
+    if (sidebarOrderList) {
+        let draggedItem = null;
+
+        sidebarOrderList.addEventListener('dragstart', function (e) {
+            const item = e.target.closest('.sidebar-order-item');
+            if (!item) return;
+            draggedItem = item;
+            item.classList.add('opacity-50');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        sidebarOrderList.addEventListener('dragend', function () {
+            if (draggedItem) {
+                draggedItem.classList.remove('opacity-50');
+                draggedItem = null;
+            }
+            refreshSidebarOrderUI();
+        });
+
+        sidebarOrderList.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            const target = e.target.closest('.sidebar-order-item');
+            if (!draggedItem || !target || target === draggedItem) return;
+            const rect = target.getBoundingClientRect();
+            const after = (e.clientY - rect.top) > (rect.height / 2);
+            if (after) {
+                target.after(draggedItem);
+            } else {
+                target.before(draggedItem);
+            }
+        });
+
+        sidebarOrderList.addEventListener('click', function (e) {
+            const item = e.target.closest('.sidebar-order-item');
+            if (!item) return;
+            if (e.target.closest('.btn-move-top')) {
+                sidebarOrderList.prepend(item);
+                refreshSidebarOrderUI();
+            } else if (e.target.closest('.btn-move-up')) {
+                let prev = item.previousElementSibling;
+                while (prev && prev.classList.contains('d-none')) prev = prev.previousElementSibling;
+                if (prev) prev.before(item);
+                refreshSidebarOrderUI();
+            } else if (e.target.closest('.btn-move-down')) {
+                let next = item.nextElementSibling;
+                while (next && next.classList.contains('d-none')) next = next.nextElementSibling;
+                if (next) next.after(item);
+                refreshSidebarOrderUI();
+            }
+        });
+    }
+
+    if (toggleAllocatedOnly) {
+        toggleAllocatedOnly.addEventListener('change', refreshSidebarOrderUI);
+    }
+
+    if (btnResetSidebarOrder && sidebarOrderList) {
+        btnResetSidebarOrder.addEventListener('click', function () {
+            const itemsByKey = {};
+            sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach(el => {
+                itemsByKey[el.getAttribute('data-key')] = el;
+            });
+            defaultSidebarKeys.forEach(k => {
+                if (itemsByKey[k]) sidebarOrderList.appendChild(itemsByKey[k]);
+            });
+            refreshSidebarOrderUI();
+        });
+    }
+
+    document.addEventListener('change', function (e) {
+        if (e.target.matches('.perm-checkbox, .row-all-toggle, .module-master-switch, #role_id')) {
+            setTimeout(refreshSidebarOrderUI, 20);
+        }
+    });
+    ['btnSelectAllPerms', 'btnClearAllPerms', 'btnResetRolePerms'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setTimeout(refreshSidebarOrderUI, 30));
+    });
+
+    refreshSidebarOrderUI();
 });
 </script>
 
