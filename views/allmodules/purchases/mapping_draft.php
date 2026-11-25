@@ -341,11 +341,72 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 </div>
 <?php endif; ?>
 
+<style>
+    .saved-variants-scroll {
+        max-height: 360px;
+        overflow: auto;
+        border-top: 1px solid #dee2e6;
+    }
+    .saved-variants-scroll.is-expanded {
+        max-height: 75vh;
+    }
+    .saved-variants-table {
+        font-size: 12px;
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .saved-variants-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f1f5f9;
+        color: #1e293b;
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 6px 8px;
+        white-space: nowrap;
+        border-bottom: 2px solid #cbd5e1;
+        border-right: 1px solid #e2e8f0;
+    }
+    .saved-variants-table tbody td {
+        padding: 4px 8px;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+    }
+    .saved-variants-table tbody tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+    .saved-variants-table tbody tr:hover {
+        background-color: #eef2ff;
+    }
+    .saved-variants-table .btn-xs {
+        padding: 1px 6px;
+        font-size: 11px;
+        line-height: 1.4;
+    }
+</style>
+
 <div class="card border shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-primary"></i>Saved Product Variants</h5>
+    <div class="card-header bg-white py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary"><?= count($items) ?> variants</span>
+            <h5 class="mb-0 fw-bold fs-6"><i class="bi bi-list-ul me-2 text-primary"></i>Saved Product Variants</h5>
+            <span class="badge bg-secondary" id="savedVariantsCountBadge"><?= count($items) ?> variants</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <?php if ($items): ?>
+                <div class="input-group input-group-sm" style="width: 220px;">
+                    <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                    <input type="text" id="savedVariantSearch" class="form-control" placeholder="Filter item, VID, color, size..." autocomplete="off">
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleSavedVariantsHeight" title="Toggle table scroll height">
+                    <i class="bi bi-arrows-expand me-1"></i>Expand
+                </button>
+            <?php endif; ?>
             <?php if ($bill['status'] === 'DRAFT' && !$viewOnly): ?>
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('productNameInput')?.focus(); window.scrollTo({top: 0, behavior: 'smooth'});">
                     <i class="bi bi-plus-lg me-1"></i>+ Add Another Product
@@ -353,20 +414,64 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
             <?php endif; ?>
         </div>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light"><tr><th>Product / Variant</th><th>Category</th><th>HSN</th><th>Qty</th><th>Purchase Rate</th><th>MRP / Sale</th><th>QR / Stock</th><th class="text-end">Action</th></tr></thead>
+    <div class="saved-variants-scroll" id="savedVariantsScroll">
+        <table class="table table-hover align-middle saved-variants-table" id="savedVariantsTable">
+            <thead>
+                <tr>
+                    <th class="text-center">Sl. No</th>
+                    <th>Category</th>
+                    <th>Item Name</th>
+                    <th>Color</th>
+                    <th>Size</th>
+                    <th>HSN</th>
+                    <th class="text-end">Qty</th>
+                    <th>Uom</th>
+                    <th class="text-end">Purchase Rate</th>
+                    <th class="text-end">MRP / Sale</th>
+                    <th>QR / Stock</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
             <tbody>
                 <?php if (!$items): ?>
-                    <tr><td colspan="8" class="text-center text-muted py-4">No products saved yet.</td></tr>
-                <?php else: foreach ($items as $item): ?>
-                    <tr>
-                        <td><strong><?= e($item['item_name']) ?></strong><div class="small text-muted"><span class="badge bg-secondary-subtle text-secondary border font-monospace me-1">VID: #<?= (int)$item['variant_id'] ?></span><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · <?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></div></td>
-                        <td><?= e($item['category_name'] ?? '—') ?><?php if (!empty($item['subcategory_name'])): ?><div class="small text-muted"><?= e($item['subcategory_name']) ?><?= !empty($item['sub_subcategory_name']) ? ' / ' . e($item['sub_subcategory_name']) : '' ?></div><?php endif; ?></td>
-                        <td class="font-monospace"><?= e($item['hsn_code']) ?></td>
-                        <td><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?></td>
-                        <td>₹<?= number_format((float)$item['unit_price'], 2) ?></td>
-                        <td>₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></td>
+                    <tr><td colspan="12" class="text-center text-muted py-4">No products saved yet.</td></tr>
+                <?php else: foreach ($items as $idx => $item): ?>
+                    <?php
+                        $catParts = array_filter([
+                            $item['category_name'] ?? '',
+                            $item['subcategory_name'] ?? '',
+                            $item['sub_subcategory_name'] ?? ''
+                        ]);
+                        $catLabel = $catParts ? implode(' / ', $catParts) : '—';
+                        $skuLabel = $item['variant_sku'] ?: $item['vendor_sku'];
+                        $searchText = strtolower(trim(implode(' ', [
+                            $item['item_name'] ?? '',
+                            'vid ' . (int)$item['variant_id'],
+                            $skuLabel ?? '',
+                            $catLabel,
+                            $item['color'] ?? '',
+                            $item['size'] ?? '',
+                            $item['hsn_code'] ?? '',
+                            $item['batch_code'] ?? ''
+                        ])));
+                    ?>
+                    <tr class="saved-variant-row" data-search="<?= e($searchText) ?>">
+                        <td class="text-center text-muted fw-semibold font-monospace"><?= $idx + 1 ?></td>
+                        <td title="<?= e($catLabel) ?>"><?= e(mb_strimwidth($catLabel, 0, 28, '...')) ?></td>
+                        <td>
+                            <strong class="text-dark"><?= e($item['item_name']) ?></strong>
+                            <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1">VID: #<?= (int)$item['variant_id'] ?></span>
+                            <?php if ($skuLabel): ?>
+                                <span class="text-muted ms-1 font-monospace"><?= e($skuLabel) ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= e($item['color'] ?: '—') ?></td>
+                        <td><?= e($item['size'] ?: '—') ?></td>
+                        <td class="font-monospace"><?= e($item['hsn_code'] ?: '—') ?></td>
+                        <td class="text-end font-monospace fw-semibold"><?= number_format((float)$item['quantity'], 2) ?></td>
+                        <td><?= e($item['unit'] ?: 'PCS') ?></td>
+                        <td class="text-end font-monospace">₹<?= number_format((float)$item['unit_price'], 2) ?></td>
+                        <td class="text-end font-monospace">₹<?= number_format((float)$item['mrp'], 2) ?> / ₹<?= number_format((float)$item['selling_price'], 2) ?></td>
                         <td>
                             <?php if (!empty($item['batch_code'])): ?>
                                 <button type="button" class="badge bg-dark border-0 cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
@@ -383,14 +488,14 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/generate-qr') ?>" class="d-inline">
                                     <?= CSRF::field() ?>
                                     <input type="hidden" name="mapping_bill_id" value="<?= $mappingBillId ?>">
-                                    <button class="btn btn-sm btn-outline-info" type="submit"><i class="bi bi-qr-code me-1"></i>Generate QR</button>
+                                    <button class="btn btn-xs btn-outline-info" type="submit"><i class="bi bi-qr-code me-1"></i>Generate QR</button>
                                 </form>
                             <?php else: ?>
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR in this panel">
+                                    <button type="button" class="btn btn-xs btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR in this panel">
                                         <i class="bi bi-eye me-1"></i>View QR
                                     </button>
-                                    <a class="btn btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" title="Print Labels">
+                                    <a class="btn btn-xs btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" title="Print Labels">
                                         <i class="bi bi-printer"></i>
                                     </a>
                                 </div>
@@ -398,7 +503,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
                                     <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this product and its unposted QR batch? This cannot be undone.');">
                                         <?= CSRF::field() ?>
-                                        <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete product from mapping invoice">
+                                        <button class="btn btn-xs btn-outline-danger" type="submit" title="Delete product from mapping invoice">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -411,6 +516,39 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         </table>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('savedVariantSearch');
+    const scrollBox = document.getElementById('savedVariantsScroll');
+    const toggleBtn = document.getElementById('toggleSavedVariantsHeight');
+    const countBadge = document.getElementById('savedVariantsCountBadge');
+    const rows = Array.from(document.querySelectorAll('#savedVariantsTable tbody tr.saved-variant-row'));
+
+    if (searchInput && rows.length) {
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim().toLowerCase();
+            let visible = 0;
+            rows.forEach(row => {
+                const match = !q || (row.dataset.search || '').includes(q);
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            if (countBadge) {
+                countBadge.textContent = q ? `${visible} / ${rows.length} variants` : `${rows.length} variants`;
+            }
+        });
+    }
+
+    if (toggleBtn && scrollBox) {
+        toggleBtn.addEventListener('click', () => {
+            const expanded = scrollBox.classList.toggle('is-expanded');
+            toggleBtn.innerHTML = expanded
+                ? '<i class="bi bi-arrows-collapse me-1"></i>Compact'
+                : '<i class="bi bi-arrows-expand me-1"></i>Expand';
+        });
+    }
+});
+</script>
 
 <!-- ========================================================================= -->
 <!-- 3 ACTION OPTIONS CONTAINER (Scenario 2)                                  -->
