@@ -677,6 +677,9 @@ class AdminController {
             }
             $concerns = $availConcerns;
         } else {
+            if (empty($filters['concern_id']) && currentConcernId()) {
+                $filters['concern_id'] = currentConcernId();
+            }
             $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
         }
 
