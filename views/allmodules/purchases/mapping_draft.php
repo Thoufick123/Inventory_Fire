@@ -189,14 +189,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 
                                 <div class="col-md-3">
                                     <label class="form-label small fw-semibold mb-1">HSN Code</label>
-                                    <select class="form-select form-select-sm gen-hsn font-monospace">
-                                        <option value="">Select HSN</option>
-                                        <?php foreach (($hsnList ?? []) as $hsnItem): ?>
-                                            <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>">
-                                                <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 22, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
                                 </div>
                                 <div class="col-md-1">
                                     <label class="form-label small fw-semibold mb-1">GST %</label>
@@ -220,26 +213,18 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 </div>
 
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(click or type comma-separated)</span></label>
-                                    <div class="d-flex flex-wrap gap-1 mb-1">
-                                        <?php foreach (['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'] as $szChip): ?>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-size-chip" data-val="<?= e($szChip) ?>"><?= e($szChip) ?></button>
-                                        <?php endforeach; ?>
-                                    </div>
-                                    <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="e.g. S, M, L, XL">
+                                    <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(from Category / Catalog)</span></label>
+                                    <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
+                                    <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="Select chips above or type comma-separated">
                                 </div>
                                 <div class="col-md-5">
-                                    <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(click or type comma-separated)</span></label>
-                                    <div class="d-flex flex-wrap gap-1 mb-1">
-                                        <?php foreach (['Red', 'Blue', 'Black', 'White', 'Green', 'Grey', 'Navy'] as $colChip): ?>
-                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-color-chip" data-val="<?= e($colChip) ?>"><?= e($colChip) ?></button>
-                                        <?php endforeach; ?>
-                                    </div>
-                                    <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="e.g. Red, Blue, Black">
+                                    <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(from Category / Catalog)</span></label>
+                                    <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
+                                    <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="Select chips above or type comma-separated">
                                 </div>
                                 <div class="col-md-2 text-end">
                                     <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
-                                        <i class="bi bi-lightning-charge me-1"></i>Generate List
+                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                                     </button>
                                 </div>
                             </div>
@@ -1409,7 +1394,156 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
-    // Compact Variant Attribute Generator (Category -> Subcategory -> Sub-Subcategory + Sizes x Colors -> Log List)
+    // Compact Variant Attribute Generator (Category -> Subcategory -> Sub-Subcategory + Dynamic Attributes + HSN Auto-Suggest + Direct Save)
+    const draftCategoryAttrMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const draftMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
+    const draftMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
+    const draftHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const savedExistingVariantKeys = new Set(<?= json_encode(array_values(array_map(static function ($it) {
+        return mb_strtolower(trim((string)($it['item_name'] ?? '')) . '|' . trim((string)($it['size'] ?? '')) . '|' . trim((string)($it['color'] ?? '')) . '|' . (int)($it['category_id'] ?? 0));
+    }, $items ?? [])), JSON_UNESCAPED_UNICODE) ?>);
+
+    const dedupeDraftList = (arr) => {
+        const seen = new Set();
+        const out = [];
+        for (const v of (arr || [])) {
+            const s = String(v || '').trim();
+            if (!s) continue;
+            const k = s.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(s);
+        }
+        return out;
+    };
+
+    function renderDraftAttributeChips(card) {
+        if (!card) return;
+        const catSel = card.querySelector('.gen-category');
+        const subSel = card.querySelector('.gen-subcategory');
+        const ssSel = card.querySelector('.gen-subsubcategory');
+        const sizeWrap = card.querySelector('.gen-size-chips');
+        const colorWrap = card.querySelector('.gen-color-chips');
+        if (!sizeWrap || !colorWrap) return;
+
+        const cName = (catSel && catSel.selectedOptions[0]?.value ? catSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+        const sName = (subSel && subSel.selectedOptions[0]?.value ? subSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+        const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
+
+        let attr = null;
+        if (cName && sName && ssName && draftCategoryAttrMap[`${cName}|${sName}|${ssName}`]) {
+            attr = draftCategoryAttrMap[`${cName}|${sName}|${ssName}`];
+        } else if (cName && sName && draftCategoryAttrMap[`${cName}|${sName}`]) {
+            attr = draftCategoryAttrMap[`${cName}|${sName}`];
+        } else if (cName && draftCategoryAttrMap[cName]) {
+            attr = draftCategoryAttrMap[cName];
+        }
+
+        const sizeList = dedupeDraftList((attr && attr.sizes && attr.sizes.length) ? attr.sizes : draftMasterSizes);
+        const colorList = dedupeDraftList((attr && attr.colors && attr.colors.length) ? attr.colors : draftMasterColors);
+
+        const activeSizes = new Set((card.querySelector('.gen-sizes-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+        const activeColors = new Set((card.querySelector('.gen-colors-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+
+        sizeWrap.innerHTML = sizeList.length
+            ? sizeList.map(sz => `<button type="button" class="btn btn-xs ${activeSizes.has(sz.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-size-chip" data-val="${sz.replace(/"/g, '&quot;')}">${sz}</button>`).join('')
+            : '<span class="small text-muted">No catalog sizes for this category yet — type below</span>';
+
+        colorWrap.innerHTML = colorList.length
+            ? colorList.map(col => `<button type="button" class="btn btn-xs ${activeColors.has(col.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-color-chip" data-val="${col.replace(/"/g, '&quot;')}">${col}</button>`).join('')
+            : '<span class="small text-muted">No catalog colors for this category yet — type below</span>';
+    }
+
+    document.querySelectorAll('.tp-product-card').forEach(renderDraftAttributeChips);
+
+    // HSN Prefix Auto-Suggest for .gen-hsn
+    const draftHsnDropdown = document.createElement('div');
+    draftHsnDropdown.id = 'draftHsnSuggestDropdown';
+    draftHsnDropdown.className = 'list-group shadow-lg border';
+    draftHsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:220px;overflow-y:auto;min-width:260px;background:#fff;border-radius:0.5rem;';
+    document.body.appendChild(draftHsnDropdown);
+
+    let activeDraftHsnInput = null;
+    function hideDraftHsnDropdown() {
+        draftHsnDropdown.style.display = 'none';
+        draftHsnDropdown.innerHTML = '';
+        activeDraftHsnInput = null;
+    }
+
+    function applyDraftHsnItem(input, item) {
+        if (!input || !item) return;
+        input.value = item.hsn_code;
+        const card = input.closest('.tp-product-card');
+        if (card) {
+            const gstInp = card.querySelector('.gen-gst');
+            if (gstInp && item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') {
+                gstInp.value = String(item.gst_rate);
+            }
+            const catName = String(item.category_name || '').trim().toLowerCase();
+            if (catName) {
+                const catSel = card.querySelector('.gen-category');
+                const subSel = card.querySelector('.gen-subcategory');
+                const ssSel = card.querySelector('.gen-subsubcategory');
+                const catOpt = Array.from(catSel?.options || []).find(o => o.value && o.textContent.trim().toLowerCase() === catName);
+                if (catOpt && catSel) {
+                    catSel.value = catOpt.value;
+                    catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                    const subName = String(item.subcategory_name || '').trim().toLowerCase();
+                    const subOpt = Array.from(subSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === subName);
+                    if (subOpt && subSel) {
+                        subSel.value = subOpt.value;
+                        subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        const ssName = String(item.sub_subcategory_name || '').trim().toLowerCase();
+                        const ssOpt = Array.from(ssSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === ssName);
+                        if (ssOpt && ssSel) ssSel.value = ssOpt.value;
+                    }
+                }
+            }
+        }
+        hideDraftHsnDropdown();
+    }
+
+    document.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('gen-hsn')) return;
+        const q = e.target.value.trim().toUpperCase();
+        if (!q || !draftHsnList.length) {
+            hideDraftHsnDropdown();
+            return;
+        }
+        const prefix = [];
+        const other = [];
+        for (const it of draftHsnList) {
+            const c = String(it.hsn_code || '').toUpperCase();
+            const d = String(it.description || '').toUpperCase();
+            if (c.startsWith(q)) prefix.push(it);
+            else if (c.includes(q) || d.includes(q)) other.push(it);
+        }
+        const matches = prefix.concat(other).slice(0, 12);
+        if (!matches.length) {
+            hideDraftHsnDropdown();
+            return;
+        }
+        activeDraftHsnInput = e.target;
+        const rect = e.target.getBoundingClientRect();
+        draftHsnDropdown.style.top = `${rect.bottom + 2}px`;
+        draftHsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 290)}px`;
+        draftHsnDropdown.style.width = `${Math.max(rect.width, 260)}px`;
+        draftHsnDropdown.innerHTML = '';
+        matches.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action py-1 px-2.5 text-start small';
+            const gstText = (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') ? `${Number(item.gst_rate)}%` : 'N/A';
+            btn.innerHTML = `<div class="d-flex justify-content-between"><span class="font-monospace fw-bold">${item.hsn_code}</span><span class="badge bg-light text-dark border">${gstText}</span></div>`
+                + (item.description ? `<div class="text-truncate text-muted" style="font-size:0.75rem;">${String(item.description).slice(0, 42)}</div>` : '');
+            btn.addEventListener('mousedown', ev => { ev.preventDefault(); applyDraftHsnItem(e.target, item); });
+            draftHsnDropdown.appendChild(btn);
+        });
+        draftHsnDropdown.style.display = 'block';
+    });
+    document.addEventListener('click', e => { if (e.target !== activeDraftHsnInput && !draftHsnDropdown.contains(e.target)) hideDraftHsnDropdown(); });
+    window.addEventListener('scroll', hideDraftHsnDropdown, true);
+
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('gen-category')) {
             const card = e.target.closest('.tp-product-card');
@@ -1432,6 +1566,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 ssSel.value = '';
             }
+            renderDraftAttributeChips(card);
         } else if (e.target.classList.contains('gen-subcategory')) {
             const card = e.target.closest('.tp-product-card');
             const subId = e.target.value;
@@ -1444,14 +1579,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 ssSel.value = '';
             }
-        } else if (e.target.classList.contains('gen-hsn')) {
-            const card = e.target.closest('.tp-product-card');
-            const opt = e.target.selectedOptions[0];
-            const gst = opt?.dataset?.gst;
-            const gstInput = card?.querySelector('.gen-gst');
-            if (gstInput && gst !== undefined && gst !== '') {
-                gstInput.value = gst;
-            }
+            renderDraftAttributeChips(card);
+        } else if (e.target.classList.contains('gen-subsubcategory')) {
+            renderDraftAttributeChips(e.target.closest('.tp-product-card'));
         }
     });
 
@@ -1465,7 +1595,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const val = chip.getAttribute('data-val') || '';
             chip.classList.toggle('btn-primary');
             chip.classList.toggle('btn-outline-secondary');
-            const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+            const current = dedupeDraftList(input.value.split(','));
             const existsIdx = current.findIndex(s => s.toLowerCase() === val.toLowerCase());
             if (chip.classList.contains('btn-primary')) {
                 if (existsIdx === -1) current.push(val);
@@ -1482,6 +1612,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!card) return;
 
         const pIndex = card.getAttribute('data-product-index') || '0';
+        const pName = (card.querySelector('.tp-product-name-input')?.value || '').trim();
+        if (!pName) {
+            alert('Please enter Product / Style Name first.');
+            card.querySelector('.tp-product-name-input')?.focus();
+            return;
+        }
+
         const tbody = card.querySelector('.tp-variant-rows');
         const templateRow = tbody?.querySelector('.mapping-variant-row');
         if (!tbody || !templateRow) return;
@@ -1489,21 +1626,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const catVal = card.querySelector('.gen-category')?.value || '';
         const subVal = card.querySelector('.gen-subcategory')?.value || '';
         const ssVal = card.querySelector('.gen-subsubcategory')?.value || '';
-        const hsnVal = card.querySelector('.gen-hsn')?.value || '';
+        if (!catVal) {
+            alert('Please select a Category first.');
+            card.querySelector('.gen-category')?.focus();
+            return;
+        }
+
+        const hsnVal = (card.querySelector('.gen-hsn')?.value || '').trim();
         const gstVal = card.querySelector('.gen-gst')?.value || '5';
         const qtyVal = card.querySelector('.gen-qty')?.value || '1';
         const rateVal = card.querySelector('.gen-rate')?.value || '';
         const mrpVal = card.querySelector('.gen-mrp')?.value || '';
         const spVal = card.querySelector('.gen-sp')?.value || '';
 
-        const sizes = (card.querySelector('.gen-sizes-input')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-        const colors = (card.querySelector('.gen-colors-input')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
+        const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
         const sizeList = sizes.length ? sizes : [''];
         const colorList = colors.length ? colors : [''];
 
         const combos = [];
+        const batchComboKeys = new Set();
         for (const sz of sizeList) {
             for (const col of colorList) {
+                const comboKey = `${pName.toLowerCase()}|${sz.toLowerCase()}|${col.toLowerCase()}|${catVal}`;
+                if (batchComboKeys.has(comboKey)) continue;
+                if (savedExistingVariantKeys.has(comboKey)) {
+                    alert(`Duplicate Variant: "${pName}" (${sz || 'Std'} / ${col || 'Std'}) is already in Saved Product Variants.`);
+                    return;
+                }
+                batchComboKeys.add(comboKey);
                 combos.push({ size: sz, color: col });
             }
         }
@@ -1537,7 +1688,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (mrpInp && mrpVal !== '') mrpInp.value = mrpVal;
             if (spInp && spVal !== '') spInp.value = spVal;
             if (gstInp) gstInp.value = gstVal;
-            if (hsnSel && hsnVal) hsnSel.value = hsnVal;
+            if (hsnSel && hsnVal) {
+                if (!Array.from(hsnSel.options).some(o => o.value === hsnVal)) {
+                    const opt = document.createElement('option');
+                    opt.value = hsnVal;
+                    opt.textContent = hsnVal;
+                    hsnSel.appendChild(opt);
+                }
+                hsnSel.value = hsnVal;
+            }
 
             if (catSel && catVal) {
                 catSel.value = catVal;
@@ -1552,6 +1711,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             tbody.appendChild(row);
         });
+
+        // Directly save into Saved Product Variants
+        const form = document.getElementById('mappingDraftProductForm');
+        if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
     });
 });
 </script>
