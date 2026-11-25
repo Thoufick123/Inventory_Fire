@@ -607,6 +607,8 @@ class Router {
         $this->get('allmodules/hsn-config/edit/{id}', 'AllmodulesHsnController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
         $this->post('allmodules/hsn-config/update/{id}', 'AllmodulesHsnController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'edit']]);
         $this->post('allmodules/hsn-config/delete/{id}', 'AllmodulesHsnController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'delete']]);
+        $this->post('allmodules/hsn-config/import', 'AllmodulesHsnController', 'importBulk', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
+        $this->post('allmodules/hsn-config/seed-master', 'AllmodulesHsnController', 'seedMaster', ['AuthMiddleware', ['PermissionMiddleware', 'production_hsn', 'create']]);
 
 
         // ==========================================

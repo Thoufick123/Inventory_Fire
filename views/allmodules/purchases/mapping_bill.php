@@ -293,6 +293,8 @@ tr.table-danger, tr.table-danger > td {
                         <?php
                             $isThisActive = ((int)$lineItem['id'] === $activeItemId);
                             $isLineMapped = !empty($lineItem['is_mapped']);
+                            $isLineStocked = !empty($lineItem['has_stock_added']);
+                            $isExtraLine = !empty($lineItem['is_extra_purchase_item']);
                         ?>
                         <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . '?item_id=' . (int)$lineItem['id']) ?>"
                            class="btn d-inline-flex align-items-center gap-2 rounded-3 shadow-xs transition-all <?= $isThisActive ? 'btn-primary fw-bold shadow-sm' : 'btn-outline-secondary bg-white text-dark border' ?>"
@@ -306,6 +308,14 @@ tr.table-danger, tr.table-danger > td {
                                 <i class="bi bi-check2-circle <?= $isThisActive ? 'text-white' : 'text-success' ?> fs-6" title="Mapped"></i>
                             <?php else: ?>
                                 <span class="badge bg-warning text-dark py-0.5 px-2 rounded-pill" style="font-size: 0.65rem;">Pending</span>
+                            <?php endif; ?>
+                            <?php if ($isLineStocked): ?>
+                                <span class="badge bg-success py-0.5 px-2 rounded-pill" style="font-size: 0.65rem;">Added Stock</span>
+                            <?php else: ?>
+                                <span class="badge bg-light text-secondary border py-0.5 px-2 rounded-pill" style="font-size: 0.65rem;">Not Stocked</span>
+                            <?php endif; ?>
+                            <?php if ($isExtraLine): ?>
+                                <span class="badge bg-info text-dark py-0.5 px-2 rounded-pill" style="font-size: 0.65rem;" title="Added outside original purchase list">Extra Added</span>
                             <?php endif; ?>
                         </a>
                     <?php endforeach; ?>

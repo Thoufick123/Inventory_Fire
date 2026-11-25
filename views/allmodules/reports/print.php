@@ -919,30 +919,54 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                         <th>Supplier</th>
                         <th>Product / SKU</th>
                         <th>Color / Size</th>
-                        <th class="right">Quantity</th>
+                        <th class="right">Orig Bill Qty</th>
+                        <th class="right">Extra Added Qty</th>
+                        <th class="right">Final Qty</th>
                         <th class="right">Cost (₹)</th>
                         <th class="right">MRP / SP (₹)</th>
                         <th class="right">Total (₹)</th>
-                        <th>Catalog Status</th>
+                        <th>Purchase Source</th>
+                        <th>Catalog / Stock</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($data['third_party_products'] as $tp): ?>
+                    <?php foreach ($data['third_party_products'] as $tp):
+                        $origQty = (float)($tp['original_purchased_qty'] ?? $tp['quantity']);
+                        $extraQty = (float)($tp['extra_added_qty'] ?? 0);
+                        $isExtraLine = !empty($tp['is_extra_purchase_item']);
+                        $isStocked = !empty($tp['is_inwarded']) || (float)($tp['inwarded_qty'] ?? 0) > 0 || !empty($tp['qr_stock_added']);
+                    ?>
                         <tr>
                             <td><strong><?= htmlspecialchars($tp['purchase_number']) ?></strong></td>
                             <td><?= !empty($tp['purchase_date']) ? date('d M Y', strtotime($tp['purchase_date'])) : '-' ?></td>
                             <td><?= htmlspecialchars($tp['supplier_company'] ?: ($tp['supplier_name'] ?? '-')) ?></td>
                             <td><strong><?= htmlspecialchars($tp['item_name']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($tp['vendor_sku'] ?: '-') ?></small></td>
                             <td><?= htmlspecialchars(trim(($tp['color'] ?? '') . ' ' . ($tp['size'] ?? ''))) ?: '-' ?></td>
-                            <td class="right"><?= number_format((float)$tp['quantity']) ?> <?= htmlspecialchars($tp['unit'] ?? '') ?></td>
+                            <td class="right"><?= number_format($origQty) ?> <?= htmlspecialchars($tp['unit'] ?? '') ?></td>
+                            <td class="right"><?= $extraQty > 0 ? '<strong style="color:#0284c7;">+' . number_format($extraQty) . ' ' . htmlspecialchars($tp['unit'] ?? '') . '</strong>' : '0' ?></td>
+                            <td class="right fw-bold"><?= number_format((float)$tp['quantity']) ?> <?= htmlspecialchars($tp['unit'] ?? '') ?></td>
                             <td class="right">₹<?= number_format((float)$tp['unit_price'], 2) ?></td>
                             <td class="right">₹<?= number_format((float)$tp['mrp'], 2) ?> / ₹<?= number_format((float)$tp['selling_price'], 2) ?></td>
                             <td class="right fw-bold">₹<?= number_format((float)$tp['total_price'], 2) ?></td>
+                            <td>
+                                <?php if ($isExtraLine): ?>
+                                    <span class="badge badge-info">Added (Not in Original Bill)</span>
+                                <?php elseif ($extraQty > 0): ?>
+                                    <span class="badge badge-warning">Bill + Extra Qty</span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Original Bill</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if (!empty($tp['is_mapped'])): ?>
                                     <span class="badge badge-success">Mapped</span>
                                 <?php else: ?>
                                     <span class="badge badge-warning">Pending</span>
+                                <?php endif; ?>
+                                <?php if ($isStocked): ?>
+                                    <span class="badge badge-success">Added Stock</span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Not Stocked</span>
                                 <?php endif; ?>
                             </td>
                         </tr>

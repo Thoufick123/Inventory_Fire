@@ -483,6 +483,8 @@ class ExportService
                         COALESCE(ppi.original_quantity, ppi.quantity) AS original_purchased_qty,
                         COALESCE(ppi.extra_added_qty, 0) AS extra_added_qty,
                         COALESCE(ppi.is_extra_purchase_item, 0) AS is_extra_purchase_item,
+                        ppi.is_inwarded, ppi.inwarded_qty,
+                        (SELECT COALESCE(MAX(qg.stock_added), 0) FROM qr_generations qg WHERE qg.source_purchase_item_id = ppi.id) AS qr_stock_added,
                         ppi.unit_price, ppi.mrp, ppi.selling_price, ppi.total_price,
                         ppi.hsn_code, ppi.is_mapped, ppi.mapped_at,
                         tc.name AS category_name, tsc.name AS subcategory_name, tssc.name AS sub_subcategory_name
