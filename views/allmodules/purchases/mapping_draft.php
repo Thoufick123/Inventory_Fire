@@ -207,24 +207,19 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     </div>
                                 </div>
 
-                                <div class="col-md-5 d-none gen-attributes-col">
+                                <div class="col-md-6 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
                                     <input type="hidden" class="gen-sizes-input">
                                 </div>
-                                <div class="col-md-5 d-none gen-attributes-col">
+                                <div class="col-md-6 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
                                     <input type="hidden" class="gen-colors-input">
                                 </div>
-                                <div class="col-md-2 ms-auto text-end">
-                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
-                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
-                                    </button>
-                                </div>
                                 <div class="col-12 d-none gen-custom-attrs-wrap"></div>
 
-                                <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
+                                <!-- Per-Attribute Rate Table (appears when Sizes / Colors / Custom Attributes are selected) -->
                                 <div class="col-12 mt-2 d-none gen-variant-rates-wrap">
                                     <div class="border rounded bg-light-subtle p-2">
                                         <div class="d-flex justify-content-between align-items-center mb-1.5">
@@ -246,6 +241,12 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             </table>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="col-12 d-flex justify-content-end mt-2">
+                                    <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold btn-generate-variants">
+                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
+                                    </button>
                                 </div>
                             </div>
 
