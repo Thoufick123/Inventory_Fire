@@ -1193,7 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $batchQrItems = $qrItemMap[(int)$item['qr_generation_id']] ?? [];
 ?>
 <div class="modal fade" id="modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" tabindex="-1" aria-labelledby="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width: min(96vw, 1280px);">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white py-2 px-3">
                 <div class="d-flex align-items-center flex-wrap gap-2">
@@ -1281,23 +1281,85 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
+                <!-- QR Formation Config Builder -->
+                <div class="card border mb-3">
+                    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold small text-dark"><i class="bi bi-sliders2 text-primary me-1"></i>QR Formation Config</span>
+                            <span class="badge bg-success-subtle text-success border d-none qr-config-saved-badge" style="font-size: 10px;">Saved &amp; Applied</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm qr-cfg-mode" style="width: auto; font-size: 12px;">
+                                <option value="CODE_ONLY">QR Payload: Code Only</option>
+                                <option value="STRUCTURED">QR Payload: Structured Formation</option>
+                            </select>
+                            <select class="form-select form-select-sm qr-cfg-sep" style="width: auto; font-size: 12px;">
+                                <option value=" | ">Separator: |</option>
+                                <option value=" - ">Separator: -</option>
+                                <option value="\n">Separator: New Line</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-primary fw-semibold btn-save-qr-config" style="font-size: 12px;">
+                                <i class="bi bi-check2-circle me-1"></i>Save Config &amp; Generate
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body py-2 px-3 bg-light-subtle">
+                        <div class="d-flex flex-wrap gap-3 align-items-center small">
+                            <span class="text-muted fw-semibold" style="font-size: 11px;">Include Fields:</span>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="qr_code" checked> <span class="form-check-label">QR Code</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="vid" checked> <span class="form-check-label">Variant ID (VID)</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="product_name" checked> <span class="form-check-label">Product Name</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="category" checked> <span class="form-check-label">Category / Sub</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="attributes" checked> <span class="form-check-label">Attributes (Color/Size)</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="design"> <span class="form-check-label">Design / Pattern</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="mrp"> <span class="form-check-label">MRP</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="selling_price" checked> <span class="form-check-label">Selling Price</span></label>
+                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="hsn"> <span class="form-check-label">HSN</span></label>
+                        </div>
+                        <div class="mt-1 small text-muted font-monospace qr-cfg-preview" style="font-size: 11px;"></div>
+                    </div>
+                </div>
+
                 <h6 class="fw-bold mb-2 small text-uppercase text-muted"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
                 <div class="row g-2">
                     <?php if (empty($batchQrItems)): ?>
                         <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
-                    <?php else: foreach ($batchQrItems as $q): ?>
+                    <?php else:
+                        $catTrail = implode(' / ', array_filter([
+                            trim((string)($item['category_name'] ?? '')),
+                            trim((string)($item['subcategory_name'] ?? '')),
+                            trim((string)($item['sub_subcategory_name'] ?? '')),
+                        ]));
+                        $attrText = trim(implode(' / ', array_filter([
+                            trim((string)($item['color'] ?? '')),
+                            trim((string)($item['size'] ?? '')),
+                        ])));
+                        $designText = trim((string)($item['design_name'] ?? ''));
+                        foreach ($batchQrItems as $q): ?>
                         <div class="col-md-3 col-sm-6">
-                            <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small fw-bold text-truncate text-dark"><?= e($item['item_name']) ?></span>
-                                    <span class="badge bg-light text-secondary border" style="font-size: 10px;">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                            <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between qr-label-card"
+                                 data-qr-code="<?= e($q['qr_code']) ?>"
+                                 data-vid="VID: #<?= (int)($item['variant_id'] ?? 0) ?>"
+                                 data-product-name="<?= e($item['item_name']) ?>"
+                                 data-category="<?= e($catTrail) ?>"
+                                 data-attributes="<?= e($attrText) ?>"
+                                 data-design="<?= e($designText) ?>"
+                                 data-mrp="<?= e(formatCurrency((float)$item['mrp'])) ?>"
+                                 data-selling-price="<?= e(formatCurrency((float)$item['selling_price'])) ?>"
+                                 data-hsn="<?= e($item['hsn_code'] ?? '') ?>">
+                                <div class="d-flex justify-content-between align-items-center mb-1 gap-1">
+                                    <span class="small fw-bold text-truncate text-dark qr-lbl-product"><?= e($item['item_name']) ?></span>
+                                    <span class="badge bg-light text-secondary border qr-lbl-vid" style="font-size: 10px;">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                                 </div>
-                                <div class="small text-muted mb-1" style="font-size: 11px;"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?></div>
+                                <div class="text-muted qr-lbl-category" style="font-size: 10px;"><?= e($catTrail) ?></div>
+                                <div class="small text-muted mb-1 qr-lbl-attrs" style="font-size: 11px;"><?= e($attrText) ?></div>
+                                <div class="small text-muted mb-1 d-none qr-lbl-design" style="font-size: 10px;"><?= e($designText) ?></div>
                                 <div class="d-flex justify-content-center my-1">
                                     <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
                                 </div>
-                                <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
-                                <div class="small text-muted" style="font-size: 11px;"><?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
+                                <div class="font-monospace fw-bold text-primary small mt-1 qr-lbl-code"><?= e($q['qr_code']) ?></div>
+                                <div class="small text-muted qr-lbl-price" style="font-size: 11px;"><?= formatCurrency((float)$item['selling_price']) ?></div>
+                                <div class="text-muted d-none qr-lbl-hsn" style="font-size: 10px;">HSN: <?= e($item['hsn_code'] ?? '') ?></div>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>
@@ -1349,21 +1411,129 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. QR Code canvas rendering on modal open
+    // 1. QR Code Formation Config + Canvas Rendering on Modal Open
+    const QR_CFG_STORAGE_KEY = 'grm_qr_formation_config_v1';
+    function getSavedQrFormationConfig() {
+        const defaults = {
+            mode: 'CODE_ONLY',
+            sep: ' | ',
+            fields: ['qr_code', 'vid', 'product_name', 'category', 'attributes', 'selling_price']
+        };
+        try {
+            const raw = localStorage.getItem(QR_CFG_STORAGE_KEY);
+            if (!raw) return defaults;
+            const parsed = JSON.parse(raw);
+            return {
+                mode: parsed.mode || defaults.mode,
+                sep: parsed.sep !== undefined ? parsed.sep : defaults.sep,
+                fields: Array.isArray(parsed.fields) && parsed.fields.length ? parsed.fields : defaults.fields
+            };
+        } catch (e) {
+            return defaults;
+        }
+    }
+
+    function buildQrFormationPayload(cardEl, cfg) {
+        if (cfg.mode !== 'STRUCTURED') {
+            return cardEl.dataset.qrCode || '';
+        }
+        const map = {
+            qr_code: cardEl.dataset.qrCode || '',
+            vid: cardEl.dataset.vid || '',
+            product_name: cardEl.dataset.productName || '',
+            category: cardEl.dataset.category || '',
+            attributes: cardEl.dataset.attributes || '',
+            design: cardEl.dataset.design || '',
+            mrp: cardEl.dataset.mrp ? ('MRP: ' + cardEl.dataset.mrp) : '',
+            selling_price: cardEl.dataset.sellingPrice ? ('SP: ' + cardEl.dataset.sellingPrice) : '',
+            hsn: cardEl.dataset.hsn ? ('HSN: ' + cardEl.dataset.hsn) : ''
+        };
+        const sep = cfg.sep === '\\n' ? '\n' : (cfg.sep || ' | ');
+        const parts = cfg.fields.map(f => map[f] || '').filter(Boolean);
+        return parts.length ? parts.join(sep) : (cardEl.dataset.qrCode || '');
+    }
+
+    function applyQrFormationConfigToModal(modalEl, forceRerender = false) {
+        if (!modalEl) return;
+        const cfg = getSavedQrFormationConfig();
+        const modeSel = modalEl.querySelector('.qr-cfg-mode');
+        const sepSel = modalEl.querySelector('.qr-cfg-sep');
+        if (modeSel) modeSel.value = cfg.mode;
+        if (sepSel) sepSel.value = cfg.sep;
+        modalEl.querySelectorAll('.qr-cfg-field').forEach(cb => {
+            cb.checked = cfg.fields.includes(cb.value);
+        });
+
+        const has = (f) => cfg.fields.includes(f);
+        const cards = modalEl.querySelectorAll('.qr-label-card');
+        cards.forEach(card => {
+            card.querySelector('.qr-lbl-product')?.classList.toggle('d-none', !has('product_name'));
+            card.querySelector('.qr-lbl-vid')?.classList.toggle('d-none', !has('vid'));
+            card.querySelector('.qr-lbl-category')?.classList.toggle('d-none', !has('category') || !card.dataset.category);
+            card.querySelector('.qr-lbl-attrs')?.classList.toggle('d-none', !has('attributes') || !card.dataset.attributes);
+            card.querySelector('.qr-lbl-design')?.classList.toggle('d-none', !has('design') || !card.dataset.design);
+            card.querySelector('.qr-lbl-code')?.classList.toggle('d-none', !has('qr_code'));
+            card.querySelector('.qr-lbl-hsn')?.classList.toggle('d-none', !has('hsn') || !card.dataset.hsn);
+
+            const priceEl = card.querySelector('.qr-lbl-price');
+            if (priceEl) {
+                const priceParts = [];
+                if (has('mrp') && card.dataset.mrp) priceParts.push('MRP: ' + card.dataset.mrp);
+                if (has('selling_price') && card.dataset.sellingPrice) priceParts.push(card.dataset.sellingPrice);
+                priceEl.textContent = priceParts.join(' / ');
+                priceEl.classList.toggle('d-none', priceParts.length === 0);
+            }
+
+            const canvasEl = card.querySelector('.panel-qr-canvas');
+            if (canvasEl) {
+                const payload = buildQrFormationPayload(card, cfg);
+                if (forceRerender || canvasEl.dataset.rendered !== '1' || canvasEl.dataset.lastPayload !== payload) {
+                    canvasEl.innerHTML = '';
+                    new QRCode(canvasEl, {
+                        text: payload,
+                        width: 96,
+                        height: 96,
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                    canvasEl.dataset.rendered = '1';
+                    canvasEl.dataset.lastPayload = payload;
+                }
+            }
+        });
+
+        const previewEl = modalEl.querySelector('.qr-cfg-preview');
+        if (previewEl && cards.length) {
+            previewEl.textContent = 'Sample QR Payload: ' + buildQrFormationPayload(cards[0], cfg).replace(/\n/g, ' ↵ ');
+        }
+    }
+
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
         modalEl.addEventListener('shown.bs.modal', function () {
-            modalEl.querySelectorAll('.panel-qr-canvas').forEach(function(el) {
-                if (el.dataset.rendered === '1') return;
-                el.innerHTML = '';
-                new QRCode(el, {
-                    text: el.dataset.code,
-                    width: 90,
-                    height: 90,
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-                el.dataset.rendered = '1';
-            });
+            applyQrFormationConfigToModal(modalEl, false);
         });
+    });
+
+    document.addEventListener('click', function(e) {
+        const saveBtn = e.target.closest('.btn-save-qr-config');
+        if (!saveBtn) return;
+        const modalEl = saveBtn.closest('.modal');
+        if (!modalEl) return;
+        const fields = Array.from(modalEl.querySelectorAll('.qr-cfg-field:checked')).map(cb => cb.value);
+        if (!fields.length) fields.push('qr_code');
+        const cfg = {
+            mode: modalEl.querySelector('.qr-cfg-mode')?.value || 'CODE_ONLY',
+            sep: modalEl.querySelector('.qr-cfg-sep')?.value || ' | ',
+            fields: fields
+        };
+        try {
+            localStorage.setItem(QR_CFG_STORAGE_KEY, JSON.stringify(cfg));
+        } catch (err) {}
+        applyQrFormationConfigToModal(modalEl, true);
+        const badge = modalEl.querySelector('.qr-config-saved-badge');
+        if (badge) {
+            badge.classList.remove('d-none');
+            setTimeout(() => badge.classList.add('d-none'), 2200);
+        }
     });
 
     // 2. Auto-open QR modal if 'open_qr' parameter is present in URL
