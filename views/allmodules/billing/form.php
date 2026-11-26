@@ -38,72 +38,50 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
         <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
     </div>
-    <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label class="d-flex align-items-center gap-2 px-3 py-2 bg-white border rounded-3 shadow-xs mb-0" style="cursor: pointer;" for="isDirectBill" title="Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" form="productionBillForm" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?> style="cursor: pointer;">
+            </div>
+            <span class="fw-semibold text-dark small text-nowrap">Direct Bill</span>
+        </label>
+        <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
 </div>
 
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
+    <input type="hidden" name="production_unit_id" id="productionUnitSelect" value="<?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) ?>">
     <?php if (empty($isEdit)) { $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); } ?>
     <div class="row g-3">
         <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
         <div class="col-xl-4">
             <!-- 1. Billed By Staff (Cashier / Salesperson) -->
+            <?php
+            $defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
+            $defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
+            $defaultStaffRole = '';
+            foreach ($staffUsers ?? [] as $st) {
+                if ((int)$st['id'] === $defaultStaffId) {
+                    $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
+                    $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
+                    break;
+                }
+            }
+            $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
+            ?>
             <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-primary">
                 <div class="card-body p-3">
-                    <label class="form-label fw-bold text-dark mb-1" for="staffSelect">
+                    <label class="form-label fw-bold text-dark mb-1">
                         <i class="bi bi-person-badge-fill text-primary me-1"></i>Billed by (Staff / Cashier) <span class="text-danger">*</span>
                     </label>
-                    <select class="form-select fw-semibold" name="staff_id" id="staffSelect" required onchange="updateStaffName(this)">
-                        <?php foreach ($staffUsers ?? [] as $st): ?>
-                            <?php $selectedStaff = (int)($bill['staff_id'] ?? $currentUserId ?? 0) === (int)$st['id']; ?>
-                            <option value="<?= (int)$st['id'] ?>" <?= $selectedStaff ? 'selected' : '' ?> data-name="<?= $escape($st['full_name']) ?>">
-                                <?= $escape($st['full_name']) ?> (<?= $escape($st['staff_role'] ?: $st['department'] ?: $st['username']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($bill['staff_name'] ?? (Auth::user()['full_name'] ?? '')) ?>">
+                    <input type="text" class="form-control fw-semibold bg-light" value="<?= $escape($defaultStaffDisplay) ?>" readonly>
+                    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
+                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
                 </div>
             </div>
 
-            <!-- 2. Issuing Concern & Production Facility -->
-            <div class="card border-0 shadow-sm rounded-3 mb-3">
-                <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between flex-wrap gap-1 py-3">
-                    <span><i class="bi bi-building-gear me-2 text-primary"></i>Issuing Facility</span>
-                    <?php if (!empty($activeConcern['name'])): ?>
-                        <span class="badge bg-primary text-white px-2 py-1 fs-7">
-                            <i class="bi bi-diagram-3 me-1"></i><?= $escape($activeConcern['name']) ?><?= !empty($activeConcern['code']) ? ' (' . $escape($activeConcern['code']) . ')' : '' ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
-                <div class="card-body p-3">
-                    <?php if (!empty($activeConcern)): ?>
-                        <div class="mb-3 p-2 rounded bg-light border border-light-subtle small">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Concern:</span>
-                                <strong class="text-dark"><?= $escape(!empty($activeConcern['legal_name']) ? $activeConcern['legal_name'] : ($activeConcern['name'] ?? 'Primary Concern')) ?></strong>
-                            </div>
-                            <?php if (!empty($activeConcern['gst_number'])): ?>
-                                <div class="d-flex justify-content-between mt-1">
-                                    <span class="text-muted">GSTIN:</span>
-                                    <span class="fw-semibold text-uppercase font-monospace"><?= $escape($activeConcern['gst_number']) ?></span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <label class="form-label small fw-bold text-muted mb-1" for="productionUnitSelect">Production Unit / Plant</label>
-                    <select class="form-select" name="production_unit_id" id="productionUnitSelect" required>
-                        <?php foreach ($productionUnits ?? [] as $unit): ?>
-                            <option value="<?= (int)$unit['id'] ?>" <?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) === (int)$unit['id'] ? 'selected' : '' ?> data-name="<?= $escape($unit['name'] ?? '') ?>" data-code="<?= $escape($unit['code'] ?? '') ?>" data-manager="<?= $escape($unit['manager_name'] ?? '') ?>" data-address="<?= $escape($unit['address'] ?? '') ?>" data-phone="<?= $escape($unit['phone'] ?? '') ?>" data-gstin="<?= $escape($unit['gst_number'] ?? '') ?>" data-logo="<?= $escape($unit['logo_url'] ?? '') ?>">
-                                <?= $escape($unit['name'] ?? 'Production unit') ?><?= !empty($unit['code']) ? ' (' . $escape($unit['code']) . ')' : '' ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="productionUnitDetails" class="small text-muted mt-2" aria-live="polite"></div>
-                </div>
-            </div>
-
-            <!-- 3. Buyer Type Selection -->
+            <!-- 2. Buyer Type Selection -->
             <div class="card border-0 shadow-sm rounded-3 mb-3">
                 <div class="card-body p-3">
                     <label class="form-label fw-bold text-dark mb-2" for="buyerType">Bill To (Buyer Category)</label>
@@ -190,45 +168,10 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
             <!-- 5. Company Fields (when B2B selected) -->
             <div class="card border-0 shadow-sm rounded-3 mb-3 <?= $selectedBuyerType === 'COMPANY' ? '' : 'd-none' ?>" id="companyFields">
                 <div class="card-header bg-white fw-semibold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span><i class="bi bi-building me-2 text-primary"></i>Company (Buyer) &amp; Batch Options</span>
+                    <span><i class="bi bi-building me-2 text-primary"></i>Company (Buyer) Details</span>
                     <span class="badge bg-primary-subtle text-primary border">B2B Order Mode</span>
                 </div>
                 <div class="card-body p-3">
-                    <!-- Option to load a Batches for B2B Billing -->
-                    <div class="p-3 bg-light rounded-3 border mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label fw-bold text-dark mb-0" for="selectPackingBatch">
-                                <i class="bi bi-boxes text-primary me-1"></i> Bill from Batches (Optional)
-                            </label>
-                            <span class="badge bg-primary text-white">Batch Option</span>
-                        </div>
-                        <p class="small text-muted mb-2">Select an unbilled packing batch to automatically load all packed garments, piece tags, and buyer destination into this bill.</p>
-                        <div class="input-group">
-                            <select class="form-select form-select-sm fw-semibold" id="selectPackingBatch" name="production_batch_id">
-                                <option value="">-- Choose Batches to Bill --</option>
-                                <?php if (!empty($availablePackingBatches)): ?>
-                                    <?php foreach ($availablePackingBatches as $pb): ?>
-                                        <option value="<?= $pb['id'] ?>" 
-                                                data-batch-number="<?= $escape($pb['batch_number']) ?>" 
-                                                data-product-name="<?= $escape($pb['product_name']) ?>"
-                                                data-total-qty="<?= (int)$pb['total_qty'] ?>"
-                                                data-box-count="<?= (int)($pb['box_count'] ?? 1) ?>"
-                                                data-warehouse-name="<?= $escape($pb['warehouse_name'] ?? '') ?>"
-                                                data-concern-name="<?= $escape($pb['concern_name'] ?? '') ?>">
-                                            <?= $escape($pb['batch_number']) ?> — <?= $escape($pb['product_name']) ?> (<?= (int)$pb['total_qty'] ?> pcs in <?= (int)($pb['box_count'] ?? 1) ?> boxes) <?= !empty($pb['concern_name']) ? '[' . $escape($pb['concern_name']) . ']' : '' ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </select>
-                            <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnLoadPackingBatch" onclick="loadSelectedPackingBatch()">
-                                <i class="bi bi-box-arrow-in-down me-1"></i> Load Batch Items
-                            </button>
-                        </div>
-                        <div id="batchLoadedNotice" class="d-none mt-2 alert alert-success py-1 px-2 small mb-0 rounded-2">
-                            <i class="bi bi-check-circle-fill me-1"></i> <span id="batchLoadedText"></span>
-                        </div>
-                    </div>
-
                     <div class="mb-3"><label class="form-label">Company name <span class="text-danger">*</span></label><input class="form-control fw-semibold" name="company_name" id="companyNameInput" data-required-for="COMPANY" value="<?= $escape($bill['company_name'] ?? '') ?>" placeholder="Company Legal Name"></div>
                     <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address" id="companyAddressInput" rows="2"><?= $escape($bill['company_address'] ?? '') ?></textarea></div>
                     <div class="row g-2">
@@ -252,18 +195,6 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         </select>
                     </div>
 
-                    <!-- Separate as Direct Bill Option (Reference Box) -->
-                    <div class="p-3 border rounded-3 bg-light mb-3">
-                        <div class="form-check form-switch mb-1">
-                            <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?>>
-                            <label class="form-check-label fw-bold text-dark" for="isDirectBill">
-                                Separate as Direct Bill
-                            </label>
-                        </div>
-                        <div class="small text-muted ps-4">
-                            Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.
-                        </div>
-                    </div>
                     <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
                         <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
                         <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
@@ -1211,6 +1142,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUnitDetails() {
+        if (!unitDetails || !unitSelect || !unitSelect.selectedOptions) {
+            return;
+        }
         const option = unitSelect.selectedOptions[0];
         if (!option) {
             unitDetails.textContent = '';
@@ -1280,27 +1214,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const pool = poolTagsForGroup(sourceItem);
-        const newEntries = availableToAssign.slice(0, actualAdd).map(nextTag => {
-            const cloned = {
-                ...sourceItem,
-                available_tags: [...pool],
-                tags: [nextTag]
-            };
-            return [getItemKey(cloned, nextTag), cloned];
-        });
-
-        const rebuilt = new Map();
-        cart.forEach((val, key) => {
-            rebuilt.set(key, val);
-            if (key === sourceKey) {
-                newEntries.forEach(([newKey, newVal]) => {
-                    rebuilt.set(newKey, newVal);
-                });
-            }
-        });
-
-        cart.clear();
-        rebuilt.forEach((val, key) => cart.set(key, val));
+        sourceItem.available_tags = [...pool];
+        if (!Array.isArray(sourceItem.tags)) sourceItem.tags = [];
+        sourceItem.tags.push(...availableToAssign.slice(0, actualAdd));
 
         renderCart();
         showSuccessToast();
@@ -1342,6 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.dataset.rowKey = itemKey;
             row.dataset.rowIndex = String(index);
             const pieceTag = (Array.isArray(item.tags) && item.tags[0]) ? String(item.tags[0]) : '';
+            const qty = Math.max(1, Array.isArray(item.tags) ? item.tags.length : 1);
             const remainingStock = selectableTags(item).length;
 
             // 1. Product & Details (1 piece = 1 full editable row with Variant ID + Piece QR Tag)
@@ -1361,10 +1278,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 mainVarBadge.textContent = `Variant: ${mainVarCode}`;
                 badgeWrap.append(mainVarBadge);
             }
-            if (pieceTag) {
+            const qrDisplayCode = mainVarCode || pieceTag;
+            if (qrDisplayCode) {
                 const tagBadge = document.createElement('span');
                 tagBadge.className = 'badge bg-dark text-white font-monospace';
-                tagBadge.textContent = `QR: ${pieceTag}`;
+                tagBadge.textContent = `QR: ${qrDisplayCode}`;
                 badgeWrap.append(tagBadge);
             }
             if (item.price_edited) {
@@ -1407,7 +1325,12 @@ document.addEventListener('DOMContentLoaded', () => {
             minusBtn.className = 'btn btn-outline-secondary';
             minusBtn.innerHTML = '<i class="bi bi-dash"></i>';
             minusBtn.addEventListener('click', () => {
-                showStockToast('Minimum quantity is 1', 'To remove this piece, click the trash button on the right.');
+                if (Array.isArray(item.tags) && item.tags.length > 1) {
+                    item.tags.pop();
+                    renderCart();
+                } else {
+                    showStockToast('Minimum quantity is 1', 'To remove this item, click the trash button on the right.');
+                }
             });
 
             const quantityInput = document.createElement('input');
@@ -1415,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             quantityInput.inputMode = 'numeric';
             quantityInput.autocomplete = 'off';
             quantityInput.setAttribute('aria-label', 'Quantity');
-            quantityInput.value = '1';
+            quantityInput.value = String(qty);
             quantityInput.className = 'form-control form-control-sm text-center fw-bold font-monospace billing-qty-input';
             quantityInput.dataset.qtyInputFor = itemKey;
 
@@ -1427,41 +1350,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 expandRowByPieces(itemKey, 1);
             });
 
+            const applyRequestedQty = (rawVal) => {
+                const requestedQuantity = parseInt(rawVal || '1', 10);
+                const curQty = Array.isArray(item.tags) ? item.tags.length : 1;
+                if (isNaN(requestedQuantity) || requestedQuantity < 1) {
+                    quantityInput.value = String(curQty);
+                    return;
+                }
+                if (requestedQuantity > curQty) {
+                    expandRowByPieces(itemKey, requestedQuantity - curQty);
+                } else if (requestedQuantity < curQty) {
+                    item.tags = item.tags.slice(0, requestedQuantity);
+                    renderCart();
+                }
+            };
+
             bindNumericInputValidation(quantityInput, {
                 allowDecimal: false,
                 min: 1,
-                max: Math.max(1, remainingStock + 1),
+                max: Math.max(1, qty + remainingStock),
                 allowEmpty: false,
-                defaultValue: '1',
-                onNormalize: (val) => {
-                    const qty = parseInt(val || '1', 10);
-                    if (qty > 1) {
-                        quantityInput.value = '1';
-                        expandRowByPieces(itemKey, qty - 1);
-                    } else {
-                        quantityInput.value = '1';
-                    }
-                }
+                defaultValue: String(qty),
+                onNormalize: (val) => applyRequestedQty(val)
             });
 
             quantityInput.addEventListener('input', () => {
                 const rawVal = quantityInput.value.trim();
                 if (rawVal === '') return;
                 const requestedQuantity = parseInt(rawVal, 10);
-                if (requestedQuantity > 1) {
-                    quantityInput.value = '1';
-                    expandRowByPieces(itemKey, requestedQuantity - 1);
+                if (isNaN(requestedQuantity) || requestedQuantity < 1) return;
+
+                if (!Array.isArray(item.tags)) item.tags = [];
+                const curQty = item.tags.length;
+                if (requestedQuantity > curQty) {
+                    const availableToAssign = selectableTags(item);
+                    const maxTotal = curQty + availableToAssign.length;
+                    if (requestedQuantity > maxTotal) {
+                        showInventoryLimit(
+                            'Available stock limit reached',
+                            `Only ${availableToAssign.length} more piece(s) are available in stock for ${item.product_name}.`,
+                            quantityInput
+                        );
+                    }
+                    const actualAdd = Math.min(requestedQuantity - curQty, availableToAssign.length);
+                    if (actualAdd > 0) {
+                        item.tags.push(...availableToAssign.slice(0, actualAdd));
+                    }
+                    quantityInput.value = String(item.tags.length);
+                } else if (requestedQuantity < curQty) {
+                    item.tags = item.tags.slice(0, requestedQuantity);
                 }
+
+                hiddenTagsContainer.innerHTML = '';
+                item.tags.forEach(tag => {
+                    const hiddenTag = document.createElement('input');
+                    hiddenTag.type = 'hidden';
+                    hiddenTag.name = `items[${index}][tags][]`;
+                    hiddenTag.value = tag;
+                    hiddenTagsContainer.append(hiddenTag);
+                });
+
+                const stockEl = quantityCell.querySelector(`[data-stock-for="${itemKey}"]`);
+                if (stockEl) {
+                    stockEl.textContent = String(selectableTags(item).length);
+                }
+                updateTotals();
             });
 
             quantityInput.addEventListener('change', () => {
-                const requestedQuantity = parseInt(quantityInput.value, 10);
-                if (isNaN(requestedQuantity) || requestedQuantity <= 1) {
-                    quantityInput.value = '1';
-                } else {
-                    quantityInput.value = '1';
-                    expandRowByPieces(itemKey, requestedQuantity - 1);
-                }
+                applyRequestedQty(quantityInput.value);
             });
 
             qtyGroup.append(minusBtn, quantityInput, plusBtn);
@@ -1751,14 +1708,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const entry = {
-            ...item,
-            discount_percentage: resolveDiscountPercentage(item),
-            available_tags: [...pool],
-            tags: [chosenTag]
-        };
-        const pieceKey = getItemKey(entry, chosenTag);
-        cart.set(pieceKey, entry);
+        const groupKey = getGroupKey(item);
+        const existing = cart.get(groupKey);
+        if (existing) {
+            existing.available_tags = [...pool];
+            if (!Array.isArray(existing.tags)) existing.tags = [];
+            existing.tags.push(chosenTag);
+        } else {
+            const entry = {
+                ...item,
+                discount_percentage: resolveDiscountPercentage(item),
+                available_tags: [...pool],
+                tags: [chosenTag]
+            };
+            cart.set(groupKey, entry);
+        }
         renderCart();
         showSuccessToast();
 
@@ -1878,121 +1842,6 @@ document.addEventListener('DOMContentLoaded', () => {
         handleScanAdd(search.value);
     });
 
-    window.loadSelectedPackingBatch = function() {
-        const sel = document.getElementById('selectPackingBatch');
-        const batchId = sel ? sel.value : '';
-        if (!batchId) {
-            alert('Please select a packing batch from the dropdown.');
-            return;
-        }
-
-        const btn = document.getElementById('btnLoadPackingBatch');
-        const origHtml = btn ? btn.innerHTML : '';
-        if (btn) {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
-            btn.disabled = true;
-        }
-
-        fetch('<?= url("api/production/billing/batch-items") ?>?batch_id=' + encodeURIComponent(batchId))
-            .then(res => res.json())
-            .then(res => {
-                if (btn) {
-                    btn.innerHTML = origHtml;
-                    btn.disabled = false;
-                }
-                if (!res.success) {
-                    alert(res.message || 'Failed to load packing batch items.');
-                    return;
-                }
-
-                const batch = res.batch;
-                const items = res.items || [];
-                if (!items.length) {
-                    alert('This packing batch has no available unbilled items.');
-                    return;
-                }
-
-                // Fill company details if empty
-                if (batch) {
-                    const compNameInput = document.getElementById('companyNameInput');
-                    if (compNameInput && (!compNameInput.value || compNameInput.value.trim() === '')) {
-                        compNameInput.value = batch.concern_name || batch.warehouse_name || '';
-                    }
-                    const compAddr = document.getElementById('companyAddressInput');
-                    if (compAddr && (!compAddr.value || compAddr.value.trim() === '') && batch.concern_address) {
-                        compAddr.value = batch.concern_address;
-                    }
-                    const compPhone = document.getElementById('companyPhoneInput');
-                    if (compPhone && (!compPhone.value || compPhone.value.trim() === '') && batch.concern_phone) {
-                        compPhone.value = batch.concern_phone;
-                    }
-                    const compEmail = document.getElementById('companyEmailInput');
-                    if (compEmail && (!compEmail.value || compEmail.value.trim() === '') && batch.concern_email) {
-                        compEmail.value = batch.concern_email;
-                    }
-                    const compGst = document.getElementById('companyGstinInput');
-                    if (compGst && (!compGst.value || compGst.value.trim() === '') && batch.concern_gst) {
-                        compGst.value = batch.concern_gst;
-                    }
-                }
-
-                // Add batch items into cart Map (1 editable row per piece)
-                let totalTags = 0;
-                items.forEach(it => {
-                    const tags = Array.isArray(it.tags) ? it.tags : [];
-                    totalTags += tags.length;
-                    tags.forEach(tag => {
-                        const entry = {
-                            qc_item_id: it.qc_item_id || 0,
-                            variant_id: it.variant_id || 0,
-                            variant_code: it.variant_code || '',
-                            product_name: it.product_name || 'Finished Product',
-                            sku: it.sku || '',
-                            hsn_code: it.hsn_code || '6109',
-                            size_name: it.size_name || 'STD',
-                            color_name: it.color_name || 'STD',
-                            mrp: Number(it.mrp || 0),
-                            unit_price: Number(it.unit_price || it.mrp || 0),
-                            is_complementary: Number(it.is_complementary || 0),
-                            discount_percentage: resolveDiscountPercentage({
-                                mrp: Number(it.mrp || 0),
-                                unit_price: Number(it.unit_price || it.mrp || 0),
-                                discount_percentage: it.discount_percentage
-                            }),
-                            discount_amount: 0,
-                            gst_percentage: Number(it.gst_percentage || 5),
-                            gst_type: it.gst_type || 'BOTH',
-                            tax_input_type: it.tax_input_type || 'PERCENT',
-                            sgst_rate: Number(it.sgst_rate || 2.5),
-                            cgst_rate: Number(it.cgst_rate || 2.5),
-                            igst_rate: Number(it.igst_rate || 0),
-                            tags: [tag],
-                            available_tags: [...tags]
-                        };
-                        cart.set(getItemKey(entry, tag), entry);
-                    });
-                });
-
-                renderCart();
-                showSuccessToast();
-
-                const notice = document.getElementById('batchLoadedNotice');
-                const noticeText = document.getElementById('batchLoadedText');
-                if (notice && noticeText) {
-                    noticeText.textContent = `Batch ${batch ? batch.batch_number : ''} loaded: ${items.length} line(s) (${totalTags} garments) added to bill cart.`;
-                    notice.classList.remove('d-none');
-                }
-            })
-            .catch(err => {
-                if (btn) {
-                    btn.innerHTML = origHtml;
-                    btn.disabled = false;
-                }
-                console.error('Batch load error:', err);
-                alert('An error occurred while fetching the batch.');
-            });
-    };
-
     // Populate initial items (1 editable row per piece)
     initialItems.forEach(it => {
         const tags = Array.isArray(it.tags) && it.tags.length ? it.tags : [''];
@@ -2008,7 +1857,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateUnitDetails();
-    unitSelect.addEventListener('change', updateUnitDetails);
+    if (unitSelect) unitSelect.addEventListener('change', updateUnitDetails);
     updatePaymentFields();
     renderCart();
 

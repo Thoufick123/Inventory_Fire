@@ -4228,7 +4228,7 @@ class AllmodulesController {
         try {
             Database::execute(
                 "UPDATE third_party_mapping_items
-                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?
                  WHERE id = ?",
                 [
                     $color !== '' ? $color : null,
@@ -4244,28 +4244,30 @@ class AllmodulesController {
             );
 
             if (!empty($item['variant_id'])) {
-                Database::execute(
-                    "UPDATE product_variants
-                     SET color = ?, size = ?, purchase_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
-                     WHERE id = ?",
-                    [
-                        $color !== '' ? $color : null,
-                        $size !== '' ? $size : null,
-                        $unitPrice,
-                        $mrp,
-                        $sellingPrice,
-                        (int)$item['variant_id']
-                    ]
-                );
+                try {
+                    Database::execute(
+                        "UPDATE product_variants
+                         SET purchase_price = ?, mrp = ?, selling_price = ?
+                         WHERE id = ?",
+                        [
+                            $unitPrice,
+                            $mrp,
+                            $sellingPrice,
+                            (int)$item['variant_id']
+                        ]
+                    );
+                } catch (\Throwable $pvEx) {}
             }
 
             if (!empty($item['qr_generation_id'])) {
-                Database::execute(
-                    "UPDATE qr_generations
-                     SET quantity = ?, mrp = ?, selling_price = ?, updated_at = NOW()
-                     WHERE id = ? AND COALESCE(stock_added, 0) = 0",
-                    [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
-                );
+                try {
+                    Database::execute(
+                        "UPDATE qr_generations
+                         SET quantity = ?, mrp = ?, selling_price = ?
+                         WHERE id = ? AND COALESCE(stock_added, 0) = 0",
+                        [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
+                    );
+                } catch (\Throwable $qrEx) {}
             }
 
             Database::commit();
@@ -5802,6 +5804,7 @@ class AllmodulesController {
                     COALESCE(mi.hsn_code, '') AS hsn_code,
                     NULL AS seller_roll_id,
                     mi.qr_generation_id, qrg.batch_code AS qr_batch_code, NULL AS grn_id, NULL AS grn_number,
+                    COALESCE(qrg.stock_added, 0) AS stock_added,
                     mb.invoice_number AS purchase_number, DATE(mb.created_at) AS purchase_date, mb.invoice_number, mb.concern_id,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     s.name AS seller_name, s.company AS seller_company,
@@ -5858,14 +5861,20 @@ class AllmodulesController {
                     s.name AS seller_name, s.company AS seller_company,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     pp.purchase_number, COALESCE(mi.product_count, 0) AS product_count,
-                    COALESCE(mi.total_quantity, 0) AS total_quantity
+                    COALESCE(mi.total_quantity, 0) AS total_quantity,
+                    COALESCE(mi.pending_qr_or_stock_count, 0) AS pending_qr_or_stock_count
              FROM third_party_mapping_bills mb
              JOIN sellers s ON s.id = mb.seller_id
              LEFT JOIN concerns c_con ON c_con.id = COALESCE(mb.concern_id, 1)
              LEFT JOIN production_purchases pp ON pp.id = mb.purchase_id
              LEFT JOIN (
-                 SELECT mapping_bill_id, COUNT(*) AS product_count, SUM(quantity) AS total_quantity
-                 FROM third_party_mapping_items GROUP BY mapping_bill_id
+                 SELECT tmi.mapping_bill_id,
+                        COUNT(*) AS product_count,
+                        SUM(tmi.quantity) AS total_quantity,
+                        SUM(CASE WHEN tmi.qr_generation_id IS NULL OR COALESCE(qrg.stock_added, 0) = 0 THEN 1 ELSE 0 END) AS pending_qr_or_stock_count
+                 FROM third_party_mapping_items tmi
+                 LEFT JOIN qr_generations qrg ON qrg.id = tmi.qr_generation_id
+                 GROUP BY tmi.mapping_bill_id
              ) mi ON mi.mapping_bill_id = mb.id
              {$draftWhere}
              ORDER BY mb.id DESC",
@@ -16572,7 +16581,7 @@ class AllmodulesController {
              FROM production_purchase_items ppi
              JOIN production_purchases pp ON ppi.purchase_id = pp.id
              LEFT JOIN products p ON ppi.product_id = p.id
-             WHERE ppi.id = ? AND ppi.item_type = 'GENERAL_SUPPLY'",
+             WHERE ppi.id = ? AND ppi.item_type IN ('GENERAL_SUPPLY', 'THIRD_PARTY', 'FABRIC_ROLL')",
             [$supplyItemId]
         );
 
@@ -16631,18 +16640,24 @@ class AllmodulesController {
                 );
             }
 
-            // 3. Mark supply purchase item as uninwarded
+            // 3. Mark supply purchase item as uninwarded and reset linked QR batch stock_added
             Database::execute(
                 "UPDATE production_purchase_items
                  SET is_inwarded = 0, inwarded_at = NULL, inwarded_by = NULL, inwarded_qty = 0.000
                  WHERE id = ?",
                 [$supplyItemId]
             );
+            try {
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 0, stock_added_at = NULL, stock_added_by = NULL WHERE source_purchase_item_id = ?",
+                    [$supplyItemId]
+                );
+            } catch (\Throwable $e) {}
 
             // 4. Check if the purchase still has other inwarded supply items
             $otherInwarded = (int)(Database::fetchOne(
                 "SELECT COUNT(*) AS cnt FROM production_purchase_items
-                 WHERE purchase_id = ? AND item_type = 'GENERAL_SUPPLY' AND is_inwarded = 1",
+                 WHERE purchase_id = ? AND item_type IN ('GENERAL_SUPPLY', 'THIRD_PARTY', 'FABRIC_ROLL') AND is_inwarded = 1",
                 [$purchaseId]
             )['cnt'] ?? 0);
 
@@ -19883,7 +19898,16 @@ class AllmodulesController {
                           LEFT JOIN products p ON ppi.product_id = p.id
                           LEFT JOIN categories c_p ON p.category_id = c_p.id
                           LEFT JOIN categories c_pi ON ppi.mapped_category_id = c_pi.id
-                          WHERE 1=1";
+                          WHERE (
+                              COALESCE(ppi.is_inwarded, 0) = 1
+                              OR COALESCE(ppi.inwarded_qty, 0) > 0
+                              OR EXISTS (
+                                  SELECT 1 FROM stock_balances sb_chk
+                                  WHERE sb_chk.variant_id = ppi.variant_id
+                                    AND sb_chk.stock_state = 'AVAILABLE'
+                                    AND sb_chk.quantity > 0
+                              )
+                          )";
             $supplyParams = [];
 
             if ($cid) {

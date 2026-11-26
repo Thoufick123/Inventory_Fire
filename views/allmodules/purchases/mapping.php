@@ -351,8 +351,8 @@
                                 </td>
                                 <td>
                                     <?php if (!empty($roll['qr_generation_id'])): ?>
-                                        <?php if (hasPermission('qr_generation', 'view')): ?>
-                                            <a href="<?= url('production/qr-generations/view/' . (int)$roll['qr_generation_id']) ?>" class="badge bg-dark-subtle text-dark border text-decoration-none">
+                                        <?php if (!empty($roll['mapping_bill_id'])): ?>
+                                            <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id'] . '?open_qr=' . (int)$roll['qr_generation_id']) ?>" class="badge bg-dark-subtle text-dark border text-decoration-none">
                                                 <i class="bi bi-qr-code me-1"></i><?= e($roll['qr_batch_code'] ?: 'View QR') ?>
                                             </a>
                                         <?php else: ?>
@@ -380,17 +380,18 @@
                                             <i class="bi bi-pencil me-1"></i>Edit
                                         </button>
                                     <?php endif; ?>
-                                    <?php if (empty($roll['purchase_id'])): ?>
-                                        <a href="<?= url('purchases/mapping/draft/' . (int)($roll['mapping_bill_id'] ?? 0)) ?>" class="btn btn-sm btn-outline-secondary">
-                                            <i class="bi bi-eye me-1"></i>View Draft
+                                    <?php if (!empty($roll['mapping_bill_id'])): ?>
+                                        <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id'] . '/view' . (!empty($roll['qr_generation_id']) ? '?open_qr=' . (int)$roll['qr_generation_id'] : '')) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll History &amp; QR">
+                                            <i class="bi bi-eye me-1"></i>View
                                         </a>
-                                    <?php elseif (empty($roll['qr_generation_id']) && hasPermission('qr_generation', 'create')): ?>
-                                        <a href="<?= url('production/qr-generations/create?tab=fabric&purchase_id=' . (int)$roll['purchase_id'] . '&purchase_item_id=' . (int)$roll['id']) ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-qr-code-scan me-1"></i>Generate QR
-                                        </a>
-                                    <?php else: ?>
-                                        <a href="<?= url('purchases/view/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary">
-                                            <i class="bi bi-eye me-1"></i>View Bill
+                                        <?php if (empty($roll['qr_generation_id']) || empty($roll['stock_added'])): ?>
+                                            <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id']) ?>" class="btn btn-sm btn-outline-primary" title="Continue QR / Stock">
+                                                <i class="bi bi-qr-code-scan me-1"></i>Continue
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php elseif (!empty($roll['purchase_id'])): ?>
+                                        <a href="<?= url('purchases/mapping/bill/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll Mapping">
+                                            <i class="bi bi-eye me-1"></i>View
                                         </a>
                                     <?php endif; ?>
                                 </td>
@@ -432,12 +433,16 @@
                                 <td><?= renderConcernBadge($draft) ?></td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
-                                        <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping Invoice">
+                                        <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping History &amp; Stock">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
                                         <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
                                             <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Mapping Invoice">
                                                 <i class="bi bi-pencil-square me-1"></i>Edit
+                                            </a>
+                                        <?php elseif ($draft['status'] === 'MOVED' && (int)($draft['pending_qr_or_stock_count'] ?? 0) > 0 && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Continue QR Generation &amp; Add Remaining Stock">
+                                                <i class="bi bi-arrow-right-circle me-1"></i>Continue QR / Stock
                                             </a>
                                         <?php endif; ?>
                                         <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
@@ -455,10 +460,6 @@
                                                     <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
                                                 </button>
                                             </form>
-                                        <?php elseif (!empty($draft['purchase_id'])): ?>
-                                            <a class="btn btn-sm btn-outline-success" href="<?= url('purchases/view/' . (int)$draft['purchase_id']) ?>" title="View in Purchases">
-                                                <i class="bi bi-receipt me-1"></i>Purchase
-                                            </a>
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -676,4 +677,26 @@ function unmapBill(billId, billNumber) {
     document.body.appendChild(form);
     form.submit();
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const tabStorageKey = 'grm_qr_generations_active_tab';
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    const tabMap = {
+        products: 'mappingProductsTab',
+        rolls: 'mappingFabricRollsTab',
+        logs: 'mappingLogsTab'
+    };
+    const desiredTabId = (urlTab && tabMap[urlTab]) ? tabMap[urlTab] : (() => {
+        try { return sessionStorage.getItem(tabStorageKey); } catch (e) { return null; }
+    })();
+    if (desiredTabId && typeof bootstrap !== 'undefined') {
+        const el = document.getElementById(desiredTabId);
+        if (el) bootstrap.Tab.getOrCreateInstance(el).show();
+    }
+    document.querySelectorAll('#mappingPageTabs [data-bs-toggle="tab"]').forEach(function (tabBtn) {
+        tabBtn.addEventListener('shown.bs.tab', function () {
+            try { sessionStorage.setItem(tabStorageKey, this.id); } catch (e) {}
+        });
+    });
+});
 </script>

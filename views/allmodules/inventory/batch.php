@@ -209,14 +209,19 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <i class="bi bi-graph-up-arrow text-primary fs-5"></i>
                 <h5 class="fw-bold mb-0 text-dark">Stock by Warehouse Location</h5>
             </div>
-            <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">View All</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">View All</a>
+            </div>
         </div>
         <div class="d-flex flex-wrap gap-3 align-items-center">
             <?php foreach (($locationCards ?? []) as $loc): ?>
             <div class="card border-2 <?= !empty($loc['is_active']) ? 'border-primary' : 'border-light-subtle' ?> shadow-sm" style="min-width: 280px; border-radius: 10px; background: <?= !empty($loc['is_active']) ? '#f6faff' : '#ffffff' ?>;">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="fw-bold fs-6 text-dark"><?= e($loc['name']) ?></span>
+                        <span class="fw-bold fs-6 text-dark"><?= e($loc['name'] ?? $loc['warehouse_name'] ?? $loc['location_name'] ?? 'Main Warehouse') ?></span>
                         <?php if (!empty($loc['is_active'])): ?>
                             <span class="badge bg-primary rounded-pill px-2.5 py-1 small fw-semibold">Active View</span>
                         <?php endif; ?>
@@ -292,9 +297,6 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <i class="bi bi-check-circle-fill text-success fs-5"></i>
                     <h5 class="fw-bold mb-0 text-dark">Warehouse Pieces (Available &amp; Reserved)</h5>
-                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2.5 py-1 fw-semibold small">
-                        <i class="bi bi-geo-alt-fill me-1"></i><?= e($activeWhName) ?> (<?= number_format($inStockPcs) ?> pcs)
-                    </span>
                 </div>
                 <small class="text-muted d-block mt-1">Reserved allocation pieces remain visible until dispatch; dispatched pieces are removed from warehouse stock.</small>
             </div>
@@ -345,12 +347,6 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
             <div class="btn-group btn-group-sm" role="group">
                 <button type="button" class="btn btn-primary active fw-semibold" id="btnCardView" onclick="switchView('card')">
                     <i class="bi bi-grid-3x3-gap me-1"></i> Variant Cards (<?= count($rawItems ?? []) ?>)
-                </button>
-                <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnPieceView" onclick="switchView('list')">
-                    <i class="bi bi-list-ul me-1"></i> Piece Ledger (<?= $totalPcs ?>)
-                </button>
-                <button type="button" class="btn btn-outline-secondary fw-semibold" id="btnGroupView" onclick="switchView('group')">
-                    <i class="bi bi-table me-1"></i> Table View
                 </button>
             </div>
         </div>
@@ -911,7 +907,7 @@ function buildInventoryPieceCards() {
             variantMap.set(vKey, {
                 variantKey: vKey,
                 variantCode: variantDisplayCode,
-                variantSku: vCode,
+                variantSku: variantDisplayCode,
                 productName: p.product_name || 'Finished Product',
                 categoryName: p.category_name || 'Apparel',
                 sizeName: p.size_name || 'Std',
