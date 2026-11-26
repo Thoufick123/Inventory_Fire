@@ -4393,6 +4393,7 @@ class AllmodulesController {
                     if (!is_array($r)) continue;
                     $rollCode = trim((string)($r['roll_code'] ?? ''));
                     $color = trim((string)($r['color'] ?? 'Standard'));
+                    $designName = trim((string)($r['design_name'] ?? ''));
                     $meters = (float)($r['meters'] ?? 0);
                     $weightKg = (float)($r['weight_kg'] ?? 0);
                     $rate = (float)($r['rate'] ?? 0);
@@ -4408,6 +4409,7 @@ class AllmodulesController {
 
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color,
+                        'design_name' => $designName !== '' ? $designName : null,
                         'size' => $sizeLabel,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,

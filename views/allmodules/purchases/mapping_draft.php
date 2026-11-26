@@ -108,14 +108,17 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link py-1 px-3 fw-semibold text-primary border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
+                    <button class="nav-link py-1 px-3 fw-semibold border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
                         <i class="bi bi-layers-half me-1"></i>Fabric Rolls (Multiple Rolls)
                     </button>
                 </li>
             </ul>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAddItemsBox" title="Collapse / Expand Add Items box">
+                <i class="bi bi-arrows-collapse me-1"></i>Compact
+            </button>
         </div>
     </div>
-    <div class="card-body">
+    <div class="card-body" id="addItemsMappingBody">
         <div class="tab-content" id="mappingEntryTabContent">
             <!-- PANE 1: Third-Party Products -->
             <div class="tab-pane fade show active" id="tabThirdParty" role="tabpanel">
@@ -335,12 +338,13 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 860px;">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 160px;">Roll Code / #</th>
+                                    <th style="width: 140px;">Roll Code / #</th>
                                     <th>Color / Shade *</th>
-                                    <th style="width: 140px;">Weight (kg) *</th>
-                                    <th style="width: 140px;">Rate (₹/kg) *</th>
-                                    <th style="width: 90px;">GST %</th>
-                                    <th style="width: 200px;">HSN Code</th>
+                                    <th style="width: 170px;">Design / Pattern</th>
+                                    <th style="width: 130px;">Weight (kg) *</th>
+                                    <th style="width: 130px;">Rate (₹/kg) *</th>
+                                    <th style="width: 85px;">GST %</th>
+                                    <th style="width: 185px;">HSN Code</th>
                                     <th style="width: 45px;"></th>
                                 </tr>
                             </thead>
@@ -348,6 +352,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <tr class="mapping-roll-row">
                                     <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
+                                    <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="e.g. Solid, Printed..."></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
                                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
@@ -365,15 +370,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             </tbody>
                         </table>
                     </div>
-                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mt-2">
-                        <div class="d-flex align-items-end gap-2">
-                            <div>
-                                <label class="form-label small mb-1" for="mappingRollRowsToAdd">Roll rows to add</label>
-                                <input class="form-control form-control-sm roll-num-int" id="mappingRollRowsToAdd" type="text" inputmode="numeric" autocomplete="off" value="1" style="width: 110px;">
-                            </div>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingRollRows"><i class="bi bi-plus-lg me-1"></i>Add Roll Rows</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingRollOne"><i class="bi bi-plus-lg me-1"></i>Add 1 Roll</button>
-                        </div>
+                    <div class="d-flex justify-content-end align-items-center mt-2">
                         <button class="btn btn-primary btn-sm px-4 fw-semibold" type="submit" id="btnGenerateSaveRolls">
                             <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                         </button>
@@ -449,13 +446,13 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
                     <input type="text" id="savedVariantSearch" class="form-control" placeholder="Filter item, VID, color, size..." autocomplete="off">
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleSavedVariantsHeight" title="Toggle table scroll height">
-                    <i class="bi bi-arrows-expand me-1"></i>Expand
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleSavedVariantsHeight" title="Collapse / Expand Saved Product Variants">
+                    <i class="bi bi-arrows-collapse me-1"></i>Compact
                 </button>
             <?php endif; ?>
         </div>
     </div>
-    <div class="saved-variants-scroll" id="savedVariantsScroll">
+    <div class="saved-variants-scroll is-expanded" id="savedVariantsScroll">
         <table class="table table-hover align-middle saved-variants-table" id="savedVariantsTable">
             <thead>
                 <tr>
@@ -509,11 +506,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['unit_price'])) ?></td>
                         <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></td>
                         <td>
-                            <?php if (!empty($item['batch_code'])): ?>
-                                <button type="button" class="badge bg-dark border-0 cursor-pointer" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="Click to view QR codes in this panel">
-                                    <i class="bi bi-qr-code me-1"></i><?= e($item['batch_code']) ?>
-                                </button>
-                                <span class="qr-status-badge-<?= (int)$item['qr_generation_id'] ?>"><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success">Stocked</span><?php else: ?><span class="badge bg-warning text-dark">Not stocked</span><?php endif; ?></span>
+                            <?php if (!empty($item['qr_generation_id'])): ?>
+                                <span class="qr-status-badge-<?= (int)$item['qr_generation_id'] ?>"><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span><?php else: ?><span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Not stocked</span><?php endif; ?></span>
                             <?php else: ?><span class="badge bg-secondary">No QR</span><?php endif; ?>
                         </td>
                         <td class="text-end">
@@ -725,10 +719,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (toggleBtn && scrollBox) {
         toggleBtn.addEventListener('click', () => {
-            const expanded = scrollBox.classList.toggle('is-expanded');
-            toggleBtn.innerHTML = expanded
-                ? '<i class="bi bi-arrows-collapse me-1"></i>Compact'
-                : '<i class="bi bi-arrows-expand me-1"></i>Expand';
+            const isHidden = scrollBox.classList.toggle('d-none');
+            if (!isHidden) scrollBox.classList.add('is-expanded');
+            toggleBtn.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand me-1"></i>Expand'
+                : '<i class="bi bi-arrows-collapse me-1"></i>Compact';
+        });
+    }
+
+    const toggleAddItemsBtn = document.getElementById('toggleAddItemsBox');
+    const addItemsBody = document.getElementById('addItemsMappingBody');
+    if (toggleAddItemsBtn && addItemsBody) {
+        toggleAddItemsBtn.addEventListener('click', () => {
+            const isHidden = addItemsBody.classList.toggle('d-none');
+            toggleAddItemsBtn.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand me-1"></i>Expand'
+                : '<i class="bi bi-arrows-collapse me-1"></i>Compact';
         });
     }
 
@@ -775,7 +781,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="card border shadow-sm mb-4">
     <div class="card-header bg-white py-3 border-bottom">
         <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-gear-wide-connected me-2 text-primary"></i>Mapping Actions &amp; Workflows</h5>
-        <div class="small text-muted mt-1">Execute one of the three primary paths for this mapping entry.</div>
     </div>
     <div class="card-body p-4">
         <div class="row g-4 align-items-stretch">
@@ -787,9 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <h6 class="fw-bold text-success mb-0"><i class="bi bi-box-arrow-in-right me-1"></i>Option 1: Move to Purchase</h6>
                             <span class="badge bg-success-subtle text-success border border-success-subtle">Purchases</span>
                         </div>
-                        <p class="small text-muted mb-3">
-                            Moves this mapping entry directly into the Purchases module. If a purchase bill for this invoice already exists, items attach directly below it. The purchase person can then review and fill the HSN code and GST tax.
-                        </p>
+                       
                     </div>
                     <?php if ($bill['status'] === 'MOVED'): ?>
                         <div class="alert alert-success py-2 px-3 mb-0 text-center small fw-semibold">
@@ -814,9 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <h6 class="fw-bold text-info mb-0"><i class="bi bi-qr-code me-1"></i>Option 2: QR Generations</h6>
                             <span class="badge bg-info-subtle text-info border border-info-subtle">Labels &amp; Stock</span>
                         </div>
-                        <p class="small text-muted mb-3">
-                            Generates QR labels storing product category, price, design, and variant ID. View in popup box and click <strong>Add to Inventory</strong> to credit stock directly to your chosen warehouse/concern.
-                        </p>
+                      
                     </div>
                     <div class="d-flex flex-column gap-2">
                         <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" class="m-0 js-draft-confirm-form" data-confirm-title="Generate All Variant QRs" data-confirm-msg="Generate QR batches for all saved variants that do not already have QR codes?" data-confirm-btn="Generate QRs" data-confirm-class="btn-primary">
@@ -1229,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-header bg-dark text-white py-2 px-3">
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     <h6 class="modal-title mb-0 fw-bold" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
-                        <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($item['batch_code']) ?>
+                        <i class="bi bi-qr-code me-2"></i>QR Labels
                     </h6>
                     <span class="badge bg-primary"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                 </div>
@@ -1480,13 +1481,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 4. Fabric Roll Rows Dynamic Addition & AJAX Save
     const rollBody = document.getElementById('mappingRollRows');
-    const addRollOneBtn = document.getElementById('addMappingRollOne');
-    const addRollRowsBtn = document.getElementById('addMappingRollRows');
-    const rollRowsToAddInput = document.getElementById('mappingRollRowsToAdd');
     const defaultRollHsn = document.getElementById('defaultRollHsn');
     const defaultRollGst = document.getElementById('defaultRollGst');
 
-    if (rollBody && addRollOneBtn) {
+    if (rollBody) {
         let nextRollIndex = 1;
         const addRolls = function(count) {
             const hsnVal = defaultRollHsn ? defaultRollHsn.value : '5208';
@@ -1500,6 +1498,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML = `
                     <td><input class="form-control form-control-sm font-monospace" name="rolls[${nextRollIndex}][roll_code]" placeholder="ROLL-${String(nextRollIndex + 1).padStart(3, '0')}"></td>
                     <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][color]" placeholder="Navy Blue" required></td>
+                    <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][design_name]" placeholder="e.g. Solid, Printed..."></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50" required></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
@@ -1518,12 +1517,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 nextRollIndex++;
             }
         };
-
-        addRollOneBtn.addEventListener('click', function() { addRolls(1); });
-        addRollRowsBtn?.addEventListener('click', function() {
-            const n = parseInt(rollRowsToAddInput.value, 10) || 1;
-            addRolls(Math.max(1, Math.min(50, n)));
-        });
         rollBody.addEventListener('click', function(e) {
             const btn = e.target.closest('.remove-roll-row');
             if (!btn) return;
