@@ -1281,43 +1281,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <!-- QR Formation Config Builder -->
-                <div class="card border mb-3">
-                    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="fw-bold small text-dark"><i class="bi bi-sliders2 text-primary me-1"></i>QR Formation Config</span>
-                            <span class="badge bg-success-subtle text-success border d-none qr-config-saved-badge" style="font-size: 10px;">Saved &amp; Applied</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <select class="form-select form-select-sm qr-cfg-mode" style="width: auto; font-size: 12px;">
-                                <option value="CODE_ONLY">QR Payload: Code Only</option>
-                                <option value="STRUCTURED">QR Payload: Structured Formation</option>
-                            </select>
-                            <select class="form-select form-select-sm qr-cfg-sep" style="width: auto; font-size: 12px;">
-                                <option value=" | ">Separator: |</option>
-                                <option value=" - ">Separator: -</option>
-                                <option value="\n">Separator: New Line</option>
-                            </select>
-                            <button type="button" class="btn btn-sm btn-primary fw-semibold btn-save-qr-config" style="font-size: 12px;">
-                                <i class="bi bi-check2-circle me-1"></i>Save Config &amp; Generate
-                            </button>
-                        </div>
+                <!-- Active QR & Printer Config Bar -->
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-2 px-3 mb-3 bg-light border rounded-3">
+                    <div class="d-flex align-items-center gap-2 small">
+                        <i class="bi bi-sliders text-primary"></i>
+                        <span class="fw-bold text-dark">QR &amp; Label Config:</span>
+                        <span class="badge bg-primary-subtle text-primary border tsc-active-summary">Dual Roll 40mm × 25mm · QR Size 3</span>
+                        <span class="badge bg-success-subtle text-success border d-none qr-config-saved-badge">Saved &amp; Applied</span>
                     </div>
-                    <div class="card-body py-2 px-3 bg-light-subtle">
-                        <div class="d-flex flex-wrap gap-3 align-items-center small">
-                            <span class="text-muted fw-semibold" style="font-size: 11px;">Include Fields:</span>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="qr_code" checked> <span class="form-check-label">QR Code</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="vid" checked> <span class="form-check-label">Variant ID (VID)</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="product_name" checked> <span class="form-check-label">Product Name</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="category" checked> <span class="form-check-label">Category / Sub</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="attributes" checked> <span class="form-check-label">Attributes (Color/Size)</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="design"> <span class="form-check-label">Design / Pattern</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="mrp"> <span class="form-check-label">MRP</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="selling_price" checked> <span class="form-check-label">Selling Price</span></label>
-                            <label class="form-check form-check-inline mb-0"><input class="form-check-input qr-cfg-field" type="checkbox" value="hsn"> <span class="form-check-label">HSN</span></label>
-                        </div>
-                        <div class="mt-1 small text-muted font-monospace qr-cfg-preview" style="font-size: 11px;"></div>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold btn-open-tsc-config" data-bs-toggle="modal" data-bs-target="#modalTscPrinterConfig">
+                        <i class="bi bi-gear-fill me-1"></i>TSC TE244 QR &amp; Label Config
+                    </button>
                 </div>
 
                 <h6 class="fw-bold mb-2 small text-uppercase text-muted"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
@@ -1408,132 +1382,375 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 <?php endif; endforeach; endif; ?>
 
+<!-- TSC TE244 Printer & Dynamic Label Layout Settings Modal -->
+<div class="modal fade" id="modalTscPrinterConfig" tabindex="-1" aria-labelledby="modalTscPrinterConfigLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: min(96vw, 1180px);">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header py-2.5 px-3" style="background: #1f242d; color: #fff;">
+                <h6 class="modal-title mb-0 fw-bold d-flex align-items-center gap-2" id="modalTscPrinterConfigLabel">
+                    <i class="bi bi-sliders text-warning"></i>
+                    <span>TSC TE244 Printer &amp; Dynamic Label Layout Settings</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3 bg-light-subtle">
+                <div class="row g-3">
+                    <!-- Left Controls -->
+                    <div class="col-lg-5 d-flex flex-column gap-3">
+                        <!-- 1. Sticker Dimensions -->
+                        <div class="card border shadow-xs">
+                            <div class="card-body p-3">
+                                <div class="fw-bold small text-dark mb-2"><i class="bi bi-bounding-box text-primary me-1"></i>1. Sticker Dimensions</div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Sticker Width (mm)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscWidthMm" value="40" min="15" max="120">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Sticker Height (mm)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscHeightMm" value="25" min="15" max="120">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Roll Columns</label>
+                                        <select class="form-select form-select-sm tsc-cfg-input" id="tscColumns">
+                                            <option value="2" selected>2 Columns (Dual Roll)</option>
+                                            <option value="1">1 Column (Single Roll)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Row Gap (mm)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscGapMm" value="2" min="0" max="20">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small text-primary mb-1"><i class="bi bi-arrow-left-right me-1"></i>2nd Sticker (Right Column) X Shift (dots)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscCol2Shift" value="0" min="-200" max="200">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. QR Code Alignment (Left Column) -->
+                        <div class="card border shadow-xs">
+                            <div class="card-body p-3">
+                                <div class="fw-bold small text-dark mb-2"><i class="bi bi-qr-code text-success me-1"></i>2. QR Code Alignment (Left Column)</div>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label class="form-label small text-muted mb-1">QR X (dots)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscQrX" value="12" min="0" max="300">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small text-muted mb-1">QR Y (dots)</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscQrY" value="35" min="0" max="300">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small text-muted mb-1">QR Size</label>
+                                        <select class="form-select form-select-sm tsc-cfg-input" id="tscQrSize">
+                                            <option value="2">Size 2 (Small)</option>
+                                            <option value="3" selected>Size 3 (Medium)</option>
+                                            <option value="4">Size 4 (Large)</option>
+                                            <option value="5">Size 5 (XL)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Code Subtitle X</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscSubX" value="12" min="0" max="300">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Code Subtitle Y</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscSubY" value="125" min="0" max="300">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Text Positions (Right Column) -->
+                        <div class="card border shadow-xs">
+                            <div class="card-body p-3">
+                                <div class="fw-bold small text-dark mb-2"><i class="bi bi-fonts text-info me-1"></i>3. Text Positions (Right Column)</div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Right Text X Offset</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscTextX" value="115" min="0" max="400">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">TSPL Font Size</label>
+                                        <select class="form-select form-select-sm tsc-cfg-input" id="tscFontSize">
+                                            <option value="1">Font 1 (Tiny)</option>
+                                            <option value="2" selected>Font 2 (Standard)</option>
+                                            <option value="3">Font 3 (Medium)</option>
+                                            <option value="4">Font 4 (Large)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-muted mb-1">Title Y</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscTitleY" value="35" min="0" max="300">
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-muted mb-1">Variant Y</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscVarY" value="62" min="0" max="300">
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-muted mb-1">MRP Y</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscMrpY" value="90" min="0" max="300">
+                                    </div>
+                                    <div class="col-3">
+                                        <label class="form-label small text-muted mb-1">Disc Y</label>
+                                        <input type="number" class="form-control form-control-sm tsc-cfg-input" id="tscSpY" value="118" min="0" max="300">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Live Dual-Sticker Preview -->
+                    <div class="col-lg-7">
+                        <div class="card border h-100">
+                            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold small text-dark"><i class="bi bi-eye text-primary me-1"></i>Live Dual-Sticker Preview</span>
+                                <span class="badge bg-primary-subtle text-primary border" id="tscPreviewBadge">Dual Roll 40mm × 25mm</span>
+                            </div>
+                            <div class="card-body d-flex flex-column justify-content-center align-items-center" style="background: #e2e5ea; min-height: 360px;">
+                                <div class="bg-white rounded-3 shadow-sm p-3 d-flex justify-content-center align-items-center gap-3 flex-wrap" id="tscLivePreviewStage"></div>
+                                <div class="small text-muted mt-3" id="tscPreviewCaption">
+                                    <i class="bi bi-info-circle me-1"></i>Simulating physical 2-column TSC thermal sticker roll layout.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white py-2 px-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnTscTestPrint">
+                    <i class="bi bi-printer me-1"></i>Test Print 1 Sticker
+                </button>
+                <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnSaveTscConfig">
+                    <i class="bi bi-check-lg me-1"></i>Save Printer Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. QR Code Formation Config + Canvas Rendering on Modal Open
-    const QR_CFG_STORAGE_KEY = 'grm_qr_formation_config_v1';
-    function getSavedQrFormationConfig() {
-        const defaults = {
-            mode: 'CODE_ONLY',
-            sep: ' | ',
-            fields: ['qr_code', 'vid', 'product_name', 'category', 'attributes', 'selling_price']
+    // 1. TSC TE244 Printer & Dynamic Label Layout Config + Canvas Rendering
+    const TSC_CFG_STORAGE_KEY = 'grm_tsc_label_config_v1';
+    let lastActiveQrBatchModal = null;
+
+    function getDefaultTscConfig() {
+        return {
+            widthMm: 40,
+            heightMm: 25,
+            columns: 2,
+            gapMm: 2,
+            col2Shift: 0,
+            qrX: 12,
+            qrY: 35,
+            qrSize: 3,
+            subX: 12,
+            subY: 125,
+            textX: 115,
+            fontSize: 2,
+            titleY: 35,
+            varY: 62,
+            mrpY: 90,
+            spY: 118
         };
+    }
+
+    function getSavedTscConfig() {
+        const def = getDefaultTscConfig();
         try {
-            const raw = localStorage.getItem(QR_CFG_STORAGE_KEY);
-            if (!raw) return defaults;
-            const parsed = JSON.parse(raw);
-            return {
-                mode: parsed.mode || defaults.mode,
-                sep: parsed.sep !== undefined ? parsed.sep : defaults.sep,
-                fields: Array.isArray(parsed.fields) && parsed.fields.length ? parsed.fields : defaults.fields
-            };
+            const raw = localStorage.getItem(TSC_CFG_STORAGE_KEY);
+            if (!raw) return def;
+            return Object.assign({}, def, JSON.parse(raw));
         } catch (e) {
-            return defaults;
+            return def;
         }
     }
 
-    function buildQrFormationPayload(cardEl, cfg) {
-        if (cfg.mode !== 'STRUCTURED') {
-            return cardEl.dataset.qrCode || '';
-        }
-        const map = {
-            qr_code: cardEl.dataset.qrCode || '',
-            vid: cardEl.dataset.vid || '',
-            product_name: cardEl.dataset.productName || '',
-            category: cardEl.dataset.category || '',
-            attributes: cardEl.dataset.attributes || '',
-            design: cardEl.dataset.design || '',
-            mrp: cardEl.dataset.mrp ? ('MRP: ' + cardEl.dataset.mrp) : '',
-            selling_price: cardEl.dataset.sellingPrice ? ('SP: ' + cardEl.dataset.sellingPrice) : '',
-            hsn: cardEl.dataset.hsn ? ('HSN: ' + cardEl.dataset.hsn) : ''
+    function readTscConfigFromInputs() {
+        const num = (id, fb) => {
+            const v = parseFloat(document.getElementById(id)?.value);
+            return Number.isFinite(v) ? v : fb;
         };
-        const sep = cfg.sep === '\\n' ? '\n' : (cfg.sep || ' | ');
-        const parts = cfg.fields.map(f => map[f] || '').filter(Boolean);
-        return parts.length ? parts.join(sep) : (cardEl.dataset.qrCode || '');
+        const def = getDefaultTscConfig();
+        return {
+            widthMm: num('tscWidthMm', def.widthMm),
+            heightMm: num('tscHeightMm', def.heightMm),
+            columns: parseInt(document.getElementById('tscColumns')?.value || String(def.columns), 10) || 2,
+            gapMm: num('tscGapMm', def.gapMm),
+            col2Shift: num('tscCol2Shift', def.col2Shift),
+            qrX: num('tscQrX', def.qrX),
+            qrY: num('tscQrY', def.qrY),
+            qrSize: parseInt(document.getElementById('tscQrSize')?.value || String(def.qrSize), 10) || 3,
+            subX: num('tscSubX', def.subX),
+            subY: num('tscSubY', def.subY),
+            textX: num('tscTextX', def.textX),
+            fontSize: parseInt(document.getElementById('tscFontSize')?.value || String(def.fontSize), 10) || 2,
+            titleY: num('tscTitleY', def.titleY),
+            varY: num('tscVarY', def.varY),
+            mrpY: num('tscMrpY', def.mrpY),
+            spY: num('tscSpY', def.spY)
+        };
     }
 
-    function applyQrFormationConfigToModal(modalEl, forceRerender = false) {
+    function writeTscConfigToInputs(cfg) {
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        setVal('tscWidthMm', cfg.widthMm);
+        setVal('tscHeightMm', cfg.heightMm);
+        setVal('tscColumns', String(cfg.columns));
+        setVal('tscGapMm', cfg.gapMm);
+        setVal('tscCol2Shift', cfg.col2Shift);
+        setVal('tscQrX', cfg.qrX);
+        setVal('tscQrY', cfg.qrY);
+        setVal('tscQrSize', String(cfg.qrSize));
+        setVal('tscSubX', cfg.subX);
+        setVal('tscSubY', cfg.subY);
+        setVal('tscTextX', cfg.textX);
+        setVal('tscFontSize', String(cfg.fontSize));
+        setVal('tscTitleY', cfg.titleY);
+        setVal('tscVarY', cfg.varY);
+        setVal('tscMrpY', cfg.mrpY);
+        setVal('tscSpY', cfg.spY);
+    }
+
+    function renderTscLivePreview(cfg) {
+        const stage = document.getElementById('tscLivePreviewStage');
+        const badge = document.getElementById('tscPreviewBadge');
+        const caption = document.getElementById('tscPreviewCaption');
+        if (!stage) return;
+
+        const isDual = cfg.columns === 2;
+        if (badge) badge.textContent = `${isDual ? 'Dual Roll' : 'Single Roll'} ${cfg.widthMm}mm × ${cfg.heightMm}mm`;
+        if (caption) caption.innerHTML = `<i class="bi bi-info-circle me-1"></i>Simulating physical ${cfg.columns}-column TSC thermal sticker roll layout.`;
+
+        const sampleCards = lastActiveQrBatchModal ? lastActiveQrBatchModal.querySelectorAll('.qr-label-card') : [];
+        const card1 = sampleCards[0] || null;
+        const card2 = sampleCards[1] || card1;
+
+        const scale = 0.72; // dots to preview px
+        const stickerW = Math.max(160, Math.round(cfg.widthMm * 5.6));
+        const stickerH = Math.max(115, Math.round(cfg.heightMm * 5.6));
+        const qrPx = Math.max(32, Math.min(72, cfg.qrSize * 14));
+        const fontPx = Math.max(9, 7 + cfg.fontSize * 1.5);
+
+        const buildStickerHtml = (idx, cardData) => {
+            const title = (cardData?.dataset.productName || 'GRM WAREHOUSE').slice(0, 20);
+            const attrs = (cardData?.dataset.attributes || 'S-BLUE').slice(0, 20);
+            const mrp = cardData?.dataset.mrp || '₹1,000';
+            const sp = cardData?.dataset.sellingPrice || '₹500';
+            const code = cardData?.dataset.qrCode || `WMF9260${idx}`;
+            const shiftPx = idx === 2 ? Math.round(cfg.col2Shift * scale) : 0;
+            const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
+            const qrTop = Math.round(cfg.qrY * scale);
+            const subLeft = Math.round(cfg.subX * scale) + shiftPx;
+            const subTop = Math.round(cfg.subY * scale);
+            const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
+
+            return `
+                <div class="border rounded bg-white position-relative overflow-hidden shadow-xs" style="width:${stickerW}px;height:${stickerH}px;">
+                    <span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;">${idx === 1 ? 'Left Sticker #1' : 'Right Sticker #2'}</span>
+                    <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-preview-qr" data-code="${code.replace(/"/g, '&quot;')}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;font-size:9px;font-weight:700;"></div>
+                    <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9px;">${code}</div>
+                    <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${Math.max(60, stickerW - txtLeft - 6)}px;">${title}</div>
+                    <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${Math.max(60, stickerW - txtLeft - 6)}px;">${attrs}</div>
+                    <div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8, fontPx - 1)}px;">MRP: ${mrp}</div>
+                    <div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${sp}</div>
+                </div>
+            `;
+        };
+
+        stage.innerHTML = buildStickerHtml(1, card1) + (isDual ? buildStickerHtml(2, card2) : '');
+        stage.querySelectorAll('.tsc-preview-qr').forEach(el => {
+            el.innerHTML = '';
+            new QRCode(el, {
+                text: el.dataset.code || 'QR',
+                width: qrPx - 4,
+                height: qrPx - 4,
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        });
+    }
+
+    function applyTscConfigToModal(modalEl, forceRerender = false) {
         if (!modalEl) return;
-        const cfg = getSavedQrFormationConfig();
-        const modeSel = modalEl.querySelector('.qr-cfg-mode');
-        const sepSel = modalEl.querySelector('.qr-cfg-sep');
-        if (modeSel) modeSel.value = cfg.mode;
-        if (sepSel) sepSel.value = cfg.sep;
-        modalEl.querySelectorAll('.qr-cfg-field').forEach(cb => {
-            cb.checked = cfg.fields.includes(cb.value);
-        });
-
-        const has = (f) => cfg.fields.includes(f);
-        const cards = modalEl.querySelectorAll('.qr-label-card');
-        cards.forEach(card => {
-            card.querySelector('.qr-lbl-product')?.classList.toggle('d-none', !has('product_name'));
-            card.querySelector('.qr-lbl-vid')?.classList.toggle('d-none', !has('vid'));
-            card.querySelector('.qr-lbl-category')?.classList.toggle('d-none', !has('category') || !card.dataset.category);
-            card.querySelector('.qr-lbl-attrs')?.classList.toggle('d-none', !has('attributes') || !card.dataset.attributes);
-            card.querySelector('.qr-lbl-design')?.classList.toggle('d-none', !has('design') || !card.dataset.design);
-            card.querySelector('.qr-lbl-code')?.classList.toggle('d-none', !has('qr_code'));
-            card.querySelector('.qr-lbl-hsn')?.classList.toggle('d-none', !has('hsn') || !card.dataset.hsn);
-
-            const priceEl = card.querySelector('.qr-lbl-price');
-            if (priceEl) {
-                const priceParts = [];
-                if (has('mrp') && card.dataset.mrp) priceParts.push('MRP: ' + card.dataset.mrp);
-                if (has('selling_price') && card.dataset.sellingPrice) priceParts.push(card.dataset.sellingPrice);
-                priceEl.textContent = priceParts.join(' / ');
-                priceEl.classList.toggle('d-none', priceParts.length === 0);
-            }
-
-            const canvasEl = card.querySelector('.panel-qr-canvas');
-            if (canvasEl) {
-                const payload = buildQrFormationPayload(card, cfg);
-                if (forceRerender || canvasEl.dataset.rendered !== '1' || canvasEl.dataset.lastPayload !== payload) {
-                    canvasEl.innerHTML = '';
-                    new QRCode(canvasEl, {
-                        text: payload,
-                        width: 96,
-                        height: 96,
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-                    canvasEl.dataset.rendered = '1';
-                    canvasEl.dataset.lastPayload = payload;
-                }
-            }
-        });
-
-        const previewEl = modalEl.querySelector('.qr-cfg-preview');
-        if (previewEl && cards.length) {
-            previewEl.textContent = 'Sample QR Payload: ' + buildQrFormationPayload(cards[0], cfg).replace(/\n/g, ' ↵ ');
+        const cfg = getSavedTscConfig();
+        const summary = modalEl.querySelector('.tsc-active-summary');
+        if (summary) {
+            summary.textContent = `${cfg.columns === 2 ? 'Dual Roll' : 'Single Roll'} ${cfg.widthMm}mm × ${cfg.heightMm}mm · QR Size ${cfg.qrSize}`;
         }
+        const qrPx = Math.max(72, Math.min(120, cfg.qrSize * 28));
+        modalEl.querySelectorAll('.panel-qr-canvas').forEach(el => {
+            if (!forceRerender && el.dataset.rendered === '1') return;
+            el.innerHTML = '';
+            new QRCode(el, {
+                text: el.dataset.code || '',
+                width: qrPx,
+                height: qrPx,
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            el.dataset.rendered = '1';
+        });
     }
 
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
         modalEl.addEventListener('shown.bs.modal', function () {
-            applyQrFormationConfigToModal(modalEl, false);
+            lastActiveQrBatchModal = modalEl;
+            applyTscConfigToModal(modalEl, false);
         });
     });
 
-    document.addEventListener('click', function(e) {
-        const saveBtn = e.target.closest('.btn-save-qr-config');
-        if (!saveBtn) return;
-        const modalEl = saveBtn.closest('.modal');
-        if (!modalEl) return;
-        const fields = Array.from(modalEl.querySelectorAll('.qr-cfg-field:checked')).map(cb => cb.value);
-        if (!fields.length) fields.push('qr_code');
-        const cfg = {
-            mode: modalEl.querySelector('.qr-cfg-mode')?.value || 'CODE_ONLY',
-            sep: modalEl.querySelector('.qr-cfg-sep')?.value || ' | ',
-            fields: fields
-        };
+    const tscConfigModalEl = document.getElementById('modalTscPrinterConfig');
+    if (tscConfigModalEl) {
+        tscConfigModalEl.addEventListener('shown.bs.modal', function () {
+            const cfg = getSavedTscConfig();
+            writeTscConfigToInputs(cfg);
+            renderTscLivePreview(cfg);
+        });
+        tscConfigModalEl.addEventListener('input', function (e) {
+            if (e.target.classList.contains('tsc-cfg-input')) {
+                renderTscLivePreview(readTscConfigFromInputs());
+            }
+        });
+        tscConfigModalEl.addEventListener('change', function (e) {
+            if (e.target.classList.contains('tsc-cfg-input')) {
+                renderTscLivePreview(readTscConfigFromInputs());
+            }
+        });
+    }
+
+    document.getElementById('btnSaveTscConfig')?.addEventListener('click', function () {
+        const cfg = readTscConfigFromInputs();
         try {
-            localStorage.setItem(QR_CFG_STORAGE_KEY, JSON.stringify(cfg));
+            localStorage.setItem(TSC_CFG_STORAGE_KEY, JSON.stringify(cfg));
         } catch (err) {}
-        applyQrFormationConfigToModal(modalEl, true);
-        const badge = modalEl.querySelector('.qr-config-saved-badge');
-        if (badge) {
-            badge.classList.remove('d-none');
-            setTimeout(() => badge.classList.add('d-none'), 2200);
+        if (lastActiveQrBatchModal) {
+            applyTscConfigToModal(lastActiveQrBatchModal, true);
+            const badge = lastActiveQrBatchModal.querySelector('.qr-config-saved-badge');
+            if (badge) {
+                badge.classList.remove('d-none');
+                setTimeout(() => badge.classList.add('d-none'), 2500);
+            }
         }
+        bootstrap.Modal.getInstance(tscConfigModalEl)?.hide();
+    });
+
+    document.getElementById('btnTscTestPrint')?.addEventListener('click', function () {
+        const cfg = readTscConfigFromInputs();
+        const sampleCard = lastActiveQrBatchModal?.querySelector('.qr-label-card');
+        const qrImg = document.querySelector('#tscLivePreviewStage .tsc-preview-qr img, #tscLivePreviewStage .tsc-preview-qr canvas');
+        const qrSrc = qrImg ? (qrImg.src || (qrImg.toDataURL ? qrImg.toDataURL() : '')) : '';
+        const title = sampleCard?.dataset.productName || 'GRM WAREHOUSE';
+        const attrs = sampleCard?.dataset.attributes || 'S-BLUE';
+        const sp = sampleCard?.dataset.sellingPrice || '₹500';
+        const code = sampleCard?.dataset.qrCode || 'WMF92601';
+        const win = window.open('', '_blank', 'width=420,height=320');
+        if (!win) return;
+        win.document.write(`<!doctype html><html><head><title>Test Print</title><style>@page{size:${cfg.widthMm}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;padding:4px;display:flex;align-items:center;gap:8px;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;box-sizing:border-box}</style></head><body><div style="text-align:center">${qrSrc ? `<img src="${qrSrc}" style="width:48px;height:48px">` : ''}<div style="font-size:8px;font-family:monospace;font-weight:700">${code}</div></div><div style="font-size:9px;line-height:1.25"><div style="font-weight:700">${title}</div><div>${attrs}</div><div style="font-weight:700;color:#15803d">${sp}</div></div><script>window.onload=function(){window.print();}<\/script></body></html>`);
+        win.document.close();
     });
 
     // 2. Auto-open QR modal if 'open_qr' parameter is present in URL
