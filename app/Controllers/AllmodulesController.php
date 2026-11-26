@@ -4226,7 +4226,7 @@ class AllmodulesController {
         try {
             Database::execute(
                 "UPDATE third_party_mapping_items
-                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?
                  WHERE id = ?",
                 [
                     $color !== '' ? $color : null,
@@ -4242,28 +4242,30 @@ class AllmodulesController {
             );
 
             if (!empty($item['variant_id'])) {
-                Database::execute(
-                    "UPDATE product_variants
-                     SET color = ?, size = ?, purchase_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
-                     WHERE id = ?",
-                    [
-                        $color !== '' ? $color : null,
-                        $size !== '' ? $size : null,
-                        $unitPrice,
-                        $mrp,
-                        $sellingPrice,
-                        (int)$item['variant_id']
-                    ]
-                );
+                try {
+                    Database::execute(
+                        "UPDATE product_variants
+                         SET purchase_price = ?, mrp = ?, selling_price = ?
+                         WHERE id = ?",
+                        [
+                            $unitPrice,
+                            $mrp,
+                            $sellingPrice,
+                            (int)$item['variant_id']
+                        ]
+                    );
+                } catch (\Throwable $pvEx) {}
             }
 
             if (!empty($item['qr_generation_id'])) {
-                Database::execute(
-                    "UPDATE qr_generations
-                     SET quantity = ?, mrp = ?, selling_price = ?, updated_at = NOW()
-                     WHERE id = ? AND COALESCE(stock_added, 0) = 0",
-                    [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
-                );
+                try {
+                    Database::execute(
+                        "UPDATE qr_generations
+                         SET quantity = ?, mrp = ?, selling_price = ?
+                         WHERE id = ? AND COALESCE(stock_added, 0) = 0",
+                        [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
+                    );
+                } catch (\Throwable $qrEx) {}
             }
 
             Database::commit();

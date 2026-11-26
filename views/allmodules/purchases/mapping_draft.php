@@ -555,7 +555,12 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold mb-1">HSN Code</label>
-                        <input type="text" name="hsn_code" id="editVarHsn" class="form-control form-control-sm font-monospace">
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="hsn_code" id="editVarHsn" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN..." maxlength="20" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold mb-1">Quantity <span class="text-danger">*</span></label>
@@ -563,7 +568,13 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold mb-1">UOM</label>
-                        <input type="text" name="unit" id="editVarUnit" class="form-control form-control-sm text-uppercase" value="PCS">
+                        <select name="unit" id="editVarUnit" class="form-select form-select-sm">
+                            <option value="PCS">PCS</option>
+                            <option value="SET">SET</option>
+                            <option value="BOX">BOX</option>
+                            <option value="MTR">MTR</option>
+                            <option value="KGS">KGS</option>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-semibold mb-1">Purchase Rate <span class="text-danger">*</span></label>
