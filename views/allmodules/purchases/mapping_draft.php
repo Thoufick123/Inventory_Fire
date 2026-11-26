@@ -1928,6 +1928,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         el.innerHTML = '<span class="badge bg-success">Stocked</span>';
                     });
                 });
+                if (modalEl && typeof bootstrap !== 'undefined') {
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                }
                 showDraftModernAlert('Success: ' + (data.message || 'Stock added to inventory!'));
             } else {
                 btn.disabled = false;

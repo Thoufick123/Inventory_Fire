@@ -4870,9 +4870,10 @@ class AllmodulesController {
                 $result = QrGenerationService::addToStock($gid, $userId, $warehouseId > 0 ? $warehouseId : null);
                 Database::execute("UPDATE qr_generations SET stock_added = 1 WHERE id = ?", [$gid]);
                 $totalAddedQty += (float)($result['quantity'] ?? 0);
-                if (!empty($result['batch_code'])) {
-                    $batchCodes[] = $result['batch_code'];
-                }
+                $batchCode = !empty($result['batch_code'])
+                    ? $result['batch_code']
+                    : (!empty($existingGen['batch_code']) ? $existingGen['batch_code'] : ('QR-' . $gid));
+                $batchCodes[] = $batchCode;
             }
 
             if (empty($batchCodes)) {

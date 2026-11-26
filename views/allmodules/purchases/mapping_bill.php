@@ -1901,6 +1901,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (statusEl) {
                     statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>';
                 }
+                const billModalEl = btn.closest('.modal');
+                if (billModalEl && typeof bootstrap !== 'undefined') {
+                    bootstrap.Modal.getInstance(billModalEl)?.hide();
+                }
                 showModernAlert('Success: ' + (data.message || 'Stock added to inventory!'));
             } else {
                 btn.disabled = false;
