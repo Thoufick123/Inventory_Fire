@@ -512,6 +512,10 @@ class Router {
         $this->post('allmodules/stitching/store', 'AllmodulesController', 'storeStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
         $this->get('allmodules/stitching/edit/{id}', 'AllmodulesController', 'editStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
         $this->post('allmodules/stitching/update/{id}', 'AllmodulesController', 'updateStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
+        $this->get('allmodules/stitching/qr/{id}', 'AllmodulesController', 'stitchingQrForm', ['AuthMiddleware', ['PermissionMiddleware', [['stitching', 'create'], ['stitching', 'edit']]]]);
+        $this->post('allmodules/stitching/qr/{id}/generate', 'AllmodulesController', 'generateStitchingQr', ['AuthMiddleware', ['PermissionMiddleware', [['stitching', 'create'], ['stitching', 'edit']]]]);
+        $this->get('allmodules/stitching/labels/{id}', 'AllmodulesController', 'printStitchingLabels', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
+        $this->post('allmodules/stitching/labels/{id}/mark-printed', 'AllmodulesController', 'markStitchingLabelsPrinted', ['AuthMiddleware', ['PermissionMiddleware', [['stitching', 'view'], ['stitching', 'create'], ['stitching', 'edit']]]]);
         $this->post('allmodules/stitching/delete/{id}', 'AllmodulesController', 'deleteStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'delete']]);
 
         // Stitching Wastage Selling

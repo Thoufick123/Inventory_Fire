@@ -76,14 +76,59 @@ input[type=number] {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label required fw-semibold">Status</label>
-                            <select name="status" class="form-select" required>
+                            <select name="status" id="stitchingStatusSelect" class="form-select" required onchange="toggleStitchingQrSetup()">
                                 <option value="PENDING" <?= $batch['status'] === 'PENDING' ? 'selected' : '' ?>>Pending</option>
                                 <option value="IN_PROGRESS" <?= $batch['status'] === 'IN_PROGRESS' ? 'selected' : '' ?>>In Progress</option>
                                 <option value="COMPLETED" <?= $batch['status'] === 'COMPLETED' ? 'selected' : '' ?>>Completed</option>
                             </select>
-                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status advances batch to QR Code Generations.</div>
+                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status generates Piece QR Codes &amp; Garment Labels.</div>
                         </div>
                     </div>
+
+                    <?php if (!empty($batch['qr_generation_id'])): ?>
+                        <div class="p-3 rounded-3 border border-success-subtle bg-success-subtle bg-opacity-10 mb-3">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div>
+                                    <div class="small fw-bold text-success"><i class="bi bi-qr-code me-1"></i>QR Batch Generated</div>
+                                    <div class="font-monospace small fw-semibold text-dark"><?= e($batch['qr_batch_code'] ?? ('QR #' . $batch['qr_generation_id'])) ?></div>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="<?= url('production/stitching/labels/' . (int)$batch['id']) ?>" class="btn btn-sm btn-dark">
+                                        <i class="bi bi-printer me-1"></i>QR Labels
+                                    </a>
+                                    <a href="<?= !empty($batch['qc_batch_id']) ? url('production/qc/inspect/' . (int)$batch['qc_batch_id']) : url('production/qc/create?qr_generation_id=' . (int)$batch['qr_generation_id'] . '&stitching_batch_id=' . (int)$batch['id']) ?>" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-patch-check me-1"></i>QC
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div id="stitchingQrSetupBox" class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 mb-3" style="<?= $batch['status'] === 'COMPLETED' ? '' : 'display: none;' ?>">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold small text-primary">
+                                    <i class="bi bi-qr-code-scan me-1"></i>QR Code &amp; Label Flow
+                                </span>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="auto_generate_qr" id="autoGenerateQrSwitch" value="1" checked onchange="toggleAutoQrFields()">
+                                    <label class="form-check-label small fw-semibold" for="autoGenerateQrSwitch">Auto-generate on Save</label>
+                                </div>
+                            </div>
+                            <div id="autoQrFieldsWrap" class="row g-2">
+                                <?php
+                                    $editConcern = function_exists('concernById') ? concernById((int)($batch['concern_id'] ?? 1)) : null;
+                                    $editDefaultBrand = trim((string)($editConcern['name'] ?? '')) ?: 'GRM APPARELS';
+                                ?>
+                                <div class="col-12">
+                                    <label class="form-label small fw-semibold mb-1">Label Brand Name</label>
+                                    <input type="text" name="qr_brand_name" class="form-control form-control-sm" value="<?= e($editDefaultBrand) ?>" placeholder="e.g. GRM APPARELS">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-semibold mb-1">QR Prefix <span class="text-muted fw-normal">(Optional — auto Variant ID)</span></label>
+                                    <input type="text" name="qr_prefix" class="form-control form-control-sm font-monospace" placeholder="Leave blank for Variant ID (e.g. V0001)">
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- Program & Cutting Details -->
                     <div class="mb-3 p-3 bg-light rounded border">
@@ -306,13 +351,13 @@ input[type=number] {
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="min-width: 200px;">Catalog &amp; Variant Attribute</th>
-                                    <th style="width: 100px;" class="text-center text-primary"><i class="bi bi-scissors me-1"></i>Cut Qty</th>
-                                    <th style="width: 120px;" class="text-center">Stitching Qty (pcs) <span class="text-danger">*</span></th>
-                                    <th style="width: 120px;" class="text-center">Per Pc Wt (kg) <span class="text-danger">*</span></th>
-                                    <th style="width: 120px;" class="text-center">Total Wt (kg) <span class="text-danger">*</span></th>
-                                    <th style="width: 120px;" class="text-center">Base Price (₹) <span class="text-danger">*</span></th>
-                                    <th style="width: 120px;" class="text-center">Discount Price (₹) <span class="text-danger">*</span></th>
+                                    <th style="min-width: 170px;">Catalog &amp; Variant Attribute</th>
+                                    <th style="width: 82px;" class="text-center text-primary"><i class="bi bi-scissors me-1"></i>Cut Qty</th>
+                                    <th style="width: 96px;" class="text-center">Stitching Qty <span class="text-danger">*</span></th>
+                                    <th style="width: 96px;" class="text-center">Per Pc Wt <span class="text-danger">*</span></th>
+                                    <th style="width: 96px;" class="text-center">Total Wt <span class="text-danger">*</span></th>
+                                    <th style="width: 96px;" class="text-center">Base ₹ <span class="text-danger">*</span></th>
+                                    <th style="width: 96px;" class="text-center">Disc ₹ <span class="text-danger">*</span></th>
                                 </tr>
                             </thead>
                             <tbody id="variantsTableBody">
@@ -358,7 +403,7 @@ input[type=number] {
                                             <div class="d-flex align-items-center gap-1 flex-wrap">
                                                 <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 fw-bold"><?= e($size) ?></span>
                                                 <span class="badge bg-dark-subtle text-dark border px-2 py-1"><?= e($color) ?></span>
-                                                <small class="text-muted ms-1"><code><?= e($it['sku'] ?: ($size . '-' . $color)) ?></code></small>
+                                                <small class="text-muted ms-1"><code><?= e(!empty($it['sku']) ? $it['sku'] : (!empty($it['variant_code']) ? $it['variant_code'] : ($size . '-' . $color))) ?></code></small>
                                             </div>
                                         </td>
                                         <td class="text-center">
@@ -1075,6 +1120,20 @@ function saveNewTailor() {
             alertBox.classList.remove('d-none');
         }
     });
+}
+
+function toggleStitchingQrSetup() {
+    const statusSel = document.getElementById('stitchingStatusSelect');
+    const box = document.getElementById('stitchingQrSetupBox');
+    if (!statusSel || !box) return;
+    box.style.display = statusSel.value === 'COMPLETED' ? 'block' : 'none';
+}
+
+function toggleAutoQrFields() {
+    const sw = document.getElementById('autoGenerateQrSwitch');
+    const wrap = document.getElementById('autoQrFieldsWrap');
+    if (!sw || !wrap) return;
+    wrap.style.display = sw.checked ? '' : 'none';
 }
 </script>
 

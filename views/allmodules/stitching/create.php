@@ -79,12 +79,38 @@ input[type=number] {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label required fw-semibold">Status</label>
-                            <select name="status" class="form-select" required>
+                            <select name="status" id="stitchingStatusSelect" class="form-select" required onchange="toggleStitchingQrSetup()">
                                 <option value="IN_PROGRESS" selected>In Progress</option>
                                 <option value="PENDING">Pending</option>
                                 <option value="COMPLETED">Completed</option>
                             </select>
-                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status advances batch to QR Code Generations.</div>
+                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Completed status generates Piece QR Codes &amp; Garment Labels.</div>
+                        </div>
+                    </div>
+
+                    <!-- Inline QR Generation Setup (shown when Status = COMPLETED) -->
+                    <div id="stitchingQrSetupBox" class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 mb-3" style="display: none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-primary">
+                                <i class="bi bi-qr-code-scan me-1"></i>QR Code &amp; Label Flow
+                            </span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="auto_generate_qr" id="autoGenerateQrSwitch" value="1" checked onchange="toggleAutoQrFields()">
+                                <label class="form-check-label small fw-semibold" for="autoGenerateQrSwitch">Auto-generate on Save</label>
+                            </div>
+                        </div>
+                        <div id="autoQrFieldsWrap" class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">Label Brand Name</label>
+                                <input type="text" name="qr_brand_name" id="qrBrandNameInput" class="form-control form-control-sm" value="<?= e(function_exists('currentConcern') && currentConcern() ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS') ?>" placeholder="e.g. GRM APPARELS">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">QR Prefix <span class="text-muted fw-normal">(Optional — auto Variant ID)</span></label>
+                                <input type="text" name="qr_prefix" class="form-control form-control-sm font-monospace" placeholder="Leave blank for Variant ID (e.g. V0001)">
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-printer me-1"></i>After saving, you will proceed directly to QR code &amp; garment label printing.
                         </div>
                     </div>
 
@@ -1439,6 +1465,50 @@ function saveNewTailor() {
         }
     });
 }
+
+function toggleStitchingQrSetup() {
+    const statusSel = document.getElementById('stitchingStatusSelect');
+    const box = document.getElementById('stitchingQrSetupBox');
+    const concernSel = document.getElementById('adminTargetConcernSelect');
+    const brandInp = document.getElementById('qrBrandNameInput');
+    if (!statusSel || !box) return;
+
+    const isCompleted = statusSel.value === 'COMPLETED';
+    box.style.display = isCompleted ? 'block' : 'none';
+
+    if (isCompleted && concernSel && brandInp && (!brandInp.dataset.userEdited)) {
+        const opt = concernSel.options[concernSel.selectedIndex];
+        if (opt && opt.text) {
+            brandInp.value = opt.text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        }
+    }
+}
+
+function toggleAutoQrFields() {
+    const sw = document.getElementById('autoGenerateQrSwitch');
+    const wrap = document.getElementById('autoQrFieldsWrap');
+    if (!sw || !wrap) return;
+    wrap.style.display = sw.checked ? '' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const brandInp = document.getElementById('qrBrandNameInput');
+    if (brandInp) {
+        brandInp.addEventListener('input', () => { brandInp.dataset.userEdited = '1'; });
+    }
+    const concernSel = document.getElementById('adminTargetConcernSelect');
+    if (concernSel) {
+        concernSel.addEventListener('change', () => {
+            if (brandInp && !brandInp.dataset.userEdited) {
+                const opt = concernSel.options[concernSel.selectedIndex];
+                if (opt && opt.text) {
+                    brandInp.value = opt.text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+                }
+            }
+        });
+    }
+    toggleStitchingQrSetup();
+});
 </script>
 
 <!-- Modal: Add Tailor / Stitching Master -->

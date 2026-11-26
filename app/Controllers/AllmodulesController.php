@@ -15565,6 +15565,9 @@ class AllmodulesController {
     // =========================================================================
 
     public function stitchingList(): void {
+        if (class_exists('QrGenerationService')) {
+            QrGenerationService::ensureSourceSchema();
+        }
         $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
         $filters = [
             'status'             => $_GET['status'] ?? '',
@@ -15882,8 +15885,26 @@ class AllmodulesController {
             ], $items, $userId);
 
             if (strtoupper($status) === 'COMPLETED') {
-                Session::flash('success', "Stitching Batch '{$name}' created with status COMPLETED! Proceed to generate QR codes for finished garments.");
-                Response::redirect(url('production/qr-generations/create?tab=production_product&stitching_batch_id=' . $batchId));
+                $autoGenerateQr = !empty($_POST['auto_generate_qr']);
+                if ($autoGenerateQr && class_exists('QrGenerationService')) {
+                    try {
+                        $qrRes = QrGenerationService::generateStitchingBatch([
+                            'stitching_batch_id' => $batchId,
+                            'brand_name'         => trim($_POST['qr_brand_name'] ?? ''),
+                            'qr_prefix'          => trim($_POST['qr_prefix'] ?? ''),
+                            'notes'              => $notes,
+                        ]);
+                        Session::flash('success', "Stitching Batch '{$name}' created and Piece QR Codes ({$qrRes['batch_code']} · {$qrRes['quantity']} pcs) generated! Print garment labels below.");
+                        Response::redirect(url('production/stitching/labels/' . $batchId));
+                        return;
+                    } catch (\Throwable $qrEx) {
+                        Session::flash('warning', "Stitching Batch '{$name}' saved as COMPLETED, but auto QR generation needs review: " . $qrEx->getMessage());
+                        Response::redirect(url('production/stitching/qr/' . $batchId));
+                        return;
+                    }
+                }
+                Session::flash('success', "Stitching Batch '{$name}' created with status COMPLETED! Generate QR codes and garment labels below.");
+                Response::redirect(url('production/stitching/qr/' . $batchId));
                 return;
             }
 
@@ -16125,8 +16146,32 @@ class AllmodulesController {
             ProductionService::updateStitchingBatch((int)$id, $batchData, $items);
 
             if (strtoupper($status) === 'COMPLETED') {
-                Session::flash('success', "Stitching Batch updated to COMPLETED! Proceed to generate QR codes for finished garments.");
-                Response::redirect(url('production/qr-generations/create?tab=production_product&stitching_batch_id=' . $id));
+                $stitchingIdInt = (int)$id;
+                if (!empty($existingBatch['qr_generation_id'])) {
+                    Session::flash('success', "Stitching Batch updated! Opening generated QR labels.");
+                    Response::redirect(url('production/stitching/labels/' . $stitchingIdInt));
+                    return;
+                }
+                $autoGenerateQr = !empty($_POST['auto_generate_qr']);
+                if ($autoGenerateQr && class_exists('QrGenerationService')) {
+                    try {
+                        $qrRes = QrGenerationService::generateStitchingBatch([
+                            'stitching_batch_id' => $stitchingIdInt,
+                            'brand_name'         => trim($_POST['qr_brand_name'] ?? ''),
+                            'qr_prefix'          => trim($_POST['qr_prefix'] ?? ''),
+                            'notes'              => $notes,
+                        ]);
+                        Session::flash('success', "Stitching Batch updated to COMPLETED and Piece QR Codes ({$qrRes['batch_code']} · {$qrRes['quantity']} pcs) generated! Print garment labels below.");
+                        Response::redirect(url('production/stitching/labels/' . $stitchingIdInt));
+                        return;
+                    } catch (\Throwable $qrEx) {
+                        Session::flash('warning', "Stitching Batch updated to COMPLETED, but auto QR generation needs review: " . $qrEx->getMessage());
+                        Response::redirect(url('production/stitching/qr/' . $stitchingIdInt));
+                        return;
+                    }
+                }
+                Session::flash('success', "Stitching Batch updated to COMPLETED! Generate QR codes and garment labels below.");
+                Response::redirect(url('production/stitching/qr/' . $stitchingIdInt));
                 return;
             }
 
@@ -16161,6 +16206,163 @@ class AllmodulesController {
         }
 
         Response::redirect(url('production/stitching'));
+    }
+
+    /**
+     * Step 2 of Stitching Flow: Generate Piece QR Codes for a Completed Stitching Batch.
+     */
+    public function stitchingQrForm(string $id): void {
+        if (class_exists('QrGenerationService')) {
+            QrGenerationService::ensureSourceSchema();
+        }
+        $batchId = (int)$id;
+        $batch = StitchingBatch::find($batchId);
+        if (!$batch) {
+            Response::error(404, 'Stitching batch not found.');
+            return;
+        }
+
+        if (!empty($batch['qr_generation_id'])) {
+            Response::redirect(url('production/stitching/labels/' . $batchId));
+            return;
+        }
+
+        $items = StitchingBatch::getItems($batchId);
+        $cid = !empty($batch['concern_id']) ? (int)$batch['concern_id'] : (function_exists('currentConcernId') ? (currentConcernId() ?: 1) : 1);
+        $concern = function_exists('concernById') ? concernById($cid) : null;
+        $defaultBrand = trim((string)($concern['name'] ?? '')) ?: 'GRM APPARELS';
+
+        Response::view('allmodules.stitching.qr_generate', [
+            'pageTitle'    => 'Generate QR Codes — ' . ($batch['batch_number'] ?: ('#' . $batchId)),
+            'activeModule' => 'production',
+            'activeMenu'   => 'stitching',
+            'batch'        => $batch,
+            'items'        => $items,
+            'concern'      => $concern,
+            'defaultBrand' => $defaultBrand,
+            'breadcrumb'   => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Stitching', 'url' => url('production/stitching')],
+                ['label' => $batch['batch_number'] ?: ('#' . $batchId), 'url' => url('production/stitching/view/' . $batchId)],
+                ['label' => 'QR Generation'],
+            ],
+        ]);
+    }
+
+    /**
+     * POST: Execute piece-level QR code generation inside Stitching and advance to Labels.
+     */
+    public function generateStitchingQr(string $id): void {
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::back();
+            return;
+        }
+
+        $batchId = (int)$id;
+        $batch = StitchingBatch::find($batchId);
+        if (!$batch) {
+            Response::error(404, 'Stitching batch not found.');
+            return;
+        }
+
+        if (!empty($batch['qr_generation_id'])) {
+            Session::flash('info', 'QR codes have already been generated for this stitching batch.');
+            Response::redirect(url('production/stitching/labels/' . $batchId));
+            return;
+        }
+
+        try {
+            $res = QrGenerationService::generateStitchingBatch([
+                'stitching_batch_id' => $batchId,
+                'brand_name'         => trim($_POST['brand_name'] ?? ''),
+                'qr_prefix'          => trim($_POST['qr_prefix'] ?? ''),
+                'notes'              => trim($_POST['notes'] ?? ''),
+            ]);
+            Session::flash('success', "Generated {$res['quantity']} Piece QR Codes ({$res['batch_code']})! Print your garment labels below.");
+            Response::redirect(url('production/stitching/labels/' . $batchId));
+        } catch (\Throwable $e) {
+            Session::flash('error', 'Failed to generate QR codes: ' . $e->getMessage());
+            Response::redirect(url('production/stitching/qr/' . $batchId));
+        }
+    }
+
+    /**
+     * Step 3 of Stitching Flow: Display & Print Generated Garment QR Labels, then hand off to QC.
+     */
+    public function printStitchingLabels(string $id): void {
+        if (class_exists('QrGenerationService')) {
+            QrGenerationService::ensureSourceSchema();
+        }
+        $batchId = (int)$id;
+        $batch = StitchingBatch::find($batchId);
+        if (!$batch) {
+            Response::error(404, 'Stitching batch not found.');
+            return;
+        }
+
+        if (empty($batch['qr_generation_id'])) {
+            Session::flash('info', 'Please generate QR codes for this stitching batch first.');
+            Response::redirect(url('production/stitching/qr/' . $batchId));
+            return;
+        }
+
+        $gen = QrGenerationService::getBatch((int)$batch['qr_generation_id']);
+        if (!$gen) {
+            Session::flash('error', 'Linked QR generation batch record could not be found.');
+            Response::redirect(url('production/stitching/qr/' . $batchId));
+            return;
+        }
+
+        $cid = !empty($batch['concern_id']) ? (int)$batch['concern_id'] : (!empty($gen['concern_id']) ? (int)$gen['concern_id'] : 1);
+        $concern = function_exists('concernById') ? concernById($cid) : null;
+
+        Response::view('allmodules.stitching.labels', [
+            'pageTitle'  => 'QR Labels — ' . ($batch['batch_number'] ?: ('#' . $batchId)),
+            'activeModule' => 'production',
+            'activeMenu' => 'stitching',
+            'batch'      => $batch,
+            'gen'        => $gen,
+            'concern'    => $concern,
+            'breadcrumb' => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Stitching', 'url' => url('production/stitching')],
+                ['label' => $batch['batch_number'] ?: ('#' . $batchId), 'url' => url('production/stitching/view/' . $batchId)],
+                ['label' => 'QR Labels (' . ($gen['batch_code'] ?? '') . ')'],
+            ],
+        ]);
+    }
+
+    /**
+     * AJAX POST: Mark Stitching QR Labels as printed and increment print counter.
+     */
+    public function markStitchingLabelsPrinted(string $id): void {
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 419);
+            return;
+        }
+        if (class_exists('QrGenerationService')) {
+            QrGenerationService::ensureSourceSchema();
+        }
+        $batchId = (int)$id;
+        $batch = StitchingBatch::find($batchId);
+        if (!$batch || empty($batch['qr_generation_id'])) {
+            Response::json(['success' => false, 'message' => 'Generated QR batch not found for stitching batch.'], 404);
+            return;
+        }
+
+        $genId = (int)$batch['qr_generation_id'];
+        Database::execute(
+            "UPDATE qr_generations SET labels_printed_at = COALESCE(labels_printed_at, NOW()), labels_print_count = COALESCE(labels_print_count, 0) + 1 WHERE id = ?",
+            [$genId]
+        );
+        $updated = Database::fetchOne("SELECT labels_printed_at, labels_print_count FROM qr_generations WHERE id = ?", [$genId]);
+
+        Response::json([
+            'success'            => true,
+            'labels_printed_at'  => $updated['labels_printed_at'] ?? null,
+            'labels_print_count' => (int)($updated['labels_print_count'] ?? 1),
+        ]);
     }
 
     public function deleteProductionInventoryPiece(): void {
@@ -24092,6 +24294,9 @@ class AllmodulesController {
     }
 
     public function viewStitchingBatch(string $id): void {
+        if (class_exists('QrGenerationService')) {
+            QrGenerationService::ensureSourceSchema();
+        }
         $stitchingId = (int)$id;
 
         // Auto-sync QC inspection defect counts to this stitching batch if QC was saved/updated
@@ -24138,6 +24343,9 @@ class AllmodulesController {
                 'Product'          => $batch['product_name'] ?? '—',
                 'Worker'           => $batch['worker_name'] ?? '—',
                 'Status'           => $batch['status'] ?? '—',
+                'QR Batch'         => !empty($batch['qr_batch_code'])
+                    ? ($batch['qr_batch_code'] . (!empty($batch['labels_printed_at']) ? ' (Labels Printed ' . (int)($batch['labels_print_count'] ?? 1) . 'x)' : ' (Labels Pending Print)'))
+                    : 'Not Generated',
                 'Received Quantity'=> number_format((int)($batch['received_qty'] ?? 0)),
                 'Stitched Quantity'=> number_format((int)($batch['stitched_qty'] ?? 0)),
                 'Rejected Quantity'=> number_format((int)($batch['rejected_qty'] ?? 0)),
