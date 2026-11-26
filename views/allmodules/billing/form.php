@@ -31,12 +31,28 @@ $concernBrand = function_exists('getConcernBranding')
     ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit ?? null) 
     : [];
 $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
+$defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
+$defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
+$defaultStaffRole = '';
+foreach ($staffUsers ?? [] as $st) {
+    if ((int)$st['id'] === $defaultStaffId) {
+        $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
+        $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
+        break;
+    }
+}
+$defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
 ?>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <img id="productionUnitLogo" src="<?= $escape($activeLogo) ?>" alt="<?= $escape($concernBrand['name'] ?? ($prodUnit['name'] ?? 'Production unit')) ?> logo" class="mb-2 <?= empty($activeLogo) ? 'd-none' : '' ?>" style="max-width:180px;max-height:64px;object-fit:contain;">
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
-        <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
+        <div class="text-muted small">
+            Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.
+            <?php if ($defaultStaffDisplay !== ''): ?>
+                <span class="ms-2">&bull; Billed by: <strong class="text-dark"><?= $escape($defaultStaffDisplay) ?></strong></span>
+            <?php endif; ?>
+        </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <label class="d-flex align-items-center gap-2 px-3 py-2 bg-white border rounded-3 shadow-xs mb-0" style="cursor: pointer;" for="isDirectBill" title="Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.">
@@ -52,34 +68,12 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
     <input type="hidden" name="production_unit_id" id="productionUnitSelect" value="<?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) ?>">
+    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
+    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
     <?php if (empty($isEdit)) { $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); } ?>
     <div class="row g-3">
-        <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
+        <!-- LEFT COLUMN: Buyer, Customer & Invoice Settings -->
         <div class="col-xl-4">
-            <!-- 1. Billed By Staff (Cashier / Salesperson) -->
-            <?php
-            $defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
-            $defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
-            $defaultStaffRole = '';
-            foreach ($staffUsers ?? [] as $st) {
-                if ((int)$st['id'] === $defaultStaffId) {
-                    $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
-                    $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
-                    break;
-                }
-            }
-            $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
-            ?>
-            <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-primary">
-                <div class="card-body p-3">
-                    <label class="form-label fw-bold text-dark mb-1">
-                        <i class="bi bi-person-badge-fill text-primary me-1"></i>Billed by (Staff / Cashier) <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" class="form-control fw-semibold bg-light" value="<?= $escape($defaultStaffDisplay) ?>" readonly>
-                    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
-                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
-                </div>
-            </div>
 
             <!-- 2. Buyer Type Selection -->
             <div class="card border-0 shadow-sm rounded-3 mb-3">
@@ -172,6 +166,32 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     <span class="badge bg-primary-subtle text-primary border">B2B Order Mode</span>
                 </div>
                 <div class="card-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark" for="destinationConcernSelect">
+                            <i class="bi bi-diagram-3 me-1 text-primary"></i>Send To Concern
+                        </label>
+                        <select class="form-select fw-semibold" name="destination_concern_id" id="destinationConcernSelect" onchange="onDestinationConcernChange(this)">
+                            <option value="">-- Custom / External Company --</option>
+                            <?php
+                            $currentCid = (int)($activeConcern['id'] ?? 0);
+                            $savedDestCid = (int)($bill['destination_concern_id'] ?? 0);
+                            foreach ($targetConcerns ?? [] as $tc):
+                                if ($currentCid > 0 && (int)$tc['id'] === $currentCid) continue;
+                                $tcLegal = !empty($tc['legal_name']) ? $tc['legal_name'] : $tc['name'];
+                            ?>
+                                <option value="<?= (int)$tc['id'] ?>"
+                                    <?= $savedDestCid === (int)$tc['id'] ? 'selected' : '' ?>
+                                    data-name="<?= $escape($tcLegal) ?>"
+                                    data-address="<?= $escape($tc['address'] ?? '') ?>"
+                                    data-phone="<?= $escape($tc['phone'] ?? '') ?>"
+                                    data-email="<?= $escape($tc['email'] ?? '') ?>"
+                                    data-gstin="<?= $escape($tc['gst_number'] ?? '') ?>">
+                                    <?= $escape($tc['name']) ?><?= !empty($tc['code']) ? ' (' . $escape($tc['code']) . ')' : '' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text small text-muted">Select which concern to send this B2B outward to, or enter a custom company below.</div>
+                    </div>
                     <div class="mb-3"><label class="form-label">Company name <span class="text-danger">*</span></label><input class="form-control fw-semibold" name="company_name" id="companyNameInput" data-required-for="COMPANY" value="<?= $escape($bill['company_name'] ?? '') ?>" placeholder="Company Legal Name"></div>
                     <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address" id="companyAddressInput" rows="2"><?= $escape($bill['company_address'] ?? '') ?></textarea></div>
                     <div class="row g-2">
@@ -607,6 +627,23 @@ function updateStaffName(sel) {
     const opt = sel.options[sel.selectedIndex];
     const name = opt ? opt.getAttribute('data-name') : '';
     document.getElementById('staffNameInput').value = name || '';
+}
+
+function onDestinationConcernChange(sel) {
+    const opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
+    if (!opt || !opt.value) {
+        return;
+    }
+    const nameEl = document.getElementById('companyNameInput');
+    const addrEl = document.getElementById('companyAddressInput');
+    const phoneEl = document.getElementById('companyPhoneInput');
+    const emailEl = document.getElementById('companyEmailInput');
+    const gstEl = document.getElementById('companyGstinInput');
+    if (nameEl) nameEl.value = opt.dataset.name || '';
+    if (addrEl) addrEl.value = opt.dataset.address || '';
+    if (phoneEl) phoneEl.value = opt.dataset.phone || '';
+    if (emailEl) emailEl.value = opt.dataset.email || '';
+    if (gstEl) gstEl.value = opt.dataset.gstin || '';
 }
 
 function onBuyerTypeChange(type) {

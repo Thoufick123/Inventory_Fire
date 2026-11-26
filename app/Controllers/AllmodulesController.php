@@ -17891,6 +17891,7 @@ class AllmodulesController {
 
     public function outwardList(): void {
         Database::ensureColumn('production_outwards', 'production_bill_id', 'INT NULL DEFAULT NULL');
+        Database::ensureColumn('production_bills', 'destination_concern_id', 'INT NULL DEFAULT NULL');
         $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
         $search = $_GET['search'] ?? '';
         $cid = currentConcernId();
@@ -17915,7 +17916,7 @@ class AllmodulesController {
         $billWhereSql = "WHERE " . implode(" AND ", $billWhere);
 
         $pendingOutwardBills = Database::fetchAll(
-            "SELECT pb.id, pb.bill_number, pb.bill_date, pb.company_name, pb.company_phone, pb.total_amount, pb.payment_status, pb.concern_id,
+            "SELECT pb.id, pb.bill_number, pb.bill_date, pb.company_name, pb.company_phone, pb.total_amount, pb.payment_status, pb.concern_id, pb.destination_concern_id,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     COALESCE(SUM(pbi.quantity), 0) AS total_qty,
                     COUNT(pbi.id) AS line_count,

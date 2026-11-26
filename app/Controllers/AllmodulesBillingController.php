@@ -1240,6 +1240,7 @@ class AllmodulesBillingController
         }
 
         $staffUsers = Database::fetchAll("SELECT id, full_name, username, phone, department, staff_role FROM users WHERE is_active = 1 ORDER BY full_name ASC");
+        $targetConcerns = Database::fetchAll("SELECT id, name, legal_name, code, address, phone, email, gst_number FROM concerns WHERE is_active = 1 ORDER BY name ASC");
         $availablePackingBatches = [];
 
         $billLabel = $bill ? (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) : '';
@@ -1258,6 +1259,7 @@ class AllmodulesBillingController
             'prodUnit'                => $prodUnit,
             'productionUnits'         => $productionUnits,
             'activeConcern'           => $activeConcern,
+            'targetConcerns'          => $targetConcerns,
             'staffUsers'              => $staffUsers,
             'availablePackingBatches' => $availablePackingBatches,
             'currentUserId'           => Auth::id(),
@@ -2363,6 +2365,8 @@ class AllmodulesBillingController
 
         $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
         $isDirectBill = !empty($_POST['is_direct_bill']) ? 1 : 0;
+        $destinationConcernId = ($buyerType === 'COMPANY' && !empty($_POST['destination_concern_id'])) ? (int)$_POST['destination_concern_id'] : null;
+        Database::ensureColumn('production_bills', 'destination_concern_id', 'INT NULL DEFAULT NULL');
         $header = [
             $productionUnitId,
             $buyerType,
@@ -2410,19 +2414,19 @@ class AllmodulesBillingController
                 $billNumber = $invPrefix . date('Y') . '-' . date('mdHis') . '-' . random_int(10, 99);
                 Database::execute(
                     "INSERT INTO production_bills
-                     (concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
+                     (concern_id, destination_concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
                       bill_date, payment_method, is_direct_bill, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
                       upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
                       total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    array_merge([$activeConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    array_merge([$activeConcernId, $destinationConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
             } else {
                 Database::execute(
-                    "UPDATE production_bills SET production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
+                    "UPDATE production_bills SET destination_concern_id = ?, production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
                      customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, is_direct_bill = ?, payment_status = ?,
                      tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, upi_payment_screenshot_url = ?,
@@ -2430,7 +2434,7 @@ class AllmodulesBillingController
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,
                      cash_given = ?, change_returned = ?, staff_id = ?, staff_name = ?
                      WHERE id = ?",
-                    array_merge($header, [$billId])
+                    array_merge([$destinationConcernId], $header, [$billId])
                 );
                 Database::execute("DELETE FROM production_bill_items WHERE bill_id = ?", [$billId]);
                 Database::execute("DELETE FROM production_bill_item_tags WHERE bill_id = ?", [$billId]);

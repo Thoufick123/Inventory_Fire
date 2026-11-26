@@ -331,7 +331,7 @@
                             <select name="destination_warehouse_id" id="modal_warehouse_id" class="form-select fw-medium" required>
                                 <option value="">Select Warehouse...</option>
                                 <?php foreach ($warehouses ?? [] as $wh): ?>
-                                    <option value="<?= (int)$wh['id'] ?>">
+                                    <option value="<?= (int)$wh['id'] ?>" data-concern-id="<?= (int)($wh['concern_id'] ?? 0) ?>">
                                         <?= e($wh['name']) ?> (<?= e($wh['code'] ?? 'WH') ?>)<?= !empty($wh['concern_name']) ? ' — [' . e($wh['concern_name']) . ']' : '' ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -575,6 +575,13 @@ function updateModalBillSummary(billId) {
     if (bill) {
         titleEl.innerHTML = `<i class="bi bi-receipt me-1 text-primary"></i> ${escapeHtml(bill.bill_number)} — ${escapeHtml(bill.company_name || 'Company')}`;
         detailsEl.innerHTML = `<strong>Products:</strong> ${escapeHtml(bill.product_summary || 'Scanned Items')} &nbsp;|&nbsp; <strong>Quantity:</strong> <span class="text-success fw-bold">${parseInt(bill.total_qty || 0).toLocaleString()} pcs</span>`;
+        const whSelect = document.getElementById('modal_warehouse_id');
+        if (whSelect && bill.destination_concern_id) {
+            const matchOpt = Array.from(whSelect.options).find(opt => opt.dataset.concernId == bill.destination_concern_id);
+            if (matchOpt) {
+                whSelect.value = matchOpt.value;
+            }
+        }
     }
 }
 
