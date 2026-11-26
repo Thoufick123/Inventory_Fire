@@ -267,7 +267,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         </div>
 
                         <div class="row g-2 align-items-end mb-3">
-                            <div class="col-md-4">
+                            <div class="col-12">
                                 <label class="form-label small fw-semibold mb-1" for="fabricNameInput">
                                     Fabric / Material Name <span class="text-danger">*</span>
                                 </label>
@@ -284,54 +284,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     <option value="RAYON / VISCOSE PRINTED FABRIC">
                                 </datalist>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold mb-1">Category</label>
-                                <select class="form-select form-select-sm roll-category" name="roll_category_id" id="rollCategory">
-                                    <option value="">-- Category --</option>
-                                    <?php foreach ($categories as $cat): ?>
-                                        <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold mb-1">Sub Category</label>
-                                <select class="form-select form-select-sm roll-subcategory" name="roll_subcategory_id" id="rollSubcategory">
-                                    <option value="">-- Sub Category --</option>
-                                    <?php foreach ($subcategories as $sc): ?>
-                                        <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small fw-semibold mb-1">Sub Sub Category</label>
-                                <select class="form-select form-select-sm roll-subsubcategory" name="roll_sub_subcategory_id" id="rollSubSubcategory">
-                                    <option value="">-- Sub Sub --</option>
-                                    <?php foreach ($subSubcategories as $ssc): ?>
-                                        <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small fw-semibold mb-1">HSN</label>
-                                <select class="form-select form-select-sm font-monospace" name="default_hsn" id="defaultRollHsn">
-                                    <option value="">HSN</option>
-                                    <?php foreach (($hsnList ?? []) as $hsnItem): ?>
-                                        <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
-                                            <?= e($hsnItem['hsn_code']) ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small fw-semibold mb-1">GST %</label>
-                                <input class="form-control form-control-sm roll-num-dec" type="text" inputmode="decimal" autocomplete="off" id="defaultRollGst" value="5">
-                            </div>
-                        </div>
-
-                        <!-- Category-loaded Quick Color Chips (hidden until Category is selected) -->
-                        <div class="mb-3 d-none" id="rollColorChipsWrap">
-                            <label class="form-label small fw-semibold mb-1">Quick Color / Shade <span class="text-muted fw-normal">(auto-loaded from Category — click to add/fill roll)</span></label>
-                            <div class="d-flex flex-wrap gap-1" id="rollColorChips"></div>
                         </div>
 
                         <div class="table-responsive">
