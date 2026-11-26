@@ -201,42 +201,6 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                     <div class="mt-3"><label class="form-label">GSTIN</label><input class="form-control text-uppercase font-monospace" name="company_gstin" id="companyGstinInput" maxlength="30" value="<?= $escape($bill['company_gstin'] ?? '') ?>"></div>
                 </div>
             </div>
-
-            <!-- 6. Invoice & Payment Method -->
-            <div class="card border-0 shadow-sm rounded-3 mb-3">
-                <div class="card-header bg-white fw-semibold py-3"><i class="bi bi-credit-card me-2 text-primary"></i>Invoice &amp; Payment</div>
-                <div class="card-body p-3">
-                    <div class="mb-3"><label class="form-label fw-bold">Bill date</label><input class="form-control" type="date" name="bill_date" required value="<?= $escape($bill['bill_date'] ?? date('Y-m-d')) ?>"></div>
-                    <div class="mb-3"><label class="form-label fw-bold">Payment method</label>
-                        <select class="form-select fw-semibold" name="payment_method" id="paymentMethod">
-                            <?php foreach (['CASH' => 'Cash', 'UPI' => 'UPI', 'CASH_UPI' => 'Cash + UPI', 'CARD' => 'Card', 'NET_BANKING' => 'Net Banking', 'CREDIT' => 'Credit'] as $value => $label): ?>
-                                <option value="<?= $value ?>" <?= ($bill['payment_method'] ?? 'CASH') === $value ? 'selected' : '' ?>><?= $label ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
-                        <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
-                    </div>
-                    <div id="upiPaymentFields" class="<?= $usesUpiPayment ? '' : 'd-none' ?>">
-                        <div class="mt-3"><label class="form-label small text-muted" for="upiReference">UPI / GPay reference</label><input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number"></div>
-                        <div class="mt-3">
-                            <label class="form-label small text-muted" for="upiPaymentScreenshot">GPay payment screenshot <span class="fw-normal">(optional)</span></label>
-                            <input class="form-control" type="file" name="upi_payment_screenshot" id="upiPaymentScreenshot" accept="image/jpeg,image/png,image/webp,image/avif">
-                            <small class="text-muted">JPG, PNG, WEBP, or AVIF; maximum 5 MB.</small>
-                            <div id="upiScreenshotPreview" class="mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>">
-                                <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
-                                    <a href="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'])) ?>" target="_blank" rel="noopener">View current GPay screenshot</a>
-                                <?php endif; ?>
-                                <div id="upiScreenshotSelectedLabel" class="small text-primary d-none">New screenshot selected; it will replace the current proof.</div>
-                                <img id="upiScreenshotPreviewImage" class="img-thumbnail mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>" <?= !empty($bill['upi_payment_screenshot_url']) ? 'src="' . $escape(uploadUrl($bill['upi_payment_screenshot_url'])) . '"' : '' ?> data-existing-src="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'] ?? '')) ?>" alt="GPay payment screenshot" style="max-width:180px;max-height:180px;object-fit:contain;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- RIGHT COLUMN: Scanner, Cart & Settlement (Image 2) -->
@@ -369,12 +333,54 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                 </div>
             </div>
 
-            <!-- 3. Settlement & Checkout Card (Image 2 Matching Flow) -->
+            <!-- 3. Single Unified Invoice, Payment & Settlement Card -->
             <div class="card border-0 shadow-sm rounded-3">
                 <div class="card-body p-4">
-                    <div class="row g-4 align-items-center">
-                        <!-- Left Side: Cash Given by Customer & Change to Return (Ref: Image 2) -->
+                    <div class="row g-4 align-items-start">
+                        <!-- Left Side: Invoice & Payment + Cash Calculator + Notes -->
                         <div class="col-lg-7 border-end-lg pe-lg-4">
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="bi bi-calendar3 text-primary me-1"></i>Bill date</label>
+                                    <input class="form-control" type="date" name="bill_date" required value="<?= $escape($bill['bill_date'] ?? date('Y-m-d')) ?>">
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="bi bi-credit-card text-primary me-1"></i>Payment method</label>
+                                    <select class="form-select fw-semibold" name="payment_method" id="paymentMethod">
+                                        <?php foreach (['CASH' => 'Cash', 'UPI' => 'UPI', 'CASH_UPI' => 'Cash + UPI', 'CARD' => 'Card', 'NET_BANKING' => 'Net Banking', 'CREDIT' => 'Credit'] as $value => $label): ?>
+                                            <option value="<?= $value ?>" <?= ($bill['payment_method'] ?? 'CASH') === $value ? 'selected' : '' ?>><?= $label ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="splitPaymentFields" class="row g-2 mb-3 <?= $usesSplitPayment ? '' : 'd-none' ?>">
+                                <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
+                                <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
+                                <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
+                            </div>
+
+                            <div id="upiPaymentFields" class="mb-3 p-3 bg-light rounded-3 border <?= $usesUpiPayment ? '' : 'd-none' ?>">
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted" for="upiReference">UPI / GPay reference</label>
+                                        <input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted" for="upiPaymentScreenshot">GPay payment screenshot <span class="fw-normal">(optional)</span></label>
+                                        <input class="form-control" type="file" name="upi_payment_screenshot" id="upiPaymentScreenshot" accept="image/jpeg,image/png,image/webp,image/avif">
+                                        <small class="text-muted">JPG, PNG, WEBP, or AVIF; max 5 MB.</small>
+                                    </div>
+                                </div>
+                                <div id="upiScreenshotPreview" class="mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>">
+                                    <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
+                                        <a href="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'])) ?>" target="_blank" rel="noopener">View current GPay screenshot</a>
+                                    <?php endif; ?>
+                                    <div id="upiScreenshotSelectedLabel" class="small text-primary d-none">New screenshot selected; it will replace the current proof.</div>
+                                    <img id="upiScreenshotPreviewImage" class="img-thumbnail mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>" <?= !empty($bill['upi_payment_screenshot_url']) ? 'src="' . $escape(uploadUrl($bill['upi_payment_screenshot_url'])) . '"' : '' ?> data-existing-src="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'] ?? '')) ?>" alt="GPay payment screenshot" style="max-width:180px;max-height:180px;object-fit:contain;">
+                                </div>
+                            </div>
+
                             <div class="p-3 bg-light rounded-3 border">
                                 <div class="row g-3">
                                     <div class="col-sm-6">
