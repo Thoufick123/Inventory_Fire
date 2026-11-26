@@ -44,6 +44,10 @@ class AllmodulesController {
             if (!$col2) {
                 Database::execute("ALTER TABLE seller_rolls ADD COLUMN hsn_code VARCHAR(20) DEFAULT NULL AFTER qr_code");
             }
+            $colRollConcern = Database::fetchOne("SHOW COLUMNS FROM seller_rolls LIKE 'concern_id'");
+            if (!$colRollConcern) {
+                Database::execute("ALTER TABLE seller_rolls ADD COLUMN concern_id INT(11) DEFAULT 1 AFTER id, ADD INDEX idx_seller_rolls_concern_id (concern_id)");
+            }
         } catch (\Throwable $e) {}
         try {
             $col3 = Database::fetchOne("SHOW COLUMNS FROM sellers LIKE 'production_deleted_at'");
@@ -1839,6 +1843,47 @@ class AllmodulesController {
         );
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
         $documents = self::getPurchaseDocuments((int)$purchase['id'], $purchase['document_url'] ?? null, $purchase['document_urls'] ?? null);
+        $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $sellerWhere = "WHERE production_deleted_at IS NULL";
+        $sellerParams = [];
+        if ($activeCid) {
+            if ($activeCid === 1) {
+                $sellerWhere .= " AND (concern_id = ? OR concern_id IS NULL)";
+            } else {
+                $sellerWhere .= " AND concern_id = ?";
+            }
+            $sellerParams[] = $activeCid;
+        }
+        $sellers = Database::fetchAll(
+            "SELECT id, name, company, phone, email, gst_number, city, state, address, seller_type, concern_id
+             FROM sellers
+             $sellerWhere
+             ORDER BY company, name",
+            $sellerParams
+        );
+        $masterProducts = Database::fetchAll(
+            "SELECT id, name, code, catalog_code, product_code, brand_id, category_id, subcategory_id
+             FROM products
+             WHERE is_active = 1
+             ORDER BY name ASC"
+        );
+        $masterVariants = Database::fetchAll(
+            "SELECT pv.id, pv.product_id, pv.variant_code, pv.sku, pv.mrp, pv.purchase_price,
+                    pv.production_cost, pv.selling_price, pv.weight,
+                    s.name AS size_name, c.name AS color_name, d.name AS design_name
+             FROM product_variants pv
+             LEFT JOIN sizes s ON pv.size_id = s.id
+             LEFT JOIN colors c ON pv.color_id = c.id
+             LEFT JOIN designs d ON pv.design_id = d.id
+             WHERE pv.is_active = 1
+             ORDER BY pv.id ASC"
+        );
+        $sizes = Database::fetchAll(
+            "SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+        );
+        $colors = Database::fetchAll(
+            "SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC"
+        );
         Response::view('allmodules.purchases.edit', [
             'pageTitle' => 'Edit Record Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
@@ -1846,6 +1891,11 @@ class AllmodulesController {
             'purchase' => $purchase,
             'items' => $items,
             'documents' => $documents,
+            'sellers' => $sellers,
+            'masterProducts' => $masterProducts,
+            'masterVariants' => $masterVariants,
+            'sizes' => $sizes,
+            'colors' => $colors,
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
@@ -1882,12 +1932,29 @@ class AllmodulesController {
             return;
         }
 
+        $sellerId = (int)($purchase['seller_id'] ?? 0);
+        $postedSellerId = (int)($_POST['seller_id'] ?? 0);
+        if ($postedSellerId > 0 && $postedSellerId !== $sellerId) {
+            $sellerCheckWhere = "WHERE id = ? AND production_deleted_at IS NULL";
+            $sellerCheckParams = [$postedSellerId];
+            if ($activeCid !== null) {
+                if ($activeCid === 1) {
+                    $sellerCheckWhere .= " AND (concern_id = ? OR concern_id IS NULL)";
+                } else {
+                    $sellerCheckWhere .= " AND concern_id = ?";
+                }
+                $sellerCheckParams[] = $activeCid;
+            }
+            $validSeller = Database::fetchOne("SELECT id FROM sellers $sellerCheckWhere", $sellerCheckParams);
+            if ($validSeller) {
+                $sellerId = $postedSellerId;
+            }
+        }
+
         $purchaseDate = trim((string)($_POST['purchase_date'] ?? ''));
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $purchaseDate);
         if (!$date || $date->format('Y-m-d') !== $purchaseDate) {
-            Session::flash('error', 'Enter a valid purchase date.');
-            Response::back();
-            return;
+            $purchaseDate = $purchase['purchase_date'] ?: date('Y-m-d');
         }
 
         $submittedItems = [];
@@ -2010,16 +2077,6 @@ class AllmodulesController {
                 Response::back();
                 return;
             }
-            if (!$oldItem && $purchase['purchase_type'] === 'FABRIC_ROLL') {
-                Session::flash('error', 'New fabric rolls cannot be added through purchase editing.');
-                Response::back();
-                return;
-            }
-            if (!empty($submitted['remove_item']) && $purchase['purchase_type'] === 'FABRIC_ROLL') {
-                Session::flash('error', 'Fabric rolls cannot be removed while editing.');
-                Response::back();
-                return;
-            }
 
             $gstType = strtoupper(trim((string)($submitted['gst_type'] ?? 'EXEMPTED')));
             $taxMode = strtoupper(trim((string)($submitted['tax_mode'] ?? 'PERCENT')));
@@ -2039,11 +2096,11 @@ class AllmodulesController {
             $taxValue = $gstType === 'EXEMPTED' ? 0.0 : (float)$taxValueInput;
             $cgstTaxValue = $gstType === 'BOTH' ? (float)$cgstValueInput : 0.0;
 
-            $itemName = trim((string)($submitted['item_name'] ?? $oldItem['item_name'] ?? ''));
-            $quantity = is_numeric($submitted['quantity'] ?? null) && (float)$submitted['quantity'] > 0
-                ? (float)$submitted['quantity']
-                : ($oldItem ? (float)$oldItem['quantity'] : 0);
-            $unitPrice = is_numeric($submitted['unit_price'] ?? null) ? (float)$submitted['unit_price'] : -1;
+            $itemName = mb_substr(trim((string)($submitted['item_name'] ?? $oldItem['item_name'] ?? '')), 0, 255);
+            $quantity = is_numeric($submitted['quantity'] ?? null)
+                ? max(0.0, (float)$submitted['quantity'])
+                : ($oldItem ? (float)$oldItem['quantity'] : 0.0);
+            $unitPrice = is_numeric($submitted['unit_price'] ?? null) ? max(0.0, (float)$submitted['unit_price']) : 0.0;
             $unit = trim((string)($submitted['unit'] ?? $oldItem['unit'] ?? 'Pieces'));
             if (strtoupper($unit) === 'OTHER') {
                 $unit = trim((string)($submitted['custom_unit'] ?? ''));
@@ -2051,30 +2108,20 @@ class AllmodulesController {
             if ($unit === '') {
                 $unit = 'Pieces';
             }
-            if ($itemName === '' || mb_strlen($itemName) > 255 || $quantity <= 0 || $unitPrice < 0
-                || mb_strlen($unit) > 30) {
-                Session::flash('error', 'Each purchase item needs a valid description, quantity, unit, and non-negative price.');
-                Response::back();
-                return;
-            }
+            $unit = mb_substr($unit, 0, 30);
 
             $baseAmount = round($quantity * $unitPrice, 2);
             if ($itemType === 'FABRIC_ROLL') {
-                $rollNumber = mb_strtoupper(trim((string)($submitted['roll_number'] ?? $oldItem['roll_number'] ?? '')));
-                $color = mb_strtoupper(trim((string)($submitted['color'] ?? $oldItem['color'] ?? '')));
-                $design = mb_strtoupper(trim((string)($submitted['design_name'] ?? $oldItem['design_name'] ?? '')));
-                $designCount = (int)($submitted['design_count'] ?? $oldItem['design_count'] ?? 0);
-                $weight = (float)($submitted['weight_kg'] ?? $oldItem['weight_kg'] ?? 0);
-                if ($rollNumber === '' || mb_strlen($rollNumber) > 50 || $color === '' || mb_strlen($color) > 100
-                    || $design === '' || mb_strlen($design) > 150 || $designCount < 1 || $weight <= 0) {
-                    Session::flash('error', 'Fabric roll details must be complete and valid.');
-                    Response::back();
-                    return;
-                }
-                $itemName = trim((string)($submitted['item_name'] ?? $oldItem['item_name']));
+                $rollNumber = mb_substr(mb_strtoupper(trim((string)($submitted['roll_number'] ?? $oldItem['roll_number'] ?? ''))), 0, 50);
+                $color = mb_substr(mb_strtoupper(trim((string)($submitted['color'] ?? $oldItem['color'] ?? ''))), 0, 100);
+                $design = mb_substr(mb_strtoupper(trim((string)($submitted['design_name'] ?? $oldItem['design_name'] ?? ''))), 0, 150);
+                $designCount = max(0, (int)($submitted['design_count'] ?? $oldItem['design_count'] ?? 0));
+                $weight = max(0.0, (float)($submitted['weight_kg'] ?? $oldItem['weight_kg'] ?? 0));
+                $itemName = trim((string)($submitted['item_name'] ?? $oldItem['item_name'] ?? ''));
                 $unit = 'PCS';
                 $photoUrl = $oldItem['photo_url'] ?? null;
-                $photo = $_FILES['roll_photo_' . $itemId] ?? null;
+                $photoKey = $itemId > 0 ? ('roll_photo_' . $itemId) : ('new_roll_photo_' . ($submitted['form_index'] ?? $key));
+                $photo = $_FILES[$photoKey] ?? null;
                 if ($photo && $photo['error'] !== UPLOAD_ERR_NO_FILE) {
                     $extension = strtolower(pathinfo($photo['name'], PATHINFO_EXTENSION));
                     if ($photo['error'] !== UPLOAD_ERR_OK || !in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)
@@ -2098,27 +2145,6 @@ class AllmodulesController {
                 $mrp = (float)($submitted['mrp'] ?? $oldItem['mrp'] ?? 0);
                 $sellingPrice = (float)($submitted['selling_price'] ?? $oldItem['selling_price'] ?? 0);
 
-                if ($itemName === '') {
-                    Session::flash('error', 'Item name is required for third-party products.');
-                    Response::back();
-                    return;
-                }
-                if ($quantity <= 0) {
-                    Session::flash('error', "Quantity must be greater than zero for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
-                if ($unitPrice <= 0) {
-                    Session::flash('error', "Purchase price must be greater than zero for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
-                if ($hsnCode === '') {
-                    Session::flash('error', "HSN code is mandatory for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
-
                 $productCode = $vendorSku !== '' ? $vendorSku : ($oldItem['product_code'] ?? null);
                 $rollNumber = null;
                 $design = null;
@@ -2132,27 +2158,6 @@ class AllmodulesController {
                 $hsnCode = trim((string)($submitted['hsn_code'] ?? $oldItem['hsn_code'] ?? ''));
                 $mrp = 0.0;
                 $sellingPrice = 0.0;
-
-                if ($itemName === '') {
-                    Session::flash('error', 'Material name is required for raw materials.');
-                    Response::back();
-                    return;
-                }
-                if ($quantity <= 0) {
-                    Session::flash('error', "Quantity must be greater than zero for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
-                if ($unitPrice <= 0) {
-                    Session::flash('error', "Purchase price must be greater than zero for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
-                if ($hsnCode === '') {
-                    Session::flash('error', "HSN code is mandatory for ({$itemName}).");
-                    Response::back();
-                    return;
-                }
 
                 $productCode = $vendorSku !== '' ? $vendorSku : ($oldItem['product_code'] ?? null);
                 $rollNumber = null;
@@ -2211,22 +2216,11 @@ class AllmodulesController {
             }
         }
 
-        if ($purchase['purchase_type'] === 'FABRIC_ROLL') {
-            foreach ($existingItems as $existingItem) {
-                $existingId = (int)$existingItem['id'];
-                if (!isset($seenIds[$existingId])) {
-                    Session::flash('error', 'Fabric rolls cannot be removed while editing.');
-                    Response::back();
-                    return;
-                }
-            }
-        }
         $remainingItems = array_filter($updatedItems, static fn(array $item): bool => !isset($item['delete_id']));
-        if (!$remainingItems) {
-            Session::flash('error', 'A purchase must contain at least one item.');
-            Response::back();
-            return;
-        }
+        $distinctTypes = array_values(array_unique(array_filter(array_column($remainingItems, 'type'))));
+        $newPurchaseType = count($distinctTypes) > 1
+            ? 'MIXED'
+            : (count($distinctTypes) === 1 ? $distinctTypes[0] : ($purchase['purchase_type'] ?? 'FABRIC_ROLL'));
 
         $totalAmount = 0.0;
         foreach ($updatedItems as $item) {
@@ -2254,12 +2248,16 @@ class AllmodulesController {
 
             Database::beginTransaction();
 
-            // Delete removed items for non-roll purchases
-            if ($purchase['purchase_type'] !== 'FABRIC_ROLL') {
-                foreach ($existingItems as $existingItem) {
-                    $existingId = (int)$existingItem['id'];
-                    if (!isset($seenIds[$existingId])) {
-                        Database::execute("DELETE FROM production_purchase_items WHERE id = ? AND purchase_id = ?", [$existingId, $purchaseId]);
+            // Delete removed items
+            foreach ($existingItems as $existingItem) {
+                $existingId = (int)$existingItem['id'];
+                if (!isset($seenIds[$existingId])) {
+                    Database::execute("DELETE FROM production_purchase_items WHERE id = ? AND purchase_id = ?", [$existingId, $purchaseId]);
+                    if (!empty($existingItem['seller_roll_id'])) {
+                        $inProgram = Database::fetchOne("SELECT id FROM production_program_rolls WHERE seller_roll_id = ? LIMIT 1", [(int)$existingItem['seller_roll_id']]);
+                        if (!$inProgram) {
+                            Database::execute("DELETE FROM seller_rolls WHERE id = ?", [(int)$existingItem['seller_roll_id']]);
+                        }
                     }
                 }
             }
@@ -2334,12 +2332,51 @@ class AllmodulesController {
                     continue;
                 } else {
                     // Newly inserted item during edit
+                    $newSellerRollId = null;
+                    $newStartSeq = null;
+                    $newEndSeq = null;
+                    $newStartCode = null;
+                    $newEndCode = null;
+                    $newQrCode = null;
+                    if ($item['type'] === 'FABRIC_ROLL') {
+                        $rollQty = max(1, (int)$item['quantity']);
+                        $seqData = ProductionService::getNextFabricRollSequence($rollQty, $purchaseDate);
+                        $newStartSeq = (int)$seqData['start_seq'];
+                        $newEndSeq = (int)$seqData['end_seq'];
+                        $seqPrefix = $seqData['prefix'];
+                        $newStartCode = sprintf('%s%02d', $seqPrefix, $newStartSeq);
+                        $newEndCode = sprintf('%s%02d', $seqPrefix, $newEndSeq);
+                        $newQrCode = $rollQty > 1 ? ($newStartCode . '-' . $newEndCode) : $newStartCode;
+                        $rollConcernId = currentConcernId() ?: 1;
+                        if ($hasRollHsn) {
+                            Database::execute(
+                                "INSERT INTO seller_rolls
+                                    (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                     material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code, hsn_code)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                [$rollConcernId, $sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
+                                    $rollQty, $item['weight'], $item['unit_price'], $item['item_name'], $item['photo_url'],
+                                    $newStartSeq, $newEndSeq, $newStartCode, $newEndCode, $newQrCode, $item['hsn_code']]
+                            );
+                        } else {
+                            Database::execute(
+                                "INSERT INTO seller_rolls
+                                    (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
+                                     material_type, photo_url, start_seq, end_seq, start_code, end_code, qr_code)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                [$rollConcernId, $sellerId, $item['roll_number'], $item['color'], $item['design_name'], $item['design_count'],
+                                    $rollQty, $item['weight'], $item['unit_price'], $item['item_name'], $item['photo_url'],
+                                    $newStartSeq, $newEndSeq, $newStartCode, $newEndCode, $newQrCode]
+                            );
+                        }
+                        $newSellerRollId = (int)Database::lastInsertId();
+                    }
                     Database::execute(
                         "INSERT INTO production_purchase_items
                          (purchase_id, item_type, item_name, quantity, unit, weight_kg, unit_price, mrp, selling_price, vendor_sku, total_price,
                           gst_type, tax_input_type, tax_treatment, sgst_value, cgst_value, igst_value, sgst_amount, cgst_amount, igst_amount,
-                          roll_number, color, size, design_name, design_count, hsn_code, product_code, is_mapped)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          roll_number, color, size, design_name, design_count, hsn_code, product_code, seller_roll_id, start_code, end_code, qr_code, is_mapped)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [$purchaseId, $item['type'], $item['item_name'], $item['quantity'], $item['unit'], $item['weight'],
                             $item['unit_price'], $item['mrp'] ?? 0, $item['selling_price'] ?? 0, $item['vendor_sku'] ?? null, $item['total'],
                             $item['gst_type'], $item['tax_mode'], $item['tax_treatment'], in_array($item['gst_type'], ['SGST', 'BOTH'], true) ? $item['tax_value'] : 0,
@@ -2347,11 +2384,15 @@ class AllmodulesController {
                             $item['gst_type'] === 'IGST' ? $item['tax_value'] : 0,
                             $item['sgst_amount'], $item['cgst_amount'], $item['igst_amount'], $item['roll_number'], $item['color'],
                             $item['size'] ?? null, $item['design_name'], $item['design_count'], $item['hsn_code'], $item['product_code'],
+                            $newSellerRollId, $newStartCode, $newEndCode, $newQrCode,
                             ($item['type'] === 'RAW_MATERIAL') ? 1 : 0]
                     );
                 }
             }
-            $this->refreshSupplierRollTotals((int)$purchase['seller_id']);
+            $this->refreshSupplierRollTotals($sellerId);
+            if ($sellerId !== (int)$purchase['seller_id']) {
+                $this->refreshSupplierRollTotals((int)$purchase['seller_id']);
+            }
 
             // 1. Delete marked existing documents
             if (!empty($_POST['delete_document_ids']) && is_array($_POST['delete_document_ids'])) {
@@ -2398,10 +2439,10 @@ class AllmodulesController {
 
             Database::execute(
                 "UPDATE production_purchases
-                 SET purchase_date = ?, invoice_number = ?, document_url = ?, document_urls = ?,
+                 SET seller_id = ?, purchase_type = ?, purchase_date = ?, invoice_number = ?, document_url = ?, document_urls = ?,
                      notes = ?, total_amount = ?, updated_at = NOW()
                  WHERE id = ?",
-                [$purchaseDate, trim((string)($_POST['invoice_number'] ?? '')) ?: null, $newPrimary, $newJson,
+                [$sellerId, $newPurchaseType, $purchaseDate, trim((string)($_POST['invoice_number'] ?? '')) ?: null, $newPrimary, $newJson,
                     trim((string)($_POST['notes'] ?? '')) ?: null, round($totalAmount, 2), $purchaseId]
             );
             Database::commit();
@@ -2623,23 +2664,12 @@ class AllmodulesController {
         $purchaseDate = trim((string)($_POST['purchase_date'] ?? ''));
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $purchaseDate);
         if (!$date || $date->format('Y-m-d') !== $purchaseDate) {
-            Session::flash('error', 'Enter a valid purchase date.');
-            Response::back();
-            return;
+            $purchaseDate = date('Y-m-d');
         }
 
         $purchaseType = strtoupper(trim((string)($_POST['purchase_type'] ?? 'FABRIC_ROLL')));
         if (!in_array($purchaseType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
             $purchaseType = 'FABRIC_ROLL';
-        }
-        $quickPurchaseEntry = !empty($_POST['quick_purchase_entry']);
-        if ($quickPurchaseEntry) {
-            if (!empty($_POST['use_mapping_invoice'])) {
-                Session::flash('error', 'Choose either Quick Bill Entry or Import Saved Mapping Products, not both.');
-                Response::back();
-                return;
-            }
-            $purchaseType = 'THIRD_PARTY';
         }
 
         $submittedItems = [];
@@ -2731,17 +2761,15 @@ class AllmodulesController {
             if (!is_array($submitted)) {
                 continue;
             }
-            $itemType = $quickPurchaseEntry
-                ? 'THIRD_PARTY'
-                : strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
+            $itemType = strtoupper(trim((string)($submitted['item_type'] ?? $purchaseType)));
             if (!in_array($itemType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT'], true)) {
                 $itemType = $purchaseType;
             }
 
             $quantityInput = $submitted['quantity'] ?? null;
             $unitPriceInput = $submitted['unit_price'] ?? null;
-            $quantity = is_numeric($quantityInput) ? (float)$quantityInput : 0;
-            $unitPrice = is_numeric($unitPriceInput) ? (float)$unitPriceInput : -1;
+            $quantity = is_numeric($quantityInput) ? max(0.0, (float)$quantityInput) : 0.0;
+            $unitPrice = is_numeric($unitPriceInput) ? max(0.0, (float)$unitPriceInput) : 0.0;
             $taxTreatment = strtoupper(trim((string)($submitted['tax_treatment'] ?? 'INCLUDED')));
             if (!in_array($taxTreatment, ['INCLUDED', 'EXCLUDED'], true)) {
                 $taxTreatment = 'INCLUDED';
@@ -2750,12 +2778,6 @@ class AllmodulesController {
             $taxMode = strtoupper(trim((string)($submitted['tax_mode'] ?? 'PERCENT')));
             $taxInput = $submitted['tax_value'] ?? '0';
             $cgstTaxInput = $submitted['cgst_tax_value'] ?? '0';
-
-            if ($quantity <= 0 || $unitPrice < 0) {
-                Session::flash('error', 'Each purchase line needs a valid positive quantity and non-negative price.');
-                Response::back();
-                return;
-            }
 
             if (!in_array($gstType, ['SGST', 'IGST', 'CGST', 'BOTH', 'EXEMPTED'], true)
                 || !in_array($taxMode, ['PERCENT', 'AMOUNT'], true)
@@ -2774,24 +2796,17 @@ class AllmodulesController {
 
             // 1. FABRIC ROLL TYPE
             if ($itemType === 'FABRIC_ROLL') {
-                $rollNumber = mb_strtoupper(trim((string)($submitted['roll_number'] ?? '')));
-                $hsnCode = trim((string)($submitted['hsn_code'] ?? ''));
-                $color = mb_strtoupper(trim((string)($submitted['color'] ?? '')));
-                $design = mb_strtoupper(trim((string)($submitted['design_name'] ?? '')));
-                $designCount = (int)($submitted['design_count'] ?? 0);
-                $weight = (float)($submitted['weight_kg'] ?? 0);
-
-                if ($fabricDescription === '' || mb_strlen($fabricDescription) > 150
-                    || $rollNumber === '' || mb_strlen($rollNumber) > 50
-                    || $color === '' || mb_strlen($color) > 100
-                    || $design === '' || mb_strlen($design) > 150
-                    || $designCount < 1 || $quantity < 1 || floor($quantity) !== $quantity
-                    || $weight <= 0 || $unitPrice <= 0) {
-                    Session::flash('error', 'Fabric roll lines require fabric description, roll number, color, design, designs count, RQ, weight, and a price greater than zero.');
-                    Response::back();
-                    return;
+                $rollNumber = mb_substr(mb_strtoupper(trim((string)($submitted['roll_number'] ?? ''))), 0, 50);
+                if ($rollNumber === '') {
+                    $rollNumber = 'ROLL #' . ($index + 1);
                 }
-                $quantity = (int)$quantity;
+                $hsnCode = trim((string)($submitted['hsn_code'] ?? ''));
+                $color = mb_substr(mb_strtoupper(trim((string)($submitted['color'] ?? ''))), 0, 100);
+                $design = mb_substr(mb_strtoupper(trim((string)($submitted['design_name'] ?? ''))), 0, 150);
+                $designCount = max(0, (int)($submitted['design_count'] ?? 0));
+                $weight = max(0.0, (float)($submitted['weight_kg'] ?? 0));
+                $fabricDescItem = mb_substr($fabricDescription, 0, 150);
+                $quantity = max(0, (int)$quantity);
                 $grossTotal = round($quantity * $unitPrice, 2);
                 $lineTaxes = $calculateLineTaxes($grossTotal, $taxTreatment, $gstType, $taxMode, $taxValue, $cgstTaxValue);
                 $sgstAmount = $lineTaxes['sgst'];
@@ -2802,7 +2817,7 @@ class AllmodulesController {
 
                 $items[] = [
                     'type' => 'FABRIC_ROLL',
-                    'item_name' => $fabricDescription,
+                    'item_name' => $fabricDescItem,
                     'quantity' => $quantity,
                     'unit' => 'PCS',
                     'weight' => $weight,
@@ -2852,31 +2867,8 @@ class AllmodulesController {
                 if ($unit === '') {
                     $unit = 'Kilograms';
                 }
-                $hsnCode = trim((string)($submitted['hsn_code'] ?? ''));
-
-                if ($itemName === '') {
-                    Session::flash('error', "Raw material line #" . ($index + 1) . " requires an item name.");
-                    Response::back();
-                    return;
-                }
-
-                if ($quantity <= 0) {
-                    Session::flash('error', "Raw material line #" . ($index + 1) . " requires a quantity greater than zero.");
-                    Response::back();
-                    return;
-                }
-
-                if ($unitPrice <= 0) {
-                    Session::flash('error', "Raw material line #" . ($index + 1) . " requires a purchase price greater than zero.");
-                    Response::back();
-                    return;
-                }
-
-                if ($hsnCode === '') {
-                    Session::flash('error', "Raw material line #" . ($index + 1) . " (" . $itemName . "): HSN code is mandatory.");
-                    Response::back();
-                    return;
-                }
+                $hsnCode = mb_substr(trim((string)($submitted['hsn_code'] ?? '')), 0, 20);
+                $itemName = mb_substr($itemName, 0, 255);
 
                 if ($vendorSku === '') {
                     $cleanName = substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $itemName)), 0, 6);
@@ -2949,38 +2941,10 @@ class AllmodulesController {
                 if ($unit === '') {
                     $unit = 'Pieces';
                 }
-                $hsnCode = trim((string)($submitted['hsn_code'] ?? ''));
+                $hsnCode = mb_substr(trim((string)($submitted['hsn_code'] ?? '')), 0, 20);
+                $itemName = mb_substr($itemName, 0, 255);
                 $mrp = (float)($submitted['mrp'] ?? 0);
                 $sellingPrice = (float)($submitted['selling_price'] ?? 0);
-
-                if ($itemName === '') {
-                    Session::flash('error', "Product line #" . ($index + 1) . " requires a product/item name.");
-                    Response::back();
-                    return;
-                }
-                if (mb_strlen($itemName) > 255) {
-                    Session::flash('error', "Product line #" . ($index + 1) . " product name cannot exceed 255 characters.");
-                    Response::back();
-                    return;
-                }
-
-                if ($quantity <= 0) {
-                    Session::flash('error', "Product line #" . ($index + 1) . " requires a quantity greater than zero.");
-                    Response::back();
-                    return;
-                }
-
-                if ($unitPrice <= 0) {
-                    Session::flash('error', "Product line #" . ($index + 1) . " requires a purchase price greater than zero.");
-                    Response::back();
-                    return;
-                }
-
-                if ($hsnCode === '' || mb_strlen($hsnCode) > 20) {
-                    Session::flash('error', "Product line #" . ($index + 1) . " (" . $itemName . "): enter a valid HSN code up to 20 characters.");
-                    Response::back();
-                    return;
-                }
 
                 if ($vendorSku === '') {
                     $cleanName = substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $itemName)), 0, 6);
@@ -3162,16 +3126,6 @@ class AllmodulesController {
 
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
         $useMappingInvoice = !empty($_POST['use_mapping_invoice']);
-        if ($quickPurchaseEntry && $invoiceNumber === '') {
-            Session::flash('error', 'Enter the invoice number before saving the quick bill.');
-            Response::back();
-            return;
-        }
-        if ($quickPurchaseEntry && !$items) {
-            Session::flash('error', 'Add at least one product line before saving the quick bill.');
-            Response::back();
-            return;
-        }
         if (!$items && $useMappingInvoice) {
             PurchaseMappingFulfillmentService::ensureSchema();
             $mappingConcernId = currentConcernId() ?: 1;

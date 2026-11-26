@@ -12,8 +12,8 @@
         <div class="card-body p-4">
             <div class="row g-3">
                 <div class="col-md-5">
-                    <label class="form-label required" for="purchaseSeller">Supplier / Vendor *</label>
-                    <select class="d-none" name="seller_id" id="purchaseSeller" required>
+                    <label class="form-label" for="purchaseSeller">Supplier / Vendor</label>
+                    <select class="d-none" name="seller_id" id="purchaseSeller">
                         <option value="">-- Select registered supplier --</option>
                         <?php foreach ($sellers as $seller): ?>
                             <option value="<?= (int)$seller['id'] ?>"
@@ -73,75 +73,13 @@
                     <?php endif; ?>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label required" for="purchaseDate">Purchase Date *</label>
-                    <input type="date" class="form-control" name="purchase_date" id="purchaseDate" required value="<?= e(date('Y-m-d')) ?>">
+                    <label class="form-label" for="purchaseDate">Purchase Date</label>
+                    <input type="date" class="form-control" name="purchase_date" id="purchaseDate" value="<?= e(date('Y-m-d')) ?>">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="invoiceNumber">Invoice / Bill Number <span id="invoiceNumberRequiredMarker" class="text-danger d-none">*</span></label>
+                    <label class="form-label" for="invoiceNumber">Invoice / Bill Number</label>
                     <input type="text" class="form-control" name="invoice_number" id="invoiceNumber" maxlength="100">
                 </div>
-                <div class="col-12">
-                    <div class="form-check border rounded bg-info-subtle p-3 ps-5">
-                        <input class="form-check-input" type="checkbox" name="quick_purchase_entry" id="quickPurchaseEntry" value="1" checked>
-                        <label class="form-check-label fw-semibold" for="quickPurchaseEntry">Quick bill entry (map products later)</label>
-                        <div class="small text-muted">Enter product name, quantity, purchase price, GST % and HSN. Invoice number is required; complete product mapping afterward.</div>
-                    </div>
-                </div>
-                <div class="col-12" id="quickPurchaseEntryPanel">
-                    <div class="card border-info shadow-sm" style="overflow: visible;">
-                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <strong class="text-info-emphasis"><i class="bi bi-lightning-charge me-1"></i>Simple Product Lines</strong>
-                                <div class="small text-muted">Purchase price is before GST; these items will appear in Product Mapping after saving.</div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-info" id="addQuickPurchaseLine"><i class="bi bi-plus-lg me-1"></i>Add Product</button>
-                        </div>
-                        <div style="overflow: visible;">
-                            <table class="table table-bordered table-sm align-middle mb-0" style="overflow: visible;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product Name</th>
-                                        <th style="width: 110px;">Qty</th>
-                                        <th style="width: 160px;">Purchase Price (₹)</th>
-                                        <th style="width: 120px;">GST %</th>
-                                        <th style="width: 200px;">HSN</th>
-                                        <th style="width: 55px;"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="quickPurchaseLines">
-                                    <tr class="quick-purchase-line">
-                                        <td><input class="form-control form-control-sm quick-line-name" maxlength="255" placeholder="Product name"></td>
-                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.001" data-step="0.001" class="form-control form-control-sm quick-line-quantity numeric-text-input" placeholder="Qty" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
-                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control form-control-sm quick-line-price numeric-text-input" placeholder="Rate before GST" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
-                                        <td><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-max="100" data-step="0.001" class="form-control form-control-sm quick-line-gst numeric-text-input" value="0" placeholder="GST %" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');"></td>
-                                        <td style="overflow: visible; position: relative;">
-                                            <div class="dropdown hsn-dropdown w-100 position-relative">
-                                                <input type="hidden" class="quick-line-hsn" value="">
-                                                <button type="button" class="form-control form-control-sm text-start d-flex justify-content-between align-items-center hsn-dropdown-btn bg-white" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false" style="cursor: pointer;">
-                                                    <span class="hsn-btn-text text-truncate">-- Select HSN --</span>
-                                                    <i class="bi bi-chevron-down text-muted ms-1" style="font-size: 0.75rem;"></i>
-                                                </button>
-                                                <div class="dropdown-menu dropdown-menu-end shadow-lg p-2 hsn-dropdown-menu" style="min-width: 280px; max-width: 340px; z-index: 1060;">
-                                                    <div class="input-group input-group-sm mb-2">
-                                                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                                                        <input type="text" class="form-control border-start-0 hsn-search-input" placeholder="Search HSN code..." autocomplete="off">
-                                                    </div>
-                                                    <div class="hsn-options-list overflow-auto" style="max-height: 200px;"></div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-quick-line" title="Remove line"><i class="bi bi-x-lg"></i></button></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                            <div class="card-footer bg-light d-flex justify-content-end gap-4 flex-wrap">
-                                <span>Subtotal: <strong id="quickEntrySubtotal">₹0.00</strong></span>
-                                <span>GST: <strong id="quickEntryTax">₹0.00</strong></span>
-                                <span>Invoice total: <strong class="text-success" id="quickEntryTotal">₹0.00</strong></span>
-                            </div>
-                        </div>
-                    </div>
                 <div class="col-12 mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label mb-0 fw-semibold" for="purchaseDocuments">
@@ -207,7 +145,7 @@
     <div class="card shadow-sm border mb-4 d-none" id="purchaseCategorySelectorCard">
         <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories *</h5>
+                <h5 class="mb-0 fw-bold"><i class="bi bi-collection-play me-2 text-primary"></i>Select Inward &amp; Purchase Categories</h5>
                 <small class="text-muted">A single supplier invoice can contain Fabric Rolls, Raw Materials, and Third-Party Products simultaneously. Check one or more categories below.</small>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -295,7 +233,7 @@
         </div>
         <div class="card-body p-4">
             <div class="mb-4">
-                <label class="form-label required fw-semibold" for="fabricDescription">Fabric / Material Description *</label>
+                <label class="form-label fw-semibold" for="fabricDescription">Fabric / Material Description</label>
                 <input type="text" name="fabric_description" id="fabricDescription" class="form-control text-uppercase" maxlength="150" placeholder="E.G. 100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)" list="materialTypeSuggestions">
                 <datalist id="materialTypeSuggestions">
                     <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
@@ -845,13 +783,13 @@
         </div>
         <div class="card-body p-3">
             <div class="row g-3">
-                <div class="col-lg-2 col-md-4"><label class="form-label required">Roll No. / Code *</label><input class="form-control roll-number text-uppercase" maxlength="50" required></div>
-                <div class="col-lg-2 col-md-4"><label class="form-label required">Color / Shade *</label><input class="form-control roll-color text-uppercase" maxlength="100" required placeholder="E.G. NAVY BLUE"></div>
-                <div class="col-lg-2 col-md-4"><label class="form-label required">Design Name / Pattern *</label><input class="form-control roll-design text-uppercase" maxlength="150" required placeholder="E.G. FLORAL 01"></div>
-                <div class="col-lg-1 col-md-3"><label class="form-label required">Designs *</label><input type="text" inputmode="numeric" pattern="[0-9]+" data-min="1" data-step="1" class="form-control roll-design-count numeric-text-input" value="1" required></div>
-                <div class="col-lg-1 col-md-3"><label class="form-label required">RQ *</label><input type="text" inputmode="numeric" pattern="[0-9]+" data-min="1" data-step="1" class="form-control roll-quantity numeric-text-input" value="1" required></div>
-                <div class="col-lg-2 col-md-3"><label class="form-label required">Weight (kg) *</label><div class="input-group"><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control roll-weight numeric-text-input" required><span class="input-group-text">kg</span></div></div>
-                <div class="col-lg-2 col-md-3"><label class="form-label required">Purchase Price (₹) *</label><div class="input-group"><span class="input-group-text">₹</span><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control roll-price numeric-text-input" required></div></div>
+                <div class="col-lg-2 col-md-4"><label class="form-label">Roll No. / Code</label><input class="form-control roll-number text-uppercase" maxlength="50"></div>
+                <div class="col-lg-2 col-md-4"><label class="form-label">Color / Shade</label><input class="form-control roll-color text-uppercase" maxlength="100" placeholder="E.G. NAVY BLUE"></div>
+                <div class="col-lg-2 col-md-4"><label class="form-label">Design Name / Pattern</label><input class="form-control roll-design text-uppercase" maxlength="150" placeholder="E.G. FLORAL 01"></div>
+                <div class="col-lg-1 col-md-3"><label class="form-label">Designs</label><input type="text" inputmode="numeric" pattern="[0-9]+" data-min="0" data-step="1" class="form-control roll-design-count numeric-text-input" value="1"></div>
+                <div class="col-lg-1 col-md-3"><label class="form-label">RQ</label><input type="text" inputmode="numeric" pattern="[0-9]+" data-min="0" data-step="1" class="form-control roll-quantity numeric-text-input" value="1"></div>
+                <div class="col-lg-2 col-md-3"><label class="form-label">Weight (kg)</label><div class="input-group"><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control roll-weight numeric-text-input"><span class="input-group-text">kg</span></div></div>
+                <div class="col-lg-2 col-md-3"><label class="form-label">Purchase Price (₹)</label><div class="input-group"><span class="input-group-text">₹</span><input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control roll-price numeric-text-input"></div></div>
                 <div class="col-lg-2 col-md-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="form-label mb-0">HSN Code</label>
@@ -938,8 +876,8 @@
         <div class="card-body p-3">
             <div class="row g-3">
                 <div class="col-lg-3 col-md-6">
-                    <label class="form-label required">Material / Item Name *</label>
-                    <input class="form-control rm-name text-uppercase" maxlength="255" placeholder="E.G. 30S COMBED COTTON YARN / SEWING THREAD" list="yarnSuggestions" required>
+                    <label class="form-label">Material / Item Name</label>
+                    <input class="form-control rm-name text-uppercase" maxlength="255" placeholder="E.G. 30S COMBED COTTON YARN / SEWING THREAD" list="yarnSuggestions">
                 </div>
                 <div class="col-lg-2 col-md-3">
                     <label class="form-label">Color / Shade</label>
@@ -950,7 +888,7 @@
                     <input class="form-control rm-size text-uppercase" maxlength="50" placeholder="E.G. 30S / 40/2 / 1 INCH" list="countSizeSuggestions">
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required">Unit *</label>
+                    <label class="form-label">Unit</label>
                     <select class="form-select rm-unit fw-semibold">
                         <option value="Kilograms" selected>Kilograms</option>
                         <option value="Pieces">Pieces</option>
@@ -966,14 +904,14 @@
                     <input type="text" class="form-control form-control-sm rm-custom-unit mt-1 d-none" placeholder="Enter custom unit">
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required rm-qty-label text-nowrap">Qty (Kilograms) *</label>
-                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control rm-quantity numeric-text-input fw-bold text-end" value="1" required>
+                    <label class="form-label rm-qty-label text-nowrap">Qty (Kilograms)</label>
+                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control rm-quantity numeric-text-input fw-bold text-end" value="1">
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required text-nowrap">Purchase Price (₹) *</label>
+                    <label class="form-label text-nowrap">Purchase Price (₹)</label>
                     <div class="input-group">
                         <span class="input-group-text p-1">₹</span>
-                        <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control rm-cost numeric-text-input fw-semibold text-end" value="0.00" required>
+                        <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control rm-cost numeric-text-input fw-semibold text-end" value="0.00">
                     </div>
                 </div>
 
@@ -982,7 +920,7 @@
                     <div class="tax-strip-container rounded-3 border bg-light-subtle d-flex flex-wrap align-items-center gap-2 gap-lg-3 p-3 px-md-4 my-2">
                         <div style="min-width: 220px; flex: 1 1 240px; max-width: 330px;">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0 small fw-semibold">HSN Code <span class="text-danger">*</span></label>
+                                <label class="form-label mb-0 small fw-semibold">HSN Code</label>
                                 <button type="button" class="btn btn-link p-0 text-decoration-none small text-primary fw-semibold btn-add-hsn-trigger" style="font-size: 11px;" title="Add new HSN Code">
                                     <i class="bi bi-plus-circle me-0.5"></i>+ Add HSN
                                 </button>
@@ -1065,11 +1003,11 @@
             <input type="hidden" class="tp-sku">
             <div class="row g-3">
                 <div class="col-lg-5 col-md-4">
-                    <label class="form-label required">Product / Item Name *</label>
-                    <input class="form-control tp-name text-uppercase" maxlength="255" placeholder="E.G. MEN SLIM FIT COTTON SHIRT" required>
+                    <label class="form-label">Product / Item Name</label>
+                    <input class="form-control tp-name text-uppercase" maxlength="255" placeholder="E.G. MEN SLIM FIT COTTON SHIRT">
                 </div>
                 <div class="col-lg-2 col-md-2">
-                    <label class="form-label required">Unit *</label>
+                    <label class="form-label">Unit</label>
                     <select class="form-select tp-unit fw-semibold">
                         <option value="Pieces" selected>Pieces</option>
                         <option value="Kilograms">Kilograms</option>
@@ -1085,14 +1023,14 @@
                     <input type="text" class="form-control form-control-sm tp-custom-unit mt-1 d-none" placeholder="Enter custom unit">
                 </div>
                 <div class="col-lg-2 col-md-3">
-                    <label class="form-label required tp-qty-label">Qty (Pieces) *</label>
-                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0.01" data-step="0.01" class="form-control tp-quantity numeric-text-input fw-bold text-end" value="1" required>
+                    <label class="form-label tp-qty-label">Qty (Pieces)</label>
+                    <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control tp-quantity numeric-text-input fw-bold text-end" value="1">
                 </div>
                 <div class="col-lg-3 col-md-3">
-                    <label class="form-label required">Purchase Price (₹) *</label>
+                    <label class="form-label">Purchase Price (₹)</label>
                     <div class="input-group">
                         <span class="input-group-text p-1">₹</span>
-                        <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control tp-cost numeric-text-input fw-semibold text-end" value="0.00" required>
+                        <input type="text" inputmode="decimal" pattern="([0-9]+([.][0-9]*)?|[.][0-9]+)" data-min="0" data-step="0.01" class="form-control tp-cost numeric-text-input fw-semibold text-end" value="0.00">
                     </div>
                 </div>
 
@@ -1101,7 +1039,7 @@
                     <div class="tax-strip-container rounded-3 border bg-light-subtle d-flex flex-wrap align-items-center gap-2 gap-lg-3 p-3 px-md-4 my-2">
                         <div style="min-width: 220px; flex: 1 1 240px; max-width: 330px;">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0 small fw-semibold">HSN Code <span class="text-danger">*</span></label>
+                                <label class="form-label mb-0 small fw-semibold">HSN Code</label>
                                 <button type="button" class="btn btn-link p-0 text-decoration-none small text-primary fw-semibold btn-add-hsn-trigger" style="font-size: 11px;" title="Add new HSN Code">
                                     <i class="bi bi-plus-circle me-0.5"></i>+ Add HSN
                                 </button>
@@ -1172,13 +1110,9 @@
     const supplierSelect = document.getElementById('purchaseSeller');
     const supplierDetails = document.getElementById('selectedSupplierDetails');
     const useMappingInvoice = document.getElementById('useMappingInvoice');
-    const quickPurchaseEntry = document.getElementById('quickPurchaseEntry');
-    const quickPurchaseEntryPanel = document.getElementById('quickPurchaseEntryPanel');
     const purchaseCategorySelectorCard = document.getElementById('purchaseCategorySelectorCard');
     const purchaseItemSections = ['sectionFabricRoll', 'sectionRawMaterial', 'sectionThirdParty']
         .map(id => document.getElementById(id)).filter(Boolean);
-    const quickPurchaseLines = document.getElementById('quickPurchaseLines');
-    const quickPurchaseLineTemplate = quickPurchaseLines?.querySelector('.quick-purchase-line')?.outerHTML || '';
     let rollIndex = 0;
     let nextSequence = 1;
     let sequencePrefix = 'FB<?= date('my') ?>';
@@ -1196,16 +1130,8 @@
 
     function syncPurchaseEntryMode() {
         const useMapping = !!useMappingInvoice?.checked;
-        const useQuickEntry = !!quickPurchaseEntry?.checked;
-        const hideStandardItems = useMapping || useQuickEntry;
+        const hideStandardItems = useMapping;
         purchaseCategorySelectorCard?.classList.toggle('d-none', hideStandardItems);
-        quickPurchaseEntryPanel?.classList.toggle('d-none', !useQuickEntry);
-        document.getElementById('invoiceFinancialBreakdownCard')?.classList.toggle('d-none', useQuickEntry);
-        const invoiceNumberInput = document.getElementById('invoiceNumber');
-        if (invoiceNumberInput) {
-            invoiceNumberInput.required = hideStandardItems;
-        }
-        document.getElementById('invoiceNumberRequiredMarker')?.classList.toggle('d-none', !hideStandardItems);
         const typeBySection = {
             sectionFabricRoll: 'FABRIC_ROLL',
             sectionRawMaterial: 'RAW_MATERIAL',
@@ -1218,14 +1144,7 @@
             section.querySelectorAll('input, select, textarea').forEach(el => {
                 const shouldEnable = !hideStandardItems && isTypeActive;
                 el.disabled = !shouldEnable;
-                if (!shouldEnable) {
-                    if (el.hasAttribute('required')) {
-                        el.dataset.wasRequired = 'true';
-                        el.removeAttribute('required');
-                    }
-                } else if (el.dataset.wasRequired === 'true') {
-                    el.setAttribute('required', '');
-                }
+                el.removeAttribute('required');
             });
         });
 
@@ -1233,11 +1152,7 @@
         if (fabDesc) {
             const shouldEnable = !hideStandardItems && activePurchaseTypes.has('FABRIC_ROLL');
             fabDesc.disabled = !shouldEnable;
-            if (shouldEnable) {
-                fabDesc.setAttribute('required', '');
-            } else {
-                fabDesc.removeAttribute('required');
-            }
+            fabDesc.removeAttribute('required');
         }
 
         if (!hideStandardItems && activePurchaseTypes.has('FABRIC_ROLL')) {
@@ -1249,83 +1164,9 @@
     }
 
     useMappingInvoice?.addEventListener('change', function () {
-        if (useMappingInvoice.checked && quickPurchaseEntry) quickPurchaseEntry.checked = false;
-        syncPurchaseEntryMode();
-    });
-    quickPurchaseEntry?.addEventListener('change', function () {
-        if (quickPurchaseEntry.checked && useMappingInvoice) useMappingInvoice.checked = false;
         syncPurchaseEntryMode();
     });
     syncPurchaseEntryMode();
-
-    function updateQuickPurchaseTotals() {
-        if (!quickPurchaseLines) return;
-        let subtotal = 0;
-        let taxTotal = 0;
-        quickPurchaseLines.querySelectorAll('.quick-purchase-line').forEach(row => {
-            const quantity = Number(row.querySelector('.quick-line-quantity')?.value) || 0;
-            const price = Number(row.querySelector('.quick-line-price')?.value) || 0;
-            const gstRate = Number(row.querySelector('.quick-line-gst')?.value) || 0;
-            const lineBase = quantity * price;
-            subtotal += lineBase;
-            taxTotal += lineBase * gstRate / 100;
-        });
-        document.getElementById('quickEntrySubtotal').textContent = money(subtotal);
-        document.getElementById('quickEntryTax').textContent = money(taxTotal);
-        document.getElementById('quickEntryTotal').textContent = money(subtotal + taxTotal);
-    }
-
-    function bindQuickLineEvents(row) {
-        if (!row) return;
-        initHsnDropdown(row, '.quick-line-hsn');
-        const hsnHidden = row.querySelector('.quick-line-hsn');
-        const gstInput = row.querySelector('.quick-line-gst');
-        if (hsnHidden && gstInput) {
-            hsnHidden.addEventListener('change', function () {
-                const code = (this.value || '').trim();
-                const found = (window.hsnCodesList || []).find(h => String(h.hsn_code).toUpperCase() === code.toUpperCase());
-                if (found && found.gst_rate !== null && found.gst_rate !== undefined && found.gst_rate !== '') {
-                    gstInput.value = parseFloat(found.gst_rate);
-                    gstInput.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            });
-        }
-    }
-
-    function addQuickPurchaseLine() {
-        if (!quickPurchaseLines || !quickPurchaseLineTemplate) return;
-        quickPurchaseLines.insertAdjacentHTML('beforeend', quickPurchaseLineTemplate);
-        const lastRow = quickPurchaseLines.lastElementChild;
-        if (lastRow) {
-            bindQuickLineEvents(lastRow);
-        }
-        updateQuickPurchaseTotals();
-    }
-
-    document.getElementById('addQuickPurchaseLine')?.addEventListener('click', addQuickPurchaseLine);
-    quickPurchaseLines?.addEventListener('input', updateQuickPurchaseTotals);
-    quickPurchaseLines?.addEventListener('click', function (event) {
-        const removeButton = event.target.closest('.remove-quick-line');
-        if (!removeButton) return;
-        const rows = quickPurchaseLines.querySelectorAll('.quick-purchase-line');
-        const row = removeButton.closest('.quick-purchase-line');
-        if (rows.length > 1) {
-            row.remove();
-        } else {
-            row.querySelectorAll('input').forEach(input => {
-                input.value = input.classList.contains('quick-line-gst') ? '0' : '';
-            });
-            const hsnHidden = row.querySelector('.quick-line-hsn');
-            const hsnBtnText = row.querySelector('.hsn-btn-text');
-            if (hsnHidden) hsnHidden.value = '';
-            if (hsnBtnText) hsnBtnText.textContent = '-- Select HSN --';
-        }
-        updateQuickPurchaseTotals();
-    });
-
-    quickPurchaseLines?.querySelectorAll('.quick-purchase-line').forEach(row => {
-        bindQuickLineEvents(row);
-    });
 
     function sanitizeNumericInput(input) {
         if (!input || !input.matches('.numeric-text-input')) return;
@@ -1483,7 +1324,7 @@
         }
     });
     form.addEventListener('submit', event => {
-        if (useMappingInvoice?.checked || quickPurchaseEntry?.checked) return;
+        if (useMappingInvoice?.checked) return;
         const invalidInput = Array.from(form.querySelectorAll('.numeric-text-input'))
             .filter(input => !input.disabled && !input.closest('.d-none') && input.offsetParent !== null)
             .find(input => !validateNumericTextInput(input));
@@ -2154,7 +1995,7 @@
                 ? (type === 'FABRIC_ROLL' ? 'badge bg-primary text-white' : (type === 'RAW_MATERIAL' ? 'badge bg-warning text-dark' : 'badge bg-info text-white'))
                 : 'badge bg-light text-muted border';
         }
-        const hideStandardItems = !!(useMappingInvoice?.checked || quickPurchaseEntry?.checked);
+        const hideStandardItems = !!useMappingInvoice?.checked;
         if (jump) {
             jump.classList.toggle('d-none', hideStandardItems || !isActive);
         }
@@ -2164,16 +2005,7 @@
             section.querySelectorAll('input, select, textarea').forEach(el => {
                 const shouldEnable = !hideStandardItems && isActive;
                 el.disabled = !shouldEnable;
-                if (!shouldEnable) {
-                    if (el.hasAttribute('required')) {
-                        el.dataset.wasRequired = 'true';
-                        el.removeAttribute('required');
-                    }
-                } else {
-                    if (el.dataset.wasRequired === 'true') {
-                        el.setAttribute('required', '');
-                    }
-                }
+                el.removeAttribute('required');
             });
         }
 
@@ -2181,11 +2013,7 @@
         if (fabDesc && type === 'FABRIC_ROLL') {
             const shouldEnable = !hideStandardItems && isActive;
             fabDesc.disabled = !shouldEnable;
-            if (shouldEnable) {
-                fabDesc.setAttribute('required', '');
-            } else {
-                fabDesc.removeAttribute('required');
-            }
+            fabDesc.removeAttribute('required');
         }
 
         // Auto-seed first item if newly activated and empty
@@ -2999,113 +2827,8 @@
             return false;
         }
 
-        if (!supplierSelect || !supplierSelect.value) {
-            event.preventDefault();
-            alert('Please select a registered supplier before saving.');
-            document.getElementById('supplierDropdownBtn')?.focus();
-            resetPurchaseSubmitState();
-            return;
-        }
-
-        const purchaseDateInput = document.getElementById('purchaseDate');
-        if (!purchaseDateInput || !purchaseDateInput.value) {
-            event.preventDefault();
-            alert('Please choose a valid purchase date.');
-            purchaseDateInput?.focus();
-            resetPurchaseSubmitState();
-            return;
-        }
-
-        if (quickPurchaseEntry?.checked) {
-            const invoiceNumber = document.getElementById('invoiceNumber')?.value?.trim() || '';
-            if (!invoiceNumber) {
-                event.preventDefault();
-                alert('Enter the invoice number before saving the quick bill.');
-                document.getElementById('invoiceNumber')?.focus();
-                resetPurchaseSubmitState();
-                return;
-            }
-
-            const quickItems = [];
-            let quickEntryError = '';
-            Array.from(quickPurchaseLines?.querySelectorAll('.quick-purchase-line') || []).forEach((row, index) => {
-                if (quickEntryError) return;
-                const name = row.querySelector('.quick-line-name')?.value?.trim() || '';
-                const quantityText = row.querySelector('.quick-line-quantity')?.value?.trim() || '';
-                const priceText = row.querySelector('.quick-line-price')?.value?.trim() || '';
-                const gstText = row.querySelector('.quick-line-gst')?.value?.trim() || '0';
-                const hsn = row.querySelector('.quick-line-hsn')?.value?.trim() || '';
-                if (!name && !quantityText && !priceText && !hsn) return;
-
-                const quantity = Number(quantityText);
-                const price = Number(priceText);
-                const gstRate = Number(gstText);
-                if (!name) {
-                    quickEntryError = `Product line #${index + 1}: enter a product name.`;
-                } else if (!Number.isFinite(quantity) || quantity <= 0) {
-                    quickEntryError = `Product line #${index + 1}: enter a quantity greater than zero.`;
-                } else if (!Number.isFinite(price) || price <= 0) {
-                    quickEntryError = `Product line #${index + 1}: enter a purchase price greater than zero.`;
-                } else if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 100) {
-                    quickEntryError = `Product line #${index + 1}: enter a GST rate between 0 and 100%.`;
-                } else if (!hsn || hsn.length > 20) {
-                    quickEntryError = `Product line #${index + 1}: enter a valid HSN code (up to 20 characters).`;
-                } else {
-                    quickItems.push({
-                        item_type: 'THIRD_PARTY',
-                        item_name: name,
-                        quantity: quantity,
-                        unit: 'PCS',
-                        unit_price: price,
-                        tax_treatment: 'EXCLUDED',
-                        gst_type: gstRate > 0 ? 'BOTH' : 'EXEMPTED',
-                        tax_mode: 'PERCENT',
-                        tax_value: gstRate / 2,
-                        cgst_tax_value: gstRate / 2,
-                        hsn_code: hsn,
-                        form_index: String(quickItems.length)
-                    });
-                }
-            });
-
-            if (quickEntryError || quickItems.length === 0) {
-                event.preventDefault();
-                alert(quickEntryError || 'Add at least one product line before saving.');
-                resetPurchaseSubmitState();
-                return;
-            }
-
-            let quickPurchaseType = document.getElementById('purchaseTypeHiddenInput');
-            if (!quickPurchaseType) {
-                quickPurchaseType = document.createElement('input');
-                quickPurchaseType.type = 'hidden';
-                quickPurchaseType.name = 'purchase_type';
-                quickPurchaseType.id = 'purchaseTypeHiddenInput';
-                form.appendChild(quickPurchaseType);
-            }
-            quickPurchaseType.value = 'THIRD_PARTY';
-            let quickPayload = document.getElementById('itemsPayloadInput');
-            if (!quickPayload) {
-                quickPayload = document.createElement('input');
-                quickPayload.type = 'hidden';
-                quickPayload.name = 'items_payload';
-                quickPayload.id = 'itemsPayloadInput';
-                form.appendChild(quickPayload);
-            }
-            quickPayload.value = JSON.stringify(quickItems);
-            lockPurchaseSubmitState();
-            return;
-        }
-
         if (useMappingInvoice?.checked) {
             const invoiceNumber = document.getElementById('invoiceNumber')?.value?.trim() || '';
-            if (!invoiceNumber) {
-                event.preventDefault();
-                alert('Enter the invoice number saved in Purchase Item Mapping.');
-                document.getElementById('invoiceNumber')?.focus();
-                resetPurchaseSubmitState();
-                return;
-            }
             let purchaseTypeHidden = document.getElementById('purchaseTypeHiddenInput');
             if (!purchaseTypeHidden) {
                 purchaseTypeHidden = document.createElement('input');
@@ -3128,67 +2851,17 @@
             return;
         }
 
-        if (activePurchaseTypes.size === 0) {
-            event.preventDefault();
-            alert('Please select at least one purchase category (Fabric Rolls, Raw Materials, or Third-Party Products).');
-            resetPurchaseSubmitState();
-            return;
-        }
-
         const itemsPayload = [];
-        let hasError = false;
-        let errorMessage = '';
 
-        // 1. Validate & collect Fabric Rolls (if active)
+        // 1. Collect Fabric Rolls (if active)
         if (activePurchaseTypes.has('FABRIC_ROLL')) {
             const rollCards = Array.from(rollsContainer.querySelectorAll('.roll-card'));
-            if (rollCards.length === 0) {
-                event.preventDefault();
-                alert('Add at least one fabric roll or uncheck the Fabric Rolls category.');
-                resetPurchaseSubmitState();
-                return;
-            }
-            const fabDesc = document.getElementById('fabricDescription')?.value?.trim();
-            if (!fabDesc) {
-                event.preventDefault();
-                alert('Please enter a fabric / material description for Fabric Rolls.');
-                document.getElementById('fabricDescription')?.focus();
-                resetPurchaseSubmitState();
-                return;
-            }
-
             rollCards.forEach((card, idx) => {
-                if (hasError) return;
                 const rollNum = card.querySelector('.roll-number')?.value?.trim() || ('ROLL #' + (idx + 1));
-                const color = card.querySelector('.roll-color')?.value?.trim();
-                const design = card.querySelector('.roll-design')?.value?.trim();
+                const color = card.querySelector('.roll-color')?.value?.trim() || '';
+                const design = card.querySelector('.roll-design')?.value?.trim() || '';
                 const weight = Number(card.querySelector('.roll-weight')?.value) || 0;
                 const price = Number(card.querySelector('.roll-price')?.value) || 0;
-
-                if (!color) {
-                    hasError = true;
-                    errorMessage = `Roll #${idx + 1}: Color / Shade is required.`;
-                    card.querySelector('.roll-color')?.focus();
-                    return;
-                }
-                if (!design) {
-                    hasError = true;
-                    errorMessage = `Roll #${idx + 1}: Design Name / Pattern is required.`;
-                    card.querySelector('.roll-design')?.focus();
-                    return;
-                }
-                if (weight <= 0) {
-                    hasError = true;
-                    errorMessage = `Roll #${idx + 1}: Weight (kg) must be greater than zero.`;
-                    card.querySelector('.roll-weight')?.focus();
-                    return;
-                }
-                if (price <= 0) {
-                    hasError = true;
-                    errorMessage = `Roll #${idx + 1}: Purchase price must be greater than zero.`;
-                    card.querySelector('.roll-price')?.focus();
-                    return;
-                }
 
                 const photoInput = card.querySelector('.roll-photo');
                 let formIdx = String(idx);
@@ -3218,61 +2891,17 @@
             });
         }
 
-        if (hasError) {
-            event.preventDefault();
-            alert(errorMessage);
-            resetPurchaseSubmitState();
-            return;
-        }
-
-        // 2. Validate & collect Raw Materials (if active)
+        // 2. Collect Raw Materials (if active)
         if (activePurchaseTypes.has('RAW_MATERIAL')) {
             const rmCards = Array.from(document.querySelectorAll('#rawMaterialContainer .rm-card'));
-            if (rmCards.length === 0) {
-                event.preventDefault();
-                alert('Add at least one raw material or uncheck the Raw Materials category.');
-                resetPurchaseSubmitState();
-                return;
-            }
-
             rmCards.forEach((card, idx) => {
-                if (hasError) return;
-                const name = card.querySelector('.rm-name')?.value?.trim();
+                const name = card.querySelector('.rm-name')?.value?.trim() || '';
                 const qty = Number(card.querySelector('.rm-quantity')?.value) || 0;
                 const cost = Number(card.querySelector('.rm-cost')?.value) || 0;
                 const unit = getSelectedUnitValue(card, '.rm-unit', '.rm-custom-unit');
                 const hsn = card.querySelector('.rm-hsn')?.value?.trim() || '';
                 const hsnBtn = card.querySelector('.hsn-dropdown-btn');
-
-                if (!name) {
-                    hasError = true;
-                    errorMessage = `Raw Material #${idx + 1}: Material / Item name is required.`;
-                    card.querySelector('.rm-name')?.focus();
-                    return;
-                }
-                if (qty <= 0) {
-                    hasError = true;
-                    errorMessage = `Raw Material #${idx + 1} ("${name}"): Quantity must be at least 0.01.`;
-                    card.querySelector('.rm-quantity')?.focus();
-                    return;
-                }
-                if (cost <= 0) {
-                    hasError = true;
-                    errorMessage = `Raw Material #${idx + 1} ("${name}"): Purchase price must be greater than zero.`;
-                    card.querySelector('.rm-cost')?.focus();
-                    return;
-                }
-                if (!hsn) {
-                    hasError = true;
-                    errorMessage = `Raw Material #${idx + 1} ("${name}"): HSN code is mandatory. Please select or add an HSN code.`;
-                    if (hsnBtn) {
-                        hsnBtn.classList.add('border-danger', 'is-invalid');
-                        hsnBtn.focus();
-                    }
-                    return;
-                } else if (hsnBtn) {
-                    hsnBtn.classList.remove('border-danger', 'is-invalid');
-                }
+                if (hsnBtn) hsnBtn.classList.remove('border-danger', 'is-invalid');
 
                 itemsPayload.push({
                     item_type: 'RAW_MATERIAL',
@@ -3295,61 +2924,17 @@
             });
         }
 
-        if (hasError) {
-            event.preventDefault();
-            alert(errorMessage);
-            resetPurchaseSubmitState();
-            return;
-        }
-
-        // 3. Validate & collect Third-Party Products (if active)
+        // 3. Collect Third-Party Products (if active)
         if (activePurchaseTypes.has('THIRD_PARTY')) {
             const tpCards = Array.from(document.querySelectorAll('#thirdPartyContainer .tp-card'));
-            if (tpCards.length === 0) {
-                event.preventDefault();
-                alert('Add at least one third-party product or uncheck the Third-Party Products category.');
-                resetPurchaseSubmitState();
-                return;
-            }
-
             tpCards.forEach((card, idx) => {
-                if (hasError) return;
-                const name = card.querySelector('.tp-name')?.value?.trim();
+                const name = card.querySelector('.tp-name')?.value?.trim() || '';
                 const qty = Number(card.querySelector('.tp-quantity')?.value) || 0;
                 const cost = Number(card.querySelector('.tp-cost')?.value) || 0;
                 const unit = getSelectedUnitValue(card, '.tp-unit', '.tp-custom-unit');
                 const hsn = card.querySelector('.tp-hsn')?.value?.trim() || '';
                 const hsnBtn = card.querySelector('.hsn-dropdown-btn');
-
-                if (!name) {
-                    hasError = true;
-                    errorMessage = `Product #${idx + 1}: Item name is required.`;
-                    card.querySelector('.tp-name')?.focus();
-                    return;
-                }
-                if (qty <= 0) {
-                    hasError = true;
-                    errorMessage = `Product #${idx + 1} ("${name}"): Quantity must be at least 1.`;
-                    card.querySelector('.tp-quantity')?.focus();
-                    return;
-                }
-                if (cost <= 0) {
-                    hasError = true;
-                    errorMessage = `Product #${idx + 1} ("${name}"): Purchase price must be greater than zero.`;
-                    card.querySelector('.tp-cost')?.focus();
-                    return;
-                }
-                if (!hsn) {
-                    hasError = true;
-                    errorMessage = `Product #${idx + 1} ("${name}"): HSN code is mandatory. Please select or add an HSN code.`;
-                    if (hsnBtn) {
-                        hsnBtn.classList.add('border-danger', 'is-invalid');
-                        hsnBtn.focus();
-                    }
-                    return;
-                } else if (hsnBtn) {
-                    hsnBtn.classList.remove('border-danger', 'is-invalid');
-                }
+                if (hsnBtn) hsnBtn.classList.remove('border-danger', 'is-invalid');
 
                 itemsPayload.push({
                     item_type: 'THIRD_PARTY',
@@ -3371,20 +2956,6 @@
                     form_index: String(itemsPayload.length)
                 });
             });
-        }
-
-        if (hasError) {
-            event.preventDefault();
-            alert(errorMessage);
-            resetPurchaseSubmitState();
-            return;
-        }
-
-        if (itemsPayload.length === 0) {
-            event.preventDefault();
-            alert('Add at least one purchase item before saving.');
-            resetPurchaseSubmitState();
-            return;
         }
 
         // Set overall purchase_type hidden input (MIXED if multiple categories present)
@@ -3585,9 +3156,6 @@
         syncCategoryCardUI('FABRIC_ROLL', false);
         syncCategoryCardUI('RAW_MATERIAL', false);
     } else {
-        if (!quickPurchaseEntry?.checked && !useMappingInvoice?.checked) {
-            addRoll();
-        }
         activePurchaseTypes.clear();
         activePurchaseTypes.add('FABRIC_ROLL');
         syncCategoryCardUI('FABRIC_ROLL', true);
