@@ -186,14 +186,25 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 
                                 <div class="col-md-3">
                                     <label class="form-label small fw-semibold mb-1">HSN Code</label>
-                                    <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
+                                        <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1">
+                                            <i class="bi bi-chevron-down"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small fw-semibold mb-1">GST %</label>
                                     <input type="text" inputmode="decimal" class="form-control form-control-sm gen-gst" value="5">
                                 </div>
-                                <div class="col-md-7 d-flex align-items-end">
-                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Select a Category above to load attributes, then set Qty, Purchase Rate, MRP &amp; Selling Price per attribute below.</small>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold mb-1">GST Mode</label>
+                                    <div class="btn-group btn-group-sm w-100 gen-gst-mode-group" role="group">
+                                        <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstInc0" value="INCLUDED" autocomplete="off">
+                                        <label class="btn btn-outline-primary fw-semibold" for="gstInc0">GST Included</label>
+                                        <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstExc0" value="EXCLUDED" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary fw-semibold" for="gstExc0">GST Excluded</label>
+                                    </div>
                                 </div>
 
                                 <div class="col-md-5 d-none gen-attributes-col">
@@ -1904,31 +1915,37 @@ document.addEventListener('DOMContentLoaded', function() {
         hideDraftHsnDropdown();
     }
 
-    document.addEventListener('input', function (e) {
-        if (!e.target.classList.contains('gen-hsn')) return;
-        const q = e.target.value.trim().toUpperCase();
-        if (!q || !draftHsnList.length) {
+    function showDraftHsnDropdown(input, forceShowAll = false) {
+        if (!input || !draftHsnList.length) {
             hideDraftHsnDropdown();
             return;
         }
-        const prefix = [];
-        const other = [];
-        for (const it of draftHsnList) {
-            const c = String(it.hsn_code || '').toUpperCase();
-            const d = String(it.description || '').toUpperCase();
-            if (c.startsWith(q)) prefix.push(it);
-            else if (c.includes(q) || d.includes(q)) other.push(it);
+        const q = forceShowAll ? '' : input.value.trim().toUpperCase();
+        let matches;
+        if (!q) {
+            matches = draftHsnList.slice(0, 120);
+        } else {
+            const prefix = [];
+            const other = [];
+            for (const it of draftHsnList) {
+                const c = String(it.hsn_code || '').toUpperCase();
+                const d = String(it.description || '').toUpperCase();
+                if (c.startsWith(q)) prefix.push(it);
+                else if (c.includes(q) || d.includes(q)) other.push(it);
+            }
+            matches = prefix.concat(other).slice(0, 80);
         }
-        const matches = prefix.concat(other).slice(0, 30);
         if (!matches.length) {
             hideDraftHsnDropdown();
             return;
         }
-        activeDraftHsnInput = e.target;
-        const rect = e.target.getBoundingClientRect();
+        activeDraftHsnInput = input;
+        const rect = (input.closest('.input-group') || input).getBoundingClientRect();
         draftHsnDropdown.style.top = `${rect.bottom + 2}px`;
-        draftHsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 290)}px`;
-        draftHsnDropdown.style.width = `${Math.max(rect.width, 260)}px`;
+        draftHsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 310)}px`;
+        draftHsnDropdown.style.width = `${Math.max(rect.width, 290)}px`;
+        draftHsnDropdown.style.maxHeight = '240px';
+        draftHsnDropdown.style.overflowY = 'auto';
         draftHsnDropdown.innerHTML = '';
         matches.forEach(item => {
             const btn = document.createElement('button');
@@ -1936,13 +1953,39 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.className = 'list-group-item list-group-item-action py-1 px-2.5 text-start small';
             const gstText = (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') ? `${Number(item.gst_rate)}%` : 'N/A';
             btn.innerHTML = `<div class="d-flex justify-content-between"><span class="font-monospace fw-bold">${item.hsn_code}</span><span class="badge bg-light text-dark border">${gstText}</span></div>`
-                + (item.description ? `<div class="text-truncate text-muted" style="font-size:0.75rem;">${String(item.description).slice(0, 42)}</div>` : '');
-            btn.addEventListener('mousedown', ev => { ev.preventDefault(); applyDraftHsnItem(e.target, item); });
+                + (item.description ? `<div class="text-truncate text-muted" style="font-size:0.75rem;">${String(item.description).slice(0, 48)}</div>` : '');
+            btn.addEventListener('mousedown', ev => { ev.preventDefault(); applyDraftHsnItem(input, item); });
             draftHsnDropdown.appendChild(btn);
         });
         draftHsnDropdown.style.display = 'block';
+    }
+
+    document.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('gen-hsn')) return;
+        showDraftHsnDropdown(e.target, false);
     });
-    document.addEventListener('click', e => { if (e.target !== activeDraftHsnInput && !draftHsnDropdown.contains(e.target)) hideDraftHsnDropdown(); });
+    document.addEventListener('focusin', function (e) {
+        if (!e.target.classList.contains('gen-hsn')) return;
+        showDraftHsnDropdown(e.target, e.target.value.trim() === '');
+    });
+    document.addEventListener('click', function (e) {
+        const toggleBtn = e.target.closest('.btn-hsn-dropdown-toggle');
+        if (toggleBtn) {
+            const inp = toggleBtn.closest('.input-group')?.querySelector('.gen-hsn');
+            if (inp) {
+                if (draftHsnDropdown.style.display === 'block' && activeDraftHsnInput === inp) {
+                    hideDraftHsnDropdown();
+                } else {
+                    inp.focus();
+                    showDraftHsnDropdown(inp, true);
+                }
+            }
+            return;
+        }
+        if (e.target !== activeDraftHsnInput && !draftHsnDropdown.contains(e.target)) {
+            hideDraftHsnDropdown();
+        }
+    });
     window.addEventListener('scroll', function (ev) {
         if (ev.target === draftHsnDropdown || (ev.target && draftHsnDropdown.contains(ev.target))) return;
         hideDraftHsnDropdown();
@@ -2185,7 +2228,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (szInp) szInp.value = combo.size;
             if (colInp) colInp.value = combo.color;
             if (qtyInp) qtyInp.value = combo.qty;
-            if (rateInp && combo.rate !== '') rateInp.value = combo.rate;
+            if (rateInp && combo.rate !== '') {
+                const gstMode = card.querySelector('.gen-gst-mode:checked')?.value || 'EXCLUDED';
+                const rawRate = parseFloat(combo.rate) || 0;
+                const gstNum = parseFloat(gstVal) || 0;
+                rateInp.value = (gstMode === 'INCLUDED' && gstNum > 0 && rawRate > 0)
+                    ? (rawRate / (1 + (gstNum / 100))).toFixed(2)
+                    : combo.rate;
+            }
             if (mrpInp && combo.mrp !== '') mrpInp.value = combo.mrp;
             if (spInp && combo.sp !== '') spInp.value = combo.sp;
             if (gstInp) gstInp.value = gstVal;
