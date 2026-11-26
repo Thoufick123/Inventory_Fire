@@ -122,33 +122,38 @@
         </div>
 
         <!-- Labels Grid -->
+        <?php
+            $concernName = strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'));
+            $brandCode = strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM'));
+            $vCode = $variant['variant_code'] ?: $variant['qr_code'];
+            $mrpVal = (float)($variant['mrp'] ?? 0);
+            $spVal = (float)($variant['selling_price'] ?? 0);
+            $attrLine = trim(($variant['size_name'] ?? '') . ' / ' . ($variant['color_name'] ?? ''), ' /');
+        ?>
         <div class="labels-grid">
             <?php for ($i = 1; $i <= $quantity; $i++): ?>
             <div class="thermal-label-card">
-                <div class="thermal-header">
-                    <div class="company-title">GRM INVENTORY APPARELS</div>
-                    <div style="font-size: 8px; font-weight: 600; text-transform: uppercase;">
-                        <?= e($variant['category_name'] ?? 'APPAREL') ?>
+                <div class="text-center fw-bold text-secondary text-uppercase pb-1 mb-2 border-bottom" style="font-size: 9px; letter-spacing: 0.5px;">
+                    <?= e($concernName) ?>
+                </div>
+                <div class="qr-section" style="align-items: center; gap: 8px;">
+                    <div class="d-flex flex-column align-items-center flex-shrink-0">
+                        <div class="qr-box batch-qr-item" data-qr="<?= e($variant['qr_code'] ?: $variant['variant_code']) ?>"></div>
+                        <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 8.5px; letter-spacing: 0.4px;"><?= e($vCode) ?></div>
                     </div>
-                </div>
-
-                <div class="qr-section">
-                    <div class="qr-box batch-qr-item" data-qr="<?= e($variant['qr_code'] ?: $variant['variant_code']) ?>"></div>
-                    <div class="meta-list flex-grow-1">
-                        <div style="font-size: 9.5px; font-weight: 800;" class="font-monospace text-truncate">
-                            <?= e($variant['product_name']) ?>
-                        </div>
-                        <div><strong>V-ID:</strong> <span class="font-monospace fw-bold text-dark"><?= e($variant['variant_code']) ?></span></div>
-                        <div><strong>Variant ID:</strong> <span class="font-monospace fw-bold" style="font-size: 8.5px;"><?= e($variant['variant_code']) ?></span></div>
+                    <div class="meta-list flex-grow-1" style="min-width: 0;">
+                        <div class="fw-bolder text-uppercase text-truncate" style="font-size: 10px; color: #881337;"><?= e($brandCode) ?></div>
+                        <div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size: 8.5px;"><?= e($variant['product_name']) ?></div>
+                        <?php if ($attrLine !== ''): ?>
+                            <div class="fw-semibold text-dark text-truncate" style="font-size: 9px;"><?= e($attrLine) ?></div>
+                        <?php endif; ?>
+                        <?php if ($mrpVal > 0): ?>
+                            <div class="text-muted text-decoration-line-through" style="font-size: 8.5px;">MRP: ₹<?= number_format($mrpVal, 0) ?></div>
+                        <?php endif; ?>
+                        <?php if ($spVal > 0): ?>
+                            <div class="fw-bold" style="font-size: 10px; color: #15803d;">Disc: ₹<?= number_format($spVal, 0) ?></div>
+                        <?php endif; ?>
                     </div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top border-dark" style="font-size: 9.5px;">
-                    <div>MRP: <?= formatCurrency((float)((float)$variant['mrp'])) ?></div>
-                    <div class="fw-bold text-dark">PRICE: <?= formatCurrency((float)((float)$variant['selling_price'])) ?></div>
-                </div>
-                <div class="text-center font-monospace mt-1 fw-bold" style="font-size: 8.5px; letter-spacing: 0.5px;">
-                    <?= e($variant['variant_code'] ?: $variant['qr_code']) ?>
                 </div>
             </div>
             <?php endfor; ?>

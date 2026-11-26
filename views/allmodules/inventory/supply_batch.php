@@ -772,25 +772,26 @@ function renderStickersToModal(itemsToPrint) {
 
     itemsToPrint.forEach((item, i) => {
         const qrId = 'modal_qr_' + i + '_' + Math.random().toString(36).substring(2, 6);
+        const vCode = item.variant_code || item.tag_code || '';
+        const mrpVal = parseFloat(item.mrp || item.base_price || 0);
+        const discVal = parseFloat(item.unit_price || item.selling_price || mrpVal || 0);
         const cardHtml = `
             <div class="col-md-4 col-sm-6 mb-2">
-                <div class="qr-sticker-card p-2 shadow-xs bg-white border rounded">
-                    <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
-                        <span class="lbl-title text-truncate fw-bold text-dark" style="max-width: 150px;">
-                            <?= e($supplierName) ?>
-                        </span>
-                        <span class="badge bg-light text-dark font-monospace border" style="font-size: 7.5px;">
-                            ${escapeHtml(item.program_number)}
-                        </span>
+                <div class="qr-sticker-card p-3 shadow-xs bg-white border" style="border-radius: 10px;">
+                    <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11px; letter-spacing: 0.5px;">
+                        <?= e($supplierName) ?>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="${qrId}" style="width: 70px; height: 70px; flex-shrink: 0;" class="p-1 bg-white border rounded"></div>
-                        <div class="flex-grow-1" style="font-size: 8px; line-height: 1.2;">
-                            <strong class="d-block text-dark text-truncate" style="max-width: 140px;">${escapeHtml(item.product_name)}</strong>
-                            <div class="text-muted">Type: GARMENT SUPPLY</div>
-                            <div>HSN: <strong>${escapeHtml(item.hsn_code || '—')}</strong></div>
-                            <div class="text-primary fw-bold">Price: ${formatCurrency(parseFloat(item.unit_price))}</div>
-                            <div class="font-monospace fw-bold text-dark mt-1">Code: ${escapeHtml(item.tag_code)}</div>
+                    <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                        <div class="d-flex flex-column align-items-center flex-shrink-0">
+                            <div id="${qrId}" style="width: 76px; height: 76px; display: flex; align-items: center; justify-content: center;" class="p-1 bg-white border rounded"></div>
+                            <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11px;">${escapeHtml(vCode)}</div>
+                        </div>
+                        <div class="min-w-0 text-start">
+                            <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13px; color: #881337;">${escapeHtml(item.product_name || 'PRODUCT')}</div>
+                            <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11px;">${escapeHtml(item.program_number || 'SUPPLY')}</div>
+                            <div class="fw-semibold text-dark mb-1" style="font-size: 12px;">${escapeHtml(item.size_name || 'Std')} / ${escapeHtml(item.color_name || 'Std')}</div>
+                            ${mrpVal > discVal ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 11.5px;">MRP: ${formatCurrency(mrpVal)}</div>` : ''}
+                            <div class="fw-bold" style="font-size: 13px; color: #15803d;">Disc: ${formatCurrency(discVal)}</div>
                         </div>
                     </div>
                 </div>

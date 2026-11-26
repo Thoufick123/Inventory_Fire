@@ -1763,16 +1763,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
         const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
 
+        const concern = esc(data.concern || <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>);
         return `
             <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
-                ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;">${esc(labelBadge)}</span>` : ''}
-                ${vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${vid}</span>` : ''}
+                ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;z-index:2;">${esc(labelBadge)}</span>` : ''}
+                ${concern ? `<div class="position-absolute fw-bold text-secondary text-uppercase text-truncate text-center px-2" style="left:0;right:0;top:4px;font-size:${Math.max(8, fontPx - 2)}px;">${concern}</div>` : ''}
                 <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-qr-target" data-code="${code}" data-qr-px="${qrPx}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
                 <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${code}</div>
-                <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${title}</div>
+                <div class="position-absolute fw-bold text-uppercase text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;color:#881337;">${title}</div>
                 <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${attrs}</div>
                 ${mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
-                ${sp ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${sp}</div>` : ''}
+                ${sp ? `<div class="position-absolute fw-bold" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;color:#15803d;">Disc: ${sp}</div>` : ''}
             </div>
         `;
     }

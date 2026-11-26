@@ -20586,7 +20586,20 @@ class AllmodulesController {
                         [$tpVId]
                     );
                     if ($sbRow !== null && (int)($sbRow['row_cnt'] ?? 0) > 0) {
-                        $currentAvailable = (float)$sbRow['cnt'];
+                        $untrackedBilledRow = Database::fetchOne(
+                            "SELECT COALESCE(SUM(pbi.quantity), 0) AS qty
+                             FROM production_bill_items pbi
+                             WHERE pbi.variant_id = ?
+                               AND NOT EXISTS (
+                                   SELECT 1 FROM stock_transactions st
+                                   WHERE st.reference_type = 'production_bills'
+                                     AND st.reference_id = pbi.bill_id
+                                     AND st.variant_id = pbi.variant_id
+                               )",
+                            [$tpVId]
+                        );
+                        $untrackedBilled = (float)($untrackedBilledRow['qty'] ?? 0);
+                        $currentAvailable = max(0.0, (float)$sbRow['cnt'] - $untrackedBilled);
                     }
                 }
                 if ($currentAvailable === null) {

@@ -853,7 +853,20 @@ class AllmodulesBillingController
                  WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
                 [$varId]
             );
-            $availableQty = (float)($balance['quantity'] ?? 0);
+            $untrackedBilledRow = Database::fetchOne(
+                "SELECT COALESCE(SUM(pbi.quantity), 0) AS qty
+                 FROM production_bill_items pbi
+                 WHERE pbi.variant_id = ?
+                   AND (? = 0 OR pbi.bill_id <> ?)
+                   AND NOT EXISTS (
+                       SELECT 1 FROM stock_transactions st
+                       WHERE st.reference_type = 'production_bills'
+                         AND st.reference_id = pbi.bill_id
+                         AND st.variant_id = pbi.variant_id
+                   )",
+                [$varId, $billId, $billId]
+            );
+            $availableQty = max(0.0, (float)($balance['quantity'] ?? 0) - (float)($untrackedBilledRow['qty'] ?? 0));
 
             if ($availableQty > 0) {
                 $mrp = max(0.0, (float)$variantMatch['mrp']);

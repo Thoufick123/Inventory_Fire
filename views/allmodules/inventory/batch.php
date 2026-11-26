@@ -246,50 +246,8 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
     </div>
 </div>
 
-<!-- 5 Styled Tabs matching Reference -->
-<ul class="nav nav-pills stock-ledger-nav gap-2 mb-4 flex-wrap" id="stockLedgerPills" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold d-flex align-items-center gap-2 tab-pill-green" id="pill-warehouse-tab" data-bs-toggle="pill" data-bs-target="#pill-warehouse" type="button" role="tab" aria-selected="true">
-            <i class="bi bi-qr-code-scan"></i>
-            <span>Warehouse Pieces &amp; QR Labels</span>
-            <span class="badge rounded-pill bg-white text-success px-2 ms-1"><?= $inStockPcs ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-red" id="pill-damaged-tab" data-bs-toggle="pill" data-bs-target="#pill-damaged" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-exclamation-circle-fill"></i>
-            <span>Damaged &amp; Quarantined Products</span>
-            <span class="badge rounded-pill <?= count($damagedList) > 0 ? 'bg-danger text-white' : 'bg-danger-subtle text-danger' ?> px-2 ms-1"><?= count($damagedList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-pink" id="pill-sales-tab" data-bs-toggle="pill" data-bs-target="#pill-sales" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-bag-check-fill"></i>
-            <span>Direct Sales / Sold Pieces</span>
-            <span class="badge rounded-pill <?= count($soldList) > 0 ? 'bg-danger text-white' : 'bg-light text-secondary border' ?> px-2 ms-1"><?= count($soldList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-orange" id="pill-returns-tab" data-bs-toggle="pill" data-bs-target="#pill-returns" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-arrow-return-left"></i>
-            <span>Customer Returns &amp; Exchanges</span>
-            <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis px-2 ms-1"><?= count($returnsList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-purple" id="pill-logs-tab" data-bs-toggle="pill" data-bs-target="#pill-logs" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-tags-fill"></i>
-            <span>Price Revision History &amp; Logs</span>
-            <span class="badge rounded-pill bg-purple-subtle text-purple px-2 ms-1"><?= count($movementsList) ?></span>
-        </button>
-    </li>
-</ul>
-
-<!-- Tab Contents -->
-<div class="tab-content" id="stockLedgerTabContent">
-
-    <!-- TAB 1: Warehouse Pieces & QR Labels -->
-    <div class="tab-pane fade show active" id="pill-warehouse" role="tabpanel">
+        <!-- Warehouse Pieces & QR Labels -->
+        <div id="pill-warehouse">
 
         <!-- Sub-header & Action Buttons matching Reference -->
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
@@ -448,321 +406,6 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
         </div>
     </div>
 
-    <!-- TAB 2: Damaged & Quarantined Products -->
-    <div class="tab-pane fade" id="pill-damaged" role="tabpanel">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Damaged &amp; Quarantined Products</h5>
-                    <small class="text-muted">Pieces flagged as damaged during QC inspection or warehouse inward verification.</small>
-                </div>
-                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fw-bold">
-                    <?= count($damagedList) ?> Quarantined Piece(s)
-                </span>
-            </div>
-            <div class="card-body p-0">
-                <?php if (!empty($damagedList)): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Piece Tag Code</th>
-                                <th>Variant (Size / Color)</th>
-                                <th>Defect / Quarantine Reason</th>
-                                <th>Date Flagged</th>
-                                <th>Status</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($damagedList as $idx => $dmg): ?>
-                            <tr>
-                                <td class="text-muted small fw-bold">#<?= $idx + 1 ?></td>
-                                <td>
-                                    <span class="badge bg-danger-subtle text-danger font-monospace fs-7 px-2 py-1">
-                                        <i class="bi bi-qr-code me-1"></i><?= e($dmg['tag_code'] ?? 'TAG') ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary-subtle text-secondary border"><?= e($dmg['size_name'] ?? 'Std') ?></span>
-                                    <span class="badge bg-info-subtle text-info border"><?= e($dmg['color_name'] ?? 'Std') ?></span>
-                                </td>
-                                <td><?= e($dmg['defect_reason'] ?? 'Damaged during inward') ?></td>
-                                <td class="small text-muted"><?= !empty($dmg['created_at']) ? date('d M Y, h:i A', strtotime($dmg['created_at'])) : '—' ?></td>
-                                <td><span class="badge bg-danger text-white">QUARANTINED</span></td>
-                                <td class="text-end">
-                                    <span class="badge bg-light text-muted border">Protected</span>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                <div class="p-5 text-center text-muted">
-                    <i class="bi bi-shield-check fs-1 d-block mb-2 text-success"></i>
-                    <h6 class="fw-semibold text-dark mb-1">No Damaged or Quarantined Products</h6>
-                    <p class="small text-muted mb-0">All pieces received in this batch have passed intact quality verification.</p>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 3: Direct Sales / Sold Pieces -->
-    <div class="tab-pane fade" id="pill-sales" role="tabpanel">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-bag-check-fill text-primary me-2"></i>Direct Sales &amp; Billed Invoices</h5>
-                    <small class="text-muted">Real-time tracking of finished pieces billed and settled through Production / POS Billing.</small>
-                </div>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fw-bold">
-                    <?= count($soldList) ?> Piece(s) Billed
-                </span>
-            </div>
-            <div class="card-body p-0">
-                <?php if (!empty($soldList)): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Invoice #</th>
-                                <th>Buyer (Customer / B2B)</th>
-                                <th>Piece Tag</th>
-                                <th>Sale Date</th>
-                                <th class="text-end">Sold Price</th>
-                                <th>Payment Mode</th>
-                                <th>Payment Status</th>
-                                <th class="text-end">Invoice Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($soldList as $sold): ?>
-                            <tr>
-                                <td>
-                                    <span class="font-monospace fw-bold text-primary">
-                                        <i class="bi bi-receipt me-1"></i><?= e($sold['bill_number'] ?? 'INV') ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="fw-bold text-dark"><?= e($sold['buyer_name'] ?? 'Customer') ?></div>
-                                    <?php if (!empty($sold['buyer_phone'])): ?>
-                                    <small class="text-muted"><?= e($sold['buyer_phone']) ?></small>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="badge bg-dark font-monospace"><?= e($sold['tag_code'] ?? 'TAG') ?></span>
-                                </td>
-                                <td class="small text-muted"><?= !empty($sold['bill_date']) ? date('d M Y', strtotime($sold['bill_date'])) : (!empty($sold['sale_date']) ? date('d M Y', strtotime($sold['sale_date'])) : '—') ?></td>
-                                <td class="text-end font-monospace fw-bold text-success"><?= formatCurrency((float)($sold['price'] ?? 0)) ?></td>
-                                <td><span class="badge bg-light text-dark border"><?= e($sold['payment_mode'] ?? 'CASH') ?></span></td>
-                                <td><span class="badge bg-success text-white">PAID</span></td>
-                                <td class="text-end">
-                                    <?php if (!empty($sold['bill_id'])): ?>
-                                    <a href="<?= url('production/billing/view/' . $sold['bill_id']) ?>" class="btn btn-sm btn-outline-primary" target="_blank" title="View Full Bill">
-                                        <i class="bi bi-eye me-1"></i>View Bill
-                                    </a>
-                                    <?php else: ?>
-                                    <span class="text-muted">—</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                <div class="p-5 text-center text-muted">
-                    <i class="bi bi-receipt fs-1 d-block mb-2 text-secondary"></i>
-                    <h6 class="fw-semibold text-dark mb-1">No Pieces Billed Yet</h6>
-                    <p class="small text-muted mb-0">None of the finished garment pieces in this batch have been billed through POS yet.</p>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 4: Customer Returns & Exchanges -->
-    <div class="tab-pane fade" id="pill-returns" role="tabpanel">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-arrow-return-left text-warning me-2"></i>Customer Returns &amp; Exchanges</h5>
-                    <small class="text-muted">Returned or exchanged pieces linked to this product SKU / batch.</small>
-                </div>
-                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 fw-bold">
-                    <?= count($returnsList) ?> Return(s)
-                </span>
-            </div>
-            <div class="card-body p-0">
-                <?php if (!empty($returnsList)): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Return #</th>
-                                <th>Date</th>
-                                <th>Customer</th>
-                                <th>Reason</th>
-                                <th>Qty</th>
-                                <th>Condition</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($returnsList as $ret): ?>
-                            <tr>
-                                <td><?= e($ret['return_number'] ?? 'RET') ?></td>
-                                <td><?= e($ret['return_date'] ?? '—') ?></td>
-                                <td><?= e($ret['customer_name'] ?? '—') ?></td>
-                                <td><?= e($ret['reason'] ?? '—') ?></td>
-                                <td><?= e($ret['quantity'] ?? 1) ?></td>
-                                <td><?= e($ret['condition'] ?? 'Good') ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                <div class="p-5 text-center text-muted">
-                    <i class="bi bi-box-arrow-in-left fs-1 d-block mb-2 text-secondary"></i>
-                    <h6 class="fw-semibold text-dark mb-1">No Customer Returns Recorded</h6>
-                    <p class="small text-muted mb-0">There are no customer returns or product exchanges recorded for this SKU.</p>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 5: Price Revision History & Logs -->
-    <div class="tab-pane fade" id="pill-logs" role="tabpanel">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-tags-fill text-purple me-2"></i>Price Revision History &amp; Movement Logs</h5>
-                    <small class="text-muted">Audit trail of inward receipts, outward dispatches, and inventory valuation changes.</small>
-                </div>
-                <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-3 py-2 fw-bold">
-                    <?= count($movementsList) ?> Movement Event(s)
-                </span>
-            </div>
-            <div class="card-body p-0">
-                <?php if (!empty($movementsList)): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Outward / Log #</th>
-                                <th>Batches</th>
-                                <th>Destination Warehouse</th>
-                                <th class="text-end">Dispatched Qty</th>
-                                <th class="text-end">Boxes</th>
-                                <th>Dispatch Date</th>
-                                <th>Status</th>
-                                <th class="text-end">Challan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($movementsList as $ow): ?>
-                            <tr>
-                                <td class="font-monospace fw-bold text-primary">
-                                    <i class="bi bi-file-earmark-text me-1"></i><?= e($ow['outward_number'] ?? 'LOG') ?>
-                                </td>
-                                <td>
-                                    <span class="badge bg-light text-dark border">
-                                        <?= e($ow['batch_number'] ?? 'Batch') ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold"><?= e($ow['warehouse_name'] ?? 'Central Warehouse') ?></div>
-                                    <?php if (!empty($ow['warehouse_code'])): ?>
-                                    <small class="text-muted font-monospace"><?= e($ow['warehouse_code']) ?></small>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-end fw-bold text-danger"><?= number_format($ow['outward_qty'] ?? 0) ?> pcs</td>
-                                <td class="text-end"><?= number_format($ow['total_boxes'] ?? 1) ?> box(es)</td>
-                                <td class="small text-muted"><?= !empty($ow['created_at']) ? date('d M Y, h:i A', strtotime($ow['created_at'])) : '—' ?></td>
-                                <td><span class="badge bg-success-subtle text-success border border-success-subtle">COMPLETED</span></td>
-                                <td class="text-end">
-                                    <?php if (!empty($ow['id'])): ?>
-                                    <a href="<?= url('production/outwards/challan/' . $ow['id']) ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-printer me-1"></i>Challan
-                                    </a>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                <div class="p-5 text-center text-muted">
-                    <i class="bi bi-journal-text fs-1 d-block mb-2 text-secondary"></i>
-                    <h6 class="fw-semibold text-dark mb-1">No Movement Logs Recorded</h6>
-                    <p class="small text-muted mb-0">Initial batch receipt is the only movement recorded to date.</p>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- Common Stock Transaction History (All Modules & Concerns) -->
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                    <h5 class="card-title mb-0 fw-bold text-dark"><i class="bi bi-clock-history text-info me-2"></i>Common Inventory Stock History (All Modules)</h5>
-                    <small class="text-muted">Unified stock ledger across all warehouses, production units, billing/POS, and returns.</small>
-                </div>
-                <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-2 fw-bold">
-                    <?= count($stockHistory ?? []) ?> Transaction(s)
-                </span>
-            </div>
-            <div class="card-body p-0">
-                <?php if (!empty($stockHistory)): ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 small">
-                        <thead class="table-light text-uppercase text-muted">
-                            <tr>
-                                <th>Date / Time</th>
-                                <th>Variant ID</th>
-                                <th>Type</th>
-                                <th class="text-end">Qty</th>
-                                <th>Location</th>
-                                <th>Reference</th>
-                                <th>By</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($stockHistory as $sh):
-                                $txType = strtoupper((string)($sh['transaction_type'] ?? $sh['movement_type'] ?? 'MOVEMENT'));
-                                $isIn = in_array($txType, ['IN', 'INWARD', 'PURCHASE', 'RETURN', 'ADJUST_IN'], true) || ((float)($sh['quantity'] ?? 0) > 0 && $txType !== 'OUT');
-                            ?>
-                            <tr>
-                                <td class="text-muted"><?= !empty($sh['created_at']) ? date('d M Y, h:i A', strtotime($sh['created_at'])) : '—' ?></td>
-                                <td><span class="badge bg-dark font-monospace"><?= e($sh['variant_code'] ?? $sh['variant_sku'] ?? '—') ?></span></td>
-                                <td><span class="badge <?= $isIn ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle' ?>"><?= e($txType) ?></span></td>
-                                <td class="text-end fw-bold"><?= number_format((float)($sh['quantity'] ?? 0), 2) ?></td>
-                                <td><?= e($sh['location_name'] ?? ($sh['location_type'] ?? '—')) ?></td>
-                                <td class="font-monospace"><?= e(($sh['reference_type'] ?? '') . (!empty($sh['reference_id']) ? ' #' . $sh['reference_id'] : '')) ?: '—' ?></td>
-                                <td><?= e($sh['actor_name'] ?? 'System') ?></td>
-                                <td class="text-muted"><?= e($sh['notes'] ?? '—') ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                <div class="p-4 text-center text-muted small">
-                    <i class="bi bi-clock-history me-1"></i>No stock transactions recorded yet for this batch's variants.
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-</div>
-
 <!-- Printer Settings Modal -->
 <div class="modal fade" id="printerSettingsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -816,11 +459,8 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
             <div class="modal-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom no-print">
                     <span class="text-muted small">Ready to print <strong id="printModalCount">0</strong> sticker label(s)</span>
-                    <button type="button" class="btn btn-success fw-bold px-4" onclick="window.print()">
-                        <i class="bi bi-printer-fill me-1"></i> Print Stickers Now
-                    </button>
                 </div>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3" id="qrStickersGrid"></div>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" id="qrStickersGrid"></div>
             </div>
             <div class="modal-footer bg-light border-top no-print py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -971,10 +611,12 @@ function buildInventoryPieceCards() {
         card.dataset.color = (vData.colorName || '').toUpperCase();
         card.dataset.product = (vData.productName || '').toUpperCase();
 
-        const mrpHtml = (vData.basePrice > vData.discountPrice)
-            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ${formatCurrency(vData.basePrice)}</span>`
+        const mrpHtml = (vData.basePrice > vData.discountPrice && vData.basePrice > 0)
+            ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 12px;">MRP: ${formatCurrency(vData.basePrice)}</div>`
             : '';
-        const priceHtml = `<span class="fw-bold text-primary">${formatCurrency(vData.discountPrice)}</span>`;
+        const priceHtml = vData.discountPrice > 0
+            ? `<div class="fw-bold" style="font-size: 13.5px; color: #15803d;">Disc: ${formatCurrency(vData.discountPrice)}</div>`
+            : '';
 
         const statusBadge = vData.availableQty > 0
             ? `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>${vData.availableQty} pcs Available</span>`
@@ -986,33 +628,39 @@ function buildInventoryPieceCards() {
                     <span class="small fw-bold text-secondary">Variant #${vIndex} of ${totalVariants}</span>
                     ${statusBadge}
                 </div>
-                <div class="card-body p-3">
-                    <div class="d-flex gap-3 align-items-center">
-                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_variant_qr_${vIndex}" style="width: 86px; height: 86px;"></div>
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
-                            <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
-                                <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(vData.categoryName)}
+                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11.5px; letter-spacing: 0.5px;">
+                            ${escapeHtml(COMPANY_TITLE)}
+                        </div>
+                        <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                            <div class="d-flex flex-column align-items-center flex-shrink-0">
+                                <div class="piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_variant_qr_${vIndex}" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
+                                <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11.5px; letter-spacing: 0.4px;">${escapeHtml(vData.variantCode)}</div>
                             </div>
-                            <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(vData.variantSku)}</div>
-                            <div class="small text-muted mb-1" style="font-size: 11.5px;">
-                                Size: <strong class="text-dark">${escapeHtml(vData.sizeName)}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(vData.colorName)}</strong>
-                            </div>
-                            <div class="d-flex align-items-baseline gap-1 mb-1.5">
+                            <div class="min-w-0 text-start">
+                                <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
+                                    ${escapeHtml(vData.productName)}
+                                </div>
+                                <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11.5px;">
+                                    ${escapeHtml(vData.categoryName)}
+                                </div>
+                                <div class="fw-semibold text-dark mb-1" style="font-size: 12.5px;">
+                                    ${escapeHtml(vData.sizeName)} / ${escapeHtml(vData.colorName)}
+                                </div>
                                 ${mrpHtml}
                                 ${priceHtml}
                             </div>
-                            <div class="d-flex align-items-center justify-content-between gap-1 pt-1 border-top">
-                                <span class="badge bg-dark text-warning font-monospace px-2 py-1 shadow-xs" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(vData.variantCode)}</span>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(vData.variantCode)}', this)" title="Copy Variant QR Code">
-                                        <i class="bi bi-clipboard"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1.5" onclick="printVariantGroupLabels('${escapeHtml(vData.sizeName)}', '${escapeHtml(vData.colorName)}')" title="Print Labels">
-                                        <i class="bi bi-printer"></i>
-                                    </button>
-                                </div>
-                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-end gap-1 pt-2 mt-2 border-top no-print">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyTagCode('${escapeHtml(vData.variantCode)}', this)" title="Copy Variant QR Code">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="printVariantGroupLabels('${escapeHtml(vData.sizeName)}', '${escapeHtml(vData.colorName)}')" title="Print Labels">
+                                <i class="bi bi-printer"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1229,19 +877,40 @@ function renderStickersToModal(pieces) {
 
     pieces.forEach((p, idx) => {
         const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+        const basePrice = parseFloat(p.base_price || 0);
+        const discPrice = parseFloat(p.discount_price || p.base_price || 0);
+        const mrpHtml = (basePrice > discPrice && basePrice > 0)
+            ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 11.5px;">MRP: ${formatCurrency(basePrice)}</div>`
+            : '';
+        const discHtml = discPrice > 0
+            ? `<div class="fw-bold" style="font-size: 13px; color: #15803d;">Disc: ${formatCurrency(discPrice)}</div>`
+            : '';
         const col = document.createElement('div');
         col.className = 'col qr-sticker-card-col';
         col.innerHTML = `
-            <div class="card qr-sticker-card p-2 text-center border">
-                <div class="fw-bold small text-truncate text-uppercase mb-1" style="font-size: 11px;">${escapeHtml(COMPANY_TITLE)}</div>
-                <div class="text-center p-1 bg-white mb-1" id="print_qr_${idx}" style="display: flex; justify-content: center;"></div>
-                <div class="font-monospace fw-bold small text-truncate">${escapeHtml(p.variant_sku || p.product_sku || 'SKU')}</div>
-                <div class="small text-muted" style="font-size: 10px;">${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}</div>
-                <div class="d-flex justify-content-center gap-1 small mt-0.5">
-                    ${parseFloat(p.base_price) > parseFloat(p.discount_price) ? `<span class="text-muted text-decoration-line-through">${formatCurrency(parseFloat(p.base_price))}</span>` : ''}
-                    <span class="fw-bold text-dark">${formatCurrency(parseFloat(p.discount_price || p.base_price || 0))}</span>
+            <div class="card qr-sticker-card p-3 border shadow-xs bg-white" style="border-radius: 10px;">
+                <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11px; letter-spacing: 0.5px;">
+                    ${escapeHtml(COMPANY_TITLE)}
                 </div>
-                <div class="badge bg-dark text-warning font-monospace mt-1" style="font-size: 11px;">${escapeHtml(variantDisplayCode)}</div>
+                <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                    <div class="d-flex flex-column align-items-center flex-shrink-0">
+                        <div class="p-1 bg-white border rounded" id="print_qr_${idx}" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;"></div>
+                        <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11px; letter-spacing: 0.4px;">${escapeHtml(variantDisplayCode)}</div>
+                    </div>
+                    <div class="min-w-0 text-start">
+                        <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px; color: #881337;">
+                            ${escapeHtml(p.product_name || 'PRODUCT')}
+                        </div>
+                        <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11px;">
+                            ${escapeHtml(p.category_name || 'Apparel')}
+                        </div>
+                        <div class="fw-semibold text-dark mb-1" style="font-size: 12px;">
+                            ${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}
+                        </div>
+                        ${mrpHtml}
+                        ${discHtml}
+                    </div>
+                </div>
             </div>
         `;
         grid.appendChild(col);
@@ -1251,8 +920,8 @@ function renderStickersToModal(pieces) {
             qrTarget.innerHTML = '';
             new QRCode(qrTarget, {
                 text: String(variantDisplayCode),
-                width: 90,
-                height: 90,
+                width: 74,
+                height: 74,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M

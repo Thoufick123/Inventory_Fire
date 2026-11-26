@@ -1803,15 +1803,16 @@ document.addEventListener('DOMContentLoaded', function () {
             const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
             const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
             card.className = 'bill-qr-label-card';
+            const concern = esc(<?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>);
             card.innerHTML = `
                 <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
-                    ${d.vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${esc(d.vid)}</span>` : ''}
+                    ${concern ? `<div class="position-absolute fw-bold text-secondary text-uppercase text-truncate text-center px-2" style="left:0;right:0;top:4px;font-size:${Math.max(8, fontPx - 2)}px;">${concern}</div>` : ''}
                     <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
                     <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${esc(d.qrCode)}</div>
-                    <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.productName || '').slice(0, 24))}</div>
+                    <div class="position-absolute fw-bold text-uppercase text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;color:#881337;">${esc((d.productName || '').slice(0, 24))}</div>
                     <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.attributes || '').slice(0, 24))}</div>
                     ${d.mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
-                    ${d.sellingPrice ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    ${d.sellingPrice ? `<div class="position-absolute fw-bold" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
                 </div>
             `;
             card.querySelectorAll('.tsc-bill-qr-target').forEach(function(el) {
