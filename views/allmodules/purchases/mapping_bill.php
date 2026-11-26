@@ -1232,7 +1232,13 @@ tr.table-danger, tr.table-danger > td {
                         <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
                     <?php else: foreach ($batchQrItems as $q): ?>
                         <div class="col-md-4 col-sm-6">
-                            <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                            <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between bill-qr-label-card"
+                                 data-qr-code="<?= e($q['qr_code']) ?>"
+                                 data-vid="<?= !empty($itemVar['variant_id']) ? 'VID: #' . (int)$itemVar['variant_id'] : '' ?>"
+                                 data-product-name="<?= e($activeItem['item_name']) ?>"
+                                 data-attributes="<?= e(trim(implode(' / ', array_filter([$itemVar['color'] ?? '', $itemVar['size'] ?? ''])))) ?>"
+                                 data-mrp="<?= e(formatCurrency((float)($itemVar['mrp'] ?? 0))) ?>"
+                                 data-selling-price="<?= e(formatCurrency((float)($itemVar['selling_price'] ?? 0))) ?>">
                                 <div class="small fw-bold text-truncate text-dark mb-1"><?= e($activeItem['item_name']) ?></div>
                                 <div class="small text-muted mb-2"><?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?></div>
                                 <div class="d-flex justify-content-center my-2">
@@ -1749,19 +1755,55 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 7. QR Code Canvas Rendering on Modal Open
+    // 7. QR Code Canvas Rendering on Modal Open (uses saved TSC TE244 config if present)
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
         modalEl.addEventListener('shown.bs.modal', function () {
-            modalEl.querySelectorAll('.panel-qr-canvas').forEach(function(el) {
-                if (el.dataset.rendered === '1') return;
-                el.innerHTML = '';
-                new QRCode(el, {
-                    text: el.dataset.code,
-                    width: 90,
-                    height: 90,
-                    correctLevel: QRCode.CorrectLevel.M
+            let cfg = { widthMm: 40, heightMm: 25, columns: 2, gapMm: 2, col2Shift: 0, qrX: 12, qrY: 35, qrSize: 3, subX: 12, subY: 125, textX: 115, fontSize: 2, titleY: 35, varY: 62, mrpY: 90, spY: 118 };
+            try {
+                const raw = localStorage.getItem('grm_tsc_label_config_v1');
+                if (raw) cfg = Object.assign(cfg, JSON.parse(raw));
+            } catch (e) {}
+            const scale = 0.82;
+            const stickerW = Math.max(180, Math.round(cfg.widthMm * 6.4));
+            const stickerH = Math.max(120, Math.round(cfg.heightMm * 6.4));
+            const qrPx = Math.max(36, Math.min(88, cfg.qrSize * 16));
+            const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
+            const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            modalEl.querySelectorAll('.bill-qr-label-card').forEach(function(card, idx) {
+                const colWrap = card.closest('[class*="col-"]');
+                if (colWrap) {
+                    colWrap.className = cfg.columns === 2 ? 'col-md-6 d-flex justify-content-center' : 'col-12 d-flex justify-content-center';
+                }
+                const d = card.dataset;
+                const shiftPx = (cfg.columns === 2 && idx % 2 === 1) ? Math.round(cfg.col2Shift * scale) : 0;
+                const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
+                const qrTop = Math.round(cfg.qrY * scale);
+                const subLeft = Math.round(cfg.subX * scale) + shiftPx;
+                const subTop = Math.round(cfg.subY * scale);
+                const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
+                const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
+                card.className = 'bill-qr-label-card';
+                card.innerHTML = `
+                    <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
+                        ${d.vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${esc(d.vid)}</span>` : ''}
+                        <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
+                        <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${esc(d.qrCode)}</div>
+                        <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.productName || '').slice(0, 24))}</div>
+                        <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.attributes || '').slice(0, 24))}</div>
+                        ${d.mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
+                        ${d.sellingPrice ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    </div>
+                `;
+                card.querySelectorAll('.tsc-bill-qr-target').forEach(function(el) {
+                    el.innerHTML = '';
+                    new QRCode(el, {
+                        text: el.dataset.code || '',
+                        width: Math.max(28, qrPx - 4),
+                        height: Math.max(28, qrPx - 4),
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
                 });
-                el.dataset.rendered = '1';
             });
         });
     });

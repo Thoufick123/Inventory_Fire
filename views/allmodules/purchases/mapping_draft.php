@@ -1617,6 +1617,43 @@ document.addEventListener('DOMContentLoaded', function() {
         setVal('tscSpY', cfg.spY);
     }
 
+    function renderTscStickerHtml(cfg, data, labelBadge = '') {
+        const scale = 0.82;
+        const stickerW = Math.max(180, Math.round(cfg.widthMm * 6.4));
+        const stickerH = Math.max(120, Math.round(cfg.heightMm * 6.4));
+        const qrPx = Math.max(36, Math.min(88, cfg.qrSize * 16));
+        const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
+        const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        const title = esc((data.productName || 'PRODUCT').slice(0, 24));
+        const attrs = esc((data.attributes || '').slice(0, 24));
+        const mrp = esc(data.mrp || '');
+        const sp = esc(data.sellingPrice || '');
+        const code = esc(data.qrCode || '');
+        const vid = esc(data.vid || '');
+        const isCol2 = data.colIndex === 2;
+        const shiftPx = isCol2 ? Math.round(cfg.col2Shift * scale) : 0;
+        const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
+        const qrTop = Math.round(cfg.qrY * scale);
+        const subLeft = Math.round(cfg.subX * scale) + shiftPx;
+        const subTop = Math.round(cfg.subY * scale);
+        const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
+        const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
+
+        return `
+            <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
+                ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;">${esc(labelBadge)}</span>` : ''}
+                ${vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${vid}</span>` : ''}
+                <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-qr-target" data-code="${code}" data-qr-px="${qrPx}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
+                <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${code}</div>
+                <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${title}</div>
+                <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${attrs}</div>
+                ${mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
+                ${sp ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${sp}</div>` : ''}
+            </div>
+        `;
+    }
+
     function renderTscLivePreview(cfg) {
         const stage = document.getElementById('tscLivePreviewStage');
         const badge = document.getElementById('tscPreviewBadge');
@@ -1628,78 +1665,87 @@ document.addEventListener('DOMContentLoaded', function() {
         if (caption) caption.innerHTML = `<i class="bi bi-info-circle me-1"></i>Simulating physical ${cfg.columns}-column TSC thermal sticker roll layout.`;
 
         const sampleCards = lastActiveQrBatchModal ? lastActiveQrBatchModal.querySelectorAll('.qr-label-card') : [];
-        const card1 = sampleCards[0] || null;
-        const card2 = sampleCards[1] || card1;
+        const c1 = sampleCards[0]?.dataset || {};
+        const c2 = sampleCards[1]?.dataset || c1;
 
-        const scale = 0.72; // dots to preview px
-        const stickerW = Math.max(160, Math.round(cfg.widthMm * 5.6));
-        const stickerH = Math.max(115, Math.round(cfg.heightMm * 5.6));
-        const qrPx = Math.max(32, Math.min(72, cfg.qrSize * 14));
-        const fontPx = Math.max(9, 7 + cfg.fontSize * 1.5);
-
-        const buildStickerHtml = (idx, cardData) => {
-            const title = (cardData?.dataset.productName || 'GRM WAREHOUSE').slice(0, 20);
-            const attrs = (cardData?.dataset.attributes || 'S-BLUE').slice(0, 20);
-            const mrp = cardData?.dataset.mrp || '₹1,000';
-            const sp = cardData?.dataset.sellingPrice || '₹500';
-            const code = cardData?.dataset.qrCode || `WMF9260${idx}`;
-            const shiftPx = idx === 2 ? Math.round(cfg.col2Shift * scale) : 0;
-            const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
-            const qrTop = Math.round(cfg.qrY * scale);
-            const subLeft = Math.round(cfg.subX * scale) + shiftPx;
-            const subTop = Math.round(cfg.subY * scale);
-            const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
-
-            return `
-                <div class="border rounded bg-white position-relative overflow-hidden shadow-xs" style="width:${stickerW}px;height:${stickerH}px;">
-                    <span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;">${idx === 1 ? 'Left Sticker #1' : 'Right Sticker #2'}</span>
-                    <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-preview-qr" data-code="${code.replace(/"/g, '&quot;')}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;font-size:9px;font-weight:700;"></div>
-                    <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9px;">${code}</div>
-                    <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${Math.max(60, stickerW - txtLeft - 6)}px;">${title}</div>
-                    <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${Math.max(60, stickerW - txtLeft - 6)}px;">${attrs}</div>
-                    <div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8, fontPx - 1)}px;">MRP: ${mrp}</div>
-                    <div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${sp}</div>
-                </div>
-            `;
+        const d1 = {
+            productName: c1.productName || 'GRM WAREHOUSE',
+            attributes: c1.attributes || 'S-BLUE',
+            mrp: c1.mrp || '₹1,000',
+            sellingPrice: c1.sellingPrice || '₹500',
+            qrCode: c1.qrCode || 'WMF92601',
+            colIndex: 1
+        };
+        const d2 = {
+            productName: c2.productName || 'GRM WAREHOUSE',
+            attributes: c2.attributes || 'S-BLUE',
+            mrp: c2.mrp || '₹1,000',
+            sellingPrice: c2.sellingPrice || '₹500',
+            qrCode: c2.qrCode || 'WMF92602',
+            colIndex: 2
         };
 
-        stage.innerHTML = buildStickerHtml(1, card1) + (isDual ? buildStickerHtml(2, card2) : '');
-        stage.querySelectorAll('.tsc-preview-qr').forEach(el => {
+        stage.innerHTML = renderTscStickerHtml(cfg, d1, 'Left Sticker #1') + (isDual ? renderTscStickerHtml(cfg, d2, 'Right Sticker #2') : '');
+        stage.querySelectorAll('.tsc-qr-target').forEach(el => {
+            const qrPx = parseInt(el.dataset.qrPx || '48', 10);
             el.innerHTML = '';
             new QRCode(el, {
                 text: el.dataset.code || 'QR',
-                width: qrPx - 4,
-                height: qrPx - 4,
+                width: Math.max(28, qrPx - 4),
+                height: Math.max(28, qrPx - 4),
                 correctLevel: QRCode.CorrectLevel.M
             });
         });
     }
 
-    function applyTscConfigToModal(modalEl, forceRerender = false) {
+    function applyTscConfigToModal(modalEl) {
         if (!modalEl) return;
         const cfg = getSavedTscConfig();
         const summary = modalEl.querySelector('.tsc-active-summary');
         if (summary) {
             summary.textContent = `${cfg.columns === 2 ? 'Dual Roll' : 'Single Roll'} ${cfg.widthMm}mm × ${cfg.heightMm}mm · QR Size ${cfg.qrSize}`;
         }
-        const qrPx = Math.max(72, Math.min(120, cfg.qrSize * 28));
-        modalEl.querySelectorAll('.panel-qr-canvas').forEach(el => {
-            if (!forceRerender && el.dataset.rendered === '1') return;
-            el.innerHTML = '';
-            new QRCode(el, {
-                text: el.dataset.code || '',
-                width: qrPx,
-                height: qrPx,
-                correctLevel: QRCode.CorrectLevel.M
+        const labelCards = modalEl.querySelectorAll('.qr-label-card');
+        if (labelCards.length) {
+            const gridRow = labelCards[0].closest('.row');
+            if (gridRow) {
+                gridRow.classList.remove('g-2');
+                gridRow.classList.add('g-3');
+            }
+        }
+        labelCards.forEach((card, idx) => {
+            const colWrap = card.closest('[class*="col-"]');
+            if (colWrap) {
+                colWrap.className = cfg.columns === 2 ? 'col-md-6 d-flex justify-content-center' : 'col-12 d-flex justify-content-center';
+            }
+            const d = card.dataset;
+            card.className = 'qr-label-card';
+            card.innerHTML = renderTscStickerHtml(cfg, {
+                productName: d.productName || '',
+                attributes: d.attributes || '',
+                mrp: d.mrp || '',
+                sellingPrice: d.sellingPrice || '',
+                qrCode: d.qrCode || '',
+                vid: d.vid || '',
+                colIndex: (cfg.columns === 2 && idx % 2 === 1) ? 2 : 1
             });
-            el.dataset.rendered = '1';
+            card.querySelectorAll('.tsc-qr-target').forEach(el => {
+                const qrPx = parseInt(el.dataset.qrPx || '48', 10);
+                el.innerHTML = '';
+                new QRCode(el, {
+                    text: el.dataset.code || '',
+                    width: Math.max(28, qrPx - 4),
+                    height: Math.max(28, qrPx - 4),
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            });
         });
     }
 
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
         modalEl.addEventListener('shown.bs.modal', function () {
             lastActiveQrBatchModal = modalEl;
-            applyTscConfigToModal(modalEl, false);
+            applyTscConfigToModal(modalEl);
         });
     });
 
@@ -1727,15 +1773,21 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             localStorage.setItem(TSC_CFG_STORAGE_KEY, JSON.stringify(cfg));
         } catch (err) {}
+        document.querySelectorAll('[id^="modalQrBatch_"]').forEach(m => applyTscConfigToModal(m));
         if (lastActiveQrBatchModal) {
-            applyTscConfigToModal(lastActiveQrBatchModal, true);
             const badge = lastActiveQrBatchModal.querySelector('.qr-config-saved-badge');
             if (badge) {
                 badge.classList.remove('d-none');
-                setTimeout(() => badge.classList.add('d-none'), 2500);
+                setTimeout(() => badge.classList.add('d-none'), 3000);
             }
         }
-        bootstrap.Modal.getInstance(tscConfigModalEl)?.hide();
+        const cfgInst = bootstrap.Modal.getInstance(tscConfigModalEl);
+        if (tscConfigModalEl && lastActiveQrBatchModal) {
+            tscConfigModalEl.addEventListener('hidden.bs.modal', function () {
+                bootstrap.Modal.getOrCreateInstance(lastActiveQrBatchModal).show();
+            }, { once: true });
+        }
+        cfgInst?.hide();
     });
 
     document.getElementById('btnTscTestPrint')?.addEventListener('click', function () {
