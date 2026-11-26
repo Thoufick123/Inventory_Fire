@@ -1226,23 +1226,23 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="modal fade" id="modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" tabindex="-1" aria-labelledby="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-dark text-white">
+            <div class="modal-header bg-dark text-white py-2 px-3">
                 <div class="d-flex align-items-center flex-wrap gap-2">
-                    <h5 class="modal-title mb-0" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
+                    <h6 class="modal-title mb-0 fw-bold" id="modalQrBatchLabel_<?= (int)$item['qr_generation_id'] ?>">
                         <i class="bi bi-qr-code me-2"></i>QR Batch: <?= e($item['batch_code']) ?>
-                    </h5>
-                    <span class="badge bg-primary fs-6"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                    </h6>
+                    <span class="badge bg-primary"><i class="bi bi-tag-fill me-1"></i>Variant ID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4">
+            <div class="modal-body p-3">
                 <?php if (count($items) > 1): ?>
-                    <div class="mb-3 p-3 bg-light rounded-3 border">
-                        <div class="small fw-bold text-muted mb-2 text-uppercase d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <div class="mb-2 p-2 bg-light rounded-3 border">
+                        <div class="small fw-bold text-muted mb-1 text-uppercase d-flex justify-content-between align-items-center flex-wrap gap-1" style="font-size: 11px;">
                             <span><i class="bi bi-collection me-1 text-primary"></i>Switch Variant QRs (<?= count($items) ?> Total Variants):</span>
                             <span class="text-primary fw-semibold"><i class="bi bi-eye me-1"></i>Currently viewing: <?= e($item['item_name']) ?> (VID: #<?= (int)($item['variant_id'] ?? 0) ?>)</span>
                         </div>
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="d-flex flex-wrap gap-1">
                             <?php foreach ($items as $vItem): if (!empty($vItem['qr_generation_id'])): 
                                 $isActiveVariant = ((int)$vItem['id'] === (int)$item['id']);
                                 $vCount = count($qrItemMap[(int)$vItem['qr_generation_id']] ?? []);
@@ -1276,30 +1276,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 <?php endif; ?>
 
-                <div class="card bg-light border-0 mb-4">
-                    <div class="card-body p-3">
-                        <div class="row g-2">
+                <div class="card bg-light border-0 mb-3">
+                    <div class="card-body p-2 px-3">
+                        <div class="row g-2 align-items-center">
                             <div class="col-sm-6">
-                                <div class="text-muted small">Product</div>
-                                <div class="fw-bold fs-6"><?= e($item['item_name']) ?></div>
+                                <div class="text-muted" style="font-size: 11px;">Product</div>
+                                <div class="fw-bold"><?= e($item['item_name']) ?></div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="text-muted small">Variant</div>
+                                <div class="text-muted" style="font-size: 11px;">Variant</div>
                                 <div class="fw-semibold">
                                     <?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?>
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                                 </div>
                             </div>
-                            <div class="col-sm-4 mt-2">
-                                <div class="text-muted small">Total Qty</div>
+                            <div class="col-sm-4">
+                                <div class="text-muted" style="font-size: 11px;">Total Qty</div>
                                 <div class="fw-bold"><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?></div>
                             </div>
-                            <div class="col-sm-4 mt-2">
-                                <div class="text-muted small">MRP / Selling Price</div>
+                            <div class="col-sm-4">
+                                <div class="text-muted" style="font-size: 11px;">MRP / Selling Price</div>
                                 <div class="fw-bold text-success"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                             </div>
-                            <div class="col-sm-4 mt-2">
-                                <div class="text-muted small">Inventory Status</div>
+                            <div class="col-sm-4">
+                                <div class="text-muted" style="font-size: 11px;">Inventory Status</div>
                                 <div id="modalStockStatus_<?= (int)$item['qr_generation_id'] ?>">
                                     <?php if (!empty($item['stock_added'])): ?>
                                         <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span>
@@ -1312,29 +1312,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <h6 class="fw-bold mb-3"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
-                <div class="row g-3">
+                <h6 class="fw-bold mb-2 small text-uppercase text-muted"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
+                <div class="row g-2">
                     <?php if (empty($batchQrItems)): ?>
                         <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
                     <?php else: foreach ($batchQrItems as $q): ?>
-                        <div class="col-md-4 col-sm-6">
-                            <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span class="small fw-bold text-truncate text-dark"><?= e($item['item_name']) ?></span>
                                     <span class="badge bg-light text-secondary border" style="font-size: 10px;">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                                 </div>
-                                <div class="small text-muted mb-2"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?></div>
-                                <div class="d-flex justify-content-center my-2">
+                                <div class="small text-muted mb-1" style="font-size: 11px;"><?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?></div>
+                                <div class="d-flex justify-content-center my-1">
                                     <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
                                 </div>
                                 <div class="font-monospace fw-bold text-primary small mt-1"><?= e($q['qr_code']) ?></div>
-                                <div class="small text-muted mt-1"><?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
+                                <div class="small text-muted" style="font-size: 11px;"><?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>
                 </div>
             </div>
-            <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="modal-footer py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <?php if (!$viewOnly && empty($item['stock_added'])): ?>
                         <div class="input-group input-group-sm" style="max-width: 340px;">
