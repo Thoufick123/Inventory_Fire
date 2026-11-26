@@ -308,7 +308,7 @@
                 <div class="modal-body p-4">
                     <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernOutward'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                     <!-- Dynamic Bill Summary Preview -->
-                    <div class="mb-3 p-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3" id="modalBillPreview">
+                    <div class="mb-3 p-3 bg-light border rounded-3" id="modalBillPreview">
                         <div class="small text-muted fw-semibold text-uppercase">Selected Company Bill for Outward</div>
                         <div class="fw-bold text-dark fs-6" id="modalBillTitle">Select a bill below</div>
                         <div class="small text-muted mt-1" id="modalBillDetails">-</div>
@@ -361,16 +361,6 @@
                         <div class="col-md-4">
                             <label class="form-label fw-semibold">Total Boxes / Cartons</label>
                             <input type="number" name="total_boxes" class="form-control" min="1" value="1">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Transporter / Logistics</label>
-                            <input type="text" name="transporter_name" class="form-control" placeholder="Transporter or courier name">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">LR / Consignment Number</label>
-                            <input type="text" name="lr_number" class="form-control" placeholder="LR / Docket #">
                         </div>
 
                         <div class="col-12">

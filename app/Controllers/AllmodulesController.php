@@ -17161,21 +17161,19 @@ class AllmodulesController {
         ];
 
         $batches = ProductionBatch::getAll($filters);
+        $whWhere = "WHERE w.is_active = 1";
+        $whParams = [];
+        if ($cid) {
+            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
+            $whParams[] = $cid;
+        }
         $warehouses = Database::fetchAll("
             SELECT w.*, c.name as concern_name, c.code as concern_code 
             FROM warehouses w 
             LEFT JOIN concerns c ON w.concern_id = c.id 
-            WHERE w.is_active = 1 
+            {$whWhere}
             ORDER BY w.name ASC
-        ");
-        if (empty($warehouses)) {
-            $warehouses = Database::fetchAll("
-                SELECT w.*, c.name as concern_name, c.code as concern_code 
-                FROM warehouses w 
-                LEFT JOIN concerns c ON w.concern_id = c.id 
-                ORDER BY w.name ASC
-            ");
-        }
+        ", $whParams);
 
         Response::view('allmodules.batches.index', [
             'pageTitle'    => 'Batches',
@@ -18133,21 +18131,19 @@ class AllmodulesController {
             $billParams
         );
 
+        $whWhere = "WHERE w.is_active = 1";
+        $whParams = [];
+        if ($cid) {
+            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
+            $whParams[] = $cid;
+        }
         $warehouses = Database::fetchAll("
             SELECT w.*, c.name as concern_name, c.code as concern_code 
             FROM warehouses w 
             LEFT JOIN concerns c ON w.concern_id = c.id 
-            WHERE w.is_active = 1 
+            {$whWhere}
             ORDER BY w.name ASC
-        ");
-        if (empty($warehouses)) {
-            $warehouses = Database::fetchAll("
-                SELECT w.*, c.name as concern_name, c.code as concern_code 
-                FROM warehouses w 
-                LEFT JOIN concerns c ON w.concern_id = c.id 
-                ORDER BY w.name ASC
-            ");
-        }
+        ", $whParams);
 
         Response::view('allmodules.outward.index', [
             'pageTitle'           => 'Production Outward & Dispatch',

@@ -991,8 +991,12 @@ class AllmodulesService {
     public static function createOutwardFromBill(int $billId, array $outwardData, int $userId): int {
         Database::ensureColumn('production_outwards', 'production_bill_id', 'INT NULL DEFAULT NULL');
         try {
-            Database::execute("ALTER TABLE production_batches MODIFY program_id INT NULL DEFAULT NULL");
-        } catch (Throwable $e) {}
+            Database::execute("ALTER TABLE production_batches MODIFY program_id INT(10) UNSIGNED NULL DEFAULT NULL");
+        } catch (Throwable $e) {
+            try {
+                Database::execute("ALTER TABLE production_batches MODIFY program_id INT NULL DEFAULT NULL");
+            } catch (Throwable $e2) {}
+        }
 
         Database::beginTransaction();
         try {
@@ -1059,6 +1063,14 @@ class AllmodulesService {
             $boxCount = max(1, (int)($outwardData['total_boxes'] ?? 1));
             $concernId = !empty($outwardData['concern_id']) ? (int)$outwardData['concern_id'] : (!empty($bill['concern_id']) ? (int)$bill['concern_id'] : currentConcernId());
             $pUnitId = !empty($bill['production_unit_id']) ? (int)$bill['production_unit_id'] : (int)(Database::fetchOne("SELECT id FROM production_units WHERE is_active = 1 LIMIT 1")['id'] ?? 1);
+
+            if ($programId === null) {
+                $progCol = Database::fetchOne("SHOW COLUMNS FROM production_batches LIKE 'program_id'");
+                if ($progCol && strtoupper((string)($progCol['Null'] ?? '')) === 'NO') {
+                    $fallbackProg = Database::fetchOne("SELECT id FROM production_programs ORDER BY id DESC LIMIT 1");
+                    $programId = !empty($fallbackProg['id']) ? (int)$fallbackProg['id'] : 1;
+                }
+            }
 
             // Create internal tracking record in production_batches so Warehouse Inward continues to work seamlessly
             $internalBatchNumber = self::generateSequenceNumber('production_batches', 'batch_number', 'BAT');

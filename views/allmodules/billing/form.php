@@ -449,14 +449,16 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                             </div>
                             <div id="splitBalance" class="small text-muted text-end mb-3"></div>
 
-                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3 flex-wrap">
                                 <a class="btn btn-outline-secondary px-3 py-2 fw-semibold" href="<?= url('production/billing') ?>">Cancel</a>
-                                <button type="submit" class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm <?= $selectedBuyerType === 'COMPANY' ? 'd-none' : '' ?>" id="saveBillButton">
-                                    <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>
-                                </button>
-                                <button type="submit" name="move_to_outward" value="1" class="btn btn-success btn-lg px-4 py-2 fw-bold shadow-sm <?= $selectedBuyerType === 'COMPANY' ? '' : 'd-none' ?>" id="moveToOutwardButton">
-                                    <i class="bi bi-truck me-1"></i>Move to Outward
-                                </button>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="submit" class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm" id="saveBillButton">
+                                        <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>
+                                    </button>
+                                    <button type="submit" name="move_to_outward" value="1" class="btn btn-success btn-lg px-4 py-2 fw-bold shadow-sm <?= $selectedBuyerType === 'COMPANY' ? '' : 'd-none' ?>" id="moveToOutwardButton">
+                                        <i class="bi bi-truck me-1"></i>Move to Outward
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -656,17 +658,14 @@ function onBuyerTypeChange(type) {
     document.getElementById('buyerType').value = type;
     const companyFields = document.getElementById('companyFields');
     const customerFields = document.getElementById('customerFields');
-    const saveBillBtn = document.getElementById('saveBillButton');
     const moveOutwardBtn = document.getElementById('moveToOutwardButton');
     if (type === 'COMPANY') {
         companyFields.classList.remove('d-none');
         customerFields.classList.add('d-none');
-        if (saveBillBtn) saveBillBtn.classList.add('d-none');
         if (moveOutwardBtn) moveOutwardBtn.classList.remove('d-none');
     } else {
         companyFields.classList.add('d-none');
         customerFields.classList.remove('d-none');
-        if (saveBillBtn) saveBillBtn.classList.remove('d-none');
         if (moveOutwardBtn) moveOutwardBtn.classList.add('d-none');
     }
 }
