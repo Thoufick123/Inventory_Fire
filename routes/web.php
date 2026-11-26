@@ -157,6 +157,7 @@ class Router {
         $this->post('admin/staff/toggle/{id}', 'AdminController', 'toggleStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'edit']]);
         $this->post('admin/staff/delete/{id}', 'AdminController', 'deleteStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'delete']]);
         $this->get('admin/roles', 'AdminController', 'roles', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'view']]);
+        $this->get('admin/roles/view/{id}', 'AdminController', 'viewRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'view']]);
         $this->get('admin/roles/create', 'AdminController', 'createRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'create']]);
         $this->post('admin/roles/store', 'AdminController', 'storeRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'create']]);
         $this->get('admin/roles/edit/{id}', 'AdminController', 'editRole', ['AuthMiddleware', ['PermissionMiddleware', 'roles', 'edit']]);
@@ -267,6 +268,7 @@ class Router {
         $this->get('allmodules/purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/draft/item/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/move', 'AllmodulesController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
@@ -328,6 +330,7 @@ class Router {
         $this->get('purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/draft/item/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/draft/{id}/move', 'AllmodulesController', 'moveThirdPartyMappingDraftToPurchase', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/item/{id}/generate-qr', 'AllmodulesController', 'generateThirdPartyMappingDraftQr', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
@@ -686,6 +689,7 @@ class Router {
         $this->post('admin/concerns/modules/{id}', 'ConcernController', 'updateModules', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->get('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->post('admin/concerns/toggle/{id}', 'ConcernController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
+        $this->post('admin/concerns/delete/{id}', 'ConcernController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'settings', 'view']]);
         $this->get('system/concerns/switch/{id}', 'ConcernController', 'switch', ['AuthMiddleware']);
     }
 }

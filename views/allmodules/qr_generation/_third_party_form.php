@@ -167,7 +167,7 @@ function onTpItemChanged(key) {
         '<div class="row g-2 small align-items-center">' +
             '<div class="col-md-3"><span class="text-muted">Product</span><div class="fw-bold">' + (item.item_name || '') + '</div></div>' +
             '<div class="col-md-2"><span class="text-muted">Qty</span><div class="fw-bold text-primary">' + Number(item.quantity).toLocaleString() + ' ' + (item.unit || 'pcs') + '</div></div>' +
-            '<div class="col-md-2"><span class="text-muted">SKU</span><div class="fw-bold font-monospace">' + (item.variant_sku || item.vendor_sku || item.product_code || '—') + '</div></div>' +
+            '<div class="col-md-2"><span class="text-muted">Variant ID</span><div class="fw-bold font-monospace">' + (item.variant_code || '—') + '</div></div>' +
             '<div class="col-md-2"><span class="text-muted">Variant ID</span><div class="fw-bold font-monospace">' + (variantId > 0 ? variantId : 'Not assigned') + '</div></div>' +
             '<div class="col-md-3"><span class="text-muted">QR / GRN</span><div>' + qr + ' ' + grn + '</div></div>' +
         '</div>';

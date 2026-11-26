@@ -26,6 +26,7 @@ if (!empty($authUser['production_unit_name'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ?? 'Dashboard') ?> — GRM Inventory</title>
     <meta name="description" content="GRM Production & Inventory Management System">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='21' text-anchor='middle' font-family='Arial,sans-serif' font-size='14' font-weight='bold' fill='white'%3EG%3C/text%3E%3C/svg%3E">
     <?= CSRF::metaTag() ?>
 
     <!-- Fonts & Icons & Bootstrap CSS (Fast Local Assets with Zero External Latency) -->
@@ -177,11 +178,21 @@ if (!empty($authUser['production_unit_name'])) {
     </script>
 </head>
 <body>
+    <script>
+        try {
+            if (window.innerWidth >= 992 && localStorage.getItem('grm_sidebar_collapsed') === '1') {
+                document.body.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <div class="app-layout">
         <!-- ============================================ -->
         <!-- SIDEBAR -->
         <!-- ============================================ -->
         <aside class="sidebar" id="sidebar">
+            <button type="button" class="sidebar-edge-toggle d-none d-lg-flex" id="sidebarEdgeToggle" title="Collapse / Expand Sidebar" aria-label="Collapse or expand sidebar">
+                <i class="bi bi-chevron-left"></i>
+            </button>
             <div class="sidebar-header">
                 <div class="sidebar-brand">
                     <i class="bi bi-boxes text-primary fs-4 me-2"></i>
@@ -240,7 +251,8 @@ if (!empty($authUser['production_unit_name'])) {
                                 'retail_pos' => $modRetailPos,
                                 'returns'    => $modReturns,
                             ];
-                            foreach (SidebarMenu::getOrderedItemsForUser(Auth::id()) as $navItem):
+                            $activeSidebarConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
+                            foreach (SidebarMenu::getOrderedItemsForUser(Auth::id(), $activeSidebarConcernId) as $navItem):
                                 $modEnabled = $moduleFlagMap[$navItem['module']] ?? false;
                                 if (!$modEnabled) {
                                     continue;

@@ -210,7 +210,7 @@ class AllmodulesStockRequestController
         );
 
         $variants = Database::fetchAll(
-            "SELECT pv.id, pv.product_id, pv.variant_code, pv.sku, s.name AS size_name, c.name AS color_name, d.name AS design_name, pv.mrp, pv.selling_price
+            "SELECT pv.id, pv.product_id, pv.variant_code, s.name AS size_name, c.name AS color_name, d.name AS design_name, pv.mrp, pv.selling_price
              FROM product_variants pv
              LEFT JOIN sizes s ON pv.size_id = s.id
              LEFT JOIN colors c ON pv.color_id = c.id
@@ -293,8 +293,8 @@ class AllmodulesStockRequestController
         }
 
         $sql = "
-            SELECT pv.id as variant_id, pv.product_id, pv.variant_code, pv.sku,
-                   p.name as product_name, p.code as product_code, p.category_id,
+            SELECT pv.id as variant_id, pv.product_id, pv.variant_code,
+                   p.name as product_name, p.category_id,
                    c.name as category_name, s.name as size_name, cl.name as color_name
             FROM product_variants pv
             JOIN products p ON p.id = pv.product_id
@@ -302,11 +302,10 @@ class AllmodulesStockRequestController
             LEFT JOIN sizes s ON pv.size_id = s.id
             LEFT JOIN colors cl ON pv.color_id = cl.id
             WHERE UPPER(TRIM(pv.variant_code)) = ? 
-               OR UPPER(TRIM(pv.sku)) = ? 
                OR UPPER(TRIM(pv.qr_code)) = ?
                OR UPPER(TRIM(pv.variant_code)) = ?
         ";
-        $params = [$code, $code, $code, $codePrefix];
+        $params = [$code, $code, $codePrefix];
         if ($varId > 0) {
             $sql .= " OR pv.id = ?";
             $params[] = $varId;
@@ -322,9 +321,7 @@ class AllmodulesStockRequestController
                 'variant_id'    => (int)$variant['variant_id'],
                 'product_id'    => (int)$variant['product_id'],
                 'variant_code'  => $variant['variant_code'] ?: ('V' . str_pad($variant['variant_id'], 4, '0', STR_PAD_LEFT)),
-                'sku'           => $variant['sku'],
                 'product_name'  => $variant['product_name'],
-                'product_code'  => $variant['product_code'],
                 'category_id'   => $variant['category_id'] ? (int)$variant['category_id'] : null,
                 'category_name' => $variant['category_name'] ?: 'Apparel',
                 'size_name'     => $variant['size_name'],
@@ -463,7 +460,6 @@ class AllmodulesStockRequestController
 
                 $prod = $productId > 0 ? Database::fetchOne("SELECT * FROM products WHERE id = ?", [$productId]) : null;
                 $productName = $prod ? $prod['name'] : trim((string)($it['product_name'] ?? 'Garment Style'));
-                $sku = $prod ? $prod['code'] : 'SKU';
                 $sizeName = trim((string)($it['size_name'] ?? ''));
                 $colorName = trim((string)($it['color_name'] ?? ''));
 
@@ -478,7 +474,6 @@ class AllmodulesStockRequestController
                         [$variantId]
                     );
                     if ($v) {
-                        $sku = $v['sku'] ?: $sku;
                         $sizeName = $v['size_name'] ?: $sizeName;
                         $colorName = $v['color_name'] ?: $colorName;
                     }
@@ -489,7 +484,6 @@ class AllmodulesStockRequestController
                     'product_id'   => $productId ?: null,
                     'variant_id'   => $variantId,
                     'product_name' => $productName,
-                    'sku'          => $sku,
                     'size_name'    => $sizeName,
                     'color_name'   => $colorName,
                     'requested_qty'=> $qty,
@@ -551,11 +545,11 @@ class AllmodulesStockRequestController
             foreach ($itemsToInsert as $ins) {
                 Database::execute(
                     "INSERT INTO production_stock_request_items
-                     (request_id, product_id, variant_id, product_name, sku, size_name, color_name, requested_qty, dispatched_qty, received_qty, fulfilled_qty, status, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'PENDING', NOW())",
+                     (request_id, product_id, variant_id, product_name, size_name, color_name, requested_qty, dispatched_qty, received_qty, fulfilled_qty, status, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'PENDING', NOW())",
                     [
                         $reqId, $ins['product_id'], $ins['variant_id'], $ins['product_name'],
-                        $ins['sku'], $ins['size_name'], $ins['color_name'], $ins['requested_qty']
+                        $ins['size_name'], $ins['color_name'], $ins['requested_qty']
                     ]
                 );
             }

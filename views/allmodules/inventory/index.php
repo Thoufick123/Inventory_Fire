@@ -154,7 +154,7 @@ $inventoryVariantCount = array_sum(array_map(
                            id="inventorySearchInput" 
                            class="form-control border-start-0" 
                            style="height: 38px; border-color: #cbd5e1; border-radius: <?= !empty($search) ? '0' : '0 8px 8px 0' ?>; font-size: 0.875rem;"
-                           placeholder="Search SKU, QR code tag, product name, program #, batch #, color..." 
+                           placeholder="Search QR code tag, Variant ID, product name, program #, batch #, color..." 
                            value="<?= e($search ?? '') ?>"
                            autocomplete="off">
                     <?php if (!empty($search)): ?>
@@ -270,7 +270,7 @@ $inventoryVariantCount = array_sum(array_map(
 
                     $allVariantSearchText = '';
                     foreach ($batchVariants as $bv) {
-                        $allVariantSearchText .= ' ' . ($bv['sku'] ?? '') . ' ' . ($bv['size_name'] ?? '') . ' ' . ($bv['color_name'] ?? '');
+                        $allVariantSearchText .= ' ' . ($bv['variant_code'] ?? '') . ' ' . ($bv['size_name'] ?? '') . ' ' . ($bv['color_name'] ?? '');
                     }
 
                     $batchSearchText = strtolower(
@@ -290,7 +290,7 @@ $inventoryVariantCount = array_sum(array_map(
                     $minPrice = !empty($prices) ? (float)min($prices) : 0.0;
                     $maxPrice = !empty($prices) ? (float)max($prices) : 0.0;
                     $firstCost = !empty($batchVariants[0]['cost_price']) ? (float)$batchVariants[0]['cost_price'] : 0.0;
-                    $firstSku = (string)($batchVariants[0]['sku'] ?? ($batch['product_sku'] ?? ''));
+                    $firstVariantCode = (string)($batchVariants[0]['variant_code'] ?? '');
 
                     $totalPassed = (int)($batch['total_pieces'] ?? 0);
                     $totalInStock = (int)($batch['remaining_pieces'] ?? 0);
@@ -314,7 +314,7 @@ $inventoryVariantCount = array_sum(array_map(
                                value="<?= e($allVariantIdsStr ?: $primaryVariantId) ?>" 
                                data-variant-id="<?= $primaryVariantId ?>" 
                                data-variant-ids="<?= e($allVariantIdsStr) ?>"
-                               data-sku="<?= e($firstSku) ?>" 
+                               data-variant-code="<?= e($firstVariantCode) ?>" 
                                data-product-name="<?= e($batch['product_name']) ?>" 
                                data-mrp="<?= $minMrp ?>" 
                                data-selling-price="<?= $minPrice ?>" 
@@ -374,8 +374,8 @@ $inventoryVariantCount = array_sum(array_map(
                         <?php else: ?>
                             <span class="fw-semibold text-secondary"><?= e($batch['program_number']) ?></span>
                         <?php endif; ?>
-                        <?php if (!empty($firstSku)): ?>
-                            <small class="text-muted d-block font-monospace"><?= e($firstSku) ?></small>
+                        <?php if (!empty($firstVariantCode)): ?>
+                            <small class="text-muted d-block font-monospace"><?= e($firstVariantCode) ?></small>
                         <?php endif; ?>
                     </td>
 

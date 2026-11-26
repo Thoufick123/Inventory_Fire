@@ -20,14 +20,9 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
-                        <div class="col-md-8">
+                        <div class="col-12">
                             <label class="form-label fw-bold">Product / Style Name <span class="text-danger">*</span></label>
                             <input type="text" name="name" id="tp_name" class="form-control" placeholder="e.g. Mens Casual Polo T-Shirt" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Style Code / SKU</label>
-                            <input type="text" name="code" id="tp_code" class="form-control" placeholder="Auto-generated if empty">
-                            <div class="form-text small">e.g. TP-POLO-001</div>
                         </div>
 
                         <div class="col-md-4">

@@ -523,7 +523,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         $tpProductId = (int)($item['third_party_product_id'] ?? 0);
-        $tpCode = trim((string)($item['vendor_sku'] ?? '')) ?: ('TP-' . $code);
+        $tpCode = 'TP-' . $code;
         if ($tpProductId <= 0) {
             $existingTp = Database::fetchOne(
                 "SELECT id FROM third_party_products WHERE code = ? LIMIT 1",
@@ -542,17 +542,16 @@ class PurchaseMappingFulfillmentService {
             } else {
                 Database::execute(
                     "INSERT INTO third_party_products
-                        (concern_id, name, code, vendor_sku, third_party_category_id,
+                        (concern_id, name, code, third_party_category_id,
                          third_party_subcategory_id, third_party_sub_subcategory_id,
                          category_code, subcategory_code, sub_subcategory_code,
                          seller_id, color, size, unit, hsn_code, mrp, selling_price,
                          purchase_rate, attributes, is_complementary, is_active)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
                     [
                         $item['concern_id'] ?? null,
                         $itemName,
                         $tpCode,
-                        $item['vendor_sku'] ?: null,
                         $categoryId,
                         $subcategoryId,
                         $subSubcategoryId,
@@ -643,7 +642,7 @@ class PurchaseMappingFulfillmentService {
         }
 
         $variant = Database::fetchOne(
-            "SELECT pv.id, pv.sku, pv.variant_code, pv.mrp, pv.selling_price, pv.color_id, pv.design_id, pv.size_id,
+            "SELECT pv.id, pv.variant_code, pv.mrp, pv.selling_price, pv.color_id, pv.design_id, pv.size_id,
                     col.name AS color_name, d.name AS design_name, sz.name AS size_name
              FROM product_variants pv
              LEFT JOIN colors col ON col.id = pv.color_id
@@ -656,7 +655,7 @@ class PurchaseMappingFulfillmentService {
         return [
             'product_id'            => $productId,
             'variant_id'            => $variantId,
-            'variant_sku'           => $variant['sku'] ?? null,
+            'variant_code'          => $variant['variant_code'] ?? null,
             'item_name'             => $itemName,
             'quantity'              => (float)$item['quantity'],
             'mrp'                   => (float)($variant['mrp'] ?? $item['mrp'] ?? 0),

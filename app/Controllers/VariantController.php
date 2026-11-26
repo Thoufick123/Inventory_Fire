@@ -1,7 +1,7 @@
 <?php
 /**
  * VariantController
- * Manages Product Variants, Unique Variant IDs, Variant SKUs, and Scannable QR Identities.
+ * Manages Product Variants, Unique Variant IDs, and Scannable QR Identities.
  */
 
 require_once BASE_PATH . '/app/Models/ProductVariant.php';
@@ -113,7 +113,7 @@ class VariantController {
                 return;
             }
 
-            Session::flash('success', "Variant {$variant['variant_code']} ({$variant['sku']}) created successfully!");
+            Session::flash('success', "Variant {$variant['variant_code']} created successfully!");
             Response::redirect(url('production/variants'));
         } catch (Throwable $e) {
             if (Request::isAjax()) {
@@ -140,7 +140,7 @@ class VariantController {
         $hasHistory = ProductVariant::hasHistory((int)$id);
 
         Response::view('allmodules.variants.view', [
-            'pageTitle'    => 'Variant ' . ($variant['variant_code'] ?? $variant['sku']),
+            'pageTitle'    => 'Variant ' . ($variant['variant_code'] ?? $variant['id']),
             'activeModule' => 'production',
             'activeMenu'   => 'prod-variants',
             'variant'      => $variant,
@@ -149,7 +149,7 @@ class VariantController {
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Product Variants', 'url' => url('production/variants')],
-                ['label' => 'Product Variants ' . ($variant['variant_code'] ?: ($variant['sku'] ?: $variant['id']))],
+                ['label' => 'Product Variants ' . ($variant['variant_code'] ?: $variant['id'])],
             ],
         ]);
     }
@@ -170,7 +170,7 @@ class VariantController {
         $hasHistory = ProductVariant::hasHistory((int)$id);
 
         Response::view('allmodules.variants.edit', [
-            'pageTitle'    => 'Edit Variant ' . ($variant['variant_code'] ?? $variant['sku']),
+            'pageTitle'    => 'Edit Variant ' . ($variant['variant_code'] ?? $variant['id']),
             'activeModule' => 'production',
             'activeMenu'   => 'prod-variants',
             'variant'      => $variant,
@@ -181,7 +181,7 @@ class VariantController {
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Product Variants', 'url' => url('production/variants')],
-                ['label' => 'Edit Product Variants ' . ($variant['variant_code'] ?: ($variant['sku'] ?: $variant['id']))],
+                ['label' => 'Edit Product Variants ' . ($variant['variant_code'] ?: $variant['id'])],
             ],
         ]);
     }
@@ -302,7 +302,7 @@ class VariantController {
     }
 
     /**
-     * AJAX: Live preview of auto-generated SKU, Variant ID, and duplicate check.
+     * AJAX: Live preview of Variant ID and duplicate check.
      */
     public function ajaxPreviewSku(): void {
         $productId = (int)($_GET['product_id'] ?? 0);
@@ -313,7 +313,6 @@ class VariantController {
 
         if ($productId <= 0) {
             Response::jsonSuccess('No catalog selected.', [
-                'sku'          => '',
                 'variant_code' => VariantService::generateNextVariantCode(),
                 'is_duplicate' => false,
             ]);
@@ -321,12 +320,10 @@ class VariantController {
         }
 
         try {
-            $sku = VariantService::generateVariantSku($productId, $colorId, $designId, $sizeId);
             $isDuplicate = VariantService::checkDuplicateCombination($productId, $colorId, $designId, $sizeId, $excludeId);
             $variantCode = VariantService::generateNextVariantCode();
 
             Response::jsonSuccess('Preview generated.', [
-                'sku'          => $sku,
                 'variant_code' => $variantCode,
                 'qr_code'      => $variantCode,
                 'is_duplicate' => $isDuplicate,
@@ -369,7 +366,7 @@ class VariantController {
         }
 
         if ((int)$variant['is_active'] !== 1) {
-            Response::jsonError("Variant '{$variant['variant_code']}' ({$variant['sku']}) is inactive and cannot be billed or processed.", 403);
+            Response::jsonError("Variant '{$variant['variant_code']}' is inactive and cannot be billed or processed.", 403);
             return;
         }
 
@@ -455,7 +452,7 @@ class VariantController {
 
         // 3. Catalog-wise stock
         $catalogStock = Database::fetchAll("
-            SELECT p.id, p.name, p.code as parent_sku, c.name as category_name,
+            SELECT p.id, p.name, c.name as category_name,
                    COUNT(DISTINCT pv.id) as variant_count,
                    COALESCE(SUM(sb.quantity), 0) as total_stock,
                    COALESCE(SUM(sb.quantity * pv.selling_price), 0) as stock_valuation
@@ -463,13 +460,13 @@ class VariantController {
             LEFT JOIN categories c ON c.id = p.category_id
             LEFT JOIN product_variants pv ON pv.product_id = p.id
             LEFT JOIN stock_balances sb ON sb.variant_id = pv.id AND sb.location_type = 'PRODUCTION_UNIT' AND sb.stock_state = 'AVAILABLE'
-            GROUP BY p.id, p.name, p.code, c.name
+            GROUP BY p.id, p.name, c.name
             ORDER BY total_stock DESC, p.name ASC
         ");
 
         // 4. Variant-wise stock
         $variantStock = Database::fetchAll("
-            SELECT pv.id, pv.variant_code, pv.sku, pv.qr_code, p.name as product_name, p.code as parent_sku,
+            SELECT pv.id, pv.variant_code, pv.qr_code, p.name as product_name,
                    c.name as category_name,
                    col.name as color_name, d.name as design_name, sz.name as size_name,
                    pv.selling_price, pv.mrp,
@@ -482,7 +479,7 @@ class VariantController {
             LEFT JOIN designs d ON d.id = pv.design_id
             LEFT JOIN sizes sz ON sz.id = pv.size_id
             LEFT JOIN stock_balances sb ON sb.variant_id = pv.id AND sb.location_type = 'PRODUCTION_UNIT' AND sb.stock_state = 'AVAILABLE'
-            GROUP BY pv.id, pv.variant_code, pv.sku, pv.qr_code, p.name, p.code, c.name, col.name, d.name, sz.name, pv.selling_price, pv.mrp
+            GROUP BY pv.id, pv.variant_code, pv.qr_code, p.name, c.name, col.name, d.name, sz.name, pv.selling_price, pv.mrp
             ORDER BY available_stock DESC, pv.id DESC
         ");
 
@@ -524,7 +521,7 @@ class VariantController {
 
         // 8. Variant-wise sales
         $variantSales = Database::fetchAll("
-            SELECT pv.id, pv.variant_code, pv.sku, p.name as product_name, p.code as parent_sku,
+            SELECT pv.id, pv.variant_code, p.name as product_name,
                    c.name as category_name,
                    col.name as color_name, d.name as design_name, sz.name as size_name,
                    COALESCE(SUM(pbi.quantity), 0) as total_sold_qty,
@@ -537,7 +534,7 @@ class VariantController {
             LEFT JOIN sizes sz ON sz.id = pv.size_id
             JOIN production_bill_items pbi ON pbi.variant_id = pv.id
             JOIN production_bills pb ON pb.id = pbi.bill_id
-            GROUP BY pv.id, pv.variant_code, pv.sku, p.name, p.code, c.name, col.name, d.name, sz.name
+            GROUP BY pv.id, pv.variant_code, p.name, c.name, col.name, d.name, sz.name
             ORDER BY total_sold_qty DESC
         ");
 

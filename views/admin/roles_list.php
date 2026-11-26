@@ -64,12 +64,14 @@
                             </td>
                             <td class="text-end pe-4">
                                 <div class="d-flex align-items-center justify-content-end gap-2 flex-nowrap">
-                                    <?php if (hasPermission('roles', 'edit')): ?>
-                                    <a href="<?= url('admin/roles/permissions/' . $r['id']) ?>"
-                                       class="btn btn-sm btn-outline-primary"
-                                       title="Manage Permissions">
-                                        <i class="bi bi-key me-1"></i>Permissions
+                                    <?php if (hasPermission('roles', 'view')): ?>
+                                    <a href="<?= url('admin/roles/view/' . $r['id']) ?>"
+                                       class="btn btn-sm btn-outline-info"
+                                       title="View Role">
+                                        <i class="bi bi-eye me-1"></i>View
                                     </a>
+                                    <?php endif; ?>
+                                    <?php if (hasPermission('roles', 'edit')): ?>
                                     <a href="<?= url('admin/roles/edit/' . $r['id']) ?>"
                                        class="btn btn-sm btn-outline-secondary"
                                        title="Edit Role">
@@ -77,17 +79,12 @@
                                     </a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('roles', 'delete')): ?>
-                                    <form method="POST"
-                                          action="<?= url('admin/roles/delete/' . $r['id']) ?>"
-                                          class="d-inline m-0"
-                                          onsubmit="return confirm('Are you sure you want to delete the <?= e(addslashes($r['name'])) ?> role?');">
-                                        <?= CSRF::field() ?>
-                                        <button type="submit"
-                                                class="btn btn-sm btn-outline-danger"
-                                                title="Delete Role">
-                                            <i class="bi bi-trash me-1"></i>Delete
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Delete Role"
+                                            onclick="openDeleteRoleModal(<?= (int)$r['id'] ?>, <?= htmlspecialchars(json_encode((string)$r['name']), ENT_QUOTES, 'UTF-8') ?>)">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -115,3 +112,45 @@
     </div>
     <?php endif; ?>
 </div>
+
+<!-- Delete Role Confirmation Modal -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="" id="deleteRoleForm" class="modal-content border-0 shadow">
+            <?= CSRF::field() ?>
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Delete Role
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Are you sure you want to delete the <strong id="deleteRoleName">this</strong> role?</p>
+                <p class="text-muted small mb-0">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash me-1"></i>Delete Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openDeleteRoleModal(roleId, roleName) {
+    const form = document.getElementById('deleteRoleForm');
+    const nameEl = document.getElementById('deleteRoleName');
+    if (form) {
+        form.action = '<?= url('admin/roles/delete/') ?>' + roleId;
+    }
+    if (nameEl) {
+        nameEl.textContent = roleName || 'this';
+    }
+    const modalEl = document.getElementById('deleteRoleModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+}
+</script>

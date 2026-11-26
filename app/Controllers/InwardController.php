@@ -122,7 +122,7 @@ class InwardController {
         $batchItemsMap = [];
         if (!empty($batchIds)) {
             $placeholders = implode(',', array_fill(0, count($batchIds), '?'));
-            $itemsSql = "SELECT pbi.*, pv.sku, pv.qr_code, pv.size_id, pv.color_id, pv.selling_price,
+            $itemsSql = "SELECT pbi.*, pv.variant_code, pv.qr_code, pv.size_id, pv.color_id, pv.selling_price,
                                 s.name as size_name, c.name as color_name, c.hex_code as color_hex,
                                 p.name as product_name, p.image_url as product_image, cat.name as category_name
                          FROM production_batch_items pbi
@@ -514,7 +514,7 @@ class InwardController {
         }
 
         if (empty($scannedCode)) {
-            Response::jsonError("QR code or SKU cannot be empty.");
+            Response::jsonError("QR code cannot be empty.");
             return;
         }
 
@@ -619,15 +619,10 @@ class InwardController {
                 $parsedCode = $json['batch_number'];
             } elseif (!empty($json['outward_number'])) {
                 $parsedCode = $json['outward_number'];
-            } elseif (!empty($json['sku'])) {
-                $extractedSku = trim($json['sku']);
             }
         } elseif (str_contains($code, '|')) {
             $parts = explode('|', $code);
             $extractedTag = trim($parts[0]);
-            if (!empty($parts[1])) {
-                $extractedSku = trim($parts[1]);
-            }
         }
 
         // Search for matching batch
@@ -642,12 +637,11 @@ class InwardController {
                      WHERE (
                          pb.batch_number = ?
                          OR po.outward_number = ?
-                         OR pv.sku = ?
+                         OR pv.variant_code = ?
                          OR pv.qr_code = ?
-                         OR p.code = ?
                          OR ? IN (pb.batch_number, po.outward_number)
                      )";
-        $params = [$code, $code, $parsedCode, $parsedCode, $parsedCode, $parsedCode];
+        $params = [$code, $code, $parsedCode, $parsedCode, $parsedCode];
 
         if ($cid !== null) {
             $batchSql .= " AND (w.concern_id = ? OR pb.destination_warehouse_id IN (SELECT id FROM warehouses WHERE concern_id = ?) OR pb.concern_id = ? OR po.concern_id = ?)";

@@ -13,8 +13,8 @@ class ProductionWarehouseRework {
         return Database::fetchOne(
             "SELECT pwr.*, 
                     w.name as warehouse_name, w.code as warehouse_code,
-                    pv.sku, pv.qr_code, pv.selling_price, pv.mrp, pv.purchase_price, pv.production_cost,
-                    p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
+                    pv.variant_code, pv.qr_code, pv.selling_price, pv.mrp, pv.purchase_price, pv.production_cost,
+                    p.id as product_id, p.name as product_name, p.image_url as product_image,
                     s.name as size_name, c.name as color_name,
                     cat.name as category_name,
                     pb.batch_number, pb.total_qty as batch_total_qty, pb.status as batch_status,
@@ -45,8 +45,8 @@ class ProductionWarehouseRework {
     public static function getAll(array $filters = []): array {
         $sql = "SELECT pwr.*, 
                        w.name as warehouse_name, w.code as warehouse_code,
-                       pv.sku, pv.qr_code, pv.selling_price, pv.mrp, pv.production_cost,
-                       p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
+                       pv.variant_code, pv.qr_code, pv.selling_price, pv.mrp, pv.production_cost,
+                       p.id as product_id, p.name as product_name, p.image_url as product_image,
                        s.name as size_name, c.name as color_name,
                        cat.name as category_name,
                        pb.batch_number, pb.status as batch_status,
@@ -106,8 +106,8 @@ class ProductionWarehouseRework {
                 OR pwr.challan_number LIKE ? 
                 OR pwr.damage_reason LIKE ? 
                 OR p.name LIKE ? 
-                OR p.code LIKE ? 
-                OR pv.sku LIKE ? 
+                OR p.name LIKE ? 
+                OR pv.variant_code LIKE ? 
                 OR pb.batch_number LIKE ? 
                 OR po.outward_number LIKE ?
                 OR w.name LIKE ?

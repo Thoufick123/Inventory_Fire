@@ -13,7 +13,7 @@
     </div>
 </div>
 
-<form method="POST" action="<?= url('admin/concerns/update/' . $concern['id']) ?>" enctype="multipart/form-data">
+<form method="POST" action="<?= url('admin/concerns/update/' . $concern['id']) ?>" id="concernEditForm" enctype="multipart/form-data">
     <?= CSRF::field() ?>
 
     <div class="row g-4">
@@ -120,28 +120,40 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Official Phone / Mobile</label>
-                            <input type="text" name="phone" class="form-control" value="<?= e($concern['phone'] ?? '') ?>">
+                            <label class="form-label fw-semibold">Official Phone / Mobile <span class="text-danger">*</span></label>
+                            <input type="text" name="phone" id="concernPhone" class="form-control" value="<?= e($concern['phone'] ?? '') ?>" maxlength="10" inputmode="numeric" required>
+                            <div class="invalid-feedback">Phone number must be exactly 10 numeric digits.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Official Email</label>
-                            <input type="email" name="email" class="form-control" value="<?= e($concern['email'] ?? '') ?>">
+                            <label class="form-label fw-semibold">Official Email <span class="text-danger">*</span></label>
+                            <input type="email" name="email" id="concernEmail" class="form-control" value="<?= e($concern['email'] ?? '') ?>" required>
+                            <div class="invalid-feedback">Enter a valid email address (e.g. billing@company.com).</div>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label fw-semibold">Registered Physical Address</label>
-                            <textarea name="address" class="form-control" rows="2"><?= e($concern['address'] ?? '') ?></textarea>
+                            <label class="form-label fw-semibold">Registered Physical Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="concernAddress" class="form-control" rows="2" minlength="10" maxlength="500" required><?= e($concern['address'] ?? '') ?></textarea>
+                            <div class="invalid-feedback">Address is required (minimum 10 characters).</div>
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label fw-semibold">City</label>
-                            <input type="text" name="city" class="form-control" value="<?= e($concern['city'] ?? '') ?>">
+                            <label class="form-label fw-semibold">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="concernCity" class="form-control" value="<?= e($concern['city'] ?? '') ?>" maxlength="100" required>
+                            <div class="invalid-feedback" id="concernCityFeedback">Enter a valid city name (do not enter a state name).</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">State</label>
-                            <input type="text" name="state" class="form-control" value="<?= e($concern['state'] ?? '') ?>">
+                            <label class="form-label fw-semibold">State <span class="text-danger">*</span></label>
+                            <?php $curState = trim((string)($concern['state'] ?? '')); ?>
+                            <select name="state" id="concernState" class="form-select" required>
+                                <option value="">-- Select State --</option>
+                                <?php foreach (ConcernController::indianStates() as $stName): ?>
+                                    <option value="<?= e($stName) ?>" <?= strcasecmp($curState, $stName) === 0 ? 'selected' : '' ?>><?= e($stName) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="invalid-feedback">Please select a valid State.</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Pincode</label>
-                            <input type="text" name="pincode" class="form-control font-monospace" value="<?= e($concern['pincode'] ?? '') ?>" maxlength="10">
+                            <input type="text" name="pincode" id="concernPincode" class="form-control font-monospace" value="<?= e($concern['pincode'] ?? '') ?>" maxlength="6" inputmode="numeric">
+                            <div class="invalid-feedback">Pincode must be 6 digits.</div>
                         </div>
                     </div>
                 </div>
@@ -286,4 +298,88 @@ function toggleRemoveLogo() {
         }
     }
 }
+
+(function () {
+    const form = document.getElementById('concernEditForm');
+    if (!form) return;
+
+    const norm = v => v.trim().toLowerCase().replace(/[\s.\-]+/g, '');
+    const stateSet = new Set(<?= json_encode(ConcernController::indianStates()) ?>.map(norm));
+
+    const rules = [
+        {
+            id: 'concernPhone',
+            live: true,
+            check: v => /^[0-9]{10}$/.test(v)
+        },
+        {
+            id: 'concernEmail',
+            live: false,
+            check: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
+        },
+        {
+            id: 'concernAddress',
+            live: false,
+            check: v => v.length >= 10 && v.length <= 500
+        },
+        {
+            id: 'concernCity',
+            live: true,
+            check: v => /^[a-zA-Z\s.\-]{2,100}$/.test(v) && !stateSet.has(norm(v)),
+            onUpdate: (el, v) => {
+                const fb = document.getElementById('concernCityFeedback');
+                if (!fb) return;
+                if (stateSet.has(norm(v))) {
+                    fb.textContent = 'City cannot be a state name. Enter a valid city (e.g. Tirupur).';
+                } else {
+                    fb.textContent = 'Enter a valid city name (letters only, minimum 2 characters).';
+                }
+            }
+        },
+        {
+            id: 'concernState',
+            live: true,
+            check: v => stateSet.has(norm(v))
+        },
+        {
+            id: 'concernPincode',
+            live: true,
+            check: v => v === '' || /^[0-9]{6}$/.test(v)
+        }
+    ];
+
+    const validateField = (rule) => {
+        const el = document.getElementById(rule.id);
+        if (!el) return true;
+        const val = el.value.trim();
+        const ok = rule.check(val);
+        if (rule.onUpdate) rule.onUpdate(el, val);
+        el.classList.toggle('is-invalid', !ok);
+        return ok;
+    };
+
+    rules.forEach(rule => {
+        const el = document.getElementById(rule.id);
+        if (!el) return;
+        const ev = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(ev, () => {
+            if (rule.live || el.classList.contains('is-invalid')) validateField(rule);
+        });
+        el.addEventListener('blur', () => validateField(rule));
+    });
+
+    form.addEventListener('submit', function (e) {
+        let firstInvalid = null;
+        rules.forEach(rule => {
+            if (!validateField(rule) && !firstInvalid) {
+                firstInvalid = document.getElementById(rule.id);
+            }
+        });
+        if (firstInvalid) {
+            e.preventDefault();
+            firstInvalid.focus();
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+})();
 </script>

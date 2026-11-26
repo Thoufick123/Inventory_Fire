@@ -14,8 +14,8 @@ class WarehouseDamage {
         return Database::fetchOne(
             "SELECT wd.*, 
                     w.name as warehouse_name, w.code as warehouse_code,
-                    pv.sku, pv.qr_code, pv.selling_price, pv.mrp, pv.purchase_price, pv.production_cost,
-                    p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
+                    pv.variant_code, pv.qr_code, pv.selling_price, pv.mrp, pv.purchase_price, pv.production_cost,
+                    p.id as product_id, p.name as product_name, p.image_url as product_image,
                     s.name as size_name, c.name as color_name,
                     cat.name as category_name, subcat.name as subcategory_name, subsubcat.name as sub_subcategory_name,
                     u.full_name as reported_by_name,
@@ -54,8 +54,8 @@ class WarehouseDamage {
     public static function getAll(array $filters = []): array {
         $sql = "SELECT wd.*, 
                        w.name as warehouse_name, w.code as warehouse_code,
-                       pv.sku, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
-                       p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
+                       pv.variant_code, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
+                       p.id as product_id, p.name as product_name, p.image_url as product_image,
                        s.name as size_name, c.name as color_name,
                        cat.name as category_name, subcat.name as subcategory_name, subsubcat.name as sub_subcategory_name,
                        u.full_name as reported_by_name,
@@ -112,7 +112,7 @@ class WarehouseDamage {
         }
 
         if (!empty($filters['search'])) {
-            $sql .= " AND (wd.damage_number LIKE ? OR pv.sku LIKE ? OR p.name LIKE ? OR wd.damage_reason LIKE ? OR wd.tag_code LIKE ? OR pb.batch_number LIKE ? OR pp.program_number LIKE ? OR po.outward_number LIKE ? OR pu.name LIKE ?)";
+            $sql .= " AND (wd.damage_number LIKE ? OR pv.variant_code LIKE ? OR p.name LIKE ? OR wd.damage_reason LIKE ? OR wd.tag_code LIKE ? OR pb.batch_number LIKE ? OR pp.program_number LIKE ? OR po.outward_number LIKE ? OR pu.name LIKE ?)";
             $s = '%' . $filters['search'] . '%';
             $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s]);
         }

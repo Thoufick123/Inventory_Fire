@@ -315,9 +315,6 @@ if (empty($currentDept)) $currentDept = 'all';
                                             <a href="<?= url('admin/staff/view/' . $s['id']) ?>" class="btn btn-sm btn-outline-primary" title="View Staff Details">
                                                 <i class="bi bi-eye me-1"></i>View
                                             </a>
-                                            <a href="<?= url('system/audit?user_id=' . $s['id']) ?>" class="btn btn-sm btn-outline-info" title="View Activity & Audit Logs for <?= e($s['full_name']) ?>">
-                                                <i class="bi bi-clock-history me-1"></i>Logs
-                                            </a>
                                             <?php if (hasPermission('staff', 'edit')): ?>
                                             <a href="<?= url('admin/staff/edit/' . $s['id']) ?>" class="btn btn-sm btn-outline-secondary" title="Edit Staff Member">
                                                 <i class="bi bi-pencil me-1"></i>Edit

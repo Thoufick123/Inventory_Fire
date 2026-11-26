@@ -475,8 +475,8 @@ class StockService {
      * Get all stock balances for a location.
      */
     public static function getStockByLocation(string $locationType, int $locationId, array $filters = []): array {
-        $sql = "SELECT sb.*, pv.sku, pv.qr_code, pv.selling_price, pv.mrp,
-                       p.name as product_name, p.code as product_code,
+        $sql = "SELECT sb.*, pv.variant_code, pv.qr_code, pv.selling_price, pv.mrp,
+                       p.name as product_name,
                        s.name as size_name, c.name as color_name
                 FROM stock_balances sb
                 JOIN product_variants pv ON sb.variant_id = pv.id
@@ -491,7 +491,7 @@ class StockService {
             $params[] = $filters['stock_state'];
         }
         if (!empty($filters['search'])) {
-            $sql .= " AND (p.name LIKE ? OR pv.sku LIKE ? OR p.code LIKE ?)";
+            $sql .= " AND (p.name LIKE ? OR pv.variant_code LIKE ? OR pv.qr_code LIKE ?)";
             $search = '%' . $filters['search'] . '%';
             $params = array_merge($params, [$search, $search, $search]);
         }
@@ -500,7 +500,7 @@ class StockService {
             $params[] = $filters['min_qty'];
         }
 
-        $sql .= " ORDER BY p.name ASC, pv.sku ASC";
+        $sql .= " ORDER BY p.name ASC, pv.variant_code ASC";
 
         return Database::fetchAll($sql, $params);
     }
@@ -550,7 +550,7 @@ class StockService {
      */
     public static function getLowStockAlerts(string $locationType, int $locationId): array {
         return Database::fetchAll(
-            "SELECT sb.*, pv.sku, p.name as product_name, p.min_stock,
+            "SELECT sb.*, pv.variant_code, p.name as product_name, p.min_stock,
                     s.name as size_name, c.name as color_name
              FROM stock_balances sb
              JOIN product_variants pv ON sb.variant_id = pv.id
@@ -644,7 +644,7 @@ class StockService {
      */
     private static function checkLowStockAlert(int $variantId, string $locationType, int $locationId): void {
         $product = Database::fetchOne(
-            "SELECT p.name, p.min_stock, pv.sku
+            "SELECT p.name, p.min_stock, pv.variant_code
              FROM product_variants pv
              JOIN products p ON pv.product_id = p.id
              WHERE pv.id = ?",
@@ -664,7 +664,7 @@ class StockService {
                     NotificationService::createLowStockAlert(
                         $variantId, $locationType, $locationId,
                         $balance, $product['min_stock'],
-                        $product['name'] . ' (' . $product['sku'] . ')'
+                        $product['name'] . ($product['variant_code'] ? ' (' . $product['variant_code'] . ')' : '')
                     );
                 }
             }

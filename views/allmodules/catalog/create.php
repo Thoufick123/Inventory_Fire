@@ -265,7 +265,10 @@
                         <h5 class="card-title mb-0 fw-bold text-dark">
                             <i class="bi bi-palette2 me-2 text-primary"></i> 2. Product Attributes
                         </h5>
-                     </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddCustomAttribute">
+                        <i class="bi bi-plus-circle me-1"></i> Add Attribute
+                    </button>
                 </div>
                 <div class="card-body">
                     <!-- Size Attributes Multi-Select -->
@@ -306,6 +309,47 @@
                             <?php endif; ?>
                         </div>
                     </div>
+
+                    <!-- Color Attributes Multi-Select -->
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <label class="form-label fw-bold mb-0">
+                                <i class="bi bi-palette me-1 text-primary"></i> Color Attributes:
+                            </label>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAddColor">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Color
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelectAllColors">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnClearColors">Clear</button>
+                            </div>
+                        </div>
+                        <div class="p-2 border rounded bg-light d-flex flex-wrap gap-2 align-items-center" id="colorSelectorContainer" style="min-height: 48px;">
+                            <?php if (empty($colors)): ?>
+                                <div class="w-100 text-center py-2 text-muted small" id="emptyColorPrompt">
+                                    <i class="bi bi-palette fs-5 text-secondary opacity-50 d-block mb-1"></i>
+                                    No color attributes found. Click <strong>"+ Add Color"</strong> above to create colors for this category.
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($colors as $clr): ?>
+                                    <div class="btn-group btn-group-sm color-chip-group" id="color-chip-<?= $clr['id'] ?>">
+                                        <label class="btn btn-outline-secondary color-check-btn d-flex align-items-center gap-2" style="cursor: pointer;">
+                                            <input type="checkbox" name="colors[]" class="form-check-input me-1 color-checkbox" value="<?= $clr['id'] ?>" data-name="<?= e($clr['name']) ?>" data-hex="<?= e($clr['hex_code'] ?? '#cccccc') ?>">
+                                            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background-color:<?= e($clr['hex_code'] ?? '#cccccc') ?>; border:1px solid #ccc;"></span>
+                                            <span><?= e($clr['name']) ?></span>
+                                        </label>
+                                        <button type="button" class="btn btn-outline-danger btn-delete-color p-1 px-2" data-id="<?= $clr['id'] ?>" data-name="<?= e($clr['name']) ?>" title="Delete color attribute">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Custom Attributes -->
+                    <input type="hidden" name="custom_attributes_json" id="customAttributesJsonInput" value="[]">
+                    <div id="customAttributesContainer" class="mt-3 d-flex flex-column gap-3"></div>
                 </div>
                 <!-- Card Footer with Action Buttons -->
                 <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
@@ -320,6 +364,36 @@
         </div>
     </div>
 </form>
+
+<!-- ADD CUSTOM ATTRIBUTE MODAL -->
+<div class="modal fade" id="modalAddCustomAttribute" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-tags me-1 text-primary"></i> Add Product Attribute</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Attribute Name <span class="text-danger">*</span></label>
+                    <input type="text" id="modalCustomAttrName" class="form-control" placeholder="e.g. Fabric, Sleeve, Pattern, Fit">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Attribute Values <span class="text-danger">*</span></label>
+                    <input type="text" id="modalCustomAttrValues" class="form-control" placeholder="e.g. Cotton, Linen, Polyester">
+                    <small class="form-text text-muted">Enter comma-separated values for this attribute.</small>
+                </div>
+                <div id="modalCustomAttrErr" class="alert alert-danger py-1.5 px-2.5 small d-none mb-0 mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveCustomAttribute">
+                    <i class="bi bi-check-lg me-1"></i> Add Attribute
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- QUICK ADD MAIN CATEGORY MODAL -->
 <div class="modal fade" id="modalAddMainCategory" tabindex="-1" aria-hidden="true">
@@ -1890,6 +1964,139 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnClearColors')?.addEventListener('click', function() {
         document.querySelectorAll('.color-checkbox').forEach(cb => cb.checked = false);
     });
+
+    // Dynamic Custom Attributes Manager
+    (function () {
+        const container = document.getElementById('customAttributesContainer');
+        const hiddenInp = document.getElementById('customAttributesJsonInput');
+        const btnSave = document.getElementById('btnSaveCustomAttribute');
+        const nameInp = document.getElementById('modalCustomAttrName');
+        const valsInp = document.getElementById('modalCustomAttrValues');
+        const errBox = document.getElementById('modalCustomAttrErr');
+        const modalEl = document.getElementById('modalAddCustomAttribute');
+        if (!container || !hiddenInp) return;
+
+        let groups = [];
+        try {
+            const init = JSON.parse(hiddenInp.value || '[]');
+            if (Array.isArray(init)) groups = init;
+        } catch (e) {}
+
+        function syncHidden() {
+            const active = groups
+                .map(g => ({ name: g.name, values: g.values.filter(v => v.checked).map(v => v.label) }))
+                .filter(g => g.values.length > 0);
+            hiddenInp.value = JSON.stringify(active);
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function render() {
+            container.innerHTML = '';
+            groups.forEach((g, gIdx) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'border-top pt-3';
+                wrap.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <label class="form-label fw-bold mb-0"><i class="bi bi-tag me-1 text-primary"></i> ${escHtml(g.name)}:</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-act="all" data-idx="${gIdx}">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-act="clear" data-idx="${gIdx}">Clear</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" data-act="del-group" data-idx="${gIdx}" title="Remove attribute"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="p-2 border rounded bg-light d-flex flex-wrap gap-2 align-items-center">
+                        ${g.values.map((v, vIdx) => `
+                            <div class="btn-group btn-group-sm">
+                                <label class="btn btn-outline-dark d-flex align-items-center gap-1" style="cursor:pointer;">
+                                    <input type="checkbox" class="form-check-input me-1 custom-attr-chk" data-gidx="${gIdx}" data-vidx="${vIdx}" ${v.checked ? 'checked' : ''}>
+                                    <span>${escHtml(v.label)}</span>
+                                </label>
+                                <button type="button" class="btn btn-outline-danger p-1 px-2" data-act="del-val" data-idx="${gIdx}" data-vidx="${vIdx}" title="Remove value"><i class="bi bi-x"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(wrap);
+            });
+            syncHidden();
+        }
+
+        // Normalize initial loaded groups if plain strings
+        groups = groups.map(g => ({
+            name: String(g.name || ''),
+            values: (g.values || []).map(v => typeof v === 'string' ? { label: v, checked: true } : v)
+        })).filter(g => g.name);
+        render();
+
+        container.addEventListener('change', e => {
+            if (!e.target.classList.contains('custom-attr-chk')) return;
+            const gIdx = parseInt(e.target.dataset.gidx, 10);
+            const vIdx = parseInt(e.target.dataset.vidx, 10);
+            if (groups[gIdx] && groups[gIdx].values[vIdx]) {
+                groups[gIdx].values[vIdx].checked = e.target.checked;
+                syncHidden();
+            }
+        });
+
+        container.addEventListener('click', e => {
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const act = btn.dataset.act;
+            const idx = parseInt(btn.dataset.idx, 10);
+            if (!groups[idx]) return;
+            if (act === 'all') {
+                groups[idx].values.forEach(v => v.checked = true);
+            } else if (act === 'clear') {
+                groups[idx].values.forEach(v => v.checked = false);
+            } else if (act === 'del-group') {
+                groups.splice(idx, 1);
+            } else if (act === 'del-val') {
+                const vIdx = parseInt(btn.dataset.vidx, 10);
+                groups[idx].values.splice(vIdx, 1);
+                if (groups[idx].values.length === 0) groups.splice(idx, 1);
+            }
+            render();
+        });
+
+        btnSave?.addEventListener('click', () => {
+            const attrName = (nameInp?.value || '').trim();
+            const rawVals = (valsInp?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!attrName || rawVals.length === 0) {
+                if (errBox) {
+                    errBox.textContent = 'Please enter both Attribute Name and at least one comma-separated Value.';
+                    errBox.classList.remove('d-none');
+                }
+                return;
+            }
+            errBox?.classList.add('d-none');
+
+            const existing = groups.find(g => g.name.toLowerCase() === attrName.toLowerCase());
+            if (existing) {
+                rawVals.forEach(val => {
+                    if (!existing.values.some(v => v.label.toLowerCase() === val.toLowerCase())) {
+                        existing.values.push({ label: val, checked: true });
+                    }
+                });
+            } else {
+                const uniq = [];
+                rawVals.forEach(val => {
+                    if (!uniq.some(u => u.label.toLowerCase() === val.toLowerCase())) {
+                        uniq.push({ label: val, checked: true });
+                    }
+                });
+                groups.push({ name: attrName, values: uniq });
+            }
+            render();
+            if (nameInp) nameInp.value = '';
+            if (valsInp) valsInp.value = '';
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+        });
+    })();
 
     // Prevent submission if Whole Code for QR Code is a duplicate
     const catalogForm = document.getElementById('catalogForm');

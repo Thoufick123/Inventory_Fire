@@ -458,10 +458,8 @@ class QrGenerationService {
 
         if ($permanentVariantQr !== '') {
             $qrPrefix = $permanentVariantQr;
-        } elseif ($variant && !empty($variant['sku'])) {
-            $qrPrefix = $brandCode . '-' . $variant['sku'];
         } else {
-            $qrPrefix = implode('-', $prefixParts) . '-' . $product['code'];
+            $qrPrefix = implode('-', $prefixParts);
         }
 
         $quantity = max(1, min(1000, (int)($data['quantity'] ?? 1)));
@@ -607,7 +605,7 @@ class QrGenerationService {
                     sr.roll_number AS sr_roll_number, sr.start_code, sr.end_code, sr.start_seq, sr.end_seq,
                     sr.weight AS sr_weight, sr.color AS sr_color, sr.design_name AS sr_design_name,
                     sr.quantity AS sr_quantity,
-                    pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                    pv.variant_code, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
                     COALESCE(tpc.name, c.name) AS category_name,
                     COALESCE(tpc.code, c.code) AS category_code,
                     COALESCE(tpsc.name, sc.name) AS subcategory_name,
@@ -966,7 +964,7 @@ class QrGenerationService {
         $item = Database::fetchOne(
             "SELECT mi.*, mb.invoice_number, mb.concern_id, mb.seller_id, mb.status AS bill_status, mb.purchase_id,
                     s.name AS seller_name, s.company AS seller_company,
-                    pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                    pv.variant_code, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
                     c.name AS category_name, c.code AS category_code,
                     sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
              FROM third_party_mapping_items mi
@@ -1628,7 +1626,7 @@ class QrGenerationService {
      */
     private static function catalogPrefix(int $productId, int $variantId, string $brandName): string {
         $product = Database::fetchOne(
-            "SELECT p.code, c.code AS category_code, c.name AS category_name,
+            "SELECT c.code AS category_code, c.name AS category_name,
                     sc.code AS subcategory_code, sc.name AS subcategory_name,
                     ssc.code AS sub_subcategory_code, ssc.name AS sub_subcategory_name
              FROM products p
@@ -1638,11 +1636,11 @@ class QrGenerationService {
              WHERE p.id = ?",
             [$productId]
         );
-        $variant = Database::fetchOne("SELECT sku FROM product_variants WHERE id = ?", [$variantId]);
+        $variant = Database::fetchOne("SELECT variant_code FROM product_variants WHERE id = ?", [$variantId]);
         $brandCode = self::extractCode($brandName, 4);
 
-        if (!empty($variant['sku'])) {
-            return $brandCode . '-' . $variant['sku'];
+        if (!empty($variant['variant_code'])) {
+            return $brandCode . '-' . $variant['variant_code'];
         }
         $parts = [$brandCode];
         if (!empty($product['category_code'])) {
@@ -1654,9 +1652,6 @@ class QrGenerationService {
             $parts[] = $product['subcategory_code'];
         } elseif (!empty($product['subcategory_name'])) {
             $parts[] = self::extractCode($product['subcategory_name'], 3);
-        }
-        if (!empty($product['code'])) {
-            $parts[] = $product['code'];
         }
         return implode('-', $parts);
     }
@@ -1890,7 +1885,7 @@ class QrGenerationService {
         self::ensureSourceSchema();
 
         $gen = Database::fetchOne(
-            "SELECT qrg.*, pv.variant_code, pv.sku as variant_sku, p.name as product_name, p.code as product_code,
+            "SELECT qrg.*, pv.variant_code, p.name as product_name,
                     sb.batch_number as stitching_batch_number, sb.name as stitching_batch_name,
                     pp.program_number, pp.name as program_name,
                     qb.id as qc_batch_id_resolved, qb.batch_number as qc_batch_number, qb.status as qc_batch_status, qb.passed_qty as qc_passed_qty,
@@ -1930,7 +1925,7 @@ class QrGenerationService {
             $stitchingItems = Database::fetchAll("
                 SELECT si.id, si.variant_id, si.size_name, si.color_name, si.base_price, si.discount_price,
                        COALESCE(NULLIF(si.stitched_qty, 0), NULLIF(si.stitched_quantity, 0), NULLIF(si.received_qty, 0), 0) AS stitched_qty,
-                       pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                       pv.variant_code, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
                        col.name AS variant_color_name, sz.name AS variant_size_name
                 FROM stitching_items si
                 LEFT JOIN product_variants pv ON pv.id = si.variant_id
@@ -1956,7 +1951,6 @@ class QrGenerationService {
                         if (!empty($resolved['id'])) {
                             $si['variant_id'] = (int)$resolved['id'];
                             $si['variant_code'] = $resolved['variant_code'] ?? null;
-                            $si['sku'] = $resolved['sku'] ?? null;
                             $si['variant_mrp'] = $resolved['mrp'] ?? $si['base_price'];
                             $si['variant_selling_price'] = $resolved['selling_price'] ?? $si['discount_price'];
                             if (!empty($si['id'])) {
@@ -2010,7 +2004,6 @@ class QrGenerationService {
                         if (!empty($resolved['id'])) {
                             $variantId = (int)$resolved['id'];
                             $item['variant_code'] = $resolved['variant_code'] ?? null;
-                            $item['variant_sku'] = $resolved['sku'] ?? null;
                         }
                     } catch (\Throwable $e) {}
                 }
@@ -2021,9 +2014,6 @@ class QrGenerationService {
                 $item['variant_id'] = $variantId ?: null;
                 if (empty($item['variant_code']) && !empty($si['variant_code'])) {
                     $item['variant_code'] = $si['variant_code'];
-                }
-                if (empty($item['variant_sku']) && !empty($si['sku'])) {
-                    $item['variant_sku'] = $si['sku'];
                 }
                 $item['size_name'] = $sizeName ?: null;
                 $item['color_name'] = $colorName ?: null;
@@ -2073,7 +2063,7 @@ class QrGenerationService {
 
         if (!empty($allVariantIds)) {
             $vList = implode(',', array_map('intval', array_keys($allVariantIds)));
-            $vRows = Database::fetchAll("SELECT id, variant_code, sku, mrp, selling_price FROM product_variants WHERE id IN ($vList)");
+            $vRows = Database::fetchAll("SELECT id, variant_code, mrp, selling_price FROM product_variants WHERE id IN ($vList)");
             $vMeta = [];
             foreach ($vRows as $vr) {
                 $vMeta[(int)$vr['id']] = $vr;
@@ -2082,7 +2072,6 @@ class QrGenerationService {
                 $vid = (int)($it['variant_id'] ?? 0);
                 if ($vid > 0 && isset($vMeta[$vid])) {
                     if (empty($it['variant_code'])) $it['variant_code'] = $vMeta[$vid]['variant_code'];
-                    if (empty($it['variant_sku'])) $it['variant_sku'] = $vMeta[$vid]['sku'];
                     if ((float)($it['mrp'] ?? 0) <= 0) $it['mrp'] = (float)$vMeta[$vid]['mrp'];
                     if ((float)($it['selling_price'] ?? 0) <= 0) $it['selling_price'] = (float)$vMeta[$vid]['selling_price'];
                 }

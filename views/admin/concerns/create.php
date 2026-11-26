@@ -105,28 +105,39 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Official Phone / Mobile</label>
-                            <input type="text" name="phone" class="form-control" placeholder="e.g. +91 98765 43210">
+                            <label class="form-label fw-semibold">Official Phone / Mobile <span class="text-danger">*</span></label>
+                            <input type="text" name="phone" id="concernPhone" class="form-control" placeholder="e.g. 9876543210" maxlength="10" inputmode="numeric" required>
+                            <div class="invalid-feedback">Phone number must be exactly 10 numeric digits.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Official Email</label>
-                            <input type="email" name="email" class="form-control" placeholder="e.g. billing@grmapparels.com">
+                            <label class="form-label fw-semibold">Official Email <span class="text-danger">*</span></label>
+                            <input type="email" name="email" id="concernEmail" class="form-control" placeholder="e.g. billing@grmapparels.com" required>
+                            <div class="invalid-feedback">Enter a valid email address (e.g. billing@company.com).</div>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label fw-semibold">Registered Physical Address</label>
-                            <textarea name="address" class="form-control" rows="2" placeholder="Building, Street, Industrial Estate..."></textarea>
+                            <label class="form-label fw-semibold">Registered Physical Address <span class="text-danger">*</span></label>
+                            <textarea name="address" id="concernAddress" class="form-control" rows="2" placeholder="Building, Street, Industrial Estate..." minlength="10" maxlength="500" required></textarea>
+                            <div class="invalid-feedback">Address is required (minimum 10 characters).</div>
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label fw-semibold">City</label>
-                            <input type="text" name="city" class="form-control" placeholder="e.g. Tirupur">
+                            <label class="form-label fw-semibold">City <span class="text-danger">*</span></label>
+                            <input type="text" name="city" id="concernCity" class="form-control" placeholder="e.g. Tirupur" maxlength="100" required>
+                            <div class="invalid-feedback" id="concernCityFeedback">Enter a valid city name (do not enter a state name).</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">State</label>
-                            <input type="text" name="state" class="form-control" placeholder="e.g. Tamil Nadu">
+                            <label class="form-label fw-semibold">State <span class="text-danger">*</span></label>
+                            <select name="state" id="concernState" class="form-select" required>
+                                <option value="">-- Select State --</option>
+                                <?php foreach (ConcernController::indianStates() as $stName): ?>
+                                    <option value="<?= e($stName) ?>"><?= e($stName) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="invalid-feedback">Please select a valid State.</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Pincode</label>
-                            <input type="text" name="pincode" class="form-control font-monospace" placeholder="641602" maxlength="10">
+                            <input type="text" name="pincode" id="concernPincode" class="form-control font-monospace" placeholder="641602" maxlength="6" inputmode="numeric">
+                            <div class="invalid-feedback">Pincode must be 6 digits.</div>
                         </div>
                     </div>
                 </div>
@@ -211,4 +222,88 @@ function clearSelectedLogo() {
     if (placeholder) placeholder.classList.remove('d-none');
     if (clearBtn) clearBtn.classList.add('d-none');
 }
+
+(function () {
+    const form = document.getElementById('concernForm');
+    if (!form) return;
+
+    const norm = v => v.trim().toLowerCase().replace(/[\s.\-]+/g, '');
+    const stateSet = new Set(<?= json_encode(ConcernController::indianStates()) ?>.map(norm));
+
+    const rules = [
+        {
+            id: 'concernPhone',
+            live: true,
+            check: v => /^[0-9]{10}$/.test(v)
+        },
+        {
+            id: 'concernEmail',
+            live: false,
+            check: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
+        },
+        {
+            id: 'concernAddress',
+            live: false,
+            check: v => v.length >= 10 && v.length <= 500
+        },
+        {
+            id: 'concernCity',
+            live: true,
+            check: v => /^[a-zA-Z\s.\-]{2,100}$/.test(v) && !stateSet.has(norm(v)),
+            onUpdate: (el, v) => {
+                const fb = document.getElementById('concernCityFeedback');
+                if (!fb) return;
+                if (stateSet.has(norm(v))) {
+                    fb.textContent = 'City cannot be a state name. Enter a valid city (e.g. Tirupur).';
+                } else {
+                    fb.textContent = 'Enter a valid city name (letters only, minimum 2 characters).';
+                }
+            }
+        },
+        {
+            id: 'concernState',
+            live: true,
+            check: v => stateSet.has(norm(v))
+        },
+        {
+            id: 'concernPincode',
+            live: true,
+            check: v => v === '' || /^[0-9]{6}$/.test(v)
+        }
+    ];
+
+    const validateField = (rule) => {
+        const el = document.getElementById(rule.id);
+        if (!el) return true;
+        const val = el.value.trim();
+        const ok = rule.check(val);
+        if (rule.onUpdate) rule.onUpdate(el, val);
+        el.classList.toggle('is-invalid', !ok);
+        return ok;
+    };
+
+    rules.forEach(rule => {
+        const el = document.getElementById(rule.id);
+        if (!el) return;
+        const ev = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(ev, () => {
+            if (rule.live || el.classList.contains('is-invalid')) validateField(rule);
+        });
+        el.addEventListener('blur', () => validateField(rule));
+    });
+
+    form.addEventListener('submit', function (e) {
+        let firstInvalid = null;
+        rules.forEach(rule => {
+            if (!validateField(rule) && !firstInvalid) {
+                firstInvalid = document.getElementById(rule.id);
+            }
+        });
+        if (firstInvalid) {
+            e.preventDefault();
+            firstInvalid.focus();
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+})();
 </script>

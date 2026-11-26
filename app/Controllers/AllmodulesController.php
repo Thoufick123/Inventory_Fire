@@ -3849,7 +3849,44 @@ class AllmodulesController {
             }
         }
 
-        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $warehouses = [];
+        $warehouses = [];
+        if ($cid !== null) {
+            $warehouses = Database::fetchAll(
+                "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                 FROM warehouses w
+                 LEFT JOIN concerns c ON c.id = w.concern_id
+                 WHERE w.is_active = 1 AND w.concern_id = ?
+                 ORDER BY w.name ASC",
+                [$cid]
+            );
+            $concerns = Database::fetchAll(
+                "SELECT id, name, code FROM concerns WHERE is_active = 1 AND id = ? ORDER BY name ASC",
+                [$cid]
+            ) ?: [];
+        } else {
+            $availConcerns = function_exists('getAvailableUserConcerns') ? getAvailableUserConcerns() : [];
+            $availIds = array_values(array_filter(array_map(static fn($c) => (int)($c['id'] ?? 0), $availConcerns)));
+            if (!empty($availIds)) {
+                $inPh = implode(',', array_fill(0, count($availIds), '?'));
+                $warehouses = Database::fetchAll(
+                    "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                     FROM warehouses w
+                     LEFT JOIN concerns c ON c.id = w.concern_id
+                     WHERE w.is_active = 1 AND w.concern_id IN ($inPh)
+                     ORDER BY c.name ASC, w.name ASC",
+                    $availIds
+                );
+                $concerns = Database::fetchAll(
+                    "SELECT id, name, code FROM concerns WHERE is_active = 1 AND id IN ($inPh) ORDER BY name ASC",
+                    $availIds
+                ) ?: [];
+            } else {
+                $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+                $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
+            }
+        }
         $existingRollProducts = Database::fetchAll("
             SELECT DISTINCT p.name, p.code, p.hsn_code, p.gst_percentage
             FROM products p
@@ -3955,6 +3992,7 @@ class AllmodulesController {
             'categoryAttributesMap' => $categoryAttributesMap,
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
+            'concerns' => $concerns,
             'existingRollProducts' => $existingRollProducts,
             'existingProducts' => $existingProducts,
             'hsnList' => $hsnList,
@@ -4016,6 +4054,119 @@ class AllmodulesController {
             Session::flash('error', 'Could not delete mapping invoice: ' . $e->getMessage());
         }
         Response::redirect(url('purchases/mapping'));
+    }
+
+    public function updateThirdPartyMappingDraftItem(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $mappingItemId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingItemId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
+            $params[] = $cid;
+        }
+        $item = Database::fetchOne(
+            "SELECT mi.*, mb.status AS bill_status
+             FROM third_party_mapping_items mi
+             JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             WHERE mi.id = ?{$scope}",
+            $params
+        );
+        if (!$item) {
+            Session::flash('error', 'Mapped product not found.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+        $mappingBillId = (int)$item['mapping_bill_id'];
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if (($item['bill_status'] ?? '') !== 'DRAFT') {
+            Session::flash('error', 'Only DRAFT mapping items can be edited.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        $color = trim((string)($_POST['color'] ?? ''));
+        $size = trim((string)($_POST['size'] ?? ''));
+        $hsnCode = strtoupper(trim((string)($_POST['hsn_code'] ?? '')));
+        $unit = strtoupper(trim((string)($_POST['unit'] ?? ($item['unit'] ?? 'PCS')))) ?: 'PCS';
+        $qty = round((float)($_POST['quantity'] ?? 0), 3);
+        $unitPrice = round((float)($_POST['unit_price'] ?? 0), 2);
+        $mrp = round((float)($_POST['mrp'] ?? 0), 2);
+        $sellingPrice = round((float)($_POST['selling_price'] ?? 0), 2);
+
+        if ($qty <= 0) {
+            Session::flash('error', 'Quantity must be greater than 0.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if ($unitPrice < 0 || $mrp < 0 || $sellingPrice < 0) {
+            Session::flash('error', 'Rates and prices cannot be negative.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+        if ($mrp > 0 && $sellingPrice > $mrp) {
+            Session::flash('error', 'Selling Price cannot exceed MRP.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            Database::execute(
+                "UPDATE third_party_mapping_items
+                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                 WHERE id = ?",
+                [
+                    $color !== '' ? $color : null,
+                    $size !== '' ? $size : null,
+                    $hsnCode !== '' ? $hsnCode : null,
+                    $unit,
+                    $qty,
+                    $unitPrice,
+                    $mrp,
+                    $sellingPrice,
+                    $mappingItemId
+                ]
+            );
+
+            if (!empty($item['variant_id'])) {
+                Database::execute(
+                    "UPDATE product_variants
+                     SET color = ?, size = ?, purchase_price = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                     WHERE id = ?",
+                    [
+                        $color !== '' ? $color : null,
+                        $size !== '' ? $size : null,
+                        $unitPrice,
+                        $mrp,
+                        $sellingPrice,
+                        (int)$item['variant_id']
+                    ]
+                );
+            }
+
+            if (!empty($item['qr_generation_id'])) {
+                Database::execute(
+                    "UPDATE qr_generations
+                     SET quantity = ?, mrp = ?, selling_price = ?, updated_at = NOW()
+                     WHERE id = ? AND COALESCE(stock_added, 0) = 0",
+                    [$qty, $mrp, $sellingPrice, (int)$item['qr_generation_id']]
+                );
+            }
+
+            Database::commit();
+            Session::flash('success', 'Saved variant updated successfully.');
+        } catch (Exception $e) {
+            Database::rollBack();
+            Session::flash('error', 'Error updating variant: ' . $e->getMessage());
+        }
+
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
     public function deleteThirdPartyMappingDraftItem(string $id): void {
@@ -4187,6 +4338,10 @@ class AllmodulesController {
                     $productCode = (string)$product['code'];
                 }
 
+                $rollCategoryId = !empty($_POST['roll_category_id']) ? (int)$_POST['roll_category_id'] : 1;
+                $rollSubcategoryId = !empty($_POST['roll_subcategory_id']) ? (int)$_POST['roll_subcategory_id'] : null;
+                $rollSubSubcategoryId = !empty($_POST['roll_sub_subcategory_id']) ? (int)$_POST['roll_sub_subcategory_id'] : null;
+
                 $rollCount = 0;
                 foreach ($rolls as $idx => $r) {
                     if (!is_array($r)) continue;
@@ -4201,8 +4356,6 @@ class AllmodulesController {
                     if ($rollCode === '') {
                         $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
                     }
-                    $sku = $productCode . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $rollCode), 0, 10));
-
                     $sizeLabel = ($weightKg > 0) ? ($weightKg . 'kg') : ($meters > 0 ? $meters . 'm' : 'Standard');
                     $qty = ($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0);
                     $unit = ($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS');
@@ -4210,7 +4363,6 @@ class AllmodulesController {
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color,
                         'size' => $sizeLabel,
-                        'vendor_sku' => $sku,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,
                         'mrp' => round($rate * 1.3, 2),
@@ -4223,12 +4375,12 @@ class AllmodulesController {
                             (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
                              roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
-                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode, $sku,
+                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode,
                             $rollCode, ($weightKg > 0 ? $weightKg : null), ($meters > 0 ? $meters : null), $qty, $unit,
                             $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
-                            $sizeLabel
+                            $sizeLabel, $rollCategoryId, $rollSubcategoryId, $rollSubSubcategoryId
                         ]
                     );
                     $rollCount++;
@@ -4350,7 +4502,6 @@ class AllmodulesController {
                     $categoryId = (int)($variant['category_id'] ?? 0);
                     $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
                     $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
-                    $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
 
                     if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
                         || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
@@ -4359,18 +4510,10 @@ class AllmodulesController {
                     if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
                         throw new InvalidArgumentException("Select a valid category for every variant of '{$pName}'.");
                     }
-                    if ($sku === '') {
-                        $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
-                            . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
-                    }
-                    if (mb_strlen($sku) > 100) {
-                        throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
-                    }
 
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color ?: null,
                         'size' => $size ?: 'Standard',
-                        'vendor_sku' => $sku,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,
                         'mrp' => $mrp,
@@ -4382,8 +4525,8 @@ class AllmodulesController {
                             (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
                              quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode, $sku,
+                         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode,
                             $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
                             $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
                     );
@@ -4573,6 +4716,29 @@ class AllmodulesController {
         $uniqueGenIds = array_values(array_unique(array_filter($rawGenIds, static fn($gid) => $gid > 0)));
 
         $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
+        $stockTarget = trim((string)($_POST['stock_target'] ?? ''));
+        if ($stockTarget !== '') {
+            if (str_starts_with($stockTarget, 'wh:')) {
+                $warehouseId = (int)substr($stockTarget, 3);
+            } elseif (str_starts_with($stockTarget, 'concern:')) {
+                $targetConcernId = (int)substr($stockTarget, 8);
+                if ($targetConcernId > 0) {
+                    $whRow = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ? AND is_active = 1 ORDER BY id ASC LIMIT 1", [$targetConcernId]);
+                    if ($whRow) {
+                        $warehouseId = (int)$whRow['id'];
+                    } else {
+                        $cRow = Database::fetchOne("SELECT name, code FROM concerns WHERE id = ?", [$targetConcernId]);
+                        $whName = ($cRow['name'] ?? 'Concern #' . $targetConcernId) . ' Warehouse';
+                        $whCode = 'WH-' . preg_replace('/[^A-Z0-9]/', '', strtoupper((string)($cRow['code'] ?? $targetConcernId))) . '-' . $targetConcernId;
+                        Database::execute(
+                            "INSERT INTO warehouses (concern_id, name, code, is_active, created_at) VALUES (?, ?, ?, 1, NOW())",
+                            [$targetConcernId, $whName, $whCode]
+                        );
+                        $warehouseId = (int)Database::lastInsertId();
+                    }
+                }
+            }
+        }
         $mappingBillId = (int)($_POST['mapping_bill_id'] ?? 0);
 
         if (empty($uniqueGenIds)) {
@@ -5828,6 +5994,7 @@ class AllmodulesController {
         // Sub-subcategories for active item
         $subSubcategories = [];
         $activeSubcatId = (int)($activeItem['mapped_third_party_subcategory_id'] ?? 0);
+        $activeSubSubcatId = (int)($activeItem['mapped_third_party_sub_subcategory_id'] ?? 0);
         if ($activeSubcatId > 0) {
             $subSubcategories = Database::fetchAll(
                 "SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE subcategory_id = ? AND is_active = 1 ORDER BY sort_order ASC, name ASC",
@@ -6041,7 +6208,44 @@ class AllmodulesController {
             error_log('categoryAttributesMap build failed: ' . $e->getMessage());
         }
 
-        $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $warehouses = [];
+        $warehouses = [];
+        if ($cid !== null) {
+            $warehouses = Database::fetchAll(
+                "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                 FROM warehouses w
+                 LEFT JOIN concerns c ON c.id = w.concern_id
+                 WHERE w.is_active = 1 AND w.concern_id = ?
+                 ORDER BY w.name ASC",
+                [$cid]
+            );
+            $concerns = Database::fetchAll(
+                "SELECT id, name, code FROM concerns WHERE is_active = 1 AND id = ? ORDER BY name ASC",
+                [$cid]
+            ) ?: [];
+        } else {
+            $availConcerns = function_exists('getAvailableUserConcerns') ? getAvailableUserConcerns() : [];
+            $availIds = array_values(array_filter(array_map(static fn($c) => (int)($c['id'] ?? 0), $availConcerns)));
+            if (!empty($availIds)) {
+                $inPh = implode(',', array_fill(0, count($availIds), '?'));
+                $warehouses = Database::fetchAll(
+                    "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
+                     FROM warehouses w
+                     LEFT JOIN concerns c ON c.id = w.concern_id
+                     WHERE w.is_active = 1 AND w.concern_id IN ($inPh)
+                     ORDER BY c.name ASC, w.name ASC",
+                    $availIds
+                );
+                $concerns = Database::fetchAll(
+                    "SELECT id, name, code FROM concerns WHERE is_active = 1 AND id IN ($inPh) ORDER BY name ASC",
+                    $availIds
+                ) ?: [];
+            } else {
+                $warehouses = Database::fetchAll("SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name FROM warehouses w LEFT JOIN concerns c ON c.id = w.concern_id WHERE w.is_active = 1 ORDER BY c.name ASC, w.name ASC");
+                $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
+            }
+        }
 
         Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
@@ -6059,6 +6263,7 @@ class AllmodulesController {
             'existingVariants' => $existingVariants,
             'savedVariants' => $savedVariants,
             'warehouses' => $warehouses,
+            'concerns' => $concerns,
             'qrItemMap' => $qrItemMap,
             'standardSizes' => $standardSizes,
             'standardColors' => $standardColors,
@@ -6935,11 +7140,7 @@ class AllmodulesController {
         }
 
         $unit = strtoupper(trim($_POST['new_unit'] ?? 'PCS')) ?: 'PCS';
-        $vendorSku = trim($_POST['new_vendor_sku'] ?? '');
-        if (empty($vendorSku)) {
-            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $itemName), 0, 5)) ?: 'PRD';
-            $vendorSku = 'TP-' . $prefix . '-' . strtoupper(substr(uniqid(), -4));
-        }
+        $vendorSku = null;
         $color = trim($_POST['new_color'] ?? '');
         $size = trim($_POST['new_size'] ?? '');
         $isComplementary = !empty($_POST['new_is_complementary']) ? 1 : 0;
@@ -7739,11 +7940,9 @@ class AllmodulesController {
             LEFT JOIN colors cl ON cl.id = pv.color_id
             WHERE UPPER(TRIM(pv.variant_code)) = ? 
                OR UPPER(TRIM(pv.qr_code)) = ? 
-               OR UPPER(TRIM(pv.sku)) = ?
                OR UPPER(TRIM(pv.variant_code)) = ?
-               OR UPPER(TRIM(pv.sku)) = ?
         ";
-        $variantParams = [$cleanCode, $cleanCode, $cleanCode, $codePrefix, $codePrefix];
+        $variantParams = [$cleanCode, $cleanCode, $codePrefix];
         if ($varIdFromCode > 0) {
             $variantSql .= " OR pv.id = ?";
             $variantParams[] = $varIdFromCode;
@@ -8278,8 +8477,8 @@ class AllmodulesController {
                        JOIN products p ON p.id = pv.product_id
                        LEFT JOIN sizes sz ON sz.id = pv.size_id
                        LEFT JOIN colors cl ON cl.id = pv.color_id
-                       WHERE (UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ?)";
-        $productParams = [$scanCode, $scanCode, $scanCode];
+                       WHERE (UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ?)";
+        $productParams = [$scanCode, $scanCode];
         if ($activeCid !== null) {
             $productSql .= $activeCid === 1
                 ? " AND (p.concern_id = ? OR p.concern_id IS NULL)"
@@ -10694,7 +10893,7 @@ class AllmodulesController {
                 OR EXISTS (
                     SELECT 1 FROM product_variants pv2 
                     WHERE pv2.product_id = p.id 
-                    AND (pv2.sku LIKE ? OR pv2.qr_code LIKE ?)
+                    AND (pv2.variant_code LIKE ? OR pv2.qr_code LIKE ?)
                 )
             )";
             $s = '%' . $search . '%';
@@ -10766,7 +10965,35 @@ class AllmodulesController {
         ]);
     }
 
-    private static function encodeProductionVariantOptions(array $sizeIds, array $colorIds, ?string $currentAttributes = null): string {
+    private static function parseSubmittedCustomAttributes(): array {
+        $raw = $_POST['custom_attributes_json'] ?? '[]';
+        $decoded = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $clean = [];
+        foreach ($decoded as $attr) {
+            if (!is_array($attr)) continue;
+            $attrName = trim((string)($attr['name'] ?? ''));
+            if ($attrName === '') continue;
+            $vals = [];
+            foreach ((array)($attr['values'] ?? []) as $v) {
+                $vStr = trim((string)$v);
+                if ($vStr !== '' && !in_array($vStr, $vals, true)) {
+                    $vals[] = $vStr;
+                }
+            }
+            if (!empty($vals)) {
+                $clean[] = [
+                    'name' => $attrName,
+                    'values' => $vals,
+                ];
+            }
+        }
+        return $clean;
+    }
+
+    private static function encodeProductionVariantOptions(array $sizeIds, array $colorIds, ?string $currentAttributes = null, array $customAttributes = []): string {
         $attributes = json_decode((string)$currentAttributes, true);
         if (!is_array($attributes)) {
             $attributes = [];
@@ -10795,6 +11022,7 @@ class AllmodulesController {
             'color_ids' => array_map('intval', array_column($colors, 'id')),
             'colors' => array_values(array_column($colors, 'name')),
         ];
+        $attributes['custom_attributes'] = $customAttributes;
 
         return json_encode($attributes, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
@@ -10837,14 +11065,7 @@ class AllmodulesController {
             $name = !empty($catNames) ? implode(' - ', array_reverse($catNames)) : 'PRODUCT STYLE';
         }
 
-        if (empty($code)) {
-            $count = Database::fetchOne("SELECT COUNT(*) as c FROM products WHERE source_type = 'OWN_PRODUCTION'")['c'] ?? 0;
-            $code = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
-            $existing = Database::fetchOne("SELECT id FROM products WHERE code = ?", [$code]);
-            if ($existing) {
-                $code .= '-' . rand(10, 99);
-            }
-        }
+        $code = null;
 
         // Cloudinary Image Upload
         $imageUrl = null;
@@ -10864,7 +11085,8 @@ class AllmodulesController {
         $activeConcernId = currentConcernId() ?: 1;
         $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
         $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
-        $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors);
+        $customAttributes = self::parseSubmittedCustomAttributes();
+        $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors, null, $customAttributes);
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
@@ -10971,7 +11193,7 @@ class AllmodulesController {
         $variants = [];
         $seenSizes = [];
         foreach ($rawVariants as $v) {
-            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['sku']);
+            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['variant_code'] ?? $v['id']);
             if (!isset($seenSizes[$szKey])) {
                 $seenSizes[$szKey] = true;
                 $variants[] = $v;
@@ -10997,7 +11219,7 @@ class AllmodulesController {
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Product Catalog', 'url' => url('production/catalog')],
-                ['label' => $product['code']],
+                ['label' => $product['name']],
             ],
         ]);
     }
@@ -11061,7 +11283,7 @@ class AllmodulesController {
         $variants = [];
         $seenSizes = [];
         foreach ($rawVariants as $v) {
-            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['sku']);
+            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['variant_code'] ?? $v['id']);
             if (!isset($seenSizes[$szKey])) {
                 $seenSizes[$szKey] = true;
                 $variants[] = $v;
@@ -11168,8 +11390,9 @@ class AllmodulesController {
         $selectedColors = isset($_POST['colors']) && is_array($_POST['colors'])
             ? array_filter(array_map('intval', $_POST['colors']))
             : ($savedOptions['color_ids'] ?? []);
+        $customAttributes = self::parseSubmittedCustomAttributes();
         $attributes = $isDeferredVariants
-            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null)
+            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes)
             : ($product['attributes'] ?? null);
 
         if (!empty($qrCodePrefix)) {
@@ -11223,24 +11446,25 @@ class AllmodulesController {
             foreach ($_POST['variants'] as $v) {
                 $sizeId = !empty($v['size_id']) ? (int)$v['size_id'] : null;
                 $colorId = !empty($v['color_id']) ? (int)$v['color_id'] : null;
-                $sku = mb_strtoupper(trim($v['sku'] ?? ''));
                 $prodCost = max(0.0, (float)($v['production_cost'] ?? 0));
                 $mrp = max(0.0, (float)($v['mrp'] ?? 0));
                 $sellingPrice = max(0.0, (float)($v['selling_price'] ?? 0));
 
-                if (empty($sku)) {
-                    $sku = $code . ($sizeId ? '-' . $sizeId : '') . ($colorId ? '-' . $colorId : '');
-                }
+                require_once BASE_PATH . '/app/Services/VariantService.php';
+                $variantCode = VariantService::generateNextVariantCode();
+                $attrHash = $id . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
                 Database::execute(
-                    "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                      ON DUPLICATE KEY UPDATE product_id=VALUES(product_id), size_id=VALUES(size_id), color_id=VALUES(color_id), mrp=VALUES(mrp), purchase_price=VALUES(purchase_price), production_cost=VALUES(production_cost), selling_price=VALUES(selling_price), is_active=1",
                     [
+                        $variantCode,
                         $id,
                         $sizeId,
                         $colorId,
-                        $sku,
+                        $attrHash,
+                        $variantCode,
                         $mrp,
                         $prodCost,
                         $prodCost,
@@ -11289,32 +11513,22 @@ class AllmodulesController {
                     }
                 }
 
-                $sCode = '';
-                if ($sizeId) {
-                    $sCode = Database::fetchOne("SELECT code FROM sizes WHERE id = ?", [$sizeId])['code'] ?? ('SZ' . $sizeId);
-                }
-
                 foreach ($colorsList as $colorId) {
-                    $cCode = '';
-                    if ($colorId) {
-                        $cRow = Database::fetchOne("SELECT name FROM colors WHERE id = ?", [$colorId]);
-                        $cCode = $cRow ? substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $cRow['name'])), 0, 4) : ('COL' . $colorId);
-                    }
-
-                    $skuParts = [$code];
-                    if ($sCode) $skuParts[] = $sCode;
-                    if ($cCode) $skuParts[] = $cCode;
-                    $sku = implode('-', $skuParts);
+                    require_once BASE_PATH . '/app/Services/VariantService.php';
+                    $variantCode = VariantService::generateNextVariantCode();
+                    $attrHash = $id . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
                     Database::execute(
-                        "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                         VALUES (?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)
+                        "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                         VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)
                          ON DUPLICATE KEY UPDATE product_id=VALUES(product_id), size_id=VALUES(size_id), color_id=VALUES(color_id), is_active=1",
                         [
+                            $variantCode,
                             $id,
                             $sizeId,
                             $colorId,
-                            $sku
+                            $attrHash,
+                            $variantCode
                         ]
                     );
                 }
@@ -11347,8 +11561,8 @@ class AllmodulesController {
             return;
         }
         $ts = time();
-        Database::execute("UPDATE products SET is_active = 0, code = CONCAT(code, '_DEL_', ?) WHERE id = ?", [$ts, $id]);
-        Database::execute("UPDATE product_variants SET is_active = 0, sku = CONCAT(sku, '_DEL_', ?), qr_code = CONCAT(qr_code, '_DEL_', ?) WHERE product_id = ?", [$ts, $ts, $id]);
+        Database::execute("UPDATE products SET is_active = 0 WHERE id = ?", [$id]);
+        Database::execute("UPDATE product_variants SET is_active = 0, qr_code = CONCAT(qr_code, '_DEL_', ?) WHERE product_id = ?", [$ts, $id]);
         AuditService::log('production', 'delete', 'products', (int)$id, null, ['is_active' => 0]);
         Session::flash('success', 'Product style removed from catalog.');
         Response::redirect(url('production/catalog'));
@@ -12538,7 +12752,7 @@ class AllmodulesController {
              JOIN products p ON pv.product_id = p.id
              LEFT JOIN sizes s ON pv.size_id = s.id
              LEFT JOIN colors col ON pv.color_id = col.id
-             WHERE pv.is_active = 1 AND (pv.sku LIKE ? OR p.name LIKE ?)
+             WHERE pv.is_active = 1 AND (pv.variant_code LIKE ? OR p.name LIKE ?)
              LIMIT 20",
             ['%' . $q . '%', '%' . $q . '%']
         );
@@ -16161,7 +16375,7 @@ class AllmodulesController {
                     [
                         $vId,
                         (int)$variant['product_id'],
-                        $variant['sku'] ?? '',
+                        '',
                         $oldSellingPrice,
                         $newSellingPrice,
                         $oldMrp,
@@ -16184,7 +16398,7 @@ class AllmodulesController {
             $affectedProductIds[(int)$variant['product_id']] = true;
             $updatedVariants[] = [
                 'variant_id'              => $vId,
-                'sku'                     => $variant['sku'],
+                'variant_code'            => $variant['variant_code'] ?? '',
                 'product_name'            => $variant['product_name'],
                 'new_selling_price'       => $newSellingPrice,
                 'new_mrp'                 => $newMrp,
@@ -19663,7 +19877,7 @@ class AllmodulesController {
                 $prodStockParams[] = $cid;
             }
             if (!empty($search)) {
-                $prodStockSql .= " AND (p.name LIKE ? OR p.code LIKE ? OR pv.sku LIKE ? OR co.name LIKE ? OR sz.name LIKE ?)";
+                $prodStockSql .= " AND (p.name LIKE ? OR pv.variant_code LIKE ? OR pv.qr_code LIKE ? OR co.name LIKE ? OR sz.name LIKE ?)";
                 $psp = '%' . $search . '%';
                 $prodStockParams = array_merge($prodStockParams, [$psp, $psp, $psp, $psp, $psp]);
             }
@@ -19695,7 +19909,7 @@ class AllmodulesController {
                         'purchase_id'           => 0,
                         'qc_batch_id'           => 'PRD-' . $vId,
                         'program_id'            => 0,
-                        'program_number'        => $cProd['variant_sku'] ?: ($cProd['product_sku'] ?: ('SKU-' . $pId)),
+                        'program_number'        => $cProd['variant_code'] ?? ('V' . str_pad((string)$vId, 4, '0', STR_PAD_LEFT)),
                         'product_name'          => $cProd['product_name'],
                         'category_name'         => $cProd['category_name'] ?: 'Catalog Products',
                         'category_id'           => $cProd['category_id'] ?? null,
@@ -19721,7 +19935,8 @@ class AllmodulesController {
                             [
                                 'variant_id'    => $vId,
                                 'product_id'    => $pId,
-                                'sku'           => $cProd['variant_sku'] ?: $cProd['product_sku'],
+                                'sku'           => '',
+                                'variant_code'  => $cProd['variant_code'] ?? ('V' . str_pad((string)$vId, 4, '0', STR_PAD_LEFT)),
                                 'size_name'     => $cProd['size_name'] ?: 'Standard',
                                 'color_name'    => $cProd['color_name'] ?: 'Standard',
                                 'mrp'           => $pMrp,
@@ -20458,7 +20673,7 @@ class AllmodulesController {
             'activeModule'        => 'production',
             'activeMenu'          => 'prod-inventory',
             'qcBatchId'           => $id,
-            'primarySku'          => $primarySku,
+            'primarySku'          => $first['variant_code'] ?? $first['product_name'] ?? 'Batch',
             'isInward'            => false,
             'batchInfo'           => $first,
             'pieceItems'          => $pieceItems,
@@ -20485,7 +20700,7 @@ class AllmodulesController {
                 ['label' => 'Home', 'url' => url('/')],
                 ['label' => 'Warehouse', 'url' => url('production/inventory')],
                 ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
-                ['label' => $primarySku],
+                ['label' => $first['variant_code'] ?? $first['product_name'] ?? 'Batch'],
             ],
         ]);
     }
@@ -20876,7 +21091,7 @@ class AllmodulesController {
                 'subcategory_name' => $firstItem['subcategory_name'] ?? '',
                 'sub_subcategory_name' => $firstItem['sub_subcategory_name'] ?? '',
                 'product_image'    => $firstItem['product_image'] ?? null,
-                'variant_sku'      => $firstItem['variant_sku'] ?? '',
+                'variant_sku'      => '',
                 'variant_code'     => $firstItem['variant_code'] ?? '',
                 'size_name'        => $firstItem['size_name'] ?? '',
                 'color_name'       => $firstItem['color_name'] ?? '',
@@ -20904,7 +21119,7 @@ class AllmodulesController {
                 ['label' => 'Home', 'url' => url('/')],
                 ['label' => 'Warehouse', 'url' => url('production/inventory')],
                 ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
-                ['label' => $skuDisplay],
+                ['label' => $firstItem['variant_code'] ?: ($firstItem['product_name'] ?? 'Batch')],
             ],
         ]);
     }
@@ -21388,6 +21603,27 @@ class AllmodulesController {
     // FABRIC & CUTTING WASTAGE SELLING MANAGEMENT
     // =========================================================================
 
+    /**
+     * Enforce module permission and active concern restriction on wastage records.
+     */
+    private function authorizeWastageRecord(array $record, string $module, string $action): bool {
+        if (!hasPermission($module, $action)) {
+            Response::error(403, 'Access denied: You do not have permission for this wastage action.');
+            return false;
+        }
+
+        $isSuper = function_exists('isSuperAdmin') ? isSuperAdmin() : false;
+        $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $recCid = !empty($record['concern_id']) ? (int)$record['concern_id'] : 0;
+
+        if (!$isSuper && $activeCid && $recCid > 0 && $recCid !== (int)$activeCid) {
+            Response::error(403, 'Access denied: This wastage record belongs to another business concern.');
+            return false;
+        }
+
+        return true;
+    }
+
     public function wastageList(): void {
         $search = trim($_GET['search'] ?? '');
         $type = trim($_GET['type'] ?? '');
@@ -21419,15 +21655,11 @@ class AllmodulesController {
         $concernParams = [];
 
         if ($activeCid) {
-            // Both Admin and Staff can see all sales in this active concern,
-            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
-            // or sales linked to this concern's cutting batches/programs,
-            // or sales created by this user.
             if ($activeCid === 1) {
                 $concernWhere = " AND (ws.concern_id = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $concernWhere = " AND (ws.concern_id = ? OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ? OR ws.concern_id IS NULL OR ws.concern_id = 0 OR ws.concern_id = 1)";
+                $concernWhere = " AND (ws.concern_id = ? OR cb.concern_id = ? OR pp.concern_id = ? OR ws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
             $sql .= $concernWhere;
@@ -21827,6 +22059,9 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'wastage', 'edit')) {
+            return;
+        }
 
         $cuttingBatchId = !empty($_POST['cutting_batch_id']) ? (int)$_POST['cutting_batch_id'] : null;
         if (!$cuttingBatchId || $cuttingBatchId <= 0) {
@@ -22054,12 +22289,15 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'wastage', 'delete')) {
+            return;
+        }
 
         try {
             Database::execute("DELETE FROM wastage_sales WHERE id = ?", [$saleId]);
             AuditService::log('production', 'delete', 'wastage_sales', $saleId, $existing, null);
             Session::flash('success', "Wastage sale #{$existing['sale_number']} deleted successfully.");
-            Response::redirect(url('production/wastage'));
+            Response::redirect(url('allmodules/wastage'));
         } catch (Exception $e) {
             Session::flash('error', 'Error deleting wastage sale: ' . $e->getMessage());
             Response::back();
@@ -22085,6 +22323,9 @@ class AllmodulesController {
 
         if (!$sale) {
             Response::error(404, 'Wastage sale record not found.');
+            return;
+        }
+        if (!$this->authorizeWastageRecord($sale, 'wastage', 'view')) {
             return;
         }
 
@@ -22128,15 +22369,11 @@ class AllmodulesController {
         $concernParams = [];
 
         if ($activeCid) {
-            // Both Admin and Staff can see all sales in this active concern,
-            // or unassigned / legacy records (concern_id IS NULL / 0 / 1),
-            // or sales linked to this concern's stitching batches/programs,
-            // or sales created by this user.
             if ($activeCid === 1) {
                 $concernWhere = " AND (sws.concern_id = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             } else {
-                $concernWhere = " AND (sws.concern_id = ? OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ? OR sws.concern_id IS NULL OR sws.concern_id = 0 OR sws.concern_id = 1)";
+                $concernWhere = " AND (sws.concern_id = ? OR sb.concern_id = ? OR pp.concern_id = ? OR sws.created_by = ?)";
                 $concernParams = [$activeCid, $activeCid, $activeCid, $userId];
             }
             $sql .= $concernWhere;
@@ -22535,6 +22772,9 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'stitching_wastage', 'edit')) {
+            return;
+        }
 
         $stitchingBatchId = !empty($_POST['stitching_batch_id']) ? (int)$_POST['stitching_batch_id'] : (int)($existing['stitching_batch_id'] ?? 0);
         $buyerName = trim($_POST['buyer_name'] ?? $existing['buyer_name']);
@@ -22737,12 +22977,15 @@ class AllmodulesController {
             Response::back();
             return;
         }
+        if (!$this->authorizeWastageRecord($existing, 'stitching_wastage', 'delete')) {
+            return;
+        }
 
         try {
             Database::execute("DELETE FROM stitching_wastage_sales WHERE id = ?", [$saleId]);
             AuditService::log('production', 'delete', 'stitching_wastage_sales', $saleId, $existing, null);
             Session::flash('success', "Stitching wastage sale #{$existing['sale_number']} deleted successfully.");
-            Response::redirect(url('production/stitching-wastage'));
+            Response::redirect(url('allmodules/stitching-wastage'));
         } catch (Exception $e) {
             Session::flash('error', 'Error deleting stitching wastage sale: ' . $e->getMessage());
             Response::back();
@@ -22768,6 +23011,9 @@ class AllmodulesController {
 
         if (!$sale) {
             Response::error(404, 'Stitching wastage sale record not found.');
+            return;
+        }
+        if (!$this->authorizeWastageRecord($sale, 'stitching_wastage', 'view')) {
             return;
         }
 
@@ -24858,19 +25104,20 @@ class AllmodulesController {
 
                 // 2. Check or Create Product Variant
                 $existingVariant = Database::fetchOne(
-                    "SELECT id, sku FROM product_variants WHERE product_id = ? LIMIT 1",
+                    "SELECT id FROM product_variants WHERE product_id = ? LIMIT 1",
                     [$productId]
                 );
 
                 if ($existingVariant) {
                     $variantId = (int)$existingVariant['id'];
                 } else {
-                    $sku = $prodCode . '-STD';
+                    require_once BASE_PATH . '/app/Services/VariantService.php';
+                    $variantCode = VariantService::generateNextVariantCode();
                     Database::execute(
                         "INSERT INTO product_variants
-                            (product_id, sku, hsn_code, purchase_price, production_cost, selling_price, is_active, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())",
-                        [$productId, $sku, $hsnCode, $unitPrice, $unitPrice, $unitPrice]
+                            (variant_code, product_id, qr_code, hsn_code, purchase_price, production_cost, selling_price, is_active, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())",
+                        [$variantCode, $productId, $variantCode, $hsnCode, $unitPrice, $unitPrice, $unitPrice]
                     );
                     $variantId = (int)Database::lastInsertId();
                 }
@@ -25227,11 +25474,7 @@ class AllmodulesController {
             return;
         }
 
-        $code = trim($_POST['code'] ?? '');
-        if (empty($code)) {
-            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $name), 0, 5)) ?: 'TP';
-            $code = 'TP-' . $prefix . '-' . strtoupper(substr(uniqid(), -4));
-        }
+        $code = null;
 
         if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
             Session::flash('error', 'Please select a valid third-party category hierarchy.');

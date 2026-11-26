@@ -278,11 +278,11 @@ class ExportService
                         CASE WHEN st.quantity < 0 THEN -st.quantity ELSE 0 END AS stock_out,
                         st.balance_after, st.reference_type, st.reference_id, st.notes,
                         st.source_type, st.source_id, st.dest_type, st.dest_id,
-                        pv.id AS variant_id, pv.variant_code, pv.sku, pv.qr_code, pv.qr_type,
+                        pv.id AS variant_id, pv.variant_code, pv.qr_code, pv.qr_type,
                         pv.series_start_code, pv.series_end_code, pv.is_complementary,
                         pv.hsn_code, pv.gst_rate, pv.mrp, pv.purchase_price, pv.production_cost,
                         pv.selling_price, pv.weight,
-                        p.name AS product_name, p.code AS product_code, p.material, p.description,
+                        p.name AS product_name, p.material, p.description,
                         cat.name AS category_name, sub.name AS subcategory_name,
                         subsub.name AS sub_subcategory_name,
                         sz.name AS size_name, col.name AS color_name,
@@ -583,14 +583,14 @@ class ExportService
             );
         }
 
-        // 18b. Product Variants & SKUs
+        // 18b. Product Variants
         if (in_array('variants', $selectedModules, true)) {
             $data['variants'] = Database::fetchAll(
-                "SELECT pv.id, pv.sku, pv.variant_code, pv.hsn_code, pv.gst_rate, pv.qr_code,
+                "SELECT pv.id, pv.variant_code, pv.hsn_code, pv.gst_rate, pv.qr_code,
                         pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
                         pv.weight, pv.created_at,
                         COALESCE(stock.available_quantity, 0) AS available_quantity,
-                        p.name AS product_name, p.code AS parent_sku,
+                        p.name AS product_name,
                         c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name,
                         col.name AS color_name, d.name AS design_name, s.name AS size_name
                  FROM product_variants pv
@@ -636,8 +636,8 @@ class ExportService
             $data['inventory'] = Database::fetchAll(
                 "SELECT sb.id, sb.location_type, sb.stock_state, sb.quantity, sb.last_updated,
                         c.code AS concern_code, c.name AS concern_name,
-                        pv.sku, pv.variant_code, pv.mrp, pv.selling_price, pv.purchase_price,
-                        p.name AS product_name, p.code AS product_code,
+                        pv.variant_code, pv.mrp, pv.selling_price, pv.purchase_price,
+                        p.name AS product_name,
                         sz.name AS size_name, col.name AS color_name,
                         CASE WHEN sb.location_type = 'WAREHOUSE' THEN w.name ELSE pu.name END AS location_name
                  FROM stock_balances sb
@@ -650,7 +650,7 @@ class ExportService
                  LEFT JOIN concerns c ON c.id = sb.concern_id
                  WHERE sb.quantity > 0
                  " . $cWhere('sb.concern_id') . "
-                 ORDER BY p.name ASC, pv.sku ASC",
+                 ORDER BY p.name ASC, pv.variant_code ASC",
                 $hasConcerns ? $concernIds : []
             );
         }
@@ -662,7 +662,7 @@ class ExportService
                         c.code AS concern_code, c.name AS concern_name,
                         pwr.defect_type, pwr.damage_reason, pwr.defect_notes, pwr.status,
                         pwr.received_date, pwr.challan_number, pwr.created_at,
-                        w.name AS warehouse_name, p.name AS product_name, pv.sku
+                        w.name AS warehouse_name, p.name AS product_name, pv.variant_code
                  FROM production_warehouse_reworks pwr
                  LEFT JOIN warehouses w ON w.id = pwr.warehouse_id
                  LEFT JOIN products p ON p.id = pwr.product_id
@@ -1216,8 +1216,8 @@ class ExportService
                 fputcsv($out, ['=== ' . date('F Y', strtotime($monthKey . '-01')) . ' — WAREHOUSE STOCK MOVEMENTS ===']);
                 fputcsv($out, [
                     'Date & Time', 'Transaction ID', 'Warehouse', 'Stock State', 'Transaction Type',
-                    'QR Code', 'QR Type', 'QR Series Start', 'QR Series End', 'Variant ID', 'Variant Code', 'SKU',
-                    'Product', 'Product Code', 'Material', 'Description', 'Category', 'Subcategory', 'Sub-Subcategory',
+                    'QR Code', 'QR Type', 'QR Series Start', 'QR Series End', 'Variant ID', 'Variant Code',
+                    'Product', 'Material', 'Description', 'Category', 'Subcategory', 'Sub-Subcategory',
                     'Size', 'Color', 'Design / Pattern', 'Design Code', 'HSN', 'GST %', 'Weight',
                     'MRP (INR)', 'Purchase Price (INR)', 'Production Cost (INR)', 'Selling Price (INR)',
                     'Stock Added', 'Stock Removed', 'Net Movement', 'Balance After',
@@ -1237,9 +1237,7 @@ class ExportService
                         $movement['series_end_code'] ?? '-',
                         (int)$movement['variant_id'],
                         $movement['variant_code'] ?? '-',
-                        $movement['sku'] ?? '-',
                         $movement['product_name'] ?? '-',
-                        $movement['product_code'] ?? '-',
                         $movement['material'] ?? '-',
                         str_replace(["\r\n", "\n", "\r"], ' ', (string)($movement['description'] ?? '')),
                         $movement['category_name'] ?? '-',
@@ -1569,14 +1567,12 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 19b. Product Variants & SKUs
+        // 19b. Product Variants
         if (!empty($data['variants'])) {
-            fputcsv($out, ['=== PRODUCT VARIANTS & SKUS ===']);
+            fputcsv($out, ['=== PRODUCT VARIANTS ===']);
             fputcsv($out, [
-                'Variant SKU',
                 'Product Variant Code',
                 'Product / Style Name',
-                'Parent Style Code',
                 'Size',
                 'Color',
                 'Design',
@@ -1593,10 +1589,8 @@ class ExportService
             foreach ($data['variants'] as $v) {
                 $categoryPath = implode(' > ', array_filter([$v['category_name'] ?? '', $v['subcategory_name'] ?? '', $v['sub_subcategory_name'] ?? ''])) ?: '-';
                 fputcsv($out, [
-                    $v['sku'] ?: ($v['variant_code'] ?: '-'),
                     $v['variant_code'] ?: '-',
                     $v['product_name'] ?: '-',
-                    $v['parent_sku'] ?: '-',
                     $v['size_name'] ?: '-',
                     $v['color_name'] ?: '-',
                     $v['design_name'] ?: '-',
@@ -1643,12 +1637,10 @@ class ExportService
         // 21. Finished Goods Inventory (On-Hand)
         if (!empty($data['inventory'])) {
             fputcsv($out, ['=== 21. FINISHED GOODS INVENTORY (ON-HAND) ===']);
-            fputcsv($out, ['Product Name', 'Product Code', 'SKU', 'Variant Code', 'Size', 'Color', 'Location Name', 'Location Type', 'Stock State', 'On-Hand Quantity', 'Purchase Price (INR)', 'Selling Price (INR)', 'MRP (INR)', 'Last Updated', 'Concern']);
+            fputcsv($out, ['Product Name', 'Variant Code', 'Size', 'Color', 'Location Name', 'Location Type', 'Stock State', 'On-Hand Quantity', 'Purchase Price (INR)', 'Selling Price (INR)', 'MRP (INR)', 'Last Updated', 'Concern']);
             foreach ($data['inventory'] as $inv) {
                 fputcsv($out, [
                     $inv['product_name'],
-                    $inv['product_code'] ?: '-',
-                    $inv['sku'],
                     $inv['variant_code'] ?: '-',
                     $inv['size_name'] ?: '-',
                     $inv['color_name'] ?: '-',
@@ -1669,13 +1661,13 @@ class ExportService
         // 22. Warehouse Rework & Repairs
         if (!empty($data['warehouse_rework'])) {
             fputcsv($out, ['=== 22. WAREHOUSE REWORK & REPAIRS ===']);
-            fputcsv($out, ['Rework #', 'Warehouse', 'Product Name', 'SKU', 'Defect Type', 'Damage Reason', 'Defect Notes', 'Quantity Dispatched', 'Repaired Qty', 'Scrapped Qty', 'Challan #', 'Status', 'Received Date', 'Concern']);
+            fputcsv($out, ['Rework #', 'Warehouse', 'Product Name', 'Variant Code', 'Defect Type', 'Damage Reason', 'Defect Notes', 'Quantity Dispatched', 'Repaired Qty', 'Scrapped Qty', 'Challan #', 'Status', 'Received Date', 'Concern']);
             foreach ($data['warehouse_rework'] as $wr) {
                 fputcsv($out, [
                     $wr['rework_number'],
                     $wr['warehouse_name'] ?? 'Main Warehouse',
                     $wr['product_name'] ?: '-',
-                    $wr['sku'] ?: '-',
+                    $wr['variant_code'] ?: '-',
                     $wr['defect_type'] ?: '-',
                     $wr['damage_reason'] ?: '-',
                     $wr['defect_notes'] ?: '-',

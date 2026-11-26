@@ -350,9 +350,9 @@ class Role {
             ['catalog', 'edit', 'Edit Style Codes & BOM Configurations', 'catalog.edit', null],
             ['catalog', 'delete', 'Delete Catalog Entries & BOMs', 'catalog.delete', null],
 
-            ['variants', 'view', 'View Product Variants & SKUs', 'variants.view', null],
-            ['variants', 'create', 'Create Product Variants & SKUs', 'variants.create', null],
-            ['variants', 'edit', 'Edit Product Variants & SKUs', 'variants.edit', null],
+            ['variants', 'view', 'View Product Variants', 'variants.view', null],
+            ['variants', 'create', 'Create Product Variants', 'variants.create', null],
+            ['variants', 'edit', 'Edit Product Variants', 'variants.edit', null],
 
             ['qr_generation', 'view', 'View QR Generation Batches', 'qr_generation.view', null],
             ['qr_generation', 'create', 'Create QR Generation Batches & Labels', 'qr_generation.create', null],
@@ -420,7 +420,7 @@ class Role {
             ['inward', 'edit', 'Edit GRN & Inward Receipts', 'inward.edit', null],
             ['inward', 'delete', 'Delete GRN & Inward Records', 'inward.delete', null],
 
-            ['stock', 'view', 'View Warehouse Stock & SKU Quantities', 'stock.view', null],
+            ['stock', 'view', 'View Warehouse Stock Quantities', 'stock.view', null],
             ['stock', 'create', 'Create Stock Entries & Bin Records', 'stock.create', null],
             ['stock', 'edit', 'Edit Stock Records & Bin Assignments', 'stock.edit', null],
             ['stock', 'delete', 'Delete Stock Records & Bin Entries', 'stock.delete', null],
@@ -430,8 +430,8 @@ class Role {
             ['wh_sellers', 'edit', 'Edit Supplier Details & Vendor Contracts', 'wh_sellers.edit', null],
             ['wh_sellers', 'delete', 'Delete Warehouse Supplier Records', 'wh_sellers.delete', null],
 
-            ['wh_catalog', 'view', 'View Warehouse Master SKU & Catalog', 'wh_catalog.view', null],
-            ['wh_catalog', 'create', 'Create Master SKU Codes & Barcode Mappings', 'wh_catalog.create', null],
+            ['wh_catalog', 'view', 'View Warehouse Master Catalog', 'wh_catalog.view', null],
+            ['wh_catalog', 'create', 'Create Master Catalog & Barcode Mappings', 'wh_catalog.create', null],
             ['wh_catalog', 'edit', 'Edit Warehouse Catalog & Pricing', 'wh_catalog.edit', null],
             ['wh_catalog', 'delete', 'Delete Warehouse Catalog Entries', 'wh_catalog.delete', null],
 
@@ -532,7 +532,7 @@ class Role {
             ['website_inward', 'edit', 'Edit Website Inward Records & GRNs', 'website_inward.edit', null],
             ['website_inward', 'delete', 'Delete Website Inward Records', 'website_inward.delete', null],
 
-            ['website_inventory', 'view', 'View Website Store Inventory & SKU Stock', 'website_inventory.view', null],
+            ['website_inventory', 'view', 'View Website Store Inventory & Stock', 'website_inventory.view', null],
             ['website_inventory', 'create', 'Create Website Inventory Entries', 'website_inventory.create', null],
             ['website_inventory', 'delete', 'Delete Website Inventory Records', 'website_inventory.delete', null],
 
@@ -749,20 +749,6 @@ class Role {
         }
 
         $modules = [
-            'dashboard' => [
-                'title'      => 'Dashboard',
-                'icon'       => 'bi-speedometer2',
-                'badge'      => 'bg-primary-subtle text-primary border-primary',
-                'department' => 'ALL',
-                'submodules' => [
-                    'dashboard' => [
-                        'name'       => 'Dashboard',
-                        'icon'       => 'bi-speedometer2',
-                        'desc'       => 'High-level KPI metrics, operational graphs, and summary statistics',
-                        'department' => 'ALL',
-                    ],
-                ]
-            ],
             'production' => [
                 'title'      => 'Production',
                 'icon'       => 'bi-gear-wide-connected',
@@ -776,7 +762,7 @@ class Role {
                     'cash_flow'                 => ['name' => 'Cash Management', 'icon' => 'bi-cash-coin', 'desc' => 'Cash flow register, shifts, top-ups, bank deposits, and daily till balances', 'department' => 'PRODUCTION'],
                     'damages'                   => ['name' => 'Damages', 'icon' => 'bi-exclamation-octagon', 'desc' => 'Defective fabric, floor damages, and scrap recovery logs', 'department' => 'PRODUCTION'],
                     'catalog'                   => ['name' => 'Catalog', 'icon' => 'bi-journal-bookmark', 'desc' => 'Design catalogs, style codes, and Bill of Materials (BOM)', 'department' => 'PRODUCTION'],
-                    'variants'                  => ['name' => 'Product Variants', 'icon' => 'bi-tags', 'desc' => 'Manage sellable variants, collision-safe Variant IDs, and SKUs', 'department' => 'PRODUCTION'],
+                    'variants'                  => ['name' => 'Product Variants', 'icon' => 'bi-tags', 'desc' => 'Manage sellable variants and collision-safe Variant IDs', 'department' => 'PRODUCTION'],
                     'qr_generation'             => ['name' => 'QR Generations', 'icon' => 'bi-qr-code', 'desc' => 'Generate bulk scannable thermal QR label batches', 'department' => 'PRODUCTION'],
                     'programs'                  => ['name' => 'Programs', 'icon' => 'bi-calendar-check', 'desc' => 'Cutting programs, size breakdowns, and work order releases', 'department' => 'PRODUCTION'],
                     'cutting'                   => ['name' => 'Cutting', 'icon' => 'bi-scissors', 'desc' => 'Roll laying, table cuts, cut piece counts, and bundle creation', 'department' => 'PRODUCTION'],
@@ -789,7 +775,7 @@ class Role {
                     'production_expenses'       => ['name' => 'Expenses', 'icon' => 'bi-currency-rupee', 'desc' => 'Machine maintenance, repair costs, threads, needles, and daily floor expenses', 'department' => 'PRODUCTION'],
                     'production_billing'        => ['name' => 'Billing', 'icon' => 'bi-receipt-cutoff', 'desc' => 'Production client orders, sales bills, GST invoicing, and payment receipts', 'department' => 'PRODUCTION'],
                     'production_returns'        => ['name' => 'Returns & Exchanges', 'icon' => 'bi-arrow-left-right', 'desc' => 'Production client customer returns, piece exchanges, and credit notes', 'department' => 'PRODUCTION'],
-                    'batches'                   => ['name' => 'Batches', 'icon' => 'bi-box-seam', 'desc' => 'Carton packing, SKU bundles, and master box packaging', 'department' => 'PRODUCTION'],
+                    'batches'                   => ['name' => 'Batches', 'icon' => 'bi-box-seam', 'desc' => 'Carton packing, variant bundles, and master box packaging', 'department' => 'PRODUCTION'],
                     'outward'                   => ['name' => 'Outward', 'icon' => 'bi-truck', 'desc' => 'Delivery challans and outward dispatch to Central Warehouses', 'department' => 'PRODUCTION'],
                     'production_stock_requests' => ['name' => 'Stock Requests', 'icon' => 'bi-inbox', 'desc' => 'Warehouse stock requisitions and production fulfillment requests', 'department' => 'PRODUCTION'],
                     'warehouse_rework'          => ['name' => 'Warehouse Rework', 'icon' => 'bi-tools', 'desc' => 'Repair and dispatch damaged warehouse goods', 'department' => 'PRODUCTION'],

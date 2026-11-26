@@ -595,7 +595,6 @@ class AllmodulesBillingController
             $vIdStr = (string)$vId;
             $formattedVCode = $vId > 0 ? sprintf('V%04d', $vId) : '';
             $shortVCode = $vId > 0 ? ('V' . $vId) : '';
-            $vSkuUpper = strtoupper(trim((string)($item['sku'] ?? '')));
 
             // Load any explicit variant_code or qr_code from product_variants
             $vDbCode = '';
@@ -637,7 +636,6 @@ class AllmodulesBillingController
                 || $matchesExplicitVariantCode
                 || $matchesSyntheticVCode
                 || $matchesNumericId
-                || ($vSkuUpper !== '' && $vSkuUpper === $needle)
                 || $tagPrefixMatch;
 
             if ($isExactMatch) {
@@ -729,7 +727,7 @@ class AllmodulesBillingController
             return;
         }
 
-        // Check if scanned input matches a Variant QR Code, Variant SKU, Variant Code, or Variant ID
+        // Check if scanned input matches a Variant QR Code, Variant Code, or Variant ID
         $cleanId = preg_replace('/[^0-9]/', '', $needle);
         $cleanNeedleNum = (int)$cleanId;
         // Only treat as primary key ID if needle explicitly starts with '#' or is purely numeric
@@ -739,7 +737,7 @@ class AllmodulesBillingController
         $vShort = $cleanNeedleNum > 0 ? ('V' . $cleanNeedleNum) : $needle;
 
         $variantMatch = Database::fetchOne(
-            "SELECT pv.*, p.name as product_name, p.code as parent_sku, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
+            "SELECT pv.*, p.name as product_name, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
                     p.is_complementary as prod_is_comp,
                     c.name as category_name, sc.name as subcategory_name,
                     col.name as color_name, d.name as design_name, sz.name as size_name
@@ -752,7 +750,6 @@ class AllmodulesBillingController
              LEFT JOIN sizes sz ON sz.id = pv.size_id
              WHERE UPPER(TRIM(pv.variant_code)) = ? 
                 OR UPPER(TRIM(pv.qr_code)) = ? 
-                OR UPPER(TRIM(pv.sku)) = ? 
                 OR UPPER(TRIM(pv.variant_code)) = ?
                 OR UPPER(TRIM(pv.variant_code)) = ?
                 OR UPPER(TRIM(pv.qr_code)) = ?
@@ -761,16 +758,15 @@ class AllmodulesBillingController
                 CASE 
                     WHEN UPPER(TRIM(pv.variant_code)) = ? THEN 1
                     WHEN UPPER(TRIM(pv.qr_code)) = ? THEN 2
-                    WHEN UPPER(TRIM(pv.sku)) = ? THEN 3
-                    WHEN UPPER(TRIM(pv.variant_code)) = ? THEN 4
-                    WHEN pv.id = ? THEN 5
-                    ELSE 6
+                    WHEN UPPER(TRIM(pv.variant_code)) = ? THEN 3
+                    WHEN pv.id = ? THEN 4
+                    ELSE 5
                 END ASC
              LIMIT 1",
             [
-                $needle, $needle, $needle, $vPadded, $vShort, $vPadded,
+                $needle, $needle, $vPadded, $vShort, $vPadded,
                 $variantIdParam, $variantIdParam,
-                $needle, $needle, $needle, $vPadded,
+                $needle, $needle, $vPadded,
                 $variantIdParam
             ]
         );
@@ -779,14 +775,13 @@ class AllmodulesBillingController
             if ((int)$variantMatch['is_active'] !== 1) {
                 Response::jsonSuccess('Variant is inactive.', [
                     'items'   => [],
-                    'message' => "Cannot bill Variant '{$variantMatch['variant_code']}' ({$variantMatch['sku']})! This variant is currently inactive in the system."
+                    'message' => "Cannot bill Variant '{$variantMatch['variant_code']}'! This variant is currently inactive in the system."
                 ]);
                 return;
             }
 
             $varId = (int)$variantMatch['id'];
             $varCode = strtoupper(trim((string)($variantMatch['variant_code'] ?: sprintf('V%04d', $varId))));
-            $varSku = strtoupper(trim((string)$variantMatch['sku']));
 
             // Find matching item in available inventory from QC batches
             $variantItems = [];
@@ -798,7 +793,6 @@ class AllmodulesBillingController
                 if ($iVarId === $varId
                     || ($iVarCode !== '' && ($iVarCode === $varCode || $iVarCode === $needle))
                     || ($iVarPadded !== '' && $iVarPadded === $varCode)
-                    || (!empty($item['sku']) && strtoupper($item['sku']) === $varSku)
                     || in_array($needle, $itemTagsUpper, true)
                     || in_array($varCode, $itemTagsUpper, true)) {
                     $variantItems[] = $item;
@@ -818,7 +812,7 @@ class AllmodulesBillingController
                        pp.program_number, pp.name as program_name,
                        p.name as product_name, p.code as product_code, p.gst_percentage, p.hsn_code,
                        p.is_complementary as prod_is_comp,
-                       pv.sku, pv.mrp as variant_mrp, pv.selling_price, pv.variant_code
+                       pv.mrp as variant_mrp, pv.selling_price, pv.variant_code
                 FROM qc_items qi
                 JOIN qc_batches qb ON qb.id = qi.qc_batch_id
                 JOIN production_programs pp ON pp.id = qb.program_id
@@ -951,7 +945,7 @@ class AllmodulesBillingController
                     "SELECT qr_code FROM qr_generation_items WHERE variant_id = ? ORDER BY sequence_num ASC, id ASC",
                     [$varId]
                 );
-                $vCode = $variantMatch['variant_code'] ?: $variantMatch['sku'];
+                $vCode = $variantMatch['variant_code'] ?: ('V' . str_pad((string)$varId, 4, '0', STR_PAD_LEFT));
                 $vTags = [];
                 foreach ($qrBalRows as $qbRow) {
                     $cand = trim((string)($qbRow['qr_code'] ?? ''));
@@ -974,8 +968,8 @@ class AllmodulesBillingController
                         'qc_batch_id' => 0,
                         'variant_id' => $varId,
                         'product_name' => (string)$variantMatch['product_name'],
-                        'program_number' => (string)$variantMatch['parent_sku'],
-                        'sku' => (string)$variantMatch['sku'],
+                        'program_number' => '',
+                        'sku' => '',
                         'variant_code' => (string)$variantMatch['variant_code'],
                         'size_name' => (string)($variantMatch['size_name'] ?? 'STD'),
                         'color_name' => (string)($variantMatch['color_name'] ?? 'STD'),
@@ -1638,7 +1632,7 @@ class AllmodulesBillingController
             if ($vId <= 0 && !empty($row['qc_batch_id'])) {
                 // 1. Try to resolve variant_id from linked QR generation items
                 $qrItem = Database::fetchOne("
-                    SELECT qri.variant_id, pv.variant_code, pv.sku
+                    SELECT qri.variant_id, pv.variant_code
                     FROM qr_generation_items qri
                     JOIN qr_generations qrg ON qrg.id = qri.generation_id
                     LEFT JOIN product_variants pv ON pv.id = qri.variant_id
@@ -1662,7 +1656,6 @@ class AllmodulesBillingController
                     $vId = (int)$qrItem['variant_id'];
                     $row['variant_id'] = $vId;
                     if (!empty($qrItem['variant_code'])) $row['variant_code'] = $qrItem['variant_code'];
-                    if (!empty($qrItem['sku'])) $row['sku'] = $qrItem['sku'];
                     Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$row['qc_item_id']]);
                 }
             }
@@ -1683,22 +1676,16 @@ class AllmodulesBillingController
                             $vId = (int)$vMatch['id'];
                             $row['variant_id'] = $vId;
                             $row['variant_code'] = $vMatch['variant_code'] ?? null;
-                            $row['sku'] = $vMatch['sku'] ?? $row['sku'];
                             Database::execute("UPDATE qc_items SET variant_id = ? WHERE id = ?", [$vId, (int)$row['qc_item_id']]);
                         }
                     } catch (\Throwable $e) {}
                 }
             }
 
-            if ($vId > 0 && (empty($row['variant_code']) || empty($row['sku']))) {
-                $vMeta = Database::fetchOne("SELECT variant_code, sku FROM product_variants WHERE id = ?", [$vId]);
-                if ($vMeta) {
-                    if (empty($row['variant_code']) && !empty($vMeta['variant_code'])) {
-                        $row['variant_code'] = $vMeta['variant_code'];
-                    }
-                    if (empty($row['sku']) && !empty($vMeta['sku'])) {
-                        $row['sku'] = $vMeta['sku'];
-                    }
+            if ($vId > 0 && empty($row['variant_code'])) {
+                $vMeta = Database::fetchOne("SELECT variant_code FROM product_variants WHERE id = ?", [$vId]);
+                if ($vMeta && !empty($vMeta['variant_code'])) {
+                    $row['variant_code'] = $vMeta['variant_code'];
                 }
             }
         }
@@ -1865,7 +1852,7 @@ class AllmodulesBillingController
                             p.code AS product_code, p.gst_percentage, p.hsn_code,
                             p.is_complementary AS prod_is_comp,
                             COALESCE(NULLIF(pv.variant_code, ''), IF(pbi.variant_id > 0, CONCAT('V', LPAD(pbi.variant_id, 4, '0')), NULL)) AS variant_code,
-                            pv.sku, pv.mrp AS variant_mrp, pv.selling_price,
+                            pv.mrp AS variant_mrp, pv.selling_price,
                             pv.is_complementary AS var_is_comp,
                             s.name AS size_name, c.name AS color_name,
                             pp.program_number
@@ -2096,7 +2083,7 @@ class AllmodulesBillingController
 
             if ($qcItemId === 0 && $variantId > 0) {
                 $varRow = Database::fetchOne(
-                    "SELECT pv.*, p.name as product_name, p.code as parent_sku, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
+                    "SELECT pv.*, p.name as product_name, p.hsn_code as prod_hsn, p.gst_percentage as prod_gst,
                             p.is_complementary as prod_is_comp,
                             sz.name as size_name, col.name as color_name
                      FROM product_variants pv
@@ -2132,7 +2119,7 @@ class AllmodulesBillingController
                 }
                 $requestedVariantQty = ($variantRequestedQuantities[$variantId] ?? 0) + count($tags);
                 if (!$varRow || $availableVariantQty < $requestedVariantQty) {
-                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Insufficient available stock for variant ' . ($varRow['sku'] ?? "ID $variantId") . '. Available: ' . $availableVariantQty);
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Insufficient available stock for variant ' . ($varRow['variant_code'] ?? "ID $variantId") . '. Available: ' . $availableVariantQty);
                     return;
                 }
                 $variantRequestedQuantities[$variantId] = $requestedVariantQty;
@@ -2142,8 +2129,8 @@ class AllmodulesBillingController
                     'qc_batch_id' => 0,
                     'variant_id' => $variantId,
                     'product_name' => $varRow['product_name'],
-                    'program_number' => $varRow['parent_sku'],
-                    'sku' => $varRow['sku'],
+                    'program_number' => '',
+                    'sku' => '',
                     'size_name' => $varRow['size_name'] ?? 'STD',
                     'color_name' => $varRow['color_name'] ?? 'STD',
                     'mrp' => (float)$varRow['mrp'],

@@ -9,14 +9,39 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarEdgeToggle = document.getElementById('sidebarEdgeToggle');
     const sidebarClose = document.getElementById('sidebarClose');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
+    // Add tooltips on nav links so collapsed icon-rail remains clear on hover
+    if (sidebar) {
+        sidebar.querySelectorAll('.nav-link').forEach(link => {
+            if (!link.getAttribute('title')) {
+                const labelEl = link.querySelector('span');
+                const txt = labelEl ? labelEl.textContent.trim() : link.textContent.trim();
+                if (txt) link.setAttribute('title', txt);
+            }
+        });
+    }
+
+    function toggleDesktopOrMobileSidebar() {
+        if (window.innerWidth >= 992) {
+            const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+            try {
+                localStorage.setItem('grm_sidebar_collapsed', isCollapsed ? '1' : '0');
+            } catch (e) {}
+        } else if (sidebar) {
             sidebar.classList.toggle('active');
             if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
-        });
+        }
+    }
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleDesktopOrMobileSidebar);
+    }
+
+    if (sidebarEdgeToggle) {
+        sidebarEdgeToggle.addEventListener('click', toggleDesktopOrMobileSidebar);
     }
 
     if (sidebarClose) {
@@ -39,6 +64,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.has-submenu > .nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
+            if (window.innerWidth >= 992 && document.body.classList.contains('sidebar-collapsed')) {
+                document.body.classList.remove('sidebar-collapsed');
+                try { localStorage.setItem('grm_sidebar_collapsed', '0'); } catch (err) {}
+            }
             const submenu = this.nextElementSibling;
             const parentItem = this.parentElement;
             if (submenu) {

@@ -12,7 +12,7 @@ class ProductionBatchItem {
     public static function getByBatch(int $batchId): array {
         return Database::fetchAll(
             "SELECT pbi.*, 
-                    pv.sku, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
+                    pv.variant_code, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
                     s.name as size_name, s.code as size_code,
                     c.name as color_name, c.hex_code as color_hex
              FROM production_batch_items pbi

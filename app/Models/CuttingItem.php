@@ -13,7 +13,7 @@ class CuttingItem {
     public static function getByBatch(int $batchId): array {
         return Database::fetchAll(
             "SELECT ci.*, 
-                    pv.sku, pv.qr_code,
+                    pv.variant_code, pv.qr_code,
                     COALESCE(s.name, ci.size_name, 'Standard') as size_name, 
                     COALESCE(s.code, ci.size_name, 'STD') as size_code,
                     COALESCE(c.name, ci.color_name, 'Standard') as color_name, 

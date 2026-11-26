@@ -151,7 +151,7 @@ class CuttingBatch {
                     LEFT JOIN product_variants pv_s ON ci_s.variant_id = pv_s.id
                     WHERE ci_s.cutting_batch_id = cb.id 
                       AND (
-                          pv_s.sku LIKE ? 
+                          pv_s.variant_code LIKE ? 
                           OR ci_s.size_name LIKE ? 
                           OR ci_s.color_name LIKE ? 
                           OR ci_s.catalog_hierarchy LIKE ?

@@ -1,7 +1,7 @@
 <?php
 /**
  * ProductVariant Model
- * Primary model for SKU and Variant ID records in the inventory system.
+ * Primary model for Variant ID records in the inventory system.
  */
 
 class ProductVariant {
@@ -12,7 +12,7 @@ class ProductVariant {
     public static function find(int $id): ?array {
         return Database::fetchOne(
             "SELECT pv.*,
-                    p.name as product_name, p.code as parent_sku, p.category_id, p.subcategory_id, p.sub_subcategory_id,
+                    p.name as product_name, p.category_id, p.subcategory_id, p.sub_subcategory_id,
                     p.brand_id, p.hsn_code as product_hsn, p.gst_percentage as product_gst,
                     COALESCE(c.name, tc.name) as category_name, COALESCE(c.code, tc.code) as category_code,
                     COALESCE(sc.name, tsc.name) as subcategory_name, COALESCE(sc.code, tsc.code) as subcategory_code,
@@ -51,7 +51,7 @@ class ProductVariant {
     public static function getAllJoined(): array {
         return Database::fetchAll(
             "SELECT pv.*,
-                    p.name as product_name, p.code as parent_sku,
+                    p.name as product_name,
                     c.name as category_name,
                     col.name as color_name,
                     d.name as design_name,
@@ -73,25 +73,11 @@ class ProductVariant {
     public static function findByCode(string $code): ?array {
         $c = strtoupper(trim($code));
         return Database::fetchOne(
-            "SELECT pv.*, p.name as product_name, p.code as parent_sku
+            "SELECT pv.*, p.name as product_name
              FROM product_variants pv
              JOIN products p ON p.id = pv.product_id
              WHERE pv.variant_code = ?",
             [$c]
-        );
-    }
-
-    /**
-     * Find variant by SKU.
-     */
-    public static function findBySku(string $sku): ?array {
-        $s = strtoupper(trim($sku));
-        return Database::fetchOne(
-            "SELECT pv.*, p.name as product_name, p.code as parent_sku
-             FROM product_variants pv
-             JOIN products p ON p.id = pv.product_id
-             WHERE pv.sku = ?",
-            [$s]
         );
     }
 
@@ -102,7 +88,7 @@ class ProductVariant {
         $q = strtoupper(trim($qrCode));
         return Database::fetchOne(
             "SELECT pv.*,
-                    p.name as product_name, p.code as parent_sku, p.category_id, p.subcategory_id,
+                    p.name as product_name, p.category_id, p.subcategory_id,
                     c.name as category_name, sc.name as subcategory_name,
                     col.name as color_name, d.name as design_name, s.name as size_name
              FROM product_variants pv
@@ -112,8 +98,8 @@ class ProductVariant {
              LEFT JOIN colors col ON col.id = pv.color_id
              LEFT JOIN designs d ON d.id = pv.design_id
              LEFT JOIN sizes s ON s.id = pv.size_id
-             WHERE pv.qr_code = ? OR pv.sku = ? OR pv.variant_code = ?",
-            [$q, $q, $q]
+             WHERE pv.qr_code = ? OR pv.variant_code = ?",
+            [$q, $q]
         );
     }
 

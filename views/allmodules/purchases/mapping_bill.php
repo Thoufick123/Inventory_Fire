@@ -637,9 +637,6 @@ tr.table-danger, tr.table-danger > td {
                     <button type="button" class="btn btn-outline-secondary btn-quick-add-color" title="Create New Color"><i class="bi bi-plus-lg"></i></button>
                 </div>
             </td>
-            <td style="width: 170px; min-width: 160px;">
-                <input class="form-control form-control-sm font-monospace var-sku" name="variants[<?= $index ?>][sku]" value="<?= e($vSku) ?>" placeholder="SKU" required style="min-width: 150px;">
-            </td>
             <td style="width: 95px; min-width: 90px;">
                 <input class="form-control form-control-sm text-end fw-bold text-primary var-qty" name="variants[<?= $index ?>][allocated_qty]" type="text" inputmode="numeric" value="<?= max(1, (int)$vQty) ?>" required placeholder="Qty" style="min-width: 80px;" autocomplete="off">
             </td>
@@ -736,7 +733,6 @@ tr.table-danger, tr.table-danger > td {
                                 <th style="width: 280px; min-width: 265px;">Category Hierarchy <span class="text-danger">*</span></th>
                                 <th style="width: 155px; min-width: 145px;">Size <span class="text-danger">*</span></th>
                                 <th style="width: 165px; min-width: 155px;">Color <span class="text-danger">*</span></th>
-                                <th style="width: 170px; min-width: 160px;">SKU <span class="text-danger">*</span></th>
                                 <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
                                 <th style="width: 130px; min-width: 125px;" class="text-end">Purchased Rate (₹) <span class="text-danger">*</span></th>
                                 <th style="width: 115px; min-width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
@@ -754,14 +750,9 @@ tr.table-danger, tr.table-danger > td {
                                 }
                             } else {
                                 $autoRowCount = $purchasedQty >= 1 ? min(200, max(1, (int)round($purchasedQty))) : 1;
-                                $baseSku = $activeItem['product_code'] ?: ($activeItem['vendor_sku'] ?: 'TP-' . $activeItem['id']);
                                 for ($idx = 0; $idx < $autoRowCount; $idx++) {
-                                    $rowSku = $autoRowCount > 1
-                                        ? ($baseSku . '-' . str_pad((string)($idx + 1), 2, '0', STR_PAD_LEFT))
-                                        : $baseSku;
                                     $renderVariantRow($idx, [
                                         'allocated_qty' => $autoRowCount > 1 ? 1 : max(1, (int)$purchasedQty),
-                                        'sku' => $rowSku,
                                     ]);
                                 }
                             }
@@ -886,7 +877,7 @@ tr.table-danger, tr.table-danger > td {
                             <td>
                                 <strong><?= e($activeItem['item_name']) ?></strong>
                                 <div class="small text-muted">
-                                    <?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($itemVar['sku']) ?></span>
+                                    <?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?>
                                 </div>
                             </td>
                             <td>
@@ -963,13 +954,9 @@ tr.table-danger, tr.table-danger > td {
             </div>
             <div class="modal-body p-4">
                 <div class="row g-3">
-                    <div class="col-md-8">
+                    <div class="col-12">
                         <label for="newBillItemName" class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="newBillItemName" required maxlength="255">
-                    </div>
-                    <div class="col-md-4">
-                        <label for="newBillVendorSku" class="form-label fw-semibold">Vendor SKU</label>
-                        <input type="text" class="form-control" id="newBillVendorSku" maxlength="100">
                     </div>
                     <div class="col-md-3">
                         <label for="newBillQuantity" class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
@@ -1181,8 +1168,8 @@ tr.table-danger, tr.table-danger > td {
                                 <div class="fw-bold fs-6"><?= e($activeItem['item_name']) ?></div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="text-muted small">Variant &amp; SKU</div>
-                                <div class="fw-semibold"><?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?> · <span class="font-monospace text-primary"><?= e($itemVar['sku']) ?></span></div>
+                                <div class="text-muted small">Variant</div>
+                                <div class="fw-semibold"><?= e(trim(($itemVar['color'] ?? '') . ' ' . ($itemVar['size'] ?? ''))) ?></div>
                             </div>
                             <div class="col-sm-4 mt-2">
                                 <div class="text-muted small">Total Qty</div>
@@ -1793,7 +1780,8 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('purchase_id', '<?= (int)$purchase['id'] ?>');
             formData.append('invoice_number', document.getElementById('inputInvoiceNumber') ? document.getElementById('inputInvoiceNumber').value.trim() : '');
             formData.append('new_item_name', document.getElementById('newBillItemName').value.trim());
-            formData.append('new_vendor_sku', document.getElementById('newBillVendorSku').value.trim());
+            const vSkuInput = document.getElementById('newBillVendorSku');
+    if (vSkuInput) formData.append('new_vendor_sku', vSkuInput.value.trim());
             formData.append('new_quantity', document.getElementById('newBillQuantity').value);
             formData.append('new_unit', document.getElementById('newBillUnit').value.trim());
             formData.append('new_unit_price', document.getElementById('newBillUnitPrice').value);

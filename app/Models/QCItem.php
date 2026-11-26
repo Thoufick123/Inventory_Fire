@@ -12,10 +12,9 @@ class QCItem {
     public static function getByBatch(int $batchId): array {
         return Database::fetchAll(
             "SELECT qi.*, 
-                    pv.sku as pv_sku, pv.qr_code as pv_qr,
+                    pv.qr_code as pv_qr, pv.variant_code,
                     COALESCE(qi.size_name, s.name, s.code, 'Standard') as display_size,
                     COALESCE(qi.color_name, c.name, 'Assorted') as display_color,
-                    COALESCE(pv.sku, CONCAT(COALESCE(qi.size_name, s.name, 'Size'), '-', COALESCE(qi.color_name, c.name, 'Color'))) as sku,
                     cat.name as category_name, cat.code as category_code,
                     subcat.name as subcategory_name, subcat.code as subcategory_code,
                     subsubcat.name as sub_subcategory_name, subsubcat.code as sub_subcategory_code

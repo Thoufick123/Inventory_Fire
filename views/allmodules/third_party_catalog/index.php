@@ -80,7 +80,7 @@
             <div class="col-lg-5 col-md-6">
                 <div class="input-group">
                     <span class="input-group-text bg-light text-primary"><i class="bi bi-search"></i></span>
-                    <input type="text" name="search" class="form-control" placeholder="Search by style code, product name, or SKU..." value="<?= e($search ?? '') ?>">
+                    <input type="text" name="search" class="form-control" placeholder="Search by product name or category..." value="<?= e($search ?? '') ?>">
                 </div>
             </div>
             <div class="col-lg-3 col-md-3 col-sm-6">
@@ -117,7 +117,6 @@
                 <tr>
                     <th style="width: 50px;">#</th>
                     <th style="min-width: 200px;">Style / Product</th>
-                    <th style="min-width: 140px;">SKU / Code</th>
                     <th style="min-width: 180px;">Category &amp; Taxonomy</th>
                     <th style="min-width: 120px;">Specs (Color / Size)</th>
                     <th class="text-end" style="min-width: 110px;">Purchase Rate</th>
@@ -129,7 +128,7 @@
             <tbody>
                 <?php if (empty($products)): ?>
                     <tr>
-                        <td colspan="9" class="text-center py-5 text-muted">
+                        <td colspan="8" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                             No third-party catalog styles found.
                             <div class="mt-2">
@@ -147,12 +146,6 @@
                                 <div class="fw-bold text-dark"><?= e($p['name']) ?></div>
                                 <?php if (!empty($p['seller_company']) || !empty($p['seller_name'])): ?>
                                     <div class="small text-muted">Supplier: <?= e($p['seller_company'] ?: $p['seller_name']) ?></div>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-dark border font-monospace"><?= e($p['code']) ?></span>
-                                <?php if (!empty($p['vendor_sku']) && $p['vendor_sku'] !== $p['code']): ?>
-                                    <div class="small text-muted font-monospace mt-1"><?= e($p['vendor_sku']) ?></div>
                                 <?php endif; ?>
                             </td>
                             <td>

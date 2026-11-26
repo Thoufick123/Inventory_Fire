@@ -9,7 +9,7 @@
             <span class="badge bg-secondary">Inactive</span>
             <?php endif; ?>
         </div>
-        <p class="text-muted small mb-0"><?= e($variant['product_name']) ?> (Parent SKU: <?= e($variant['parent_sku']) ?>)</p>
+        <p class="text-muted small mb-0"><?= e($variant['product_name']) ?></p>
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('production/variants') ?>" class="btn btn-outline-secondary">
@@ -33,14 +33,9 @@
                             <td><span class="badge bg-dark-subtle text-dark font-monospace fs-6 fw-bold"><?= e($variant['variant_code']) ?></span></td>
                         </tr>
                         <tr>
-                            <td class="text-muted fw-semibold ps-4">Variant SKU:</td>
-                            <td><span class="font-monospace fw-bold text-primary fs-6"><?= e($variant['sku']) ?></span></td>
-                        </tr>
-                        <tr>
                             <td class="text-muted fw-semibold ps-4">Parent Catalog:</td>
                             <td>
                                 <div class="fw-bold text-dark"><?= e($variant['product_name']) ?></div>
-                                <div class="small font-monospace text-muted"><?= e($variant['parent_sku']) ?></div>
                             </td>
                         </tr>
                         <tr>
@@ -159,13 +154,13 @@
                 <div id="viewQrCanvasBox" class="p-3 bg-white border rounded shadow-sm"></div>
             </div>
 
-            <div class="font-monospace fw-bold fs-5 text-dark mb-2"><?= e($variant['qr_code'] ?: $variant['sku']) ?></div>
+            <div class="font-monospace fw-bold fs-5 text-dark mb-2"><?= e($variant['qr_code'] ?: $variant['variant_code']) ?></div>
 
             <div class="d-flex justify-content-center gap-2 mb-4">
                 <a href="<?= url('production/variants/qr-label/' . $variant['id']) ?>" target="_blank" class="btn btn-outline-dark">
                     <i class="bi bi-printer me-1"></i> Print Single Label
                 </a>
-                <button type="button" class="btn btn-primary" onclick="openBatchPrintModal(<?= (int)$variant['id'] ?>, '<?= e($variant['sku']) ?>', '<?= e($variant['variant_code']) ?>')">
+                <button type="button" class="btn btn-primary" onclick="openBatchPrintModal(<?= (int)$variant['id'] ?>, '<?= e($variant['variant_code']) ?>')">
                     <i class="bi bi-grid-3x2-gap me-1"></i> Print Multi-unit Batch
                 </button>
             </div>
@@ -192,7 +187,7 @@
                 <div class="modal-body p-4">
                     <div class="mb-3">
                         <label class="form-label text-muted small fw-semibold">Target Variant</label>
-                        <div class="form-control bg-light font-monospace fw-bold"><?= e($variant['variant_code'] . ' — ' . $variant['sku']) ?></div>
+                        <div class="form-control bg-light font-monospace fw-bold"><?= e($variant['variant_code']) ?></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Number of Identical QR Labels to Print <span class="text-danger">*</span></label>
@@ -218,14 +213,14 @@
 document.addEventListener('DOMContentLoaded', function() {
     const qrBox = document.getElementById('viewQrCanvasBox');
     new QRCode(qrBox, {
-        text: <?= json_encode((string)($variant['qr_code'] ?: $variant['sku'])) ?>,
+        text: <?= json_encode((string)($variant['qr_code'] ?: $variant['variant_code'])) ?>,
         width: 160,
         height: 160,
         correctLevel: QRCode.CorrectLevel.M
     });
 });
 
-function openBatchPrintModal(id, sku, code) {
+function openBatchPrintModal(id, code) {
     new bootstrap.Modal(document.getElementById('modalBatchPrint')).show();
 }
 </script>

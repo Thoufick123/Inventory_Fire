@@ -26,7 +26,7 @@ $totalPieces = array_sum(array_map(static fn(array $item): int => (int)($item['q
                         <tbody>
                         <?php foreach ($billItems as $item): ?>
                             <tr>
-                                <td><div class="fw-semibold"><?= $escape($item['product_name'] ?? '') ?></div><small class="text-muted"><?= $escape(trim(($item['sku'] ?? '') . ' ' . ($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''))) ?></small></td>
+                                <td><div class="fw-semibold"><?= $escape($item['product_name'] ?? '') ?></div><small class="text-muted"><?= $escape(trim(($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''))) ?></small></td>
                                 <td class="small font-monospace"><?= $escape(implode(', ', $item['tags'] ?? [])) ?></td>
                                 <td class="text-end"><?= (int)($item['quantity'] ?? 0) ?></td>
                             </tr>

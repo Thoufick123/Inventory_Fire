@@ -234,6 +234,12 @@ class ConcernController {
             return;
         }
 
+        if ($contactError = $this->validateConcernContactFields($phone, $email, $address, $city, $state, $pincode)) {
+            Session::flash('error', $contactError);
+            Response::redirect(url('admin/concerns/create'));
+            return;
+        }
+
         // Check unique code
         $exists = Database::fetchOne("SELECT id FROM concerns WHERE code = ?", [$code]);
         if ($exists) {
@@ -407,6 +413,21 @@ class ConcernController {
             Session::flash('error', 'Concern Code is required.');
             Response::redirect(url("admin/concerns/edit/{$concernId}"));
             return;
+        }
+
+        if ($contactError = $this->validateConcernContactFields($phone, $email, $address, $city, $state, $pincode)) {
+            Session::flash('error', $contactError);
+            Response::redirect(url("admin/concerns/edit/{$concernId}"));
+            return;
+        }
+
+        if ($isActive === 0 && (int)($concern['is_active'] ?? 1) === 1) {
+            $otherActive = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns WHERE is_active = 1 AND id != ?", [$concernId]);
+            if ($otherActive <= 0) {
+                Session::flash('error', 'Cannot deactivate the only active business concern.');
+                Response::redirect(url("admin/concerns/edit/{$concernId}"));
+                return;
+            }
         }
 
         // Check unique code excluding this concern
@@ -803,6 +824,152 @@ class ConcernController {
         $msg = $newStatus ? "Concern '{$concern['name']}' activated." : "Concern '{$concern['name']}' deactivated.";
         Session::flash('success', $msg);
         Response::redirect(url('admin/concerns'));
+    }
+
+    /**
+     * Delete a business concern when no operational records depend on it.
+     */
+    public function delete(string $id): void {
+        $this->authorizeAdmin();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $concernId = (int)$id;
+        $concern = Database::fetchOne("SELECT * FROM concerns WHERE id = ?", [$concernId]);
+        if (!$concern) {
+            Session::flash('error', 'Concern not found.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        $totalCount = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns");
+        if ($totalCount <= 1) {
+            Session::flash('error', 'Cannot delete the only business concern.');
+            Response::redirect(url('admin/concerns'));
+            return;
+        }
+
+        if ((int)($concern['is_active'] ?? 0) === 1) {
+            $otherActive = (int)Database::fetchColumn("SELECT COUNT(*) FROM concerns WHERE is_active = 1 AND id != ?", [$concernId]);
+            if ($otherActive <= 0) {
+                Session::flash('error', 'Cannot delete the only active business concern.');
+                Response::redirect(url('admin/concerns'));
+                return;
+            }
+        }
+
+        $linkedChecks = [
+            'production_units' => 'production units',
+            'warehouses' => 'warehouses',
+            'shops' => 'shops',
+            'production_purchases' => 'purchases',
+            'production_bills' => 'bills',
+        ];
+        foreach ($linkedChecks as $table => $label) {
+            try {
+                $cnt = (int)Database::fetchColumn("SELECT COUNT(*) FROM {$table} WHERE concern_id = ?", [$concernId]);
+                if ($cnt > 0) {
+                    Session::flash('error', "Cannot delete '{$concern['name']}' because it has linked {$label}. Deactivate it from Edit instead.");
+                    Response::redirect(url('admin/concerns'));
+                    return;
+                }
+            } catch (Exception $e) {
+                // Ignore if a table does not exist in this installation
+            }
+        }
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+
+        try {
+            $db->prepare("DELETE FROM concern_modules WHERE concern_id = ?")->execute([$concernId]);
+            $db->prepare("DELETE FROM user_concerns WHERE concern_id = ?")->execute([$concernId]);
+            $db->prepare("UPDATE users SET default_concern_id = NULL WHERE default_concern_id = ?")->execute([$concernId]);
+            $db->prepare("DELETE FROM concerns WHERE id = ?")->execute([$concernId]);
+            $db->commit();
+
+            if (function_exists('currentConcernId') && currentConcernId() === $concernId) {
+                Session::set('active_concern_id', null);
+            }
+
+            Session::flash('success', "Business Concern '{$concern['name']}' deleted successfully.");
+        } catch (Exception $e) {
+            $db->rollBack();
+            Session::flash('error', 'Cannot delete concern because it is referenced by existing records. Deactivate it from Edit instead.');
+        }
+
+        Response::redirect(url('admin/concerns'));
+    }
+
+    /**
+     * Canonical list of Indian States and Union Territories for concern address validation.
+     *
+     * @return array<int, string>
+     */
+    public static function indianStates(): array {
+        return [
+            'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+            'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+            'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+            'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+            'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+            'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+            'Andaman and Nicobar Islands', 'Chandigarh',
+            'Dadra and Nagar Haveli and Daman and Diu', 'Delhi',
+            'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+        ];
+    }
+
+    /**
+     * Validate contact and operating address fields for concern create/update.
+     */
+    private function validateConcernContactFields(
+        string $phone,
+        string $email,
+        string $address,
+        string $city,
+        string $state,
+        string $pincode
+    ): ?string {
+        if (!preg_match('/^[0-9]{10}$/', $phone)) {
+            return 'Official Phone / Mobile must be exactly 10 numeric digits.';
+        }
+
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return 'Please enter a valid Official Email address.';
+        }
+
+        $addrLen = function_exists('mb_strlen') ? mb_strlen($address) : strlen($address);
+        if ($addrLen < 10 || $addrLen > 500) {
+            return 'Registered Physical Address is required (10 to 500 characters).';
+        }
+
+        $norm = static fn(string $v): string => strtolower(preg_replace('/[\s.\-]+/', '', trim($v)));
+        $stateMap = [];
+        foreach (self::indianStates() as $st) {
+            $stateMap[$norm($st)] = true;
+        }
+
+        if ($state === '' || !isset($stateMap[$norm($state)])) {
+            return 'Please select a valid Indian State / Union Territory.';
+        }
+
+        if ($city === '' || !preg_match('/^[a-zA-Z\s.\-]{2,100}$/', $city)) {
+            return 'City is required and must contain only valid letters (minimum 2 characters).';
+        }
+
+        if (isset($stateMap[$norm($city)])) {
+            return 'City cannot be a state name. Please enter a valid city (e.g. Tirupur, Coimbatore).';
+        }
+
+        if ($pincode !== '' && !preg_match('/^[0-9]{6}$/', $pincode)) {
+            return 'Pincode must be a valid 6-digit number.';
+        }
+
+        return null;
     }
 
     /**

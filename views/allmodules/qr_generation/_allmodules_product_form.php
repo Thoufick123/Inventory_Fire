@@ -103,7 +103,7 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                                     <thead class="table-light small">
                                         <tr>
                                             <th>#</th>
-                                            <th>Variant / SKU</th>
+                                            <th>Variant ID</th>
                                             <th>Size</th>
                                             <th>Color</th>
                                             <th class="text-end pe-3">Stitched Pieces</th>
@@ -234,7 +234,7 @@ function onStitchingBatchChanged() {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${idx + 1}</td>
-                    <td><span class="badge bg-light text-dark border">${it.sku || it.variant_code || 'Not assigned'}</span></td>
+                    <td><span class="badge bg-light text-dark border">${it.variant_code || 'Not assigned'}</span></td>
                     <td><span class="badge bg-light text-dark border">${it.variant_size_name || it.size_name || 'Standard'}</span></td>
                     <td><span class="badge bg-light text-dark border">${it.variant_color_name || it.color_name || 'Default'}</span></td>
                     <td class="text-end pe-3 fw-bold">${it.qty || 0}</td>

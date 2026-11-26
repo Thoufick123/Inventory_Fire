@@ -132,7 +132,7 @@ class StitchingBatch {
                     LEFT JOIN product_variants pv_s ON si_s.variant_id = pv_s.id
                     WHERE si_s.stitching_batch_id = sb.id 
                       AND (
-                          pv_s.sku LIKE ? 
+                          pv_s.variant_code LIKE ? 
                           OR si_s.size_name LIKE ? 
                           OR si_s.color_name LIKE ? 
                           OR si_s.catalog_hierarchy LIKE ?
@@ -260,7 +260,7 @@ class StitchingBatch {
     public static function getItems(int $batchId): array {
         return Database::fetchAll(
             "SELECT si.*, 
-                    pv.sku, pv.qr_code, pv.mrp as variant_mrp, pv.selling_price as variant_selling_price,
+                    pv.variant_code, pv.qr_code, pv.mrp as variant_mrp, pv.selling_price as variant_selling_price,
                     COALESCE(si.size_name, s.name, s.code, 'Standard') as size_name,
                     COALESCE(si.color_name, c.name, 'Assorted') as color_name,
                     COALESCE(si.size_name, s.name, s.code) as display_size,

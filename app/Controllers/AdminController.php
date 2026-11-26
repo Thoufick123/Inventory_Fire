@@ -488,9 +488,9 @@ class AdminController {
                 'qr_generation'              => ['production/qr-generations', 'production/qr-generations/create'],
                 'programs'                   => ['production/programs', 'production/programs/create'],
                 'cutting'                    => ['production/cutting', 'production/cutting/create'],
-                'wastage'                    => ['production/wastage', null],
+                'wastage'                    => ['allmodules/wastage', null],
                 'stitching'                  => ['production/stitching', 'production/stitching/create'],
-                'stitching_wastage'          => ['production/stitching-wastage', null],
+                'stitching_wastage'          => ['allmodules/stitching-wastage', null],
                 'qc'                         => ['production/qc', 'production/qc/create'],
                 'inventory'                  => ['production/inventory', null],
                 'inward'                     => ['production/inwards', 'production/inwards/create'],
@@ -677,6 +677,9 @@ class AdminController {
             }
             $concerns = $availConcerns;
         } else {
+            if (empty($filters['concern_id']) && currentConcernId()) {
+                $filters['concern_id'] = currentConcernId();
+            }
             $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
         }
 
@@ -792,6 +795,7 @@ class AdminController {
             'staffPermissions'    => [],
             'sidebarItems'        => SidebarMenu::allModuleItems(),
             'savedSidebarOrder'   => SidebarMenu::getOrderForUser(null),
+            'savedSidebarOrderMap'=> [],
             'staff'               => null,
         ]);
     }
@@ -891,7 +895,7 @@ class AdminController {
             }
             if (!empty($_POST['sidebar_order'])) {
                 SidebarMenu::ensureSchema();
-                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                $sanitizedOrder = SidebarMenu::sanitizeOrderPayload($_POST['sidebar_order']);
                 Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $id]);
             }
 
@@ -1032,6 +1036,7 @@ class AdminController {
             'staffPermissions'    => User::getPermissionIds($staffId),
             'sidebarItems'        => SidebarMenu::allModuleItems(),
             'savedSidebarOrder'   => SidebarMenu::getOrderForUser($staffId),
+            'savedSidebarOrderMap'=> SidebarMenu::getOrderMapForUser($staffId),
             'staff'               => $staff,
         ]);
     }
@@ -1142,7 +1147,7 @@ class AdminController {
             }
             if (!empty($_POST['sidebar_order'])) {
                 SidebarMenu::ensureSchema();
-                $sanitizedOrder = SidebarMenu::sanitizeOrder($_POST['sidebar_order']);
+                $sanitizedOrder = SidebarMenu::sanitizeOrderPayload($_POST['sidebar_order']);
                 Database::execute("UPDATE users SET sidebar_order = ? WHERE id = ?", [json_encode($sanitizedOrder), $staffId]);
             }
 
@@ -1427,6 +1432,36 @@ class AdminController {
             error_log("Error creating role: " . $e->getMessage());
             Response::back('error', 'Failed to create role: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * View role details and assigned permissions (read-only).
+     */
+    public function viewRole(string $id): void {
+        if (!hasPermission('roles', 'view')) {
+            Response::error(403, 'Access denied: You do not have permission to view roles.');
+            return;
+        }
+
+        $role = Role::findById((int)$id);
+        if (!$role) {
+            Response::redirect(url('admin/roles'), 'error', 'Role not found.');
+            return;
+        }
+
+        $assignedUsers = Database::fetchAll(
+            "SELECT id, full_name, username, is_active FROM users WHERE role_id = ? ORDER BY full_name ASC",
+            [(int)$id]
+        );
+
+        Response::view('admin.role_view', [
+            'pageTitle'           => 'View Role: ' . $role['name'],
+            'activeMenu'          => 'roles',
+            'role'                => $role,
+            'rolePermissions'     => Role::getRolePermissionIds((int)$id),
+            'hierarchicalModules' => Role::getHierarchicalPermissions(),
+            'assignedUsers'       => $assignedUsers,
+        ]);
     }
 
     /**

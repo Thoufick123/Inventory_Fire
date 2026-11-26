@@ -121,7 +121,7 @@
                         <?= e($variant['product_name']) ?>
                     </div>
                     <div><strong>V-ID:</strong> <span class="font-monospace fw-bold text-dark"><?= e($variant['variant_code']) ?></span></div>
-                    <div><strong>SKU:</strong> <span class="font-monospace fw-bold" style="font-size: 9.5px;"><?= e($variant['sku']) ?></span></div>
+                    <div><strong>Variant ID:</strong> <span class="font-monospace fw-bold" style="font-size: 9.5px;"><?= e($variant['variant_code']) ?></span></div>
                 </div>
             </div>
 
@@ -130,7 +130,7 @@
                 <div class="price-badge text-dark" style="font-size: 12px;">PRICE: <?= formatCurrency((float)((float)$variant['selling_price'])) ?></div>
             </div>
             <div class="text-center font-monospace mt-1 fw-bold" style="font-size: 9.5px; letter-spacing: 0.5px;">
-                <?= e($variant['variant_code'] ?: ($variant['qr_code'] ?: $variant['sku'])) ?>
+                <?= e($variant['variant_code'] ?: $variant['qr_code']) ?>
             </div>
         </div>
     </div>
@@ -138,7 +138,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             new QRCode(document.getElementById('qrCanvas'), {
-                text: <?= json_encode((string)($variant['qr_code'] ?: $variant['sku'])) ?>,
+                text: <?= json_encode((string)($variant['qr_code'] ?: $variant['variant_code'])) ?>,
                 width: 80,
                 height: 80,
                 correctLevel: QRCode.CorrectLevel.M

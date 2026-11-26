@@ -677,9 +677,7 @@ function openEditBatchModal(batch) {
                         data.items.forEach((it, idx) => {
                             const q = parseInt(it.quantity || 0, 10);
                             runTotal += q;
-                            const qrCodeVal = (it.qr_code && it.qr_code.trim() !== '') ? it.qr_code : (it.sku || '—');
-                            const skuVal = it.sku || '';
-                            const hasDifferentSku = skuVal && skuVal !== qrCodeVal;
+                            const qrCodeVal = (it.qr_code && it.qr_code.trim() !== '') ? it.qr_code : (it.variant_code || '—');
 
                             html += `<tr>
                                 <td class="small text-muted">${idx + 1}</td>
@@ -689,7 +687,6 @@ function openEditBatchModal(batch) {
                                             <i class="bi bi-qr-code text-primary me-1"></i>${escapeHtml(qrCodeVal)}
                                         </span>
                                     </div>
-                                    ${hasDifferentSku ? `<div class="text-muted small mt-0.5" style="font-size: 10.5px;">SKU: ${escapeHtml(skuVal)}</div>` : ''}
                                 </td>
                                 <td class="small"><span class="badge bg-light text-dark border">${escapeHtml(it.size_name || 'STD')}</span></td>
                                 <td class="small">${escapeHtml(it.color_name || 'Standard')}</td>
@@ -832,7 +829,7 @@ function viewBatchDispatchDetails(batchId) {
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td class="text-muted small">${idx + 1}</td>
-                            <td class="font-monospace fw-bold text-dark">${escapeHtml(it.sku || it.product_sku || '—')}</td>
+                            <td class="font-monospace fw-bold text-dark">${escapeHtml(it.variant_code || '—')}</td>
                             <td><span class="badge bg-secondary-subtle text-secondary border font-monospace">${escapeHtml(it.size_name || 'Std')}</span></td>
                             <td><span class="badge bg-info-subtle text-info border font-monospace">${escapeHtml(it.color_name || 'Std')}</span></td>
                             <td class="text-end fw-bold text-success">${parseInt(it.quantity || 0).toLocaleString()} pcs</td>

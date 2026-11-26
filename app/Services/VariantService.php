@@ -1,13 +1,12 @@
 <?php
 /**
- * VariantService — Central Product Variant ID & SKU Management Engine
+ * VariantService — Central Product Variant ID Management Engine
  *
  * Implements:
  * 1. Collision-safe Variant ID generation (e.g. V001, V002...)
- * 2. Variant SKU generation (ParentSKU-[COLOR]-[DESIGN]-[SIZE])
- * 3. Duplicate combination validation
- * 4. QR code resolution & linking
- * 5. Production unit inventory integration
+ * 2. Duplicate combination validation
+ * 3. QR code resolution & linking
+ * 4. Production unit inventory integration
  */
 
 require_once BASE_PATH . '/app/Models/ProductVariant.php';
@@ -48,70 +47,6 @@ class VariantService {
             }
             $next++;
         } while (true);
-    }
-
-    /**
-     * Generate a standardized Variant SKU based on Parent Catalog and Selected Attributes.
-     * Example: Parent SKU = GRM-KID-001, Color = Red (RED), Design = Panda (PAN), Size = S (S)
-     * Result: GRM-KID-001-RED-PAN-S
-     */
-    public static function generateVariantSku(
-        int $productId,
-        ?int $colorId = null,
-        ?int $designId = null,
-        ?int $sizeId = null
-    ): string {
-        $product = Database::fetchOne("SELECT code FROM products WHERE id = ?", [$productId]);
-        if (!$product) {
-            throw new InvalidArgumentException("Invalid Catalog / Product ID: $productId");
-        }
-
-        $parentSku = strtoupper(trim($product['code']));
-        $parts = [$parentSku];
-
-        if ($colorId) {
-            $col = Database::fetchOne("SELECT name FROM colors WHERE id = ?", [$colorId]);
-            if ($col) {
-                $cleanCol = substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $col['name'])), 0, 4);
-                if ($cleanCol !== '') {
-                    $parts[] = $cleanCol;
-                }
-            }
-        }
-
-        if ($designId) {
-            $des = Database::fetchOne("SELECT name, code FROM designs WHERE id = ?", [$designId]);
-            if ($des) {
-                $cleanDes = !empty($des['code']) 
-                    ? strtoupper(preg_replace('/[^A-Z0-9]/', '', $des['code']))
-                    : substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $des['name'])), 0, 4);
-                if ($cleanDes !== '') {
-                    $parts[] = $cleanDes;
-                }
-            }
-        }
-
-        if ($sizeId) {
-            $sz = Database::fetchOne("SELECT name, code FROM sizes WHERE id = ?", [$sizeId]);
-            if ($sz) {
-                $cleanSz = !empty($sz['code']) ? strtoupper(trim($sz['code'])) : strtoupper(trim($sz['name']));
-                if ($cleanSz !== '') {
-                    $parts[] = $cleanSz;
-                }
-            }
-        }
-
-        $baseSku = implode('-', $parts);
-        $candidate = $baseSku;
-        $counter = 1;
-
-        // Ensure SKU uniqueness
-        while (Database::fetchOne("SELECT id FROM product_variants WHERE sku = ?", [$candidate])) {
-            $candidate = $baseSku . '-' . $counter;
-            $counter++;
-        }
-
-        return $candidate;
     }
 
     /**
@@ -183,13 +118,6 @@ class VariantService {
             $variantCode = self::generateNextVariantCode();
         }
 
-        // Generate or validate SKU
-        $sku = !empty($data['sku']) ? strtoupper(trim($data['sku'])) : self::generateVariantSku($productId, $colorId, $designId, $sizeId);
-        $skuExists = Database::fetchOne("SELECT id FROM product_variants WHERE sku = ?", [$sku]);
-        if ($skuExists) {
-            throw new RuntimeException("SKU '{$sku}' is already taken. Please customize the SKU.");
-        }
-
         // Assign QR Code: default to variant_code so the variant has a permanent, scannable QR identity
         $qrCode = !empty($data['qr_code']) ? strtoupper(trim($data['qr_code'])) : $variantCode;
         if ($qrCode) {
@@ -211,8 +139,8 @@ class VariantService {
         try {
             Database::execute(
                 "INSERT INTO product_variants 
-                 (variant_code, product_id, size_id, color_id, design_id, attr_hash, sku, hsn_code, gst_rate, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 (variant_code, product_id, size_id, color_id, design_id, attr_hash, hsn_code, gst_rate, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $variantCode,
                     $productId,
@@ -220,7 +148,6 @@ class VariantService {
                     $colorId,
                     $designId,
                     $attrHash,
-                    $sku,
                     $hsnCode,
                     $gstRate,
                     $qrCode,
@@ -317,7 +244,7 @@ class VariantService {
         $code = strtoupper(trim($rawQr));
         if ($code === '') return null;
 
-        // Try exact QR match, SKU match, or Variant Code match
+        // Try exact QR match or Variant Code match
         $variant = ProductVariant::findByQr($code);
         if (!$variant) {
             return null;
@@ -393,7 +320,7 @@ class VariantService {
         $sql = "SELECT pv.*,
                        COALESCE(NULLIF(pv.qr_code, ''), NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as qr_code,
                        COALESCE(NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as variant_code,
-                       p.name as product_name, p.code as parent_sku,
+                       p.name as product_name,
                        c.name as category_name, c.id as category_id,
                        sc.name as subcategory_name, sc.id as subcategory_id,
                        b.name as brand_name,
@@ -442,15 +369,13 @@ class VariantService {
             $s = '%' . trim($filters['search']) . '%';
             $sql .= " AND (
                 pv.variant_code LIKE ? 
-                OR pv.sku LIKE ? 
                 OR pv.qr_code LIKE ? 
                 OR p.name LIKE ? 
-                OR p.code LIKE ? 
                 OR col.name LIKE ? 
                 OR d.name LIKE ? 
                 OR s.name LIKE ?
             )";
-            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s]);
+            $params = array_merge($params, [$s, $s, $s, $s, $s, $s]);
         }
 
         if (!empty($filters['category_id'])) {
@@ -595,7 +520,6 @@ class VariantService {
             'color_id'       => $colorId,
             'design_id'      => $designId,
             'size_id'        => $sizeId,
-            'sku'            => $attrs['vendor_sku'] ?? null,
             'hsn_code'       => $attrs['hsn_code'] ?? null,
             'gst_rate'       => $attrs['gst_rate'] ?? 5.0,
             'mrp'            => $attrs['mrp'] ?? 0,

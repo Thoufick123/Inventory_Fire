@@ -29,7 +29,7 @@ foreach ($hierarchicalModules as $m) {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1 fw-bold"><?= $isEdit ? 'Edit Staff Member' : 'Create New Staff Member' ?></h1>
-            <p class="text-muted mb-0"><?= $isEdit ? 'Update account details, role assignment, and View, Create, Verify, Edit, or Delete access.' : 'Add a team member and assign View, Create, Verify, Edit, or Delete access.' ?></p>
+            <p class="text-muted mb-0"><?= $isEdit ? 'Update account details, role assignment, and View, Create, Edit, or Delete access.' : 'Add a team member and assign View, Create, Edit, or Delete access.' ?></p>
         </div>
         <div>
             <a href="<?= url('admin/staff') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
@@ -142,9 +142,11 @@ foreach ($hierarchicalModules as $m) {
                                             <option value="<?= $r['id'] ?>" 
                                                     data-primary-dept="<?= e($rDept) ?>"
                                                     data-departments='<?= $rDeptsJson ?>'
+                                                    data-concern-scope="<?= e($r['concern_scope'] ?? 'ALL') ?>"
+                                                    data-applicable-concerns='<?= e($r['applicable_concerns'] ?? '[]') ?>'
                                                     data-name="<?= e($r['name']) ?>"
                                                     <?= (string)($staff['role_id'] ?? '') === (string)$r['id'] ? 'selected' : '' ?>>
-                                                <?= e($r['name']) ?> [<?= $badgeLabel ?>]
+                                                <?= e($r['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -174,43 +176,6 @@ foreach ($hierarchicalModules as $m) {
                             </div>
 
                             <input type="hidden" name="department" id="selected_department" value="<?= e($dept ?: 'ALL') ?>">
-
-                            <!-- Dynamic Operational Concern Selection Cards -->
-                            <div class="col-12 pt-3 border-top">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label class="form-label fw-bold text-dark mb-0">
-                                        <i class="bi bi-buildings-fill text-primary me-2"></i>Select Department / Operational Concern <span class="text-danger">*</span>
-                                    </label>
-                                    <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Dynamic list of registered business concerns</span>
-                                </div>
-                                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-2.5" id="departmentCards">
-                                    <?php 
-                                    $activeOpConcernId = (int)($defaultConcernId ?? 0);
-                                    if ($activeOpConcernId <= 0 && !empty($concerns)) {
-                                        $activeOpConcernId = (int)$concerns[0]['id'];
-                                    }
-                                    foreach (($concerns ?? []) as $cIdx => $c): 
-                                        $cId = (int)$c['id'];
-                                        $isActiveOp = ($cId === $activeOpConcernId);
-                                    ?>
-                                    <div class="col">
-                                        <input type="radio" class="btn-check dept-concern-radio" name="operational_concern_id" id="dept_concern_<?= $cId ?>" value="<?= $cId ?>" <?= $isActiveOp ? 'checked' : '' ?> onchange="handleOperationalConcernSelection(<?= $cId ?>)">
-                                        <label class="btn btn-outline-primary w-100 p-2.5 text-start d-flex align-items-center h-100 dept-card rounded-3 shadow-xs <?= $isActiveOp ? 'active' : '' ?>" for="dept_concern_<?= $cId ?>" id="label_dept_concern_<?= $cId ?>">
-                                            <div class="rounded-circle bg-primary bg-opacity-10 p-2 me-2 text-primary flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                                <i class="bi bi-buildings fs-5"></i>
-                                            </div>
-                                            <div class="flex-grow-1 min-w-0">
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <span class="fw-bold text-truncate" style="font-size: 13.5px;"><?= e($c['name']) ?></span>
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill small" style="font-size: 9.5px;"><?= e($c['code']) ?></span>
-                                                </div>
-                                                <div class="text-muted small text-truncate" style="font-size: 11px;"><?= e($c['legal_name'] ?: 'Operational Concern') ?></div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
 
                                 <!-- Status Toggle (Only on Edit) -->
                             <?php if ($isEdit): ?>
@@ -282,45 +247,12 @@ foreach ($hierarchicalModules as $m) {
                             <?php endforeach; ?>
                         </div>
 
-                        <!-- Default Concern for Login Session -->
-                        <div class="row g-3">
-                            <div class="col-12 col-md-6">
-                                <label for="default_concern_id" class="form-label fw-semibold">
-                                    <i class="bi bi-star-fill text-warning me-1"></i>Default Active Concern (Upon Login) <span class="text-danger">*</span>
-                                </label>
-                                <select name="default_concern_id" id="default_concern_id" class="form-select" required>
-                                    <?php 
-                                    $hasDefaultOpt = false;
-                                    foreach (($concerns ?? []) as $c): 
-                                        $cid = (int)$c['id'];
-                                        $isAssigned = in_array($cid, $staffConcerns ?? [], true);
-                                        if ($isAssigned):
-                                            $isDef = ($cid === (int)($defaultConcernId ?? 0));
-                                            if ($isDef) $hasDefaultOpt = true;
-                                    ?>
-                                        <option value="<?= $cid ?>" <?= $isDef ? 'selected' : '' ?>>
-                                            <?= e(!empty($c['code']) ? $c['code'] . ' - ' . $c['name'] : $c['name']) ?>
-                                        </option>
-                                    <?php 
-                                        endif;
-                                    endforeach; 
-                                    if (!$hasDefaultOpt && !empty($concerns)):
-                                        $firstC = $concerns[0];
-                                    ?>
-                                        <option value="<?= (int)$firstC['id'] ?>" selected>
-                                            <?= e(!empty($firstC['code']) ? $firstC['code'] . ' - ' . $firstC['name'] : $firstC['name']) ?>
-                                        </option>
-                                    <?php endif; ?>
-                                </select>
-                                <div class="form-text text-muted">The entity automatically activated when this staff member signs in. Must be one of their authorized concerns.</div>
-                            </div>
-                            <div class="col-12 col-md-6 d-flex align-items-center">
-                                <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
-                                    <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
-                                    <div class="small">
-                                        Staff members will only be able to view documents, batches, and switch between entities that are checked above.
-                                    </div>
-                                </div>
+                        <input type="hidden" name="default_concern_id" id="default_concern_id" value="<?= (int)($defaultConcernId ?? 0) ?>">
+
+                        <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
+                            <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
+                            <div class="small">
+                                Staff members will only be able to view documents, batches, and switch between entities that are checked above. The first checked concern will be active upon login.
                             </div>
                         </div>
                     </div>
@@ -352,26 +284,6 @@ foreach ($hierarchicalModules as $m) {
                             <div class="input-group input-group-sm" style="width: 200px;">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                                 <input type="text" id="permModuleFilter" class="form-control bg-light border-start-0 ps-0" placeholder="Filter modules..." autocomplete="off">
-                            </div>
-
-                            <!-- Column Tools Dropdown -->
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" id="colToolsDropdown" data-bs-toggle="dropdown">
-                                    <i class="bi bi-sliders"></i> Column Tools
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2">
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllView"><i class="bi bi-eye text-primary me-2"></i>Select All View</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllCreate"><i class="bi bi-plus-circle text-success me-2"></i>Select All Create</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllVerify"><i class="bi bi-check2-circle text-info me-2"></i>Select All Verify</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllEdit"><i class="bi bi-pencil-square text-warning me-2"></i>Select All Edit</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnSelectAllDelete"><i class="bi bi-trash text-danger me-2"></i>Select All Delete</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllView"><i class="bi bi-eye-slash text-muted me-2"></i>Clear All View</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllCreate"><i class="bi bi-dash-circle text-muted me-2"></i>Clear All Create</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllVerify"><i class="bi bi-x-circle text-muted me-2"></i>Clear All Verify</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllEdit"><i class="bi bi-dash-square text-muted me-2"></i>Clear All Edit</a></li>
-                                    <li><a class="dropdown-item py-1" href="#" id="btnDeselectAllDelete"><i class="bi bi-trash-fill text-muted me-2"></i>Clear All Delete</a></li>
-                                </ul>
                             </div>
 
                             <!-- Global Select / Deselect -->
@@ -432,14 +344,12 @@ foreach ($hierarchicalModules as $m) {
                                         <table class="table table-hover align-middle mb-0 permissions-table">
                                             <thead class="table-light">
                                                 <tr class="text-uppercase small text-muted" style="font-size: 11px;">
-                                                    <th class="ps-3 py-2" style="width: 30%;">Submodule</th>
-                                                    <th class="text-center py-2" style="width: 10%;">View</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Create</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Verify</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Edit</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Delete</th>
-                                                    <th class="text-center py-2" style="width: 10%;">Adjust</th>
-                                                    <th class="text-center pe-3 py-2" style="width: 10%;">Row All</th>
+                                                    <th class="ps-3 py-2" style="width: 38%;">Submodule</th>
+                                                    <th class="text-center py-2" style="width: 12%;">View</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Create</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Edit</th>
+                                                    <th class="text-center py-2" style="width: 12%;">Delete</th>
+                                                    <th class="text-center pe-3 py-2" style="width: 14%;">Row All</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -452,9 +362,6 @@ foreach ($hierarchicalModules as $m) {
                                                     $subDept    = $sub['department'] ?? $module['department'] ?? 'ALL';
 
                                                     $crudColumns = Role::getCrudPermissionsByAction($subPerms);
-                                                    $shopAdjustPermissions = $subKey === 'shop_stock'
-                                                        ? array_values(array_filter($subPerms, static fn(array $permission): bool => ($permission['action'] ?? '') === 'adjust'))
-                                                        : [];
                                                     ?>
                                                     <tr class="perm-submodule-row" data-submodule-key="<?= e($subKey) ?>" data-dept="<?= e($subDept) ?>">
                                                         <td class="ps-3 py-2">
@@ -469,7 +376,7 @@ foreach ($hierarchicalModules as $m) {
                                                             </div>
                                                         </td>
 
-                                                        <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
+                                                        <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
                                                             <td class="text-center">
                                                                 <?php $columnPermissions = $crudColumns[$crudAction]; ?>
                                                                 <?php if (!empty($columnPermissions)): ?>
@@ -495,26 +402,6 @@ foreach ($hierarchicalModules as $m) {
                                                                 <?php endif; ?>
                                                             </td>
                                                         <?php endforeach; ?>
-
-                                                        <td class="text-center">
-                                                            <?php if ($shopAdjustPermissions): ?>
-                                                                <?php foreach ($shopAdjustPermissions as $permission): ?>
-                                                                    <label class="form-check-label d-inline-flex align-items-center justify-content-center gap-1 small" title="<?= e($permission['description'] ?? 'Adjust shop stock') ?>">
-                                                                        <input class="form-check-input perm-checkbox perm-adjust"
-                                                                               type="checkbox"
-                                                                               name="permissions[]"
-                                                                               value="<?= (int)$permission['id'] ?>"
-                                                                               data-action="adjust"
-                                                                               data-module="<?= e($modKey) ?>"
-                                                                               data-submodule="<?= e($subKey) ?>"
-                                                                               <?= in_array((int)$permission['id'], $staffPermissions) ? 'checked' : '' ?>>
-                                                                        <span>Adjust</span>
-                                                                    </label>
-                                                                <?php endforeach; ?>
-                                                            <?php else: ?>
-                                                                <span class="text-muted opacity-25">&mdash;</span>
-                                                            <?php endif; ?>
-                                                        </td>
 
                                                         <!-- Row All -->
                                                         <td class="text-center pe-3">
@@ -543,10 +430,10 @@ foreach ($hierarchicalModules as $m) {
                 $orderedSidebarKeys = $savedSidebarOrder ?? array_keys($sidebarItemMap);
                 ?>
                 <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-ol me-2 text-primary"></i>Left Sidebar Menu Order</h5>
-                            <small class="text-muted">Drag &amp; drop or use arrows to set the left sidebar order for this staff member's allocated modules.</small>
+                            <small class="text-muted">Configure the left sidebar order separately for each authorized concern tab.</small>
                         </div>
                         <div class="d-flex align-items-center gap-3 flex-wrap">
                             <div class="form-check form-switch mb-0">
@@ -558,7 +445,11 @@ foreach ($hierarchicalModules as $m) {
                             </button>
                         </div>
                     </div>
+                    <ul class="nav nav-pills gap-2 px-3 py-2.5 border-bottom bg-light bg-opacity-50" id="sidebarConcernTabs"></ul>
                     <div class="card-body p-3">
+                        <div id="sidebarNoConcernHint" class="text-center text-muted small py-3 d-none">
+                            Select at least one authorized concern above to configure sidebar menu order.
+                        </div>
                         <input type="hidden" name="sidebar_order" id="sidebarOrderInput" value="<?= e(json_encode($orderedSidebarKeys)) ?>">
                         <div id="sidebarOrderList" class="list-group">
                             <?php foreach ($orderedSidebarKeys as $pos => $sKey):
@@ -764,24 +655,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const warningMsg = document.getElementById('role_mismatch_msg');
     const staffForm  = document.getElementById('staffForm');
 
-    window.handleOperationalConcernSelection = function(concernId) {
-        const chk = document.getElementById('concern_' + concernId);
-        if (chk && !chk.checked) {
-            chk.checked = true;
-            syncDefaultConcernOptions();
-        }
-        const defSelect = document.getElementById('default_concern_id');
-        if (defSelect) {
-            defSelect.value = concernId;
-        }
-        document.querySelectorAll('.dept-concern-radio').forEach(r => {
-            const lbl = document.getElementById('label_dept_concern_' + r.value);
-            if (lbl) {
-                lbl.classList.toggle('active', r.checked);
-            }
-        });
-    };
-
     function syncRoleAndDepartment(autoSelect = true) {
         // Multi-module enablement: Ensure all modules and submodule rows are visible, active, and selectable
         permModuleBlocks.forEach(block => {
@@ -873,10 +746,38 @@ document.addEventListener('DOMContentLoaded', function () {
         updateActiveCounterAndSwitches();
     }
 
-    // When role changes -> auto sync department AND auto load role's permissions!
+    function applyRoleConcerns(roleOption) {
+        if (!roleOption || !roleOption.value) return;
+        const scope = (roleOption.getAttribute('data-concern-scope') || 'ALL').toUpperCase();
+        let applicableIds = [];
+        try {
+            const parsed = JSON.parse(roleOption.getAttribute('data-applicable-concerns') || '[]');
+            if (Array.isArray(parsed)) {
+                applicableIds = parsed.map(id => String(id));
+            }
+        } catch (e) {}
+
+        const checkboxes = document.querySelectorAll('.concern-checkbox');
+        if (scope === 'SPECIFIC' && applicableIds.length > 0) {
+            checkboxes.forEach(cb => {
+                cb.checked = applicableIds.includes(String(cb.value));
+            });
+        } else if (scope === 'ALL') {
+            checkboxes.forEach(cb => {
+                cb.checked = true;
+            });
+        }
+        if (typeof window.syncDefaultConcernOptions === 'function') {
+            window.syncDefaultConcernOptions();
+        }
+    }
+
+    // When role changes -> auto sync department, auto load role's concerns, AND auto load role's permissions!
     roleSelect?.addEventListener('change', function () {
         syncRoleAndDepartment(true);
         const selectedRoleId = this.value;
+        const roleOption = this.options[this.selectedIndex];
+        applyRoleConcerns(roleOption);
         applyRolePermissions(selectedRoleId, false);
     });
 
@@ -884,9 +785,10 @@ document.addEventListener('DOMContentLoaded', function () {
     btnResetToRole?.addEventListener('click', function () {
         const selectedRoleId = roleSelect ? roleSelect.value : '';
         if (!selectedRoleId) {
-            alert('Please select a system role first.');
             return;
         }
+        const roleOption = roleSelect.options[roleSelect.selectedIndex];
+        applyRoleConcerns(roleOption);
         applyRolePermissions(selectedRoleId, false);
     });
 
@@ -932,27 +834,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-
-    // Column Tools
-    function toggleColumn(actionType, checkState) {
-        document.querySelectorAll(`.perm-checkbox.perm-${actionType}:not(:disabled)`).forEach(cb => cb.checked = checkState);
-        updateActiveCounterAndSwitches();
-        if (permSyncBadge) {
-            permSyncBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1';
-            permSyncBadge.innerHTML = `<i class="bi bi-pencil-square me-1"></i>Customized (Batch Column)`;
-        }
-    }
-
-    document.getElementById('btnSelectAllView')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('view', true); });
-    document.getElementById('btnSelectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('create', true); });
-    document.getElementById('btnSelectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('verify', true); });
-    document.getElementById('btnSelectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('edit', true); });
-    document.getElementById('btnSelectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('delete', true); });
-    document.getElementById('btnDeselectAllView')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('view', false); });
-    document.getElementById('btnDeselectAllCreate')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('create', false); });
-    document.getElementById('btnDeselectAllVerify')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('verify', false); });
-    document.getElementById('btnDeselectAllEdit')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('edit', false); });
-    document.getElementById('btnDeselectAllDelete')?.addEventListener('click', (e) => { e.preventDefault(); toggleColumn('delete', false); });
 
     // Global Select All / Clear All
     document.getElementById('btnSelectAll')?.addEventListener('click', function () {
@@ -1049,35 +930,21 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     window.syncDefaultConcernOptions = function() {
-        const select = document.getElementById('default_concern_id');
-        if (!select) return;
+        const hiddenInput = document.getElementById('default_concern_id');
+        if (!hiddenInput) return;
 
         const checkboxes = document.querySelectorAll('.concern-checkbox');
-        const curVal = parseInt(select.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>;
-        
-        select.innerHTML = '';
-        let hasSelected = false;
-        let checkedCount = 0;
+        const preferredVal = parseInt(hiddenInput.value) || <?= json_encode((int)($defaultConcernId ?? 0)) ?>;
+        const checkedIds = [];
 
         checkboxes.forEach(cb => {
             const card = cb.closest('.concern-select-card');
             if (cb.checked) {
-                checkedCount++;
+                checkedIds.push(parseInt(cb.value));
                 if (card) {
                     card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
                     card.classList.remove('bg-light', 'bg-opacity-25');
                 }
-                const cid = parseInt(cb.value);
-                const name = cb.getAttribute('data-concern-name') || ('Concern #' + cid);
-                const code = cb.getAttribute('data-concern-code') || '';
-                const opt = document.createElement('option');
-                opt.value = cid;
-                opt.textContent = code ? `${code} - ${name}` : name;
-                if (cid === curVal) {
-                    opt.selected = true;
-                    hasSelected = true;
-                }
-                select.appendChild(opt);
             } else {
                 if (card) {
                     card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
@@ -1086,45 +953,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        if (!hasSelected && select.options.length > 0) {
-            select.options[0].selected = true;
-        }
+        const activeCid = checkedIds.includes(preferredVal) ? preferredVal : (checkedIds[0] || '');
+        hiddenInput.value = activeCid;
 
-        if (checkedCount === 0) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = '-- Select at least one authorized concern above --';
-            select.appendChild(opt);
-        }
-
-        const activeCid = select.value;
-        if (activeCid) {
-            const rad = document.getElementById('dept_concern_' + activeCid);
-            if (rad && !rad.checked) {
-                rad.checked = true;
-            }
-            document.querySelectorAll('.dept-concern-radio').forEach(r => {
-                const lbl = document.getElementById('label_dept_concern_' + r.value);
-                if (lbl) {
-                    lbl.classList.toggle('active', r.checked);
-                }
-            });
+        if (typeof window.refreshSidebarConcernTabs === 'function') {
+            window.refreshSidebarConcernTabs();
         }
     };
 
-    const defConcernSelect = document.getElementById('default_concern_id');
-    if (defConcernSelect) {
-        defConcernSelect.addEventListener('change', function() {
-            const val = this.value;
-            const rad = document.getElementById('dept_concern_' + val);
-            if (rad) {
-                rad.checked = true;
-                handleOperationalConcernSelection(val);
-            }
-        });
-    }
-
-    // Initialize concern dropdown options
+    // Initialize concern hidden default value
     syncDefaultConcernOptions();
 
     // =========================================================================
@@ -1159,14 +996,72 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     // =========================================================================
-    // Left Sidebar Menu Order Management
+    // Left Sidebar Menu Order Management (Per-Concern Tabs)
     // =========================================================================
     const sidebarOrderList = document.getElementById('sidebarOrderList');
     const sidebarOrderInput = document.getElementById('sidebarOrderInput');
+    const sidebarConcernTabs = document.getElementById('sidebarConcernTabs');
+    const sidebarNoConcernHint = document.getElementById('sidebarNoConcernHint');
     const toggleAllocatedOnly = document.getElementById('toggleAllocatedOnly');
     const btnResetSidebarOrder = document.getElementById('btnResetSidebarOrder');
     const sidebarOrderEmptyHint = document.getElementById('sidebarOrderEmptyHint');
     const defaultSidebarKeys = <?= json_encode(array_column($sidebarItems ?? SidebarMenu::allModuleItems(), 'key')) ?>;
+    const savedSidebarOrderMap = <?= json_encode($savedSidebarOrderMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const sidebarOrderMap = {};
+    let activeSidebarConcernId = null;
+
+    if (savedSidebarOrderMap && typeof savedSidebarOrderMap === 'object') {
+        Object.keys(savedSidebarOrderMap).forEach(k => {
+            if (k !== '_default' && Array.isArray(savedSidebarOrderMap[k])) {
+                sidebarOrderMap[String(k)] = savedSidebarOrderMap[k].slice();
+            }
+        });
+    }
+
+    function getCheckedConcernsList() {
+        const list = [];
+        document.querySelectorAll('.concern-checkbox:checked').forEach(cb => {
+            const cid = String(cb.value);
+            const code = cb.getAttribute('data-concern-code') || '';
+            const name = cb.getAttribute('data-concern-name') || ('Concern #' + cid);
+            list.push({ id: cid, label: code ? `${code} - ${name}` : name });
+        });
+        return list;
+    }
+
+    function ensureConcernOrder(cid) {
+        if (!sidebarOrderMap[cid]) {
+            const fallback = Array.isArray(savedSidebarOrderMap._default)
+                ? savedSidebarOrderMap._default
+                : defaultSidebarKeys;
+            sidebarOrderMap[cid] = fallback.slice();
+        }
+        return sidebarOrderMap[cid];
+    }
+
+    function applyOrderToDOM(keys) {
+        if (!sidebarOrderList) return;
+        const itemsByKey = {};
+        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach(el => {
+            itemsByKey[el.getAttribute('data-key')] = el;
+        });
+        keys.forEach(k => {
+            if (itemsByKey[k]) sidebarOrderList.appendChild(itemsByKey[k]);
+        });
+        defaultSidebarKeys.forEach(k => {
+            if (!keys.includes(k) && itemsByKey[k]) sidebarOrderList.appendChild(itemsByKey[k]);
+        });
+    }
+
+    function serializeSidebarOrderMap() {
+        if (!sidebarOrderInput) return;
+        const checked = getCheckedConcernsList();
+        const payload = {};
+        checked.forEach(c => {
+            payload[c.id] = ensureConcernOrder(c.id);
+        });
+        sidebarOrderInput.value = JSON.stringify(payload);
+    }
 
     function getAllocatedViewSubmodules() {
         const allocated = new Set();
@@ -1179,12 +1074,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function refreshSidebarOrderUI() {
         if (!sidebarOrderList || !sidebarOrderInput) return;
+        const checked = getCheckedConcernsList();
+        if (checked.length === 0) {
+            sidebarOrderList.classList.add('d-none');
+            if (sidebarNoConcernHint) sidebarNoConcernHint.classList.remove('d-none');
+            if (sidebarOrderEmptyHint) sidebarOrderEmptyHint.classList.add('d-none');
+            sidebarOrderInput.value = JSON.stringify({});
+            return;
+        }
+        sidebarOrderList.classList.remove('d-none');
+        if (sidebarNoConcernHint) sidebarNoConcernHint.classList.add('d-none');
+
         const allocatedSet = getAllocatedViewSubmodules();
         const showAllocatedOnly = toggleAllocatedOnly ? toggleAllocatedOnly.checked : true;
         const keys = [];
         let visibleCount = 0;
 
-        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach((item, idx) => {
+        sidebarOrderList.querySelectorAll('.sidebar-order-item').forEach((item) => {
             const key = item.getAttribute('data-key');
             if (key) keys.push(key);
             let perms = [];
@@ -1209,11 +1115,53 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        sidebarOrderInput.value = JSON.stringify(keys);
+        if (activeSidebarConcernId) {
+            sidebarOrderMap[activeSidebarConcernId] = keys;
+        }
+        serializeSidebarOrderMap();
+
         if (sidebarOrderEmptyHint) {
             sidebarOrderEmptyHint.classList.toggle('d-none', visibleCount > 0);
         }
     }
+
+    window.refreshSidebarConcernTabs = function() {
+        if (!sidebarConcernTabs) return;
+        const checked = getCheckedConcernsList();
+        sidebarConcernTabs.innerHTML = '';
+
+        if (checked.length === 0) {
+            activeSidebarConcernId = null;
+            sidebarConcernTabs.classList.add('d-none');
+            refreshSidebarOrderUI();
+            return;
+        }
+        sidebarConcernTabs.classList.remove('d-none');
+
+        if (!activeSidebarConcernId || !checked.some(c => c.id === activeSidebarConcernId)) {
+            activeSidebarConcernId = checked[0].id;
+        }
+
+        checked.forEach(c => {
+            ensureConcernOrder(c.id);
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nav-link btn-sm py-1.5 px-3 ' + (c.id === activeSidebarConcernId ? 'active fw-semibold' : 'bg-white border text-dark');
+            btn.innerHTML = `<i class="bi bi-buildings me-1"></i>${c.label}`;
+            btn.addEventListener('click', () => {
+                activeSidebarConcernId = c.id;
+                applyOrderToDOM(ensureConcernOrder(c.id));
+                window.refreshSidebarConcernTabs();
+            });
+            li.appendChild(btn);
+            sidebarConcernTabs.appendChild(li);
+        });
+
+        applyOrderToDOM(ensureConcernOrder(activeSidebarConcernId));
+        refreshSidebarOrderUI();
+    };
 
     if (sidebarOrderList) {
         let draggedItem = null;
@@ -1293,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById(id)?.addEventListener('click', () => setTimeout(refreshSidebarOrderUI, 30));
     });
 
-    refreshSidebarOrderUI();
+    window.refreshSidebarConcernTabs();
 });
 </script>
 

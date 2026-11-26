@@ -1097,24 +1097,16 @@ class AllmodulesService {
 
         $name = !empty($catNames) ? implode(' - ', array_reverse($catNames)) : (!empty($prog['name']) ? $prog['name'] : 'PRODUCT STYLE');
 
-        $count = Database::fetchOne("SELECT COUNT(*) as c FROM products WHERE source_type = 'OWN_PRODUCTION'")['c'] ?? 0;
-        $code = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
-        $existingCode = Database::fetchOne("SELECT id FROM products WHERE code = ?", [$code]);
-        if ($existingCode) {
-            $code .= '-' . rand(10, 99);
-        }
-
         $qrPrefix = '';
         if ($catCode) $qrPrefix .= substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $catCode)), 0, 1);
         if ($subCode) $qrPrefix .= substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $subCode)), 0, 1);
         if ($sscCode) $qrPrefix .= substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $sscCode)), 0, 1);
 
         Database::execute(
-            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, source_type, is_active, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', 1, NOW(), NOW())",
+            "INSERT INTO products (name, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, source_type, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', 1, NOW(), NOW())",
             [
                 $name,
-                $code,
                 $prog['category_id'] ?? null,
                 $prog['subcategory_id'] ?? null,
                 $prog['sub_subcategory_id'] ?? null,
@@ -1198,29 +1190,15 @@ class AllmodulesService {
             if ($v) return (int)$v['id'];
         }
 
-        // Check if matching by SKU if provided
-        if (!empty($sku)) {
-            $v = Database::fetchOne("SELECT id FROM product_variants WHERE product_id = ? AND sku = ? AND is_active = 1", [$productId, $sku]);
-            if ($v) return (int)$v['id'];
-        }
+        // Create new variant with collision-safe Variant ID (V0001...) and no SKU
+        require_once BASE_PATH . '/app/Services/VariantService.php';
+        $variantCode = VariantService::generateNextVariantCode();
+        $attrHash = $productId . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
-        // Generate SKU if needed
-        $prodCode = $product['code'] ?? ('PRD-' . $productId);
-
-        $skuParts = [$prodCode];
-        if ($sizeName !== '' && $sizeName !== 'Standard') $skuParts[] = $sizeName;
-        if ($colorName !== '' && $colorName !== 'Assorted') $skuParts[] = substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $colorName)), 0, 4);
-        $generatedSku = implode('-', $skuParts);
-
-        // Check if this generated SKU exists
-        $v = Database::fetchOne("SELECT id FROM product_variants WHERE sku = ?", [$generatedSku]);
-        if ($v) return (int)$v['id'];
-
-        // Insert new variant
         Database::execute(
-            "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-             VALUES (?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)",
-            [$productId, $sizeId, $colorId, $generatedSku]
+            "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)",
+            [$variantCode, $productId, $sizeId, $colorId, $attrHash, $variantCode]
         );
 
         return (int)Database::lastInsertId();

@@ -305,7 +305,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         </div>
                         <div class="input-group input-group-lg">
                             <span class="input-group-text bg-white text-success border-success-subtle"><i class="bi bi-qr-code fs-4"></i></span>
-                            <input id="inventorySearch" class="form-control fw-bold font-monospace border-success-subtle" autocomplete="off" placeholder="Scan finished-goods piece tag (e.g. PRD2611-0001) or SKU / Barcode...">
+                            <input id="inventorySearch" class="form-control fw-bold font-monospace border-success-subtle" autocomplete="off" placeholder="Scan finished-goods piece tag (e.g. PRD2611-0001) or Variant ID / Barcode...">
                             <button class="btn btn-success fw-bold px-4" type="button" id="scanAddButton"><i class="bi bi-plus-circle me-1"></i>Scan / Add</button>
                         </div>
                     </div>
@@ -880,7 +880,7 @@ function openCustomerHistoryModal() {
                         <tr>
                             <td>
                                 <strong class="text-dark">${it.product_name}</strong>
-                                <div class="small text-muted font-monospace">${it.sku || ''}</div>
+                                <div class="small text-muted font-monospace">${it.variant_code || ''}</div>
                             </td>
                             <td>
                                 ${it.size_name ? `<span class="badge bg-light text-dark border me-1">${it.size_name}</span>` : ''}
@@ -1811,14 +1811,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const itVIdNum = parseInt(vId, 10);
                     const formattedVCode = (vCode === '' && itVIdNum > 0) ? ('V' + String(itVIdNum).padStart(4, '0')) : '';
                     const shortVCode = (vCode === '' && itVIdNum > 0) ? ('V' + itVIdNum) : '';
-                    const sku = (it.sku || '').toUpperCase();
 
                     return available.some(t => t.toUpperCase() === uNeedle || t.toUpperCase().startsWith(uNeedle + '-') || t.toUpperCase().startsWith(uNeedle + '_'))
                         || (vCode !== '' && (vCode === uNeedle || ('V' + vCode) === uNeedle || vCode === ('V' + uNeedle)))
                         || (formattedVCode !== '' && formattedVCode === uNeedle)
                         || (shortVCode !== '' && shortVCode === uNeedle)
-                        || (!isVCodeQuery && vId !== '0' && (vId === cleanNeedle || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)))
-                        || (sku !== '' && sku === uNeedle);
+                        || (!isVCodeQuery && vId !== '0' && (vId === cleanNeedle || (cleanNeedleNum > 0 && cleanNeedleNum === itVIdNum)));
                 });
 
                 if (exactMatch) {
@@ -1853,7 +1851,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                         <strong class="text-dark">${it.product_name}</strong>
                         ${it.variant_code ? `<span class="badge bg-dark text-white font-monospace ms-1">${it.variant_code}</span>` : ''}
-                        <span class="small text-muted ms-2">${it.sku || ''} ${it.size_name ? '· ' + it.size_name : ''} ${it.color_name ? '· ' + it.color_name : ''}</span>
+                        <span class="small text-muted ms-2">${it.size_name ? it.size_name : ''} ${it.color_name ? '· ' + it.color_name : ''}</span>
                     </div>
                     <span class="badge bg-primary">${money(it.unit_price)}</span>
                 </div>

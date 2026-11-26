@@ -353,7 +353,7 @@ function handleUniversalScan() {
         const prompts = {
             bill: 'Enter an invoice or bill number.',
             phone: 'Enter the customer phone number.',
-            scan: 'Scan or enter a piece tag, QR code, barcode, or SKU.'
+            scan: 'Scan or enter a piece tag, QR code, or Variant ID.'
         };
         alert(prompts[searchMode] || prompts.scan);
         return;
@@ -494,7 +494,7 @@ function handleUniversalScan() {
                             </td>
                             <td>
                                 <strong class="text-dark">${item.product_name}</strong>
-                                <div class="small text-muted">${item.sku || ''} ${item.size_name ? '· Size: ' + item.size_name : ''} ${item.color_name ? '· Color: ' + item.color_name : ''}</div>
+                                <div class="small text-muted">${item.size_name ? 'Size: ' + item.size_name : ''} ${item.color_name ? '· Color: ' + item.color_name : ''}</div>
                             </td>
                             <td><span class="badge bg-light text-dark border font-monospace">${item.hsn_code || '6109'}</span></td>
                             <td class="text-center">
@@ -532,7 +532,7 @@ function handleUniversalScan() {
                         </td>
                         <td>
                             <strong class="text-dark">${item.product_name}</strong>
-                            <div class="small text-muted">${item.sku || ''} ${item.size_name ? '· Size: ' + item.size_name : ''} ${item.color_name ? '· Color: ' + item.color_name : ''}</div>
+                            <div class="small text-muted">${item.size_name ? 'Size: ' + item.size_name : ''} ${item.color_name ? '· Color: ' + item.color_name : ''}</div>
                         </td>
                         <td><span class="badge bg-light text-dark border font-monospace">${item.hsn_code || '6109'}</span></td>
                         <td class="text-center">
@@ -640,8 +640,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchMode && scanInput && searchLabel) {
         const searchModes = {
             scan: {
-                label: 'Scan a piece tag, QR code, barcode, or SKU',
-                placeholder: 'Scan piece tag (e.g. PRD2611-0001), barcode, or SKU...'
+                label: 'Scan a piece tag, QR code, or Variant ID',
+                placeholder: 'Scan piece tag (e.g. PRD2611-0001), QR, or Variant ID...'
             },
             bill: {
                 label: 'Invoice / bill number',

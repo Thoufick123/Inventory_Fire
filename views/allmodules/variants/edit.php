@@ -25,7 +25,7 @@
                 <div class="alert alert-warning d-flex align-items-center gap-2 small mb-4">
                     <i class="bi bi-shield-lock-fill fs-5 text-warning-emphasis"></i>
                     <div>
-                        <strong>Immutable Identity:</strong> This variant already has historical stock, batch, or billing records. Color, Design, Size, SKU, and QR code are locked to preserve audit integrity. Pricing and active status remain editable.
+                        <strong>Immutable Identity:</strong> This variant already has historical stock, batch, or billing records. Color, Design, Size, and QR code are locked to preserve audit integrity. Pricing and active status remain editable.
                     </div>
                 </div>
                 <?php endif; ?>
@@ -35,17 +35,13 @@
 
                     <!-- Read-only Catalog & Identifiers -->
                     <div class="row g-3 mb-4 pb-3 border-bottom">
-                        <div class="col-md-6">
+                        <div class="col-md-8">
                             <label class="form-label text-muted small fw-semibold">Parent Catalog / Style</label>
-                            <input type="text" class="form-control bg-light fw-bold" value="<?= e($variant['parent_sku'] . ' — ' . $variant['product_name']) ?>" readonly>
+                            <input type="text" class="form-control bg-light fw-bold" value="<?= e($variant['product_name']) ?>" readonly>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label text-muted small fw-semibold">Variant Code</label>
+                        <div class="col-md-4">
+                            <label class="form-label text-muted small fw-semibold">Variant ID</label>
                             <input type="text" class="form-control bg-light font-monospace fw-bold" value="<?= e($variant['variant_code']) ?>" readonly>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label text-muted small fw-semibold">Variant SKU</label>
-                            <input type="text" class="form-control bg-light font-monospace fw-bold" value="<?= e($variant['sku']) ?>" readonly>
                         </div>
                     </div>
 
@@ -127,7 +123,7 @@
             <div class="d-flex justify-content-center my-3">
                 <div id="editQrContainer" class="p-2 border rounded bg-white shadow-sm"></div>
             </div>
-            <div class="font-monospace fw-bold fs-6 text-dark mb-3"><?= e($variant['qr_code'] ?: $variant['sku']) ?></div>
+            <div class="font-monospace fw-bold fs-6 text-dark mb-3"><?= e($variant['qr_code'] ?: $variant['variant_code']) ?></div>
 
             <a href="<?= url('production/variants/qr-label/' . $variant['id']) ?>" target="_blank" class="btn btn-outline-dark btn-sm">
                 <i class="bi bi-printer me-1"></i> Print Thermal Label
@@ -141,7 +137,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const qrBox = document.getElementById('editQrContainer');
     new QRCode(qrBox, {
-        text: <?= json_encode((string)($variant['qr_code'] ?: $variant['sku'])) ?>,
+        text: <?= json_encode((string)($variant['qr_code'] ?: $variant['variant_code'])) ?>,
         width: 140,
         height: 140,
         correctLevel: QRCode.CorrectLevel.M

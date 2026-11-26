@@ -28,9 +28,9 @@ class AllmodulesReturnController
         }
 
         if ($search !== '') {
-            $where[] = '(pr.return_number LIKE ? OR pr.bill_number LIKE ? OR pr.customer_name LIKE ? OR pr.customer_phone LIKE ? OR EXISTS (SELECT 1 FROM production_return_items pri WHERE pri.return_id = pr.id AND (pri.tag_code LIKE ? OR pri.sku LIKE ? OR pri.product_name LIKE ?)))';
+            $where[] = '(pr.return_number LIKE ? OR pr.bill_number LIKE ? OR pr.customer_name LIKE ? OR pr.customer_phone LIKE ? OR EXISTS (SELECT 1 FROM production_return_items pri WHERE pri.return_id = pr.id AND (pri.tag_code LIKE ? OR pri.product_name LIKE ?)))';
             $wild = '%' . $search . '%';
-            $params = array_merge($params, [$wild, $wild, $wild, $wild, $wild, $wild, $wild]);
+            $params = array_merge($params, [$wild, $wild, $wild, $wild, $wild, $wild]);
         }
 
         if ($status !== '') {
@@ -136,7 +136,7 @@ class AllmodulesReturnController
      * Universal Live Scanner & Bill Lookup
      * Handles scanning:
      * 1. Individual piece tracking QR code (e.g., PRD2611-0001, KBD1126101)
-     * 2. Variant Barcode / SKU / QR code
+     * 2. Variant Barcode / QR code / Variant ID
      * 3. Explicit invoice-number and customer-phone searches
      */
     public function ajaxLookupBill(): void
@@ -250,23 +250,20 @@ class AllmodulesReturnController
                     }
                 }
 
-                // 2. If not a specific piece tag, check if it matches a product variant SKU, QR code, or variant code in billed items
+                // 2. If not a specific piece tag, check if it matches a product variant QR code or variant code in billed items
                 if (!$matchedBillId) {
-                    $skuRow = Database::fetchOne(
-                        "SELECT pbi.bill_id, pbi.sku
+                    $varRow = Database::fetchOne(
+                        "SELECT pbi.bill_id, pv.variant_code
                          FROM production_bill_items pbi
                          JOIN production_bills pb ON pbi.bill_id = pb.id
                          LEFT JOIN product_variants pv ON pbi.variant_id = pv.id
-                         WHERE (UPPER(TRIM(pbi.sku)) = UPPER(?) 
-                            OR UPPER(TRIM(pv.sku)) = UPPER(?) 
-                            OR UPPER(TRIM(pv.qr_code)) = UPPER(?) 
+                         WHERE (UPPER(TRIM(pv.qr_code)) = UPPER(?) 
                             OR UPPER(TRIM(pv.variant_code)) = UPPER(?)){$concernWhereSql}
                          ORDER BY pb.id DESC LIMIT 1",
-                        array_merge([$query, $query, $query, $query], $concernParams)
+                        array_merge([$query, $query], $concernParams)
                     );
-                    if ($skuRow) {
-                        $scannedSku = $skuRow['sku'];
-                        $matchedBillId = (int)$skuRow['bill_id'];
+                    if ($varRow) {
+                        $matchedBillId = (int)$varRow['bill_id'];
                     }
                 }
 
@@ -702,13 +699,13 @@ class AllmodulesReturnController
             foreach ($itemsToInsert as $ins) {
                 Database::execute(
                     "INSERT INTO production_return_items
-                     (return_id, bill_item_id, qc_item_id, variant_id, product_name, sku, hsn_code, tag_code,
+                     (return_id, bill_item_id, qc_item_id, variant_id, product_name, hsn_code, tag_code,
                       quantity, unit_price, gst_percentage, taxable_amount, tax_amount, total_amount,
                       reason, item_condition, action_taken)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
                         $returnId, $ins['bill_item_id'], $ins['qc_item_id'], $ins['variant_id'],
-                        $ins['product_name'], $ins['sku'], $ins['hsn_code'], $ins['tag_code'],
+                        $ins['product_name'], $ins['hsn_code'], $ins['tag_code'],
                         $ins['quantity'], $ins['unit_price'], $ins['gst_percentage'],
                         $ins['taxable_amount'], $ins['tax_amount'], $ins['total_amount'],
                         $ins['reason'], $ins['item_condition'], $ins['action_taken'],

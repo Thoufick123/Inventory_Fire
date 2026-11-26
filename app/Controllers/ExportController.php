@@ -49,7 +49,7 @@ class ExportController {
             ],
             'third_party_products' => [
                 'name' => 'Third-Party Products & Mapping',
-                'desc' => 'Ready-to-sell vendor SKUs, retail catalog mapping, 3-tier taxonomy, sizes, colors, MRP & SP',
+                'desc' => 'Ready-to-sell vendor products, retail catalog mapping, 3-tier taxonomy, sizes, colors, MRP & SP',
                 'icon' => 'bi bi-shop',
                 'color' => 'info',
                 'category' => 'Procurement & Materials'
@@ -113,8 +113,8 @@ class ExportController {
                 'category' => 'Manufacturing'
             ],
             'variants' => [
-                'name' => 'Product Variants & SKUs',
-                'desc' => 'Garment sizes, colors, design names, SKU codes, barcodes, MRP, selling price & cost per piece',
+                'name' => 'Product Variants',
+                'desc' => 'Garment sizes, colors, design names, Variant IDs, barcodes, MRP, selling price & cost per piece',
                 'icon' => 'bi bi-tags',
                 'color' => 'info',
                 'category' => 'Manufacturing'
@@ -144,7 +144,7 @@ class ExportController {
             ],
             'inventory' => [
                 'name' => 'Finished Goods Inventory (On-Hand)',
-                'desc' => 'Real-time available stock levels by SKU, style, color, size, location & stock states',
+                'desc' => 'Real-time available stock levels by variant, style, color, size, location & stock states',
                 'icon' => 'bi bi-layers',
                 'color' => 'info',
                 'category' => 'Logistics & Warehousing'

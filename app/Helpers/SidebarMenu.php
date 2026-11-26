@@ -89,7 +89,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/variants',
                 'active_menus' => ['prod-variants'],
                 'module'       => 'production',
-                'permissions'  => ['variants', 'catalog'],
+                'permissions'  => ['variants'],
                 'icon'         => '',
             ],
             [
@@ -98,7 +98,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/qr-generations',
                 'active_menus' => ['prod-qr-generation'],
                 'module'       => 'production',
-                'permissions'  => ['qr_generation', 'catalog'],
+                'permissions'  => ['qr_generation'],
                 'icon'         => '',
             ],
             [
@@ -188,7 +188,7 @@ class SidebarMenu {
                 'url'          => 'allmodules/stock-requests',
                 'active_menus' => ['prod-stock-requests', 'stock-requests', 'stock-requirements'],
                 'module'       => 'warehouse',
-                'permissions'  => ['production_stock_requests', 'stock_requests', 'inventory'],
+                'permissions'  => ['production_stock_requests', 'stock_requests'],
                 'icon'         => '',
             ],
             [
@@ -288,11 +288,72 @@ class SidebarMenu {
     }
 
     /**
-     * Load custom sidebar order keys for a user ID.
+     * Sanitize a submitted sidebar order payload (either flat key array or concern-id => key array map).
+     *
+     * @param string|array|null $input
+     * @return array<int|string, mixed>
+     */
+    public static function sanitizeOrderPayload($input): array {
+        if (is_string($input)) {
+            $decoded = json_decode($input, true);
+            $input = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($input) || empty($input)) {
+            return [];
+        }
+        if (array_is_list($input)) {
+            return self::sanitizeOrder($input);
+        }
+        $map = [];
+        foreach ($input as $concernKey => $keys) {
+            $cid = (int)$concernKey;
+            if ($cid > 0 && is_array($keys)) {
+                $map[(string)$cid] = self::sanitizeOrder($keys);
+            }
+        }
+        return !empty($map) ? $map : self::sanitizeOrder($input);
+    }
+
+    /**
+     * Load raw per-concern sidebar order map for a user ID (used by Staff form).
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function getOrderMapForUser(?int $userId): array {
+        self::ensureSchema();
+        if (!$userId || $userId <= 0) {
+            return [];
+        }
+        try {
+            $row = Database::fetchOne("SELECT sidebar_order FROM users WHERE id = ? LIMIT 1", [$userId]);
+            if ($row && !empty($row['sidebar_order'])) {
+                $decoded = json_decode((string)$row['sidebar_order'], true);
+                if (is_array($decoded) && !empty($decoded)) {
+                    if (array_is_list($decoded)) {
+                        return ['_default' => self::sanitizeOrder($decoded)];
+                    }
+                    $map = [];
+                    foreach ($decoded as $k => $v) {
+                        $cid = (int)$k;
+                        if ($cid > 0 && is_array($v)) {
+                            $map[(string)$cid] = self::sanitizeOrder($v);
+                        }
+                    }
+                    return $map;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('SidebarMenu::getOrderMapForUser failed: ' . $e->getMessage());
+        }
+        return [];
+    }
+
+    /**
+     * Load custom sidebar order keys for a user ID (optionally scoped to active concern ID).
      *
      * @return array<int, string>
      */
-    public static function getOrderForUser(?int $userId): array {
+    public static function getOrderForUser(?int $userId, ?int $concernId = null): array {
         self::ensureSchema();
         $defaultKeys = array_column(self::allModuleItems(), 'key');
         if (!$userId || $userId <= 0) {
@@ -301,9 +362,22 @@ class SidebarMenu {
         try {
             $row = Database::fetchOne("SELECT sidebar_order FROM users WHERE id = ? LIMIT 1", [$userId]);
             if ($row && !empty($row['sidebar_order'])) {
-                $sanitized = self::sanitizeOrder($row['sidebar_order']);
-                if (!empty($sanitized)) {
-                    return $sanitized;
+                $decoded = json_decode((string)$row['sidebar_order'], true);
+                if (is_array($decoded) && !empty($decoded)) {
+                    if (!array_is_list($decoded)) {
+                        if ($concernId && isset($decoded[(string)$concernId]) && is_array($decoded[(string)$concernId])) {
+                            return self::sanitizeOrder($decoded[(string)$concernId]);
+                        }
+                        foreach ($decoded as $firstList) {
+                            if (is_array($firstList)) {
+                                return self::sanitizeOrder($firstList);
+                            }
+                        }
+                    }
+                    $sanitized = self::sanitizeOrder($decoded);
+                    if (!empty($sanitized)) {
+                        return $sanitized;
+                    }
                 }
             }
         } catch (\Throwable $e) {
@@ -317,13 +391,13 @@ class SidebarMenu {
      *
      * @return array<int, array<string, mixed>>
      */
-    public static function getOrderedItemsForUser(?int $userId): array {
+    public static function getOrderedItemsForUser(?int $userId, ?int $concernId = null): array {
         $items = self::allModuleItems();
         $byKey = [];
         foreach ($items as $item) {
             $byKey[$item['key']] = $item;
         }
-        $orderKeys = self::getOrderForUser($userId);
+        $orderKeys = self::getOrderForUser($userId, $concernId);
         $sorted = [];
         foreach ($orderKeys as $key) {
             if (isset($byKey[$key])) {

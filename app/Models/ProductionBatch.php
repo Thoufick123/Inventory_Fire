@@ -300,7 +300,7 @@ class ProductionBatch {
             "SELECT st.*, 
                     u.full_name as user_name, 
                     w.name as warehouse_name, w.code as warehouse_code,
-                    pv.sku, pv.qr_code,
+                    pv.variant_code, pv.qr_code,
                     s.name as size_name, c.name as color_name
              FROM stock_transactions st
              LEFT JOIN product_variants pv ON st.variant_id = pv.id
@@ -487,7 +487,7 @@ class ProductionBatch {
     public static function getItems(int $batchId): array {
         $items = Database::fetchAll(
             "SELECT pbi.*, pbi.piece_tags as packed_piece_tags,
-                    pv.sku, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
+                    pv.variant_code, pv.qr_code, pv.mrp, pv.selling_price, pv.purchase_price, pv.production_cost,
                     pv.qr_type, pv.pack_quantity, pv.is_complementary as pv_is_comp,
                     COALESCE(NULLIF(pv.hsn_code, ''), NULLIF(p.hsn_code, ''), '6109') as hsn_code,
                     COALESCE(NULLIF(pv.gst_rate, 0), NULLIF(p.gst_percentage, 0), 5.00) as gst_rate,
