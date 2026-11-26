@@ -48,20 +48,27 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
         <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
         <div class="col-xl-4">
             <!-- 1. Billed By Staff (Cashier / Salesperson) -->
+            <?php
+            $defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
+            $defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
+            $defaultStaffRole = '';
+            foreach ($staffUsers ?? [] as $st) {
+                if ((int)$st['id'] === $defaultStaffId) {
+                    $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
+                    $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
+                    break;
+                }
+            }
+            $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
+            ?>
             <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-primary">
                 <div class="card-body p-3">
-                    <label class="form-label fw-bold text-dark mb-1" for="staffSelect">
+                    <label class="form-label fw-bold text-dark mb-1">
                         <i class="bi bi-person-badge-fill text-primary me-1"></i>Billed by (Staff / Cashier) <span class="text-danger">*</span>
                     </label>
-                    <select class="form-select fw-semibold" name="staff_id" id="staffSelect" required onchange="updateStaffName(this)">
-                        <?php foreach ($staffUsers ?? [] as $st): ?>
-                            <?php $selectedStaff = (int)($bill['staff_id'] ?? $currentUserId ?? 0) === (int)$st['id']; ?>
-                            <option value="<?= (int)$st['id'] ?>" <?= $selectedStaff ? 'selected' : '' ?> data-name="<?= $escape($st['full_name']) ?>">
-                                <?= $escape($st['full_name']) ?> (<?= $escape($st['staff_role'] ?: $st['department'] ?: $st['username']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($bill['staff_name'] ?? (Auth::user()['full_name'] ?? '')) ?>">
+                    <input type="text" class="form-control fw-semibold bg-light" value="<?= $escape($defaultStaffDisplay) ?>" readonly>
+                    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
+                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
                 </div>
             </div>
 
@@ -190,45 +197,10 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
             <!-- 5. Company Fields (when B2B selected) -->
             <div class="card border-0 shadow-sm rounded-3 mb-3 <?= $selectedBuyerType === 'COMPANY' ? '' : 'd-none' ?>" id="companyFields">
                 <div class="card-header bg-white fw-semibold py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span><i class="bi bi-building me-2 text-primary"></i>Company (Buyer) &amp; Batch Options</span>
+                    <span><i class="bi bi-building me-2 text-primary"></i>Company (Buyer) Details</span>
                     <span class="badge bg-primary-subtle text-primary border">B2B Order Mode</span>
                 </div>
                 <div class="card-body p-3">
-                    <!-- Option to load a Batches for B2B Billing -->
-                    <div class="p-3 bg-light rounded-3 border mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label fw-bold text-dark mb-0" for="selectPackingBatch">
-                                <i class="bi bi-boxes text-primary me-1"></i> Bill from Batches (Optional)
-                            </label>
-                            <span class="badge bg-primary text-white">Batch Option</span>
-                        </div>
-                        <p class="small text-muted mb-2">Select an unbilled packing batch to automatically load all packed garments, piece tags, and buyer destination into this bill.</p>
-                        <div class="input-group">
-                            <select class="form-select form-select-sm fw-semibold" id="selectPackingBatch" name="production_batch_id">
-                                <option value="">-- Choose Batches to Bill --</option>
-                                <?php if (!empty($availablePackingBatches)): ?>
-                                    <?php foreach ($availablePackingBatches as $pb): ?>
-                                        <option value="<?= $pb['id'] ?>" 
-                                                data-batch-number="<?= $escape($pb['batch_number']) ?>" 
-                                                data-product-name="<?= $escape($pb['product_name']) ?>"
-                                                data-total-qty="<?= (int)$pb['total_qty'] ?>"
-                                                data-box-count="<?= (int)($pb['box_count'] ?? 1) ?>"
-                                                data-warehouse-name="<?= $escape($pb['warehouse_name'] ?? '') ?>"
-                                                data-concern-name="<?= $escape($pb['concern_name'] ?? '') ?>">
-                                            <?= $escape($pb['batch_number']) ?> — <?= $escape($pb['product_name']) ?> (<?= (int)$pb['total_qty'] ?> pcs in <?= (int)($pb['box_count'] ?? 1) ?> boxes) <?= !empty($pb['concern_name']) ? '[' . $escape($pb['concern_name']) . ']' : '' ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </select>
-                            <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnLoadPackingBatch" onclick="loadSelectedPackingBatch()">
-                                <i class="bi bi-box-arrow-in-down me-1"></i> Load Batch Items
-                            </button>
-                        </div>
-                        <div id="batchLoadedNotice" class="d-none mt-2 alert alert-success py-1 px-2 small mb-0 rounded-2">
-                            <i class="bi bi-check-circle-fill me-1"></i> <span id="batchLoadedText"></span>
-                        </div>
-                    </div>
-
                     <div class="mb-3"><label class="form-label">Company name <span class="text-danger">*</span></label><input class="form-control fw-semibold" name="company_name" id="companyNameInput" data-required-for="COMPANY" value="<?= $escape($bill['company_name'] ?? '') ?>" placeholder="Company Legal Name"></div>
                     <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address" id="companyAddressInput" rows="2"><?= $escape($bill['company_address'] ?? '') ?></textarea></div>
                     <div class="row g-2">
@@ -1863,121 +1835,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('scanAddButton').addEventListener('click', () => {
         handleScanAdd(search.value);
     });
-
-    window.loadSelectedPackingBatch = function() {
-        const sel = document.getElementById('selectPackingBatch');
-        const batchId = sel ? sel.value : '';
-        if (!batchId) {
-            alert('Please select a packing batch from the dropdown.');
-            return;
-        }
-
-        const btn = document.getElementById('btnLoadPackingBatch');
-        const origHtml = btn ? btn.innerHTML : '';
-        if (btn) {
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
-            btn.disabled = true;
-        }
-
-        fetch('<?= url("api/production/billing/batch-items") ?>?batch_id=' + encodeURIComponent(batchId))
-            .then(res => res.json())
-            .then(res => {
-                if (btn) {
-                    btn.innerHTML = origHtml;
-                    btn.disabled = false;
-                }
-                if (!res.success) {
-                    alert(res.message || 'Failed to load packing batch items.');
-                    return;
-                }
-
-                const batch = res.batch;
-                const items = res.items || [];
-                if (!items.length) {
-                    alert('This packing batch has no available unbilled items.');
-                    return;
-                }
-
-                // Fill company details if empty
-                if (batch) {
-                    const compNameInput = document.getElementById('companyNameInput');
-                    if (compNameInput && (!compNameInput.value || compNameInput.value.trim() === '')) {
-                        compNameInput.value = batch.concern_name || batch.warehouse_name || '';
-                    }
-                    const compAddr = document.getElementById('companyAddressInput');
-                    if (compAddr && (!compAddr.value || compAddr.value.trim() === '') && batch.concern_address) {
-                        compAddr.value = batch.concern_address;
-                    }
-                    const compPhone = document.getElementById('companyPhoneInput');
-                    if (compPhone && (!compPhone.value || compPhone.value.trim() === '') && batch.concern_phone) {
-                        compPhone.value = batch.concern_phone;
-                    }
-                    const compEmail = document.getElementById('companyEmailInput');
-                    if (compEmail && (!compEmail.value || compEmail.value.trim() === '') && batch.concern_email) {
-                        compEmail.value = batch.concern_email;
-                    }
-                    const compGst = document.getElementById('companyGstinInput');
-                    if (compGst && (!compGst.value || compGst.value.trim() === '') && batch.concern_gst) {
-                        compGst.value = batch.concern_gst;
-                    }
-                }
-
-                // Add batch items into cart Map (1 editable row per piece)
-                let totalTags = 0;
-                items.forEach(it => {
-                    const tags = Array.isArray(it.tags) ? it.tags : [];
-                    totalTags += tags.length;
-                    tags.forEach(tag => {
-                        const entry = {
-                            qc_item_id: it.qc_item_id || 0,
-                            variant_id: it.variant_id || 0,
-                            variant_code: it.variant_code || '',
-                            product_name: it.product_name || 'Finished Product',
-                            sku: it.sku || '',
-                            hsn_code: it.hsn_code || '6109',
-                            size_name: it.size_name || 'STD',
-                            color_name: it.color_name || 'STD',
-                            mrp: Number(it.mrp || 0),
-                            unit_price: Number(it.unit_price || it.mrp || 0),
-                            is_complementary: Number(it.is_complementary || 0),
-                            discount_percentage: resolveDiscountPercentage({
-                                mrp: Number(it.mrp || 0),
-                                unit_price: Number(it.unit_price || it.mrp || 0),
-                                discount_percentage: it.discount_percentage
-                            }),
-                            discount_amount: 0,
-                            gst_percentage: Number(it.gst_percentage || 5),
-                            gst_type: it.gst_type || 'BOTH',
-                            tax_input_type: it.tax_input_type || 'PERCENT',
-                            sgst_rate: Number(it.sgst_rate || 2.5),
-                            cgst_rate: Number(it.cgst_rate || 2.5),
-                            igst_rate: Number(it.igst_rate || 0),
-                            tags: [tag],
-                            available_tags: [...tags]
-                        };
-                        cart.set(getItemKey(entry, tag), entry);
-                    });
-                });
-
-                renderCart();
-                showSuccessToast();
-
-                const notice = document.getElementById('batchLoadedNotice');
-                const noticeText = document.getElementById('batchLoadedText');
-                if (notice && noticeText) {
-                    noticeText.textContent = `Batch ${batch ? batch.batch_number : ''} loaded: ${items.length} line(s) (${totalTags} garments) added to bill cart.`;
-                    notice.classList.remove('d-none');
-                }
-            })
-            .catch(err => {
-                if (btn) {
-                    btn.innerHTML = origHtml;
-                    btn.disabled = false;
-                }
-                console.error('Batch load error:', err);
-                alert('An error occurred while fetching the batch.');
-            });
-    };
 
     // Populate initial items (1 editable row per piece)
     initialItems.forEach(it => {
