@@ -266,45 +266,39 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             </span>
                         </div>
 
-                        <div class="row g-2 align-items-end mb-3">
-                            <div class="col-12">
-                                <label class="form-label small fw-semibold mb-1" for="fabricNameInput">
-                                    Fabric / Material Name <span class="text-danger">*</span>
-                                </label>
-                                <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
-                                <datalist id="rollProductSuggestions">
-                                    <?php foreach (($existingRollProducts ?? []) as $rp): ?>
-                                        <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
-                                    <?php endforeach; ?>
-                                    <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
-                                    <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
-                                    <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
-                                    <option value="100% COTTON FRENCH TERRY (240 GSM)">
-                                    <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
-                                    <option value="RAYON / VISCOSE PRINTED FABRIC">
-                                </datalist>
-                            </div>
-                        </div>
-
                         <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 860px;">
+                        <table class="table table-bordered align-middle table-sm mb-2" id="mappingRollsTable" style="min-width: 860px;">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 140px;">Roll Code / #</th>
-                                    <th>Color / Shade *</th>
-                                    <th style="width: 170px;">Design / Pattern</th>
-                                    <th style="width: 130px;">Weight (kg) *</th>
-                                    <th style="width: 130px;">Rate (₹/kg) *</th>
-                                    <th style="width: 85px;">GST %</th>
-                                    <th style="width: 185px;">HSN Code</th>
-                                    <th style="width: 45px;"></th>
+                                    <th style="min-width: 210px;">Fabric / Material Name <span class="text-danger">*</span></th>
+                                    <th style="width: 115px;">Roll Code / #</th>
+                                    <th style="min-width: 130px;">Color / Shade <span class="text-danger">*</span></th>
+                                    <th style="width: 145px;">Design / Pattern</th>
+                                    <th style="width: 105px;">Weight (kg) <span class="text-danger">*</span></th>
+                                    <th style="width: 105px;">Rate (₹/kg) <span class="text-danger">*</span></th>
+                                    <th style="width: 70px;">GST %</th>
+                                    <th style="width: 165px;">HSN Code</th>
                                 </tr>
                             </thead>
                             <tbody id="mappingRollRows">
                                 <tr class="mapping-roll-row">
+                                    <td>
+                                        <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
+                                        <datalist id="rollProductSuggestions">
+                                            <?php foreach (($existingRollProducts ?? []) as $rp): ?>
+                                                <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
+                                            <?php endforeach; ?>
+                                            <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
+                                            <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
+                                            <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
+                                            <option value="100% COTTON FRENCH TERRY (240 GSM)">
+                                            <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
+                                            <option value="RAYON / VISCOSE PRINTED FABRIC">
+                                        </datalist>
+                                    </td>
                                     <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
-                                    <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="e.g. Solid, Printed..."></td>
+                                    <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="Solid, Printed..."></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
                                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
@@ -317,7 +311,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             <?php endforeach; ?>
                                         </select>
                                     </td>
-                                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row" title="Remove roll"><i class="bi bi-x-lg"></i></button></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1459,9 +1452,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tr = document.createElement('tr');
                 tr.className = 'mapping-roll-row';
                 tr.innerHTML = `
+                    <td></td>
                     <td><input class="form-control form-control-sm font-monospace" name="rolls[${nextRollIndex}][roll_code]" placeholder="ROLL-${String(nextRollIndex + 1).padStart(3, '0')}"></td>
                     <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][color]" placeholder="Navy Blue" required></td>
-                    <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][design_name]" placeholder="e.g. Solid, Printed..."></td>
+                    <td><input class="form-control form-control-sm" name="rolls[${nextRollIndex}][design_name]" placeholder="Solid, Printed..."></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][weight_kg]" placeholder="22.50" required></td>
                     <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][rate]" placeholder="150.00" required></td>
                     <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[${nextRollIndex}][gst_rate]" value="${gstVal}"></td>
@@ -1470,7 +1464,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${hsnOptionsHtml}
                         </select>
                     </td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger remove-roll-row"><i class="bi bi-x-lg"></i></button></td>
                 `;
                 const newHsnSelect = tr.querySelector('.roll-hsn-select');
                 if (newHsnSelect && hsnVal) {
@@ -1480,13 +1473,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 nextRollIndex++;
             }
         };
-        rollBody.addEventListener('click', function(e) {
-            const btn = e.target.closest('.remove-roll-row');
-            if (!btn) return;
-            if (rollBody.querySelectorAll('tr').length > 1) {
-                btn.closest('tr').remove();
-            }
-        });
 
         // HSN select change inside roll rows auto-updates that roll's GST %
         rollBody.addEventListener('change', function(event) {
