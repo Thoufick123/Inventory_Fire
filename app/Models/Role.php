@@ -245,10 +245,10 @@ class Role {
             ['production_purchases', 'edit', 'Edit Production Purchase & Invoices', 'production_purchases.edit', 'sellers'],
             ['production_purchases', 'delete', 'Delete Production Purchase Record', 'production_purchases.delete', 'sellers'],
 
-            ['production_purchase_mapping', 'view', 'View Bill Creations', 'production_purchase_mapping.view', 'production_purchases'],
-            ['production_purchase_mapping', 'create', 'Add Purchase Lines to Bill Creations', 'production_purchase_mapping.create', 'production_purchases'],
-            ['production_purchase_mapping', 'edit', 'Map Products to Catalog Variants', 'production_purchase_mapping.edit', 'production_purchases'],
-            ['production_purchase_mapping', 'delete', 'Remove Bill Creations Lines', 'production_purchase_mapping.delete', 'production_purchases'],
+            ['production_purchase_mapping', 'view', 'View QR Generations', 'production_purchase_mapping.view', 'production_purchases'],
+            ['production_purchase_mapping', 'create', 'Add Purchase Lines to QR Generations', 'production_purchase_mapping.create', 'production_purchases'],
+            ['production_purchase_mapping', 'edit', 'Map Products & Edit QR Generations', 'production_purchase_mapping.edit', 'production_purchases'],
+            ['production_purchase_mapping', 'delete', 'Remove QR Generations Lines', 'production_purchase_mapping.delete', 'production_purchases'],
 
             ['cash_flow', 'view', 'View Cash Management', 'cash_flow.view', 'production'],
             ['cash_flow', 'create', 'Open Shift, Record Inflow/Expense, Top Up & Bank Drop', 'cash_flow.create', 'production'],
@@ -689,6 +689,13 @@ class Role {
                             }
                         }
                     }
+                } else {
+                    if ($mod === 'production_purchase_mapping') {
+                        Database::execute(
+                            "UPDATE permissions SET description = ? WHERE id = ? AND description != ?",
+                            [$desc, (int)$row['id'], $desc]
+                        );
+                    }
                 }
             }
             Database::execute("
@@ -753,7 +760,7 @@ class Role {
                     'production'                => ['name' => 'Dashboard', 'icon' => 'bi-speedometer', 'desc' => 'Plant overview, line throughput, and live tracking', 'department' => 'PRODUCTION'],
                     'sellers'                   => ['name' => 'Sellers', 'icon' => 'bi-person-badge', 'desc' => 'Job worker directory, vendor ledgers, and contract rates', 'department' => 'PRODUCTION'],
                     'production_purchases'      => ['name' => 'Purchases', 'icon' => 'bi-cart-check', 'desc' => 'Production fabric, yarn, raw material purchases and supplier invoices', 'department' => 'PRODUCTION'],
-                    'production_purchase_mapping' => ['name' => 'Bill Creations', 'icon' => 'bi-diagram-3', 'desc' => 'Map purchase items to catalog categories, variants, and prices', 'department' => 'PRODUCTION'],
+                    'production_purchase_mapping' => ['name' => 'QR Generations', 'icon' => 'bi-qr-code-scan', 'desc' => 'Generate QR batches, map purchase items to catalog categories, variants, and prices', 'department' => 'PRODUCTION'],
                     'cash_flow'                 => ['name' => 'Cash Management', 'icon' => 'bi-cash-coin', 'desc' => 'Cash flow register, shifts, top-ups, bank deposits, and daily till balances', 'department' => 'PRODUCTION'],
                     'damages'                   => ['name' => 'Damages', 'icon' => 'bi-exclamation-octagon', 'desc' => 'Defective fabric, floor damages, and scrap recovery logs', 'department' => 'PRODUCTION'],
                     'catalog'                   => ['name' => 'Catalog', 'icon' => 'bi-journal-bookmark', 'desc' => 'Design catalogs, style codes, and Bill of Materials (BOM)', 'department' => 'PRODUCTION'],

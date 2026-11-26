@@ -49,7 +49,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'mapping',
-                'label'        => 'Bill Creations',
+                'label'        => 'QR Generations',
                 'url'          => 'allmodules/purchases/mapping',
                 'active_menus' => ['purchases-mapping', 'prod-purchases-mapping'],
                 'module'       => 'purchases',
@@ -63,7 +63,7 @@ class SidebarMenu {
                 'active_menus' => ['cash-flow', 'shop-cash-flow'],
                 'module'       => 'production',
                 'permissions'  => ['cash_flow', 'shop_cash'],
-                'icon'         => 'bi bi-cash-coin me-1',
+                'icon'         => '',
             ],
             [
                 'key'          => 'damages',

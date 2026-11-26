@@ -5,7 +5,7 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="<?= url('production/purchases/mapping') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-diagram-3 me-1"></i> Bill Creations
+            <i class="bi bi-qr-code-scan me-1"></i> QR Generations
         </a>
         <a href="<?= url('production/purchases/mapping/catalog/create') ?>" class="btn btn-primary shadow-sm">
             <i class="bi bi-plus-circle-fill me-1"></i> Add Third-Party Style
