@@ -403,10 +403,7 @@ class Role {
             ['outward', 'edit', 'Edit Outward Challans & Delivery Notes', 'outward.edit', null],
             ['outward', 'delete', 'Delete Outward Challans & Dispatch Records', 'outward.delete', null],
 
-            ['warehouse_rework', 'view', 'View Warehouse Rework Queue', 'warehouse_rework.view', null],
-            ['warehouse_rework', 'create', 'Create Rework Dispatch & Repair Jobs', 'warehouse_rework.create', null],
-            ['warehouse_rework', 'edit', 'Edit Rework Records & Repair Status', 'warehouse_rework.edit', null],
-            ['warehouse_rework', 'delete', 'Delete Rework Records', 'warehouse_rework.delete', null],
+            // Warehouse Rework module removed
 
             // â”€â”€ Warehouse submodules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             ['warehouse', 'view', 'View Warehouse Dashboard & Capacity', 'warehouse.view', null],

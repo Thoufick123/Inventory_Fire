@@ -237,15 +237,6 @@ class SidebarMenu {
                 'icon'         => '',
             ],
             [
-                'key'          => 'rework',
-                'label'        => 'Rework',
-                'url'          => 'allmodules/warehouse-rework',
-                'active_menus' => ['warehouse-rework'],
-                'module'       => 'warehouse',
-                'permissions'  => ['warehouse_rework'],
-                'icon'         => '',
-            ],
-            [
                 'key'          => 'hsn_config',
                 'label'        => 'HSN Config',
                 'url'          => 'allmodules/hsn-config',
