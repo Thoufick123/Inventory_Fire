@@ -11418,17 +11418,21 @@ class AllmodulesController {
         $productAttributes = json_decode((string)($product['attributes'] ?? ''), true);
         $savedOptions = is_array($productAttributes) ? ($productAttributes['production_variant_options'] ?? []) : [];
         $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
-        $selectedColors = isset($_POST['colors']) && is_array($_POST['colors'])
+        $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors'])
             ? array_filter(array_map('intval', $_POST['colors']))
-            : ($savedOptions['color_ids'] ?? []);
+            : (!empty($_POST['attributes_submitted']) ? [] : ($savedOptions['color_ids'] ?? []));
         $customAttributes = self::parseSubmittedCustomAttributes();
-        $attributes = $isDeferredVariants
-            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes)
-            : ($product['attributes'] ?? null);
+        if ($isDeferredVariants) {
+            $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes);
+        } else {
+            $decodedAttrs = is_array($productAttributes) ? $productAttributes : [];
+            $decodedAttrs['custom_attributes'] = $customAttributes;
+            $attributes = json_encode($decodedAttrs, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        }
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
-                "SELECT id, name FROM products WHERE qr_code_prefix = ? AND id != ? LIMIT 1",
+                "SELECT id, name FROM products WHERE qr_code_prefix = ? AND id != ? AND is_active = 1 LIMIT 1",
                 [$qrCodePrefix, $id]
             );
             if ($existingQr) {

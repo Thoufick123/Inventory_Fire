@@ -346,9 +346,11 @@ tr.table-danger, tr.table-danger > td {
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">1</span>
                     <h5 class="mb-0 fw-bold text-dark">Purchased Product Baseline Details</h5>
                 </div>
-                <span class="small text-muted"><i class="bi bi-info-circle me-1"></i>Procurement baseline from Supplier Bill</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" id="toggleBaselineDetails" title="Collapse or expand baseline details">
+                    <i class="bi bi-arrows-collapse"></i> Compact
+                </button>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-4" id="baselineDetailsBody">
                 <!-- 3 Top Reference Panels -->
                 <div class="row g-3 mb-4">
                     <!-- Column 1: Product Identity -->
@@ -1301,6 +1303,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
+
+    const toggleBaselineBtn = document.getElementById('toggleBaselineDetails');
+    const baselineDetailsBody = document.getElementById('baselineDetailsBody');
+    if (toggleBaselineBtn && baselineDetailsBody) {
+        toggleBaselineBtn.addEventListener('click', function () {
+            const isHidden = baselineDetailsBody.classList.toggle('d-none');
+            this.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand"></i> Expand'
+                : '<i class="bi bi-arrows-collapse"></i> Compact';
+        });
+    }
 
     function showModernAlert(message, title = 'Notice', type = 'warning') {
         const modalEl = document.getElementById('mappingModernAlertModal');
