@@ -325,7 +325,7 @@ if (!empty($bill['total_amount'])) {
                             <td><?= $idx + 1 ?></td>
                             <td>
                                 <div class="fw-bold text-dark"><?= e($it['product_name'] ?? 'Finished Product') ?></div>
-                                <div class="small text-muted font-monospace"><?= e($it['sku'] ?? '—') ?></div>
+                                <div class="small text-muted font-monospace"><?= e($it['variant_code'] ?? '—') ?></div>
                             </td>
                             <td>
                                 <span class="badge bg-light text-dark border"><?= e($it['size_name'] ?: 'Std') ?></span>

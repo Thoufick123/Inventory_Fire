@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `allocation_outwards` (
 CREATE TABLE IF NOT EXISTS `asset_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
-  `code` varchar(50) NOT NULL,
+  `code` varchar(50) DEFAULT NULL,
   `icon` varchar(100) NOT NULL DEFAULT 'bi-box-seam',
   `description` text DEFAULT NULL,
   `depreciation_rate_annual` decimal(5,2) NOT NULL DEFAULT 15.00,
@@ -298,7 +298,7 @@ CREATE TABLE IF NOT EXISTS `concern_modules` (
 CREATE TABLE IF NOT EXISTS `concerns` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,
-  `code` varchar(50) NOT NULL,
+  `code` varchar(50) DEFAULT NULL,
   `concern_type` enum('HEAD_OFFICE','PRODUCTION','WAREHOUSE','RETAIL') NOT NULL DEFAULT 'HEAD_OFFICE',
   `legal_name` varchar(255) DEFAULT NULL,
   `gst_number` varchar(15) DEFAULT NULL,
@@ -467,7 +467,7 @@ CREATE TABLE IF NOT EXISTS `designs` (
 CREATE TABLE IF NOT EXISTS `expense_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
-  `code` varchar(50) NOT NULL,
+  `code` varchar(50) DEFAULT NULL,
   `department_scope` varchar(50) NOT NULL DEFAULT 'ALL',
   `description` text DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
@@ -568,7 +568,7 @@ CREATE TABLE IF NOT EXISTS `product_price_logs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `variant_id` int(10) unsigned DEFAULT NULL,
   `product_id` int(10) unsigned DEFAULT NULL,
-  `sku` varchar(100) NOT NULL,
+  `sku` varchar(100) DEFAULT NULL,
   `old_selling_price` decimal(10,2) NOT NULL,
   `new_selling_price` decimal(10,2) NOT NULL,
   `old_mrp` decimal(10,2) NOT NULL,
@@ -604,7 +604,7 @@ CREATE TABLE IF NOT EXISTS `product_variants` (
   `color_id` int(10) unsigned DEFAULT NULL,
   `design_id` int(10) unsigned DEFAULT 1,
   `attr_hash` varchar(64) DEFAULT NULL,
-  `sku` varchar(100) NOT NULL,
+  `sku` varchar(100) DEFAULT NULL,
   `hsn_code` varchar(20) DEFAULT NULL,
   `gst_rate` decimal(5,2) DEFAULT 5.00,
   `qr_code` varchar(255) DEFAULT NULL,
@@ -627,7 +627,6 @@ CREATE TABLE IF NOT EXISTS `product_variants` (
   `image` varchar(255) DEFAULT NULL,
   `attributes` text DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `sku` (`sku`),
   UNIQUE KEY `qr_code` (`qr_code`),
   UNIQUE KEY `uk_variant_attr_hash` (`attr_hash`),
   UNIQUE KEY `uk_variant_code` (`variant_code`),
@@ -881,7 +880,7 @@ CREATE TABLE IF NOT EXISTS `production_category_attributes` (
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE IF NOT EXISTS `production_deleted_label_codes` (
-  `code` varchar(50) NOT NULL,
+  `code` varchar(50) DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`code`)
@@ -1525,7 +1524,7 @@ CREATE TABLE IF NOT EXISTS `production_warehouse_reworks` (
 CREATE TABLE IF NOT EXISTS `products` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(300) NOT NULL,
-  `code` varchar(50) NOT NULL,
+  `code` varchar(50) DEFAULT NULL,
   `catalog_code` varchar(100) DEFAULT NULL,
   `category_id` int(10) unsigned DEFAULT NULL,
   `subcategory_id` int(10) unsigned DEFAULT NULL,
@@ -2633,7 +2632,7 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   `third_party_product_id` int(10) unsigned NOT NULL,
   `product_variant_id` int(10) unsigned DEFAULT NULL,
   `purchase_item_id` int(10) unsigned DEFAULT NULL,
-  `sku` varchar(100) NOT NULL,
+  `sku` varchar(100) DEFAULT NULL,
   `size` varchar(50) NOT NULL,
   `color` varchar(50) DEFAULT NULL,
   `allocated_qty` decimal(12,3) NOT NULL DEFAULT 0.000,

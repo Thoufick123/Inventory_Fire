@@ -64,11 +64,10 @@
                                 <option value="<?= $prod['id'] ?>" 
                                         data-cat-id="<?= $prod['category_id'] ?>" 
                                         data-subcat-id="<?= $prod['subcategory_id'] ?>"
-                                        data-code="<?= e($prod['code']) ?>"
                                         data-name="<?= e($prod['name']) ?>"
                                         data-hsn="<?= e($prod['hsn_code'] ?? '6109') ?>"
                                         data-gst="<?= (float)($prod['gst_percentage'] ?? 5) ?>">
-                                    <?= e($prod['code']) ?> — <?= e($prod['name']) ?>
+                                    <?= e($prod['name']) ?>
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -138,19 +137,14 @@
                             <h6 class="mb-0 fw-bold text-dark">Generated Identifiers &amp; QR Code</h6>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Variant ID <span class="badge bg-secondary-subtle text-secondary ms-1">Auto</span></label>
                                 <input type="text" name="variant_code" id="varVariantCode" class="form-control font-monospace fw-bold bg-light" value="<?= e($suggestedVariantCode) ?>" readonly>
                                 <div class="form-text small">Human-readable internal identity (e.g. V001).</div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold">Variant SKU <span class="badge bg-secondary-subtle text-secondary ms-1">Auto</span></label>
-                                <input type="text" name="sku" id="varSku" class="form-control font-monospace fw-bold bg-light" placeholder="Auto-generated" required>
-                                <div class="form-text small">Standardized product code.</div>
-                            </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold">Stable QR Identity <span class="badge bg-secondary-subtle text-secondary ms-1">Auto</span></label>
-                                <input type="text" name="qr_code" id="varQrCode" class="form-control font-monospace fw-bold bg-light" placeholder="Auto-linked to SKU">
+                                <input type="text" name="qr_code" id="varQrCode" class="form-control font-monospace fw-bold bg-light" placeholder="Auto-linked to Variant ID">
                                 <div class="form-text small">Scannable QR identifier text.</div>
                             </div>
                         </div>
@@ -203,7 +197,6 @@
             <div class="card-body p-4 text-center">
                 <div class="badge bg-primary px-3 py-1 font-monospace fs-6 mb-2" id="previewBadgeId"><?= e($suggestedVariantCode) ?></div>
                 <h5 class="fw-bold text-dark mb-1" id="previewProdName">Select a Catalog</h5>
-                <div class="text-muted small font-monospace mb-3" id="previewParentSku">PARENT-SKU-000</div>
 
                 <!-- QR Vector Mockup -->
                 <div class="d-flex justify-content-center my-3">
@@ -212,7 +205,7 @@
                     </div>
                 </div>
 
-                <div class="font-monospace fw-bold text-dark fs-6 mb-3" id="previewQrText">GRM-SKU-PREVIEW</div>
+                <div class="font-monospace fw-bold text-dark fs-6 mb-3" id="previewQrText">V-QR-PREVIEW</div>
 
                 <!-- Attributes Tree -->
                 <ul class="list-group list-group-flush text-start small mb-3">
@@ -298,7 +291,6 @@ function onCatalogSelected() {
         if (hsn) document.getElementById('varHsn').value = hsn;
 
         document.getElementById('previewProdName').innerText = opt.getAttribute('data-name');
-        document.getElementById('previewParentSku').innerText = opt.getAttribute('data-code');
     }
     triggerSkuPreview();
 }
@@ -319,7 +311,6 @@ function triggerSkuPreview() {
     document.getElementById('previewPrice').innerText = parseFloat(document.getElementById('varSellingPrice').value || 0).toFixed(2);
 
     if (!productId) {
-        document.getElementById('varSku').value = '';
         document.getElementById('varQrCode').value = '';
         updateDuplicateBanner(false, 'Select a Catalog and attributes to validate uniqueness.', 'secondary');
         return;
@@ -335,7 +326,6 @@ function triggerSkuPreview() {
     .then(res => {
         if (res.status === 'success' || res.success) {
             const data = res.data;
-            document.getElementById('varSku').value = data.sku;
             document.getElementById('varQrCode').value = data.qr_code;
             document.getElementById('varVariantCode').value = data.variant_code;
             document.getElementById('previewBadgeId').innerText = data.variant_code;

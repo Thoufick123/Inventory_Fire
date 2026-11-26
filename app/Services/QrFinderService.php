@@ -20,7 +20,7 @@ class QrFinderService {
         if (str_starts_with($cleanRaw, '{') && str_ends_with($cleanRaw, '}')) {
             $json = json_decode($cleanRaw, true);
             if (is_array($json)) {
-                $cleanRaw = $json['qr_code'] ?? $json['code'] ?? $json['batch_code'] ?? $json['tag_code'] ?? $json['sku'] ?? $cleanRaw;
+                $cleanRaw = $json['qr_code'] ?? $json['code'] ?? $json['batch_code'] ?? $json['tag_code'] ?? $cleanRaw;
             }
         }
 
@@ -71,8 +71,8 @@ class QrFinderService {
                    qrg.qr_prefix, qrg.notes as batch_notes, qrg.stock_added, qrg.stock_added_at,
                    qrg.source_purchase_id, qrg.source_purchase_item_id, qrg.stitching_batch_id, qrg.program_id, qrg.qc_batch_id,
                    qrg.concern_id, qrg.created_at as batch_created_at,
-                   p.name as product_name, p.code as product_code,
-                   pv.sku as variant_sku, pv.variant_code,
+                   p.name as product_name,
+                   pv.variant_code,
                    c.name as concern_name, c.code as concern_code,
                    u.full_name as creator_name
             FROM qr_generation_items qri
@@ -104,7 +104,7 @@ class QrFinderService {
 
             $size = $qri['item_size_name'] ?: ($qri['gen_size_name'] ?? '');
             $color = $qri['item_color_name'] ?: ($qri['gen_color_name'] ?? '');
-            $sku = $qri['variant_sku'] ?: ($qri['variant_code'] ?: $qri['qr_prefix']);
+            $variantCode = $qri['variant_code'] ?: $qri['qr_prefix'];
 
             $itemTitle = $prodTitle . ($size || $color ? " ({$size}" . ($color ? " / {$color}" : '') . ")" : '');
             $price = (float)(($qri['item_selling_price'] ?? 0) > 0 ? $qri['item_selling_price'] : ($qri['gen_selling_price'] ?? 0));
@@ -115,7 +115,7 @@ class QrFinderService {
                 'Brand'             => $qri['brand_name'] ?: 'GRM',
                 'QR Batch Code'     => $qri['batch_code'],
                 'Category / Type'   => trim(($qri['category_name'] ?? '') . ' ' . ($qri['subcategory_name'] ?? '')),
-                'SKU / Style'       => $sku ?: 'Standard',
+                'Variant ID'        => $variantCode ?: 'Standard',
                 'Size & Color'      => trim(($size ?: 'Standard') . ' ' . ($color ? " ({$color})" : '')),
                 'Selling Price'     => '₹ ' . number_format($price, 2) . ($mrp > 0 ? ' (MRP: ₹' . number_format($mrp, 2) . ')' : ''),
                 'Facility / Concern'=> $qri['concern_name'] ? "{$qri['concern_name']} ({$qri['concern_code']})" : 'Production Facility',
@@ -631,8 +631,8 @@ class QrFinderService {
             $qcItem = Database::fetchOne(
                 "SELECT qi.*, qb.batch_number as qc_batch_number, qb.created_at as qc_date,
                         qb.program_id, qb.stitching_batch_id,
-                        p.id as product_id, p.name as product_name, p.code as product_code,
-                        pv.sku, COALESCE(qi.size_name, sz.name) as size_name, COALESCE(qi.color_name, cl.name) as color_name,
+                        p.id as product_id, p.name as product_name,
+                        pv.variant_code, COALESCE(qi.size_name, sz.name) as size_name, COALESCE(qi.color_name, cl.name) as color_name,
                         u.full_name as inspector_name
                  FROM qc_items qi
                  JOIN qc_batches qb ON qb.id = qi.qc_batch_id
@@ -649,8 +649,8 @@ class QrFinderService {
             $batchItem = Database::fetchOne(
                 "SELECT pbi.*, pb.batch_number, pb.created_at as batch_date,
                         pb.status as batch_status, pb.destination_warehouse_id, w.name as dest_warehouse_name,
-                        p.id as product_id, p.name as product_name, p.code as product_code,
-                        pv.sku, sz.name as size_name, cl.name as color_name
+                        p.id as product_id, p.name as product_name,
+                        pv.variant_code, sz.name as size_name, cl.name as color_name
                  FROM production_batch_items pbi
                  JOIN production_batches pb ON pb.id = pbi.production_batch_id
                  LEFT JOIN product_variants pv ON pv.id = pbi.variant_id
@@ -665,8 +665,8 @@ class QrFinderService {
 
             $whQr = Database::fetchOne(
                 "SELECT wq.*, w.name as warehouse_name,
-                        p.id as product_id, p.name as product_name, p.code as product_code,
-                        pv.sku, sz.name as size_name, cl.name as color_name
+                        p.id as product_id, p.name as product_name,
+                        pv.variant_code, sz.name as size_name, cl.name as color_name
                  FROM warehouse_qr_codes wq
                  LEFT JOIN warehouses w ON w.id = wq.warehouse_id
                  LEFT JOIN product_variants pv ON pv.id = wq.variant_id
@@ -682,7 +682,7 @@ class QrFinderService {
             $variantMatch = null;
             if (!$qcItem && !$batchItem && !$whQr) {
                 $variantMatch = Database::fetchOne(
-                    "SELECT pv.*, p.name as product_name, p.code as product_code,
+                    "SELECT pv.*, p.name as product_name,
                             c.name as category_name,
                             sz.name as size_name, cl.name as color_name, d.name as design_name
                      FROM product_variants pv
@@ -691,9 +691,9 @@ class QrFinderService {
                      LEFT JOIN sizes sz ON sz.id = pv.size_id
                      LEFT JOIN colors cl ON cl.id = pv.color_id
                      LEFT JOIN designs d ON d.id = pv.design_id
-                     WHERE pv.sku = ? OR pv.qr_code = ? OR pv.variant_code = ?
+                     WHERE pv.qr_code = ? OR pv.variant_code = ?
                      LIMIT 1",
-                    [$code, $code, $code]
+                    [$code, $code]
                 );
             }
 
@@ -701,14 +701,14 @@ class QrFinderService {
                 $matched = true;
                 $itemType = 'Finished Garment Piece';
                 $prodName = $qcItem['product_name'] ?? $batchItem['product_name'] ?? $whQr['product_name'] ?? $variantMatch['product_name'] ?? 'Garment Piece';
-                $sku = $qcItem['sku'] ?? $batchItem['sku'] ?? $whQr['sku'] ?? $variantMatch['sku'] ?? $code;
+                $variantCode = $qcItem['variant_code'] ?? $batchItem['variant_code'] ?? $whQr['variant_code'] ?? $variantMatch['variant_code'] ?? $code;
                 $size = $qcItem['size_name'] ?? $batchItem['size_name'] ?? $whQr['size_name'] ?? $variantMatch['size_name'] ?? '';
                 $color = $qcItem['color_name'] ?? $batchItem['color_name'] ?? $whQr['color_name'] ?? $variantMatch['color_name'] ?? '';
 
                 $itemTitle = $prodName . ($size || $color ? " ({$size}" . ($color ? " / {$color}" : '') . ")" : '');
                 $details = [
                     'Product Name' => $prodName,
-                    'SKU' => $sku,
+                    'Variant ID' => $variantCode,
                     'Size' => $size ?: 'Standard',
                     'Color' => $color ?: 'Standard',
                     'Piece Tag / QR' => $code,

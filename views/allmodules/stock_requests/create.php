@@ -159,7 +159,7 @@
                                     <tr>
                                         <th style="width: 17%;">Category Selection</th>
                                         <th style="width: 25%;">Parent Product Style</th>
-                                        <th style="width: 24%;">Specific Sellable Variant (SKU / V-ID)</th>
+                                        <th style="width: 24%;">Specific Sellable Variant (V-ID)</th>
                                         <th style="width: 18%;">Current Stock in Areas</th>
                                         <th style="width: 11%;" class="text-center">Asked Count (pcs) <span class="text-danger">*</span></th>
                                         <th style="width: 5%;" class="text-end pe-2">Action</th>
@@ -322,7 +322,7 @@ function onProductChange(selectElem, rowIndex) {
     if (!productId) {
         allVariants.forEach(v => {
             const vCode = v.variant_code || ('V' + String(v.id).padStart(4, '0'));
-            const desc = `[${vCode}] ${v.sku} ${v.color_name ? '· ' + v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
+            const desc = `[${vCode}] ${v.color_name ? v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.dataset.productId = v.product_id;
@@ -337,7 +337,7 @@ function onProductChange(selectElem, rowIndex) {
     if (filtered.length > 0) {
         filtered.forEach(v => {
             const vCode = v.variant_code || ('V' + String(v.id).padStart(4, '0'));
-            const desc = `[${vCode}] ${v.sku} ${v.color_name ? '· ' + v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
+            const desc = `[${vCode}] ${v.color_name ? v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
             const opt = document.createElement('option');
             opt.value = v.id;
             opt.dataset.productId = v.product_id;
@@ -439,7 +439,7 @@ function handleProductQrScan() {
     const code = input ? input.value.trim() : '';
 
     if (!code) {
-        if (status) status.innerHTML = '<span class="text-danger">Please enter or scan a QR label or SKU.</span>';
+        if (status) status.innerHTML = '<span class="text-danger">Please enter or scan a QR label or Variant ID.</span>';
         return;
     }
 
@@ -480,7 +480,7 @@ function handleProductQrScan() {
                     calculateTotalAsked();
                 }
                 if (status) {
-                    status.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Incremented requested count for [${data.sku || data.product_code}] to ${qtyInput ? qtyInput.value : 1} pcs.</span>`;
+                    status.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Incremented requested count for [${data.variant_code || data.product_name}] to ${qtyInput ? qtyInput.value : 1} pcs.</span>`;
                 }
             } else {
                 // Check if row 0 is empty / pristine
@@ -510,7 +510,7 @@ function handleProductQrScan() {
                 }
 
                 if (status) {
-                    const label = data.is_variant ? `[${data.variant_code}] ${data.sku}` : `${data.product_name} (${data.product_code})`;
+                    const label = data.is_variant ? `[${data.variant_code}] ${data.product_name}` : `${data.product_name}`;
                     status.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Scanned and added: <strong>${label}</strong>.</span>`;
                 }
             }
@@ -542,7 +542,7 @@ function addRequestRow() {
     let variantOptions = '<option value="">-- Any / All Variants of Selected Style --</option>';
     allVariants.forEach(v => {
         const vCode = v.variant_code || ('V' + String(v.id).padStart(4, '0'));
-        const desc = `[${vCode}] ${v.sku} ${v.color_name ? '· ' + v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
+        const desc = `[${vCode}] ${v.color_name ? v.color_name : ''} ${v.size_name ? '· ' + v.size_name : ''}`;
         variantOptions += `<option value="${v.id}" data-product-id="${v.product_id}">${escapeHtml(desc)}</option>`;
     });
 

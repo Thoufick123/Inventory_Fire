@@ -4362,6 +4362,10 @@ class AllmodulesController {
                     $productCode = (string)$product['code'];
                 }
 
+                $rollCategoryId = !empty($_POST['roll_category_id']) ? (int)$_POST['roll_category_id'] : 1;
+                $rollSubcategoryId = !empty($_POST['roll_subcategory_id']) ? (int)$_POST['roll_subcategory_id'] : null;
+                $rollSubSubcategoryId = !empty($_POST['roll_sub_subcategory_id']) ? (int)$_POST['roll_sub_subcategory_id'] : null;
+
                 $rollCount = 0;
                 foreach ($rolls as $idx => $r) {
                     if (!is_array($r)) continue;
@@ -4376,8 +4380,6 @@ class AllmodulesController {
                     if ($rollCode === '') {
                         $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
                     }
-                    $sku = $productCode . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $rollCode), 0, 10));
-
                     $sizeLabel = ($weightKg > 0) ? ($weightKg . 'kg') : ($meters > 0 ? $meters . 'm' : 'Standard');
                     $qty = ($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0);
                     $unit = ($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS');
@@ -4385,7 +4387,6 @@ class AllmodulesController {
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color,
                         'size' => $sizeLabel,
-                        'vendor_sku' => $sku,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,
                         'mrp' => round($rate * 1.3, 2),
@@ -4398,12 +4399,12 @@ class AllmodulesController {
                             (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
                              roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
-                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode, $sku,
+                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode,
                             $rollCode, ($weightKg > 0 ? $weightKg : null), ($meters > 0 ? $meters : null), $qty, $unit,
                             $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
-                            $sizeLabel
+                            $sizeLabel, $rollCategoryId, $rollSubcategoryId, $rollSubSubcategoryId
                         ]
                     );
                     $rollCount++;
@@ -4525,7 +4526,6 @@ class AllmodulesController {
                     $categoryId = (int)($variant['category_id'] ?? 0);
                     $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
                     $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
-                    $sku = mb_strtoupper(trim((string)($variant['sku'] ?? '')));
 
                     if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
                         || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
@@ -4534,18 +4534,10 @@ class AllmodulesController {
                     if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
                         throw new InvalidArgumentException("Select a valid category for every variant of '{$pName}'.");
                     }
-                    if ($sku === '') {
-                        $sku = substr($productCode, 0, 50) . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $size ?: 'STD'), 0, 8))
-                            . '-' . strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $color ?: (string)($index + 1)), 0, 8));
-                    }
-                    if (mb_strlen($sku) > 100) {
-                        throw new InvalidArgumentException('Variant SKU cannot exceed 100 characters.');
-                    }
 
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color ?: null,
                         'size' => $size ?: 'Standard',
-                        'vendor_sku' => $sku,
                         'hsn_code' => $hsn,
                         'gst_rate' => $gstRate,
                         'mrp' => $mrp,
@@ -4557,8 +4549,8 @@ class AllmodulesController {
                             (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
                              quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode, $sku,
+                         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode,
                             $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
                             $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
                     );
@@ -7150,11 +7142,7 @@ class AllmodulesController {
         }
 
         $unit = strtoupper(trim($_POST['new_unit'] ?? 'PCS')) ?: 'PCS';
-        $vendorSku = trim($_POST['new_vendor_sku'] ?? '');
-        if (empty($vendorSku)) {
-            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $itemName), 0, 5)) ?: 'PRD';
-            $vendorSku = 'TP-' . $prefix . '-' . strtoupper(substr(uniqid(), -4));
-        }
+        $vendorSku = null;
         $color = trim($_POST['new_color'] ?? '');
         $size = trim($_POST['new_size'] ?? '');
         $isComplementary = !empty($_POST['new_is_complementary']) ? 1 : 0;
@@ -7954,11 +7942,9 @@ class AllmodulesController {
             LEFT JOIN colors cl ON cl.id = pv.color_id
             WHERE UPPER(TRIM(pv.variant_code)) = ? 
                OR UPPER(TRIM(pv.qr_code)) = ? 
-               OR UPPER(TRIM(pv.sku)) = ?
                OR UPPER(TRIM(pv.variant_code)) = ?
-               OR UPPER(TRIM(pv.sku)) = ?
         ";
-        $variantParams = [$cleanCode, $cleanCode, $cleanCode, $codePrefix, $codePrefix];
+        $variantParams = [$cleanCode, $cleanCode, $codePrefix];
         if ($varIdFromCode > 0) {
             $variantSql .= " OR pv.id = ?";
             $variantParams[] = $varIdFromCode;
@@ -8493,8 +8479,8 @@ class AllmodulesController {
                        JOIN products p ON p.id = pv.product_id
                        LEFT JOIN sizes sz ON sz.id = pv.size_id
                        LEFT JOIN colors cl ON cl.id = pv.color_id
-                       WHERE (UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ? OR UPPER(TRIM(pv.sku)) = ?)";
-        $productParams = [$scanCode, $scanCode, $scanCode];
+                       WHERE (UPPER(TRIM(pv.variant_code)) = ? OR UPPER(TRIM(pv.qr_code)) = ?)";
+        $productParams = [$scanCode, $scanCode];
         if ($activeCid !== null) {
             $productSql .= $activeCid === 1
                 ? " AND (p.concern_id = ? OR p.concern_id IS NULL)"
@@ -10909,7 +10895,7 @@ class AllmodulesController {
                 OR EXISTS (
                     SELECT 1 FROM product_variants pv2 
                     WHERE pv2.product_id = p.id 
-                    AND (pv2.sku LIKE ? OR pv2.qr_code LIKE ?)
+                    AND (pv2.variant_code LIKE ? OR pv2.qr_code LIKE ?)
                 )
             )";
             $s = '%' . $search . '%';
@@ -11081,14 +11067,7 @@ class AllmodulesController {
             $name = !empty($catNames) ? implode(' - ', array_reverse($catNames)) : 'PRODUCT STYLE';
         }
 
-        if (empty($code)) {
-            $count = Database::fetchOne("SELECT COUNT(*) as c FROM products WHERE source_type = 'OWN_PRODUCTION'")['c'] ?? 0;
-            $code = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
-            $existing = Database::fetchOne("SELECT id FROM products WHERE code = ?", [$code]);
-            if ($existing) {
-                $code .= '-' . rand(10, 99);
-            }
-        }
+        $code = null;
 
         // Cloudinary Image Upload
         $imageUrl = null;
@@ -11216,7 +11195,7 @@ class AllmodulesController {
         $variants = [];
         $seenSizes = [];
         foreach ($rawVariants as $v) {
-            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['sku']);
+            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['variant_code'] ?? $v['id']);
             if (!isset($seenSizes[$szKey])) {
                 $seenSizes[$szKey] = true;
                 $variants[] = $v;
@@ -11242,7 +11221,7 @@ class AllmodulesController {
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Product Catalog', 'url' => url('production/catalog')],
-                ['label' => $product['code']],
+                ['label' => $product['name']],
             ],
         ]);
     }
@@ -11306,7 +11285,7 @@ class AllmodulesController {
         $variants = [];
         $seenSizes = [];
         foreach ($rawVariants as $v) {
-            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['sku']);
+            $szKey = !empty($v['size_id']) ? (int)$v['size_id'] : ($v['size_code'] ?? $v['variant_code'] ?? $v['id']);
             if (!isset($seenSizes[$szKey])) {
                 $seenSizes[$szKey] = true;
                 $variants[] = $v;
@@ -11469,24 +11448,25 @@ class AllmodulesController {
             foreach ($_POST['variants'] as $v) {
                 $sizeId = !empty($v['size_id']) ? (int)$v['size_id'] : null;
                 $colorId = !empty($v['color_id']) ? (int)$v['color_id'] : null;
-                $sku = mb_strtoupper(trim($v['sku'] ?? ''));
                 $prodCost = max(0.0, (float)($v['production_cost'] ?? 0));
                 $mrp = max(0.0, (float)($v['mrp'] ?? 0));
                 $sellingPrice = max(0.0, (float)($v['selling_price'] ?? 0));
 
-                if (empty($sku)) {
-                    $sku = $code . ($sizeId ? '-' . $sizeId : '') . ($colorId ? '-' . $colorId : '');
-                }
+                require_once BASE_PATH . '/app/Services/VariantService.php';
+                $variantCode = VariantService::generateNextVariantCode();
+                $attrHash = $id . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
                 Database::execute(
-                    "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                      ON DUPLICATE KEY UPDATE product_id=VALUES(product_id), size_id=VALUES(size_id), color_id=VALUES(color_id), mrp=VALUES(mrp), purchase_price=VALUES(purchase_price), production_cost=VALUES(production_cost), selling_price=VALUES(selling_price), is_active=1",
                     [
+                        $variantCode,
                         $id,
                         $sizeId,
                         $colorId,
-                        $sku,
+                        $attrHash,
+                        $variantCode,
                         $mrp,
                         $prodCost,
                         $prodCost,
@@ -11535,32 +11515,22 @@ class AllmodulesController {
                     }
                 }
 
-                $sCode = '';
-                if ($sizeId) {
-                    $sCode = Database::fetchOne("SELECT code FROM sizes WHERE id = ?", [$sizeId])['code'] ?? ('SZ' . $sizeId);
-                }
-
                 foreach ($colorsList as $colorId) {
-                    $cCode = '';
-                    if ($colorId) {
-                        $cRow = Database::fetchOne("SELECT name FROM colors WHERE id = ?", [$colorId]);
-                        $cCode = $cRow ? substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $cRow['name'])), 0, 4) : ('COL' . $colorId);
-                    }
-
-                    $skuParts = [$code];
-                    if ($sCode) $skuParts[] = $sCode;
-                    if ($cCode) $skuParts[] = $cCode;
-                    $sku = implode('-', $skuParts);
+                    require_once BASE_PATH . '/app/Services/VariantService.php';
+                    $variantCode = VariantService::generateNextVariantCode();
+                    $attrHash = $id . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
                     Database::execute(
-                        "INSERT INTO product_variants (product_id, size_id, color_id, sku, mrp, purchase_price, production_cost, selling_price, is_active)
-                         VALUES (?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)
+                        "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                         VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)
                          ON DUPLICATE KEY UPDATE product_id=VALUES(product_id), size_id=VALUES(size_id), color_id=VALUES(color_id), is_active=1",
                         [
+                            $variantCode,
                             $id,
                             $sizeId,
                             $colorId,
-                            $sku
+                            $attrHash,
+                            $variantCode
                         ]
                     );
                 }
@@ -11593,8 +11563,8 @@ class AllmodulesController {
             return;
         }
         $ts = time();
-        Database::execute("UPDATE products SET is_active = 0, code = CONCAT(code, '_DEL_', ?) WHERE id = ?", [$ts, $id]);
-        Database::execute("UPDATE product_variants SET is_active = 0, sku = CONCAT(sku, '_DEL_', ?), qr_code = CONCAT(qr_code, '_DEL_', ?) WHERE product_id = ?", [$ts, $ts, $id]);
+        Database::execute("UPDATE products SET is_active = 0 WHERE id = ?", [$id]);
+        Database::execute("UPDATE product_variants SET is_active = 0, qr_code = CONCAT(qr_code, '_DEL_', ?) WHERE product_id = ?", [$ts, $id]);
         AuditService::log('production', 'delete', 'products', (int)$id, null, ['is_active' => 0]);
         Session::flash('success', 'Product style removed from catalog.');
         Response::redirect(url('production/catalog'));
@@ -12784,7 +12754,7 @@ class AllmodulesController {
              JOIN products p ON pv.product_id = p.id
              LEFT JOIN sizes s ON pv.size_id = s.id
              LEFT JOIN colors col ON pv.color_id = col.id
-             WHERE pv.is_active = 1 AND (pv.sku LIKE ? OR p.name LIKE ?)
+             WHERE pv.is_active = 1 AND (pv.variant_code LIKE ? OR p.name LIKE ?)
              LIMIT 20",
             ['%' . $q . '%', '%' . $q . '%']
         );
@@ -16407,7 +16377,7 @@ class AllmodulesController {
                     [
                         $vId,
                         (int)$variant['product_id'],
-                        $variant['sku'] ?? '',
+                        '',
                         $oldSellingPrice,
                         $newSellingPrice,
                         $oldMrp,
@@ -16430,7 +16400,7 @@ class AllmodulesController {
             $affectedProductIds[(int)$variant['product_id']] = true;
             $updatedVariants[] = [
                 'variant_id'              => $vId,
-                'sku'                     => $variant['sku'],
+                'variant_code'            => $variant['variant_code'] ?? '',
                 'product_name'            => $variant['product_name'],
                 'new_selling_price'       => $newSellingPrice,
                 'new_mrp'                 => $newMrp,
@@ -19909,7 +19879,7 @@ class AllmodulesController {
                 $prodStockParams[] = $cid;
             }
             if (!empty($search)) {
-                $prodStockSql .= " AND (p.name LIKE ? OR p.code LIKE ? OR pv.sku LIKE ? OR co.name LIKE ? OR sz.name LIKE ?)";
+                $prodStockSql .= " AND (p.name LIKE ? OR pv.variant_code LIKE ? OR pv.qr_code LIKE ? OR co.name LIKE ? OR sz.name LIKE ?)";
                 $psp = '%' . $search . '%';
                 $prodStockParams = array_merge($prodStockParams, [$psp, $psp, $psp, $psp, $psp]);
             }
@@ -19941,7 +19911,7 @@ class AllmodulesController {
                         'purchase_id'           => 0,
                         'qc_batch_id'           => 'PRD-' . $vId,
                         'program_id'            => 0,
-                        'program_number'        => $cProd['variant_sku'] ?: ($cProd['product_sku'] ?: ('SKU-' . $pId)),
+                        'program_number'        => $cProd['variant_code'] ?? ('V' . str_pad((string)$vId, 4, '0', STR_PAD_LEFT)),
                         'product_name'          => $cProd['product_name'],
                         'category_name'         => $cProd['category_name'] ?: 'Catalog Products',
                         'category_id'           => $cProd['category_id'] ?? null,
@@ -19967,7 +19937,8 @@ class AllmodulesController {
                             [
                                 'variant_id'    => $vId,
                                 'product_id'    => $pId,
-                                'sku'           => $cProd['variant_sku'] ?: $cProd['product_sku'],
+                                'sku'           => '',
+                                'variant_code'  => $cProd['variant_code'] ?? ('V' . str_pad((string)$vId, 4, '0', STR_PAD_LEFT)),
                                 'size_name'     => $cProd['size_name'] ?: 'Standard',
                                 'color_name'    => $cProd['color_name'] ?: 'Standard',
                                 'mrp'           => $pMrp,
@@ -20704,7 +20675,7 @@ class AllmodulesController {
             'activeModule'        => 'production',
             'activeMenu'          => 'prod-inventory',
             'qcBatchId'           => $id,
-            'primarySku'          => $primarySku,
+            'primarySku'          => $first['variant_code'] ?? $first['product_name'] ?? 'Batch',
             'isInward'            => false,
             'batchInfo'           => $first,
             'pieceItems'          => $pieceItems,
@@ -20731,7 +20702,7 @@ class AllmodulesController {
                 ['label' => 'Home', 'url' => url('/')],
                 ['label' => 'Warehouse', 'url' => url('production/inventory')],
                 ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
-                ['label' => $primarySku],
+                ['label' => $first['variant_code'] ?? $first['product_name'] ?? 'Batch'],
             ],
         ]);
     }
@@ -21122,7 +21093,7 @@ class AllmodulesController {
                 'subcategory_name' => $firstItem['subcategory_name'] ?? '',
                 'sub_subcategory_name' => $firstItem['sub_subcategory_name'] ?? '',
                 'product_image'    => $firstItem['product_image'] ?? null,
-                'variant_sku'      => $firstItem['variant_sku'] ?? '',
+                'variant_sku'      => '',
                 'variant_code'     => $firstItem['variant_code'] ?? '',
                 'size_name'        => $firstItem['size_name'] ?? '',
                 'color_name'       => $firstItem['color_name'] ?? '',
@@ -21150,7 +21121,7 @@ class AllmodulesController {
                 ['label' => 'Home', 'url' => url('/')],
                 ['label' => 'Warehouse', 'url' => url('production/inventory')],
                 ['label' => 'Stock Ledger', 'url' => url('production/inventory')],
-                ['label' => $skuDisplay],
+                ['label' => $firstItem['variant_code'] ?: ($firstItem['product_name'] ?? 'Batch')],
             ],
         ]);
     }
@@ -25135,19 +25106,20 @@ class AllmodulesController {
 
                 // 2. Check or Create Product Variant
                 $existingVariant = Database::fetchOne(
-                    "SELECT id, sku FROM product_variants WHERE product_id = ? LIMIT 1",
+                    "SELECT id FROM product_variants WHERE product_id = ? LIMIT 1",
                     [$productId]
                 );
 
                 if ($existingVariant) {
                     $variantId = (int)$existingVariant['id'];
                 } else {
-                    $sku = $prodCode . '-STD';
+                    require_once BASE_PATH . '/app/Services/VariantService.php';
+                    $variantCode = VariantService::generateNextVariantCode();
                     Database::execute(
                         "INSERT INTO product_variants
-                            (product_id, sku, hsn_code, purchase_price, production_cost, selling_price, is_active, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())",
-                        [$productId, $sku, $hsnCode, $unitPrice, $unitPrice, $unitPrice]
+                            (variant_code, product_id, qr_code, hsn_code, purchase_price, production_cost, selling_price, is_active, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())",
+                        [$variantCode, $productId, $variantCode, $hsnCode, $unitPrice, $unitPrice, $unitPrice]
                     );
                     $variantId = (int)Database::lastInsertId();
                 }
@@ -25504,11 +25476,7 @@ class AllmodulesController {
             return;
         }
 
-        $code = trim($_POST['code'] ?? '');
-        if (empty($code)) {
-            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $name), 0, 5)) ?: 'TP';
-            $code = 'TP-' . $prefix . '-' . strtoupper(substr(uniqid(), -4));
-        }
+        $code = null;
 
         if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId)) {
             Session::flash('error', 'Please select a valid third-party category hierarchy.');

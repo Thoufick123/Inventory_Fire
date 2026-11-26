@@ -37,7 +37,7 @@ class WarehouseService {
      * Recognizes:
      *  1. Master Carton QR (batch_number e.g. BAT-... or outward_number e.g. OUT-...)
      *  2. Individual Piece QR tracking codes (Option A: PRD2611-0001, etc.)
-     *  3. Product Variant SKU, Variant Code, or Variant ID
+     *  3. Product Variant Code or Variant ID
      */
     public static function processCrossCheckScan(int $batchId, string $scannedCode, array $scannedMap = []): array {
         $details = self::getOutwardDispatchDetails($batchId);
@@ -50,14 +50,10 @@ class WarehouseService {
         $scannedCode = trim($scannedCode);
 
         $extractedCode = $scannedCode;
-        $extractedSku = '';
         $extractedTag = '';
 
         if (str_starts_with($scannedCode, '{') && str_ends_with($scannedCode, '}')) {
             $json = json_decode($scannedCode, true);
-            if (!empty($json['sku'])) {
-                $extractedSku = trim($json['sku']);
-            }
             if (!empty($json['qr_code'])) {
                 $extractedCode = trim($json['qr_code']);
             }
@@ -70,9 +66,6 @@ class WarehouseService {
         } elseif (str_contains($scannedCode, '|')) {
             $parts = explode('|', $scannedCode);
             $extractedTag = trim($parts[0]);
-            if (!empty($parts[1])) {
-                $extractedSku = trim($parts[1]);
-            }
         }
 
         // Check if scanned code is the Batch/Outward Master Carton QR
@@ -98,7 +91,6 @@ class WarehouseService {
             $scannedPieceTag = $extractedTag !== '' ? $extractedTag : $scannedCode;
 
             foreach ($items as $item) {
-                $itemSku = trim((string)($item['sku'] ?? ''));
                 $itemQr = trim((string)($item['qr_code'] ?? ''));
                 $varCode = trim((string)($item['variant_code'] ?? ''));
                 $varId = (string)($item['variant_id'] ?? '');
@@ -120,16 +112,13 @@ class WarehouseService {
                     $isMatch = in_array(strtoupper($scannedPieceTag), $allVariantPieceTags, true);
                 }
 
-                // 2. Check variant QR, SKU, variant code, or variant ID
+                // 2. Check variant QR, variant code, or variant ID
                 if (!$isMatch) {
                     $isMatch = (
                         ($itemQr !== '' && strcasecmp($itemQr, $scannedCode) === 0) ||
                         ($itemQr !== '' && strcasecmp($itemQr, $extractedCode) === 0) ||
-                        ($itemSku !== '' && strcasecmp($itemSku, $scannedCode) === 0) ||
-                        ($itemSku !== '' && strcasecmp($itemSku, $extractedCode) === 0) ||
                         ($varCode !== '' && strcasecmp($varCode, $scannedCode) === 0) ||
                         ($varCode !== '' && strcasecmp($varCode, $extractedCode) === 0) ||
-                        ($extractedSku !== '' && strcasecmp($itemSku, $extractedSku) === 0) ||
                         $varId === $scannedCode ||
                         $varId === $extractedCode
                     );
@@ -165,11 +154,12 @@ class WarehouseService {
                 ];
             }
 
+            $matchedLabel = $matchedItem['variant_code'] ?? $matchedItem['product_name'] ?? ('Variant #' . $matchedVariantId);
             $expectedCount = max(0, (int)$matchedItem['quantity']);
             if ($expectedCount === 0) {
                 return [
                     'success'      => false,
-                    'message'      => "No outwarded pieces are available for {$matchedItem['sku']} in this batch.",
+                    'message'      => "No outwarded pieces are available for {$matchedLabel} in this batch.",
                     'matched_item' => $matchedItem,
                     'scanned_map'  => $scannedMap,
                 ];
@@ -178,19 +168,19 @@ class WarehouseService {
             $isSeriesOrComp = (!empty($matchedItem['is_series']) || !empty($matchedItem['is_complementary']) || ($matchedItem['qr_type'] ?? '') === 'SERIES_BATCH' || (int)($matchedItem['pack_quantity'] ?? 1) > 1);
             if ($isSeriesOrComp) {
                 $scannedMap[$matchedVariantId] = (int)$matchedItem['quantity'];
-                $scanMessage = "Scanned {$matchedItem['sku']} (All counts inwarded: +{$matchedItem['quantity']} pcs)";
+                $scanMessage = "Scanned {$matchedLabel} (All counts inwarded: +{$matchedItem['quantity']} pcs)";
             } else {
                 $currentCount = max(0, min($expectedCount, (int)($scannedMap[$matchedVariantId] ?? 0)));
                 if ($currentCount >= $expectedCount) {
                     return [
                         'success'      => false,
-                        'message'      => "All {$expectedCount} outwarded pieces for {$matchedItem['sku']} have already been scanned.",
+                        'message'      => "All {$expectedCount} outwarded pieces for {$matchedLabel} have already been scanned.",
                         'matched_item' => $matchedItem,
                         'scanned_map'  => $scannedMap,
                     ];
                 }
                 $scannedMap[$matchedVariantId] = $currentCount + 1;
-                $scanMessage = "Scanned {$matchedItem['sku']} (+1 pc)";
+                $scanMessage = "Scanned {$matchedLabel} (+1 pc)";
             }
         }
 
@@ -214,8 +204,8 @@ class WarehouseService {
                 $status = 'SHORTAGE';
                 $missingItems[] = [
                     'variant_id'   => $vid,
-                    'sku'          => $item['sku'],
-                    'qr_code'      => $item['qr_code'] ?? $item['sku'],
+                    'variant_code' => $item['variant_code'] ?? ('V' . str_pad((string)$vid, 4, '0', STR_PAD_LEFT)),
+                    'qr_code'      => $item['qr_code'] ?? ($item['variant_code'] ?? ''),
                     'size_name'    => $item['size_name'] ?? 'Free Size',
                     'color_name'   => $item['color_name'] ?? 'Standard',
                     'color_hex'    => $item['color_hex'] ?? '#6c757d',
@@ -229,8 +219,8 @@ class WarehouseService {
 
             $comparison[] = [
                 'variant_id'    => $vid,
-                'sku'           => $item['sku'],
-                'qr_code'       => $item['qr_code'] ?? $item['sku'],
+                'variant_code'  => $item['variant_code'] ?? ('V' . str_pad((string)$vid, 4, '0', STR_PAD_LEFT)),
+                'qr_code'       => $item['qr_code'] ?? ($item['variant_code'] ?? ''),
                 'size_name'     => $item['size_name'] ?? 'Free Size',
                 'color_name'    => $item['color_name'] ?? 'Standard',
                 'color_hex'     => $item['color_hex'] ?? '#6c757d',
@@ -247,7 +237,7 @@ class WarehouseService {
 
         return [
             'success'          => true,
-            'message'          => $isMasterCarton ? "Master Carton QR scanned! All items verified." : ($scanMessage ?? "Scanned {$matchedItem['sku']}"),
+            'message'          => $isMasterCarton ? "Master Carton QR scanned! All items verified." : ($scanMessage ?? "Scanned " . ($matchedItem['variant_code'] ?? 'item')),
             'is_master_carton' => $isMasterCarton,
             'matched_item'     => $matchedItem,
             'total_expected'   => $totalExpected,
@@ -314,11 +304,12 @@ class WarehouseService {
                     $damagedQty = 0;
                 }
 
+                $itemLabel = $item['variant_code'] ?? $item['product_name'] ?? ('Variant #' . $item['variant_id']);
                 if ($acceptedQty < 0 || $damagedQty < 0 || ($acceptedQty + $damagedQty) > $expectedQty) {
-                    throw new Exception("Inward quantity for SKU {$item['sku']} cannot exceed the {$expectedQty} pieces dispatched for this batch.");
+                    throw new Exception("Inward quantity for {$itemLabel} cannot exceed the {$expectedQty} pieces dispatched for this batch.");
                 }
                 if (floor($acceptedQty) !== $acceptedQty || floor($damagedQty) !== $damagedQty) {
-                    throw new Exception("Inward quantities for SKU {$item['sku']} must be whole pieces.");
+                    throw new Exception("Inward quantities for {$itemLabel} must be whole pieces.");
                 }
 
                 $receivedTagList = array_values(array_filter(array_map('trim', explode(',', (string)($itemReceivedData['received_tags'] ?? '')))));
@@ -330,7 +321,7 @@ class WarehouseService {
                 $diff = ($acceptedQty + $damagedQty) - $expectedQty;
 
                 if ($diff !== 0.0) {
-                    $discrepancyReport[] = "SKU {$item['sku']}: Expected $expectedQty, Accepted $acceptedQty, Damaged $damagedQty (Diff: $diff)";
+                    $discrepancyReport[] = "{$itemLabel}: Expected $expectedQty, Accepted $acceptedQty, Damaged $damagedQty (Diff: $diff)";
                 }
 
                 $itemRecvTags = trim($itemReceivedData['received_tags'] ?? '');

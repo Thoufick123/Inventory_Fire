@@ -77,8 +77,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Variant ID</th>
-                        <th>Parent Catalog / SKU</th>
-                        <th>Variant SKU</th>
+                        <th>Parent Catalog</th>
                         <th>Attributes (Color · Design · Size)</th>
                         <th class="text-end">Selling Price</th>
                         <th class="text-center">Available Stock</th>
@@ -87,16 +86,14 @@
                 </thead>
                 <tbody>
                     <?php if (empty($variantStock)): ?>
-                    <tr><td colspan="7" class="text-center py-4 text-muted">No stock data available.</td></tr>
+                    <tr><td colspan="6" class="text-center py-4 text-muted">No stock data available.</td></tr>
                     <?php else: ?>
                     <?php foreach ($variantStock as $r): ?>
                     <tr>
                         <td class="ps-3"><span class="badge bg-dark-subtle text-dark font-monospace"><?= e($r['variant_code']) ?></span></td>
                         <td>
                             <div class="fw-bold text-dark"><?= e($r['product_name']) ?></div>
-                            <small class="text-muted font-monospace"><?= e($r['parent_sku']) ?></small>
                         </td>
-                        <td><span class="font-monospace fw-bold text-primary"><?= e($r['sku']) ?></span></td>
                         <td>
                             <span class="badge bg-light text-dark border"><?= e($r['color_name'] ?? '—') ?></span>
                             <span class="badge bg-info-subtle text-info border border-info-subtle"><?= e($r['design_name'] ?? '—') ?></span>
@@ -203,7 +200,6 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Catalog / Product Name</th>
-                        <th>Parent SKU</th>
                         <th>Category</th>
                         <th class="text-center">Variants Count</th>
                         <th class="text-center">Total Stock</th>
@@ -214,7 +210,6 @@
                     <?php foreach ($catalogStock as $cat): ?>
                     <tr>
                         <td class="ps-3 fw-bold text-dark"><?= e($cat['name']) ?></td>
-                        <td><span class="font-monospace fw-bold text-primary"><?= e($cat['parent_sku']) ?></span></td>
                         <td><?= e($cat['category_name'] ?? '—') ?></td>
                         <td class="text-center"><?= number_format($cat['variant_count']) ?></td>
                         <td class="text-center fw-bold text-success fs-6"><?= number_format($cat['total_stock']) ?> pcs</td>
@@ -344,7 +339,6 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Variant ID</th>
-                        <th>Variant SKU</th>
                         <th>Parent Product</th>
                         <th>Attributes</th>
                         <th class="text-center">Total Quantity Billed</th>
@@ -353,12 +347,11 @@
                 </thead>
                 <tbody>
                     <?php if (empty($variantSales)): ?>
-                    <tr><td colspan="6" class="text-center py-4 text-muted">No variant sales records found.</td></tr>
+                    <tr><td colspan="5" class="text-center py-4 text-muted">No variant sales records found.</td></tr>
                     <?php else: ?>
                     <?php foreach ($variantSales as $vs): ?>
                     <tr>
                         <td class="ps-3"><span class="badge bg-dark-subtle text-dark font-monospace"><?= e($vs['variant_code']) ?></span></td>
-                        <td><span class="font-monospace fw-bold text-primary"><?= e($vs['sku']) ?></span></td>
                         <td><?= e($vs['product_name']) ?></td>
                         <td>
                             <small class="text-muted"><?= e($vs['color_name'] ?? '—') ?> · <?= e($vs['design_name'] ?? '—') ?> · <?= e($vs['size_name'] ?? '—') ?></small>

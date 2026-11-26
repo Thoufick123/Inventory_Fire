@@ -187,9 +187,8 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3" style="width: 100px;">Variant ID</th>
-                        <th>Parent Catalog / SKU</th>
+                        <th>Parent Catalog</th>
                         <th>Attributes (Color · Design · Size)</th>
-                        <th>Variant SKU</th>
                         <th class="text-center">Selling Price</th>
                         <th class="text-center">Unit Stock</th>
                         <th class="text-center">QR Identity</th>
@@ -200,7 +199,7 @@
                 <tbody>
                     <?php if (empty($variants)): ?>
                     <tr>
-                        <td colspan="9" class="text-center py-5 text-muted">
+                        <td colspan="8" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                             No variants found matching your criteria.
                             <?php if (hasPermission('catalog', 'create')): ?>
@@ -225,12 +224,11 @@
                         <!-- Parent Catalog -->
                         <td>
                             <div class="fw-bold text-dark"><?= e($v['product_name']) ?></div>
-                            <div class="small font-monospace text-primary fw-semibold">
-                                <?= e($v['parent_sku']) ?>
-                                <?php if (!empty($v['category_name'])): ?>
-                                <span class="badge bg-secondary-subtle text-secondary ms-1 fw-normal"><?= e($v['category_name']) ?></span>
-                                <?php endif; ?>
+                            <?php if (!empty($v['category_name'])): ?>
+                            <div class="small">
+                                <span class="badge bg-secondary-subtle text-secondary fw-normal"><?= e($v['category_name']) ?></span>
                             </div>
+                            <?php endif; ?>
                         </td>
 
                         <!-- Attributes -->
@@ -262,11 +260,6 @@
                                 </span>
                                 <?php endif; ?>
                             </div>
-                        </td>
-
-                        <!-- Variant SKU -->
-                        <td>
-                            <span class="font-monospace fw-bold text-dark"><?= e($v['sku']) ?></span>
                         </td>
 
                         <!-- Pricing -->
@@ -305,10 +298,8 @@
                                     onclick='viewVariantQr(<?= json_encode([
                                         "id"           => (int)$v["id"],
                                         "variant_code" => (string)($v["variant_code"] ?: $vQr),
-                                        "sku"          => (string)$v["sku"],
                                         "qr_code"      => (string)$vQr,
                                         "product_name" => (string)$v["product_name"],
-                                        "parent_sku"   => (string)$v["parent_sku"],
                                         "color_name"   => (string)($v["color_name"] ?? "-"),
                                         "design_name"  => (string)($v["design_name"] ?? "-"),
                                         "size_name"    => (string)($v["size_name"] ?? "-"),
@@ -337,7 +328,7 @@
                                 <a href="<?= url('production/variants/qr-label/' . $v['id']) ?>" target="_blank" class="btn btn-action-icon btn-outline-secondary" title="Print Single QR Label">
                                     <i class="bi bi-printer"></i>
                                 </a>
-                                <button type="button" class="btn btn-action-icon btn-outline-success" onclick="openBatchPrintModal(<?= (int)$v['id'] ?>, '<?= e($v['sku']) ?>', '<?= e($v['variant_code']) ?>')" title="Batch Print Labels">
+                                <button type="button" class="btn btn-action-icon btn-outline-success" onclick="openBatchPrintModal(<?= (int)$v['id'] ?>, '<?= e($v['variant_code']) ?>')" title="Batch Print Labels">
                                     <i class="bi bi-grid-3x2-gap"></i>
                                 </button>
                                 <?php if (hasPermission('catalog', 'edit')): ?>
@@ -480,8 +471,9 @@
 function viewVariantQr(v) {
     document.getElementById('modalVarCode').innerText = v.variant_code || ('V' + v.id);
     document.getElementById('modalProdName').innerText = v.product_name || 'Product Variant';
-    document.getElementById('modalParentSku').innerText = 'Parent SKU: ' + (v.parent_sku || '—');
-    document.getElementById('modalQrText').innerText = v.qr_code || v.sku;
+    const parentSkuEl = document.getElementById('modalParentSku');
+    if (parentSkuEl) parentSkuEl.style.display = 'none';
+    document.getElementById('modalQrText').innerText = v.qr_code || v.variant_code;
     document.getElementById('modalColName').innerText = v.color_name || '—';
     document.getElementById('modalDesName').innerText = v.design_name || '—';
     document.getElementById('modalSzName').innerText = v.size_name || '—';
@@ -490,7 +482,7 @@ function viewVariantQr(v) {
     const qrBox = document.getElementById('modalQrCanvasBox');
     qrBox.innerHTML = '';
     new QRCode(qrBox, {
-        text: v.qr_code || v.sku,
+        text: v.qr_code || v.variant_code,
         width: 140,
         height: 140,
         correctLevel: QRCode.CorrectLevel.M
@@ -501,9 +493,9 @@ function viewVariantQr(v) {
     new bootstrap.Modal(document.getElementById('modalVariantQr')).show();
 }
 
-function openBatchPrintModal(variantId, sku, vCode) {
+function openBatchPrintModal(variantId, vCode) {
     document.getElementById('batchPrintVariantId').value = variantId;
-    document.getElementById('batchPrintVariantDisplay').innerText = vCode + ' — ' + sku;
+    document.getElementById('batchPrintVariantDisplay').innerText = vCode;
     new bootstrap.Modal(document.getElementById('modalBatchPrint')).show();
 }
 

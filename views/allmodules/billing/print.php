@@ -495,7 +495,7 @@ if (!empty($billItems[0])) {
             <?php foreach ($billItems as $item): ?>
                 <?php
                     $iQty = max(1, (int)($item['quantity'] ?? 1));
-                    $varText = trim(($item['sku'] ?? '') . ' ' . ($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''));
+                    $varText = trim(($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''));
                     $tags = !empty($item['tags']) && is_array($item['tags']) ? array_values(array_filter(array_map('trim', $item['tags']))) : [];
                     $hsnCode = htmlspecialchars($item['hsn_code'] ?? '6109');
                     

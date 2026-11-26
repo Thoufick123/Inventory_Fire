@@ -108,7 +108,7 @@
             <div>
                 <h5 class="mb-0 fw-bold"><i class="bi bi-printer me-2 text-primary"></i>Batch Print QR Labels</h5>
                 <small class="text-muted">
-                    Printing <strong><?= $quantity ?> identical QR labels</strong> for Variant <strong><?= e($variant['variant_code']) ?></strong> (<?= e($variant['sku']) ?>).
+                    Printing <strong><?= $quantity ?> identical QR labels</strong> for Variant <strong><?= e($variant['variant_code']) ?></strong>.
                 </small>
             </div>
             <div class="d-flex gap-2">
@@ -133,13 +133,13 @@
                 </div>
 
                 <div class="qr-section">
-                    <div class="qr-box batch-qr-item" data-qr="<?= e($variant['qr_code'] ?: $variant['sku']) ?>"></div>
+                    <div class="qr-box batch-qr-item" data-qr="<?= e($variant['qr_code'] ?: $variant['variant_code']) ?>"></div>
                     <div class="meta-list flex-grow-1">
                         <div style="font-size: 9.5px; font-weight: 800;" class="font-monospace text-truncate">
                             <?= e($variant['product_name']) ?>
                         </div>
                         <div><strong>V-ID:</strong> <span class="font-monospace fw-bold text-dark"><?= e($variant['variant_code']) ?></span></div>
-                        <div><strong>SKU:</strong> <span class="font-monospace fw-bold" style="font-size: 8.5px;"><?= e($variant['sku']) ?></span></div>
+                        <div><strong>Variant ID:</strong> <span class="font-monospace fw-bold" style="font-size: 8.5px;"><?= e($variant['variant_code']) ?></span></div>
                     </div>
                 </div>
 
@@ -148,7 +148,7 @@
                     <div class="fw-bold text-dark">PRICE: <?= formatCurrency((float)((float)$variant['selling_price'])) ?></div>
                 </div>
                 <div class="text-center font-monospace mt-1 fw-bold" style="font-size: 8.5px; letter-spacing: 0.5px;">
-                    <?= e($variant['variant_code'] ?: ($variant['qr_code'] ?: $variant['sku'])) ?>
+                    <?= e($variant['variant_code'] ?: $variant['qr_code']) ?>
                 </div>
             </div>
             <?php endfor; ?>
@@ -157,7 +157,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const qrText = <?= json_encode((string)($variant['qr_code'] ?: $variant['sku'])) ?>;
+            const qrText = <?= json_encode((string)($variant['qr_code'] ?: $variant['variant_code'])) ?>;
             document.querySelectorAll('.batch-qr-item').forEach(function(box) {
                 new QRCode(box, {
                     text: qrText,

@@ -552,7 +552,7 @@ class ProductionProgram {
 
         return Database::fetchAll(
             "SELECT ppi.*, 
-                    pv.sku, pv.qr_code, pv.selling_price, pv.production_cost,
+                    pv.variant_code, pv.qr_code, pv.selling_price, pv.production_cost,
                     s.name as size_name, s.code as size_code,
                     c.name as color_name, c.hex_code as color_hex
              FROM production_program_items ppi

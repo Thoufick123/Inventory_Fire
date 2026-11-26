@@ -99,8 +99,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Items to Mapping</h5>
-            <div class="small text-muted mt-1">Add both Third-Party Product Variants and Fabric Rolls with HSN, GST, quantities and rates.</div>
-        </div>
+            </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <ul class="nav nav-pills" id="mappingEntryTabs" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -194,17 +193,17 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Select a Category above to load attributes, then set Qty, Purchase Rate, MRP &amp; Selling Price per attribute below.</small>
                                 </div>
 
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(from Category / Catalog)</span></label>
+                                <div class="col-md-5 d-none gen-attributes-col">
+                                    <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
                                     <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="Select chips above or type comma-separated">
                                 </div>
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(from Category / Catalog)</span></label>
+                                <div class="col-md-5 d-none gen-attributes-col">
+                                    <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
                                     <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="Select chips above or type comma-separated">
                                 </div>
-                                <div class="col-md-2 text-end">
+                                <div class="col-md-2 ms-auto text-end">
                                     <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                                     </button>
@@ -253,49 +252,86 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                 <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftRollsForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="FABRIC_ROLL">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label fw-semibold mb-0" for="fabricNameInput">
+                    <div class="border rounded-3 p-3 bg-white mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary text-white rounded-pill px-2 py-1">Roll Batch</span>
+                                <strong class="text-dark">Fabric / Material Rolls</strong>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
+                                <i class="bi bi-plus-circle me-1"></i>New Roll Product Auto-Created
+                            </span>
+                        </div>
+
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold mb-1" for="fabricNameInput">
                                     Fabric / Material Name <span class="text-danger">*</span>
                                 </label>
-                                <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
-                                    <i class="bi bi-plus-circle me-1"></i>New Roll Product Auto-Created
-                                </span>
+                                <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
+                                <datalist id="rollProductSuggestions">
+                                    <?php foreach (($existingRollProducts ?? []) as $rp): ?>
+                                        <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
+                                    <?php endforeach; ?>
+                                    <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
+                                    <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
+                                    <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
+                                    <option value="100% COTTON FRENCH TERRY (240 GSM)">
+                                    <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
+                                    <option value="RAYON / VISCOSE PRINTED FABRIC">
+                                </datalist>
                             </div>
-                            <input class="form-control" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM, panda..." autocomplete="off">
-                            <datalist id="rollProductSuggestions">
-                                <?php foreach (($existingRollProducts ?? []) as $rp): ?>
-                                    <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
-                                <?php endforeach; ?>
-                                <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
-                                <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
-                                <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
-                                <option value="100% COTTON FRENCH TERRY (240 GSM)">
-                                <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
-                                <option value="RAYON / VISCOSE PRINTED FABRIC">
-                            </datalist>
-                            <div class="form-text small text-muted">
-                                <i class="bi bi-info-circle me-1"></i>Type any new fabric name to <strong>create a new roll product</strong> in the catalog, or select an existing one.
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Category</label>
+                                <select class="form-select form-select-sm roll-category" name="roll_category_id" id="rollCategory">
+                                    <option value="">-- Category --</option>
+                                    <?php foreach ($categories as $cat): ?>
+                                        <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Sub Category</label>
+                                <select class="form-select form-select-sm roll-subcategory" name="roll_subcategory_id" id="rollSubcategory">
+                                    <option value="">-- Sub Category --</option>
+                                    <?php foreach ($subcategories as $sc): ?>
+                                        <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Sub Sub Category</label>
+                                <select class="form-select form-select-sm roll-subsubcategory" name="roll_sub_subcategory_id" id="rollSubSubcategory">
+                                    <option value="">-- Sub Sub --</option>
+                                    <?php foreach ($subSubcategories as $ssc): ?>
+                                        <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small fw-semibold mb-1">HSN</label>
+                                <select class="form-select form-select-sm font-monospace" name="default_hsn" id="defaultRollHsn">
+                                    <option value="">HSN</option>
+                                    <?php foreach (($hsnList ?? []) as $hsnItem): ?>
+                                        <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
+                                            <?= e($hsnItem['hsn_code']) ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small fw-semibold mb-1">GST %</label>
+                                <input class="form-control form-control-sm roll-num-dec" type="text" inputmode="decimal" autocomplete="off" id="defaultRollGst" value="5">
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">Default HSN Code</label>
-                            <select class="form-select font-monospace" name="default_hsn" id="defaultRollHsn">
-                                <option value="">Select Default HSN</option>
-                                <?php foreach (($hsnList ?? []) as $hsnItem): ?>
-                                    <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
-                                        <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 20, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+
+                        <!-- Category-loaded Quick Color Chips (hidden until Category is selected) -->
+                        <div class="mb-3 d-none" id="rollColorChipsWrap">
+                            <label class="form-label small fw-semibold mb-1">Quick Color / Shade <span class="text-muted fw-normal">(auto-loaded from Category — click to add/fill roll)</span></label>
+                            <div class="d-flex flex-wrap gap-1" id="rollColorChips"></div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">Default GST Rate %</label>
-                            <input class="form-control roll-num-dec" type="text" inputmode="decimal" autocomplete="off" id="defaultRollGst" value="5">
-                        </div>
-                    </div>
-                    <div class="table-responsive">
+
+                        <div class="table-responsive">
                         <table class="table table-bordered align-middle table-sm" id="mappingRollsTable" style="min-width: 860px;">
                             <thead class="table-light">
                                 <tr>
@@ -329,7 +365,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             </tbody>
                         </table>
                     </div>
-                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mt-2">
                         <div class="d-flex align-items-end gap-2">
                             <div>
                                 <label class="form-label small mb-1" for="mappingRollRowsToAdd">Roll rows to add</label>
@@ -338,7 +374,10 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             <button type="button" class="btn btn-outline-primary btn-sm" id="addMappingRollRows"><i class="bi bi-plus-lg me-1"></i>Add Roll Rows</button>
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="addMappingRollOne"><i class="bi bi-plus-lg me-1"></i>Add 1 Roll</button>
                         </div>
-                        <button class="btn btn-success" type="submit"><i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping</button>
+                        <button class="btn btn-primary btn-sm px-4 fw-semibold" type="submit" id="btnGenerateSaveRolls">
+                            <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
+                        </button>
+                    </div>
                     </div>
                 </form>
             </div>
@@ -445,11 +484,9 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             $item['sub_subcategory_name'] ?? ''
                         ]);
                         $catLabel = $catParts ? implode(' / ', $catParts) : '—';
-                        $skuLabel = $item['variant_sku'] ?: $item['vendor_sku'];
                         $searchText = strtolower(trim(implode(' ', [
                             $item['item_name'] ?? '',
                             'vid ' . (int)$item['variant_id'],
-                            $skuLabel ?? '',
                             $catLabel,
                             $item['color'] ?? '',
                             $item['size'] ?? '',
@@ -463,9 +500,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         <td>
                             <strong class="text-dark"><?= e($item['item_name']) ?></strong>
                             <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1">VID: #<?= (int)$item['variant_id'] ?></span>
-                            <?php if ($skuLabel): ?>
-                                <span class="text-muted ms-1 font-monospace"><?= e($skuLabel) ?></span>
-                            <?php endif; ?>
                         </td>
                         <td><?= e($item['color'] ?: '—') ?></td>
                         <td><?= e($item['size'] ?: '—') ?></td>
@@ -1250,10 +1284,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="fw-bold fs-6"><?= e($item['item_name']) ?></div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="text-muted small">Variant &amp; SKU</div>
+                                <div class="text-muted small">Variant</div>
                                 <div class="fw-semibold">
-                                    <?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?> · 
-                                    <span class="font-monospace text-primary"><?= e($item['variant_sku'] ?: $item['vendor_sku']) ?></span>
+                                    <?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?>
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                                 </div>
                             </div>
@@ -1551,6 +1584,93 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
             });
         }
+
+        // Fabric Rolls: Category / Subcategory cascade & auto-loaded Color chips
+        const rollCatSel = document.getElementById('rollCategory');
+        const rollSubSel = document.getElementById('rollSubcategory');
+        const rollSsSel = document.getElementById('rollSubSubcategory');
+        const rollChipsWrap = document.getElementById('rollColorChipsWrap');
+        const rollChipsEl = document.getElementById('rollColorChips');
+
+        function renderRollColorChips() {
+            if (!rollCatSel || !rollChipsWrap || !rollChipsEl) return;
+            const cName = rollCatSel.selectedOptions[0]?.value ? rollCatSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+            const sName = rollSubSel?.selectedOptions[0]?.value ? rollSubSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+            const ssName = rollSsSel?.selectedOptions[0]?.value ? rollSsSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+
+            if (!cName) {
+                rollChipsWrap.classList.add('d-none');
+                rollChipsEl.innerHTML = '';
+                return;
+            }
+            rollChipsWrap.classList.remove('d-none');
+
+            let attr = null;
+            if (cName && sName && ssName && typeof draftCategoryAttrMap !== 'undefined' && draftCategoryAttrMap[`${cName}|${sName}|${ssName}`]) {
+                attr = draftCategoryAttrMap[`${cName}|${sName}|${ssName}`];
+            } else if (cName && sName && typeof draftCategoryAttrMap !== 'undefined' && draftCategoryAttrMap[`${cName}|${sName}`]) {
+                attr = draftCategoryAttrMap[`${cName}|${sName}`];
+            } else if (cName && typeof draftCategoryAttrMap !== 'undefined' && draftCategoryAttrMap[cName]) {
+                attr = draftCategoryAttrMap[cName];
+            }
+
+            const masterColors = typeof draftMasterColors !== 'undefined' ? draftMasterColors : [];
+            const colorList = (attr && attr.colors && attr.colors.length) ? attr.colors : masterColors;
+            rollChipsEl.innerHTML = colorList.length
+                ? colorList.map(col => `<button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small roll-color-chip" data-val="${String(col).replace(/"/g, '&quot;')}">${col}</button>`).join('')
+                : '<span class="small text-muted">No catalog colors for this category yet — type directly in Color / Shade below.</span>';
+        }
+
+        rollCatSel?.addEventListener('change', function() {
+            const catId = this.value;
+            if (rollSubSel) {
+                Array.from(rollSubSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== catId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                rollSubSel.value = '';
+            }
+            if (rollSsSel) {
+                Array.from(rollSsSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = true;
+                    if (opt.selected) opt.selected = false;
+                });
+                rollSsSel.value = '';
+            }
+            renderRollColorChips();
+        });
+
+        rollSubSel?.addEventListener('change', function() {
+            const subId = this.value;
+            if (rollSsSel) {
+                Array.from(rollSsSel.options).forEach(opt => {
+                    if (!opt.value) return;
+                    opt.hidden = opt.dataset.parent !== subId;
+                    if (opt.hidden && opt.selected) opt.selected = false;
+                });
+                rollSsSel.value = '';
+            }
+            renderRollColorChips();
+        });
+
+        rollSsSel?.addEventListener('change', renderRollColorChips);
+
+        rollChipsEl?.addEventListener('click', function(e) {
+            const chip = e.target.closest('.roll-color-chip');
+            if (!chip) return;
+            const colorVal = chip.dataset.val || '';
+            const emptyColorInp = Array.from(rollBody.querySelectorAll('[name$="[color]"]')).find(inp => !inp.value.trim());
+            if (emptyColorInp) {
+                emptyColorInp.value = colorVal;
+                emptyColorInp.focus();
+            } else {
+                addRolls(1);
+                const lastRow = rollBody.querySelector('tr:last-child [name$="[color]"]');
+                if (lastRow) lastRow.value = colorVal;
+            }
+        });
     }
 
     const draftRollsForm = document.getElementById('mappingDraftRollsForm');
@@ -1628,7 +1748,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
+                        submitBtn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save';
                     }
                     showDraftModernAlert('Error: ' + (data.message || 'Failed to save rolls.'));
                 }
@@ -1636,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(function(err) {
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Fabric Rolls to Mapping';
+                    submitBtn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save';
                 }
                 showDraftModernAlert('Server error: ' + err.message);
             });
@@ -1760,11 +1880,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const sName = (subSel && subSel.selectedOptions[0]?.value ? subSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
         const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
 
+        const attrCols = card.querySelectorAll('.gen-attributes-col');
         if (!cName) {
-            sizeWrap.innerHTML = '<span class="small text-muted">Select a Category above to load Sizes...</span>';
-            colorWrap.innerHTML = '<span class="small text-muted">Select a Category above to load Colors...</span>';
+            attrCols.forEach(col => col.classList.add('d-none'));
+            sizeWrap.innerHTML = '';
+            colorWrap.innerHTML = '';
             return;
         }
+        attrCols.forEach(col => col.classList.remove('d-none'));
 
         let attr = null;
         if (cName && sName && ssName && draftCategoryAttrMap[`${cName}|${sName}|${ssName}`]) {

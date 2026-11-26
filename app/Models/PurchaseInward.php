@@ -100,8 +100,8 @@ class PurchaseInward {
     public static function getItems(int $inwardId): array {
         $db = Database::getInstance();
         $sql = "SELECT pii.*, 
-                       pv.sku AS variant_sku, pv.variant_code, pv.qr_code AS variant_qr,
-                       p.name AS product_name, p.code AS parent_sku,
+                       pv.variant_code, pv.qr_code AS variant_qr,
+                       p.name AS product_name,
                        c.name AS color_name, d.name AS design_name, s.name AS size_name
                 FROM purchase_inward_items pii
                 JOIN product_variants pv ON pv.id = pii.variant_id

@@ -163,9 +163,9 @@ class QrGenerationController {
 
         $rows = Database::fetchAll(
             "SELECT ppi.id AS item_id, ppi.item_type, ppi.item_name, ppi.quantity, ppi.unit,
-                    ppi.vendor_sku, ppi.product_code, ppi.color, ppi.size, ppi.start_code,
+                    ppi.product_code, ppi.color, ppi.size, ppi.start_code,
                    ppi.mrp, ppi.selling_price, ppi.is_mapped, ppi.variant_id,
-                   pv.variant_code, pv.sku AS variant_sku,
+                   pv.variant_code,
                     ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
                     pp.id AS purchase_id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
                     s.name AS seller_name, s.company AS seller_company,
@@ -243,7 +243,6 @@ class QrGenerationController {
                     mi.weight_kg,
                     mi.meters,
                     mi.unit,
-                    mi.vendor_sku,
                     mi.product_code,
                     mi.roll_code,
                     mi.color,
@@ -254,7 +253,6 @@ class QrGenerationController {
                     1 AS is_mapped,
                     mi.variant_id,
                     pv.variant_code,
-                    pv.sku AS variant_sku,
                     mi.qr_generation_id,
                     mb.invoice_number,
                     mb.status AS bill_status,
@@ -493,7 +491,7 @@ class QrGenerationController {
             SELECT si.id, si.stitching_batch_id, si.size_name, si.color_name,
                    COALESCE(NULLIF(si.stitched_qty, 0), NULLIF(si.stitched_quantity, 0), si.received_qty, 0) as qty,
                    si.variant_id, si.catalog_hierarchy, si.base_price, si.discount_price,
-                   pv.variant_code, pv.sku, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
+                   pv.variant_code, pv.mrp AS variant_mrp, pv.selling_price AS variant_selling_price,
                    col.name AS variant_color_name, sz.name AS variant_size_name
             FROM stitching_items si
             LEFT JOIN product_variants pv ON pv.id = si.variant_id

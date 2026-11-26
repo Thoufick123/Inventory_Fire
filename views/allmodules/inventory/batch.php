@@ -2,7 +2,7 @@
 // views/production/inventory/batch.php
 // Stock Ledger Detail & Piece-by-piece QR Tracking matching multi-tab Warehouse Stock Ledger
 $batchDate = new DateTime($batchInfo['batch_created_at'] ?? 'now');
-$primarySkuDisplay = $primarySku ?? ($batchInfo['variant_sku'] ?: ($batchInfo['product_sku'] ?: 'SKU'));
+$primarySkuDisplay = $primarySku ?? ($batchInfo['variant_code'] ?? ($batchInfo['product_name'] ?? 'Batch'));
 $activeWhName = $activeWarehouse['name'] ?? ($batchInfo['warehouse_name'] ?? 'warehouse');
 $totalPcs = count($pieceItems ?? []);
 $inStockPcs = $remainingPieces ?? 0;
@@ -316,7 +316,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
                             <input type="text" id="qrInventorySearch" class="form-control border-start-0 ps-1" 
-                                   placeholder="Find product by piece tag code, SKU, size, color... (e.g. <?= $pieceItems[0]['tag_code'] ?? 'TAG' ?>)" 
+                                   placeholder="Find product by piece tag code, Variant ID, size, color... (e.g. <?= $pieceItems[0]['tag_code'] ?? 'TAG' ?>)" 
                                    autofocus oninput="filterInventoryPieces()" onkeyup="if(event.key==='Enter') filterInventoryPieces()">
                             <button type="button" class="btn btn-outline-secondary border-start-0" onclick="clearInventorySearch()" title="Clear">
                                 <i class="bi bi-x-lg"></i>
@@ -375,7 +375,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Variant Code / SKU</th>
+                                <th>Variant ID</th>
                                 <th>Size &amp; Color</th>
                                 <th class="text-end">Passed Qty</th>
                                 <th class="text-end">Base MRP</th>
@@ -387,7 +387,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                         <tbody>
                             <?php foreach (($rawItems ?? []) as $it): ?>
                             <tr>
-                                <td class="font-monospace fw-bold text-dark"><?= e($it['variant_sku'] ?? $it['sku'] ?? 'SKU') ?></td>
+                                <td class="font-monospace fw-bold text-dark"><?= e($it['variant_code'] ?? ('V' . str_pad((string)($it['variant_id'] ?? 0), 4, '0', STR_PAD_LEFT))) ?></td>
                                 <td>
                                     <span class="badge bg-secondary-subtle text-secondary border me-1"><?= e($it['size_name'] ?? 'Std') ?></span>
                                     <span class="badge bg-info-subtle text-info border"><?= e($it['color_name'] ?? 'Std') ?></span>
@@ -911,7 +911,7 @@ function buildInventoryPieceCards() {
             variantMap.set(vKey, {
                 variantKey: vKey,
                 variantCode: variantDisplayCode,
-                variantSku: p.variant_sku || p.product_sku || 'SKU',
+                variantSku: vCode,
                 productName: p.product_name || 'Finished Product',
                 categoryName: p.category_name || 'Apparel',
                 sizeName: p.size_name || 'Std',
@@ -946,7 +946,7 @@ function buildInventoryPieceCards() {
             variantMap.set(vKey, {
                 variantKey: vKey,
                 variantCode: vCode,
-                variantSku: it.variant_sku || it.sku || 'SKU',
+                variantSku: vCode,
                 productName: it.product_name || 'Finished Product',
                 categoryName: it.category_name || 'Apparel',
                 sizeName: it.size_name || 'Std',

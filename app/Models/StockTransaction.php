@@ -29,7 +29,7 @@ class StockTransaction {
 
     public static function getByReference(string $referenceType, int $referenceId): array {
         return Database::fetchAll(
-            "SELECT st.*, pv.sku, p.name as product_name
+            "SELECT st.*, pv.variant_code, p.name as product_name
              FROM stock_transactions st
              JOIN product_variants pv ON st.variant_id = pv.id
              JOIN products p ON pv.product_id = p.id
@@ -41,7 +41,7 @@ class StockTransaction {
 
     public static function getRecent(int $limit = 50): array {
         return Database::fetchAll(
-            "SELECT st.*, pv.sku, p.name as product_name, u.full_name as user_name
+            "SELECT st.*, pv.variant_code, p.name as product_name, u.full_name as user_name
              FROM stock_transactions st
              JOIN product_variants pv ON st.variant_id = pv.id
              JOIN products p ON pv.product_id = p.id

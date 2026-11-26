@@ -13,7 +13,7 @@ class StitchingItem {
     public static function getByBatch(int $batchId): array {
         return Database::fetchAll(
             "SELECT si.*, 
-                    pv.sku, pv.qr_code, pv.mrp as variant_mrp, pv.selling_price as variant_selling_price,
+                    pv.variant_code, pv.qr_code, pv.mrp as variant_mrp, pv.selling_price as variant_selling_price,
                     COALESCE(si.size_name, s.name, s.code, 'Standard') as size_name,
                     COALESCE(si.color_name, c.name, 'Assorted') as color_name,
                     COALESCE(si.size_name, s.name, s.code) as display_size,

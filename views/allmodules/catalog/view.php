@@ -100,7 +100,7 @@
                             <tr>
                                 <th>Size</th>
                                 <th>Color</th>
-                                <th>SKU</th>
+                                <th>Variant ID</th>
                                 <th class="text-end">Prod. Cost</th>
                                 <th class="text-end">MRP</th>
                                 <th class="text-end">Selling Price</th>
@@ -128,7 +128,7 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <code><?= e($v['sku']) ?></code>
+                                            <code><?= e($v['variant_code'] ?: ('V' . str_pad((string)$v['id'], 4, '0', STR_PAD_LEFT))) ?></code>
                                         </td>
                                         <td class="text-end fw-semibold text-primary">
                                             <?= formatCurrency((float)$v['production_cost']) ?>
