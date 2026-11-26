@@ -1733,8 +1733,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success) {
-                    showDraftModernAlert('Success: ' + data.message);
-                    window.location.href = data.redirect_url || '<?= url("purchases") ?>';
+                    const alertModalEl = document.getElementById('draftModernAlertModal');
+                    if (alertModalEl) {
+                        alertModalEl.addEventListener('hidden.bs.modal', function () {
+                            window.location.reload();
+                        }, { once: true });
+                    }
+                    showDraftModernAlert('Success: ' + (data.message || 'Moved to Purchases successfully.'), 'Success', 'success');
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
@@ -2139,6 +2144,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function getSelectedDraftCustomAttributes(card) {
+        if (!card) return [];
+        const groupsMap = new Map();
+        card.querySelectorAll('.gen-custom-attr-chip.btn-primary').forEach(ch => {
+            const attrName = (ch.getAttribute('data-attr-name') || '').trim();
+            const val = (ch.getAttribute('data-val') || '').trim();
+            if (!attrName || !val) return;
+            if (!groupsMap.has(attrName)) groupsMap.set(attrName, []);
+            const arr = groupsMap.get(attrName);
+            if (!arr.some(v => v.toLowerCase() === val.toLowerCase())) arr.push(val);
+        });
+        const out = [];
+        groupsMap.forEach((values, name) => {
+            if (values.length) out.push({ name, values });
+        });
+        return out;
+    }
+
     function renderVariantRateTable(card) {
         if (!card) return;
         const wrap = card.querySelector('.gen-variant-rates-wrap');
@@ -2147,7 +2170,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
         const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
-        if (!sizes.length && !colors.length) {
+        const customGroups = getSelectedDraftCustomAttributes(card);
+        if (!sizes.length && !colors.length && !customGroups.length) {
             wrap.classList.add('d-none');
             rateBody.innerHTML = '';
             return;
@@ -2170,22 +2194,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const sList = sizes.length ? sizes : [''];
         const cList = colors.length ? colors : [''];
-        const rowsHtml = [];
+        let combos = [];
         sList.forEach(sz => {
             cList.forEach(col => {
-                const key = `${sz}|||${col}`;
-                const prev = existingMap[key] || { qty: defQty, rate: defRate, mrp: defMrp, sp: defSp };
-                const label = [sz, col].filter(Boolean).join(' / ') || 'Standard';
-                rowsHtml.push(`
-                    <tr class="gen-attr-rate-row" data-key="${key.replace(/"/g, '&quot;')}" data-size="${sz.replace(/"/g, '&quot;')}" data-color="${col.replace(/"/g, '&quot;')}">
-                        <td class="fw-semibold text-dark">${label}</td>
-                        <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm attr-qty" value="${String(prev.qty || '1').replace(/"/g, '&quot;')}"></td>
-                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-rate" placeholder="0.00" value="${String(prev.rate || '').replace(/"/g, '&quot;')}"></td>
-                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-mrp" placeholder="0.00" value="${String(prev.mrp || '').replace(/"/g, '&quot;')}"></td>
-                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-sp" placeholder="0.00" value="${String(prev.sp || '').replace(/"/g, '&quot;')}"></td>
-                    </tr>
-                `);
+                combos.push({ size: sz, color: col, customVals: [] });
             });
+        });
+        customGroups.forEach(g => {
+            const next = [];
+            combos.forEach(base => {
+                g.values.forEach(val => {
+                    next.push({
+                        size: base.size,
+                        color: base.color,
+                        customVals: [...base.customVals, val]
+                    });
+                });
+            });
+            combos = next;
+        });
+
+        const rowsHtml = combos.map(combo => {
+            const key = [combo.size, combo.color, ...combo.customVals].join('|||');
+            const prev = existingMap[key] || { qty: defQty, rate: defRate, mrp: defMrp, sp: defSp };
+            const label = [combo.size, combo.color, ...combo.customVals].filter(Boolean).join(' / ') || 'Standard';
+            const customLabel = combo.customVals.join(' / ');
+            return `
+                <tr class="gen-attr-rate-row" data-key="${key.replace(/"/g, '&quot;')}" data-size="${combo.size.replace(/"/g, '&quot;')}" data-color="${combo.color.replace(/"/g, '&quot;')}" data-custom-label="${customLabel.replace(/"/g, '&quot;')}">
+                    <td class="fw-semibold text-dark">${label}</td>
+                    <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm attr-qty" value="${String(prev.qty || '1').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-rate" placeholder="0.00" value="${String(prev.rate || '').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-mrp" placeholder="0.00" value="${String(prev.mrp || '').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-sp" placeholder="0.00" value="${String(prev.sp || '').replace(/"/g, '&quot;')}"></td>
+                </tr>
+            `;
         });
 
         rateBody.innerHTML = rowsHtml.join('');
@@ -2296,25 +2338,22 @@ document.addEventListener('DOMContentLoaded', function() {
             };
         }
 
-        const sizes = dedupeDraftList((card.querySelector('.gen-sizes-input')?.value || '').split(','));
-        const colors = dedupeDraftList((card.querySelector('.gen-colors-input')?.value || '').split(','));
-        const sizeList = sizes.length ? sizes : [''];
-        const colorList = colors.length ? colors : [''];
-
         const combos = [];
         const batchComboKeys = new Set();
-        for (const sz of sizeList) {
-            for (const col of colorList) {
-                const comboKey = `${pName.toLowerCase()}|${sz.toLowerCase()}|${col.toLowerCase()}|${catVal}`;
-                if (batchComboKeys.has(comboKey)) continue;
-                if (savedExistingVariantKeys.has(comboKey)) {
-                    showDraftModernAlert(`Duplicate Variant: "${pName}" (${sz || 'Std'} / ${col || 'Std'}) is already in Saved Product Variants.`);
-                    return;
-                }
-                batchComboKeys.add(comboKey);
-                const rowRates = attrRateMap[`${sz}|||${col}`] || { qty: qtyVal, rate: rateVal, mrp: mrpVal, sp: spVal };
-                combos.push({ size: sz, color: col, ...rowRates });
+        for (const rEl of attrRateRows) {
+            const rawSz = (rEl.dataset.size || '').trim();
+            const col = (rEl.dataset.color || '').trim();
+            const customLabel = (rEl.dataset.customLabel || '').trim();
+            const sz = [rawSz, customLabel].filter(Boolean).join(' / ');
+            const comboKey = `${pName.toLowerCase()}|${sz.toLowerCase()}|${col.toLowerCase()}|${catVal}`;
+            if (batchComboKeys.has(comboKey)) continue;
+            if (savedExistingVariantKeys.has(comboKey)) {
+                showDraftModernAlert(`Duplicate Variant: "${pName}" (${sz || 'Std'} / ${col || 'Std'}) is already in Saved Product Variants.`);
+                return;
             }
+            batchComboKeys.add(comboKey);
+            const rowRates = attrRateMap[rEl.dataset.key || ''] || { qty: qtyVal, rate: rateVal, mrp: mrpVal, sp: spVal };
+            combos.push({ size: sz, color: col, ...rowRates });
         }
 
         const rowCloneBase = templateRow.cloneNode(true);
