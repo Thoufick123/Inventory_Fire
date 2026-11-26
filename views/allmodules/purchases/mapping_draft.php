@@ -55,7 +55,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Mapping Invoice</h2>
+        <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>QR Generations<?= !empty($viewOnly) ? ' — View' : ' — Edit' ?></h2>
         <div class="text-muted small">
             Supplier: <strong><?= e($bill['seller_company'] ?: $bill['seller_name']) ?></strong>
             <span class="mx-1">·</span> Invoice: <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>
@@ -66,7 +66,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
             <?php endif; ?>
         </div>
     </div>
-    <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Mapping Log</a>
+    <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
 </div>
 
 <?php if (!$viewOnly && $bill['status'] === 'READY'): ?>

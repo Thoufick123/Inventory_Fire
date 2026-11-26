@@ -1,9 +1,9 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-file-earmark-plus me-2 text-primary"></i>New Mapping Invoice</h2>
+        <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>Create QR Generation</h2>
     </div>
     <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Back to Mapping
+        <i class="bi bi-arrow-left me-1"></i>Back to QR Generations
     </a>
 </div>
 

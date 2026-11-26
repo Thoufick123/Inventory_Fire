@@ -1,6 +1,6 @@
 <?php
 /**
- * Modern ERP Bill Creations Workspace — Map Purchase Bill Lines
+ * Modern ERP QR Generations Workspace — Map Purchase Bill Lines
  * Matches Image 2, 3, 4 & 5 Format with User Refinements:
  *  1. Purchased Product Baseline Details (Financial Valuation & Supplier Profile)
  *  2. Category Hierarchy (3-Tier) & HSN Classification (Tier 1/2/3, Short Codes, QR Key) - Level Purpose removed
@@ -208,10 +208,10 @@ tr.table-danger, tr.table-danger > td {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-0 small">
-                <li class="breadcrumb-item"><a href="<?= url('purchases') ?>" class="text-decoration-none text-muted">Purchases</a></li>
-                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping') ?>" class="text-decoration-none text-muted">Bill Creations</a></li>
+                <li class="breadcrumb-item"><a href="<?= url('purchases') ?>" class="text-decoration-none text-muted">All Modules</a></li>
+                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping') ?>" class="text-decoration-none text-muted">QR Generations</a></li>
                 <li class="breadcrumb-item"><a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id']) ?>" class="text-decoration-none text-muted"><?= e($purchase['purchase_number']) ?></a></li>
-                <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Map Finished Good</li>
+                <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">QR Generation Finished</li>
             </ol>
         </nav>
         <div class="d-flex align-items-center gap-2">
@@ -242,7 +242,7 @@ tr.table-danger, tr.table-danger > td {
                 </div>
             </div>
             <a href="<?= url('purchases/mapping') ?>" class="btn btn-success btn-sm px-3 py-1.5 fw-semibold shadow-xs">
-                <i class="bi bi-arrow-left me-1"></i>Back to Mapping List
+                <i class="bi bi-arrow-left me-1"></i>Back to QR Generations
             </a>
         </div>
     <?php endif; ?>

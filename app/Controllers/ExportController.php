@@ -48,7 +48,7 @@ class ExportController {
                 'category' => 'Procurement & Materials'
             ],
             'third_party_products' => [
-                'name' => 'Third-Party Products & Bill Creations',
+                'name' => 'Third-Party Products & QR Generations',
                 'desc' => 'Ready-to-sell vendor products, retail catalog mapping, 3-tier taxonomy, sizes, colors, MRP & SP',
                 'icon' => 'bi bi-shop',
                 'color' => 'info',

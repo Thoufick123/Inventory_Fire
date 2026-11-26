@@ -3570,15 +3570,16 @@ class AllmodulesController {
         $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
 
         Response::view('allmodules.purchases.mapping_create', [
-            'pageTitle' => 'Create Bill Creation',
+            'pageTitle' => 'Create QR Generation',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'sellers' => $sellers,
             'selectedSellerId' => $selectedSellerId,
             'invoiceNumber' => $invoiceNumber,
             'breadcrumb' => [
-                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
-                ['label' => 'Create Bill Creation'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
+                ['label' => 'Create QR Generation'],
             ],
         ]);
     }
@@ -4084,7 +4085,7 @@ class AllmodulesController {
         } catch (\Throwable $e) {}
 
         Response::view('allmodules.purchases.mapping_draft', [
-            'pageTitle' => 'Bill Creation Invoice ' . $bill['invoice_number'],
+            'pageTitle' => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id'])),
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'bill' => $bill,
@@ -4105,8 +4106,9 @@ class AllmodulesController {
             'hsnList' => $hsnList,
             'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
-                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
-                ['label' => 'Bill Creation Invoice ' . $bill['invoice_number']],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
+                ['label' => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id']))],
             ],
         ]);
     }
@@ -5871,7 +5873,7 @@ class AllmodulesController {
         );
 
         Response::view('allmodules.purchases.mapping', [
-            'pageTitle' => 'Bill Creations',
+            'pageTitle' => 'QR Generations',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'items' => $items,
@@ -5883,8 +5885,8 @@ class AllmodulesController {
             'search' => $search,
             'categoryId' => $categoryId,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Bill Creations'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations'],
             ],
         ]);
     }
@@ -6521,7 +6523,7 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.purchases.mapping_bill', [
-            'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
+            'pageTitle' => 'QR Generations — ' . ($activeItem['item_name'] ?? 'Item'),
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'purchase' => $purchase,
@@ -6545,10 +6547,10 @@ class AllmodulesController {
             'categoryAttributesMap' => $categoryAttributesMap,
             'hsnList' => $hsnList,
             'breadcrumb' => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
                 ['label' => $purchase['purchase_number'], 'url' => url('purchases/mapping/bill/' . $purchase['id'])],
-                ['label' => 'Map Finished Good'],
+                ['label' => 'QR Generation Finished'],
             ],
         ]);
     }
@@ -6580,7 +6582,7 @@ class AllmodulesController {
     }
 
     /**
-     * Third-Party Bill Creations: Save Category Hierarchy, Attributes, and Variant Matrix.
+     * Third-Party QR Generations: Save Category Hierarchy, Attributes, and Variant Matrix.
      */
     public function saveThirdPartyMapping(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
@@ -25425,8 +25427,8 @@ class AllmodulesController {
             'search'        => $search,
             'metrics'       => $metrics,
             'breadcrumb'    => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
                 ['label' => 'Third-Party Catalog'],
             ],
         ]);
@@ -25455,7 +25457,8 @@ class AllmodulesController {
             'categories'   => $categories,
             'sellers'      => $sellers,
             'breadcrumb'   => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
                 ['label' => 'Third-Party Catalog', 'url' => url('production/purchases/mapping/catalog')],
                 ['label' => 'Add Style'],
             ],
@@ -25581,7 +25584,8 @@ class AllmodulesController {
             'sellers'          => $sellers,
             'parsedAttrs'      => $parsedAttrs,
             'breadcrumb'       => [
-                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
                 ['label' => 'Third-Party Catalog', 'url' => url('production/purchases/mapping/catalog')],
                 ['label' => 'Edit ' . $product['name']],
             ],

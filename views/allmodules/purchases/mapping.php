@@ -1,16 +1,16 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Bill Creations</h2>
+        <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>QR Generations</h2>
     </div>
     <a href="<?= url('purchases/mapping/create') ?>" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>New Mapping Invoice
+        <i class="bi bi-plus-circle me-1"></i>New QR Generation
     </a>
 </div>
 
 <ul class="nav nav-tabs mb-3" id="mappingPageTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active fw-semibold" id="mappingProductsTab" data-bs-toggle="tab" data-bs-target="#mappingProductsPane" type="button" role="tab" aria-controls="mappingProductsPane" aria-selected="true">
-            <i class="bi bi-diagram-3 me-1"></i>Bill Creations
+            <i class="bi bi-qr-code-scan me-1"></i>QR Generations
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -21,7 +21,7 @@
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="mappingLogsTab" data-bs-toggle="tab" data-bs-target="#mappingLogsPane" type="button" role="tab" aria-controls="mappingLogsPane" aria-selected="false">
-            <i class="bi bi-journal-text me-1"></i>Mapping Invoice Log
+            <i class="bi bi-journal-text me-1"></i>QR Generation Invoice Log
             <span class="badge bg-secondary ms-1"><?= count($mappingDrafts ?? []) ?></span>
         </button>
     </li>
@@ -404,7 +404,7 @@
     <div class="tab-pane fade" id="mappingLogsPane" role="tabpanel" aria-labelledby="mappingLogsTab">
         <div class="card border shadow-sm mb-4">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Mapping Invoice Log</h5>
+                <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>QR Generation Invoice Log</h5>
                 <span class="badge bg-secondary"><?= count($mappingDrafts ?? []) ?> Entries</span>
             </div>
             <div class="table-responsive">
