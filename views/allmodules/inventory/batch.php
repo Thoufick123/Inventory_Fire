@@ -246,50 +246,8 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
     </div>
 </div>
 
-<!-- 5 Styled Tabs matching Reference -->
-<ul class="nav nav-pills stock-ledger-nav gap-2 mb-4 flex-wrap" id="stockLedgerPills" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold d-flex align-items-center gap-2 tab-pill-green" id="pill-warehouse-tab" data-bs-toggle="pill" data-bs-target="#pill-warehouse" type="button" role="tab" aria-selected="true">
-            <i class="bi bi-qr-code-scan"></i>
-            <span>Warehouse Pieces &amp; QR Labels</span>
-            <span class="badge rounded-pill bg-white text-success px-2 ms-1"><?= $inStockPcs ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-red" id="pill-damaged-tab" data-bs-toggle="pill" data-bs-target="#pill-damaged" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-exclamation-circle-fill"></i>
-            <span>Damaged &amp; Quarantined Products</span>
-            <span class="badge rounded-pill <?= count($damagedList) > 0 ? 'bg-danger text-white' : 'bg-danger-subtle text-danger' ?> px-2 ms-1"><?= count($damagedList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-pink" id="pill-sales-tab" data-bs-toggle="pill" data-bs-target="#pill-sales" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-bag-check-fill"></i>
-            <span>Direct Sales / Sold Pieces</span>
-            <span class="badge rounded-pill <?= count($soldList) > 0 ? 'bg-danger text-white' : 'bg-light text-secondary border' ?> px-2 ms-1"><?= count($soldList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-orange" id="pill-returns-tab" data-bs-toggle="pill" data-bs-target="#pill-returns" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-arrow-return-left"></i>
-            <span>Customer Returns &amp; Exchanges</span>
-            <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis px-2 ms-1"><?= count($returnsList) ?></span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold d-flex align-items-center gap-2 tab-pill-purple" id="pill-logs-tab" data-bs-toggle="pill" data-bs-target="#pill-logs" type="button" role="tab" aria-selected="false">
-            <i class="bi bi-tags-fill"></i>
-            <span>Price Revision History &amp; Logs</span>
-            <span class="badge rounded-pill bg-purple-subtle text-purple px-2 ms-1"><?= count($movementsList) ?></span>
-        </button>
-    </li>
-</ul>
-
-<!-- Tab Contents -->
-<div class="tab-content" id="stockLedgerTabContent">
-
-    <!-- TAB 1: Warehouse Pieces & QR Labels -->
-    <div class="tab-pane fade show active" id="pill-warehouse" role="tabpanel">
+        <!-- Warehouse Pieces & QR Labels -->
+        <div id="pill-warehouse">
 
         <!-- Sub-header & Action Buttons matching Reference -->
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
@@ -448,7 +406,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
         </div>
     </div>
 
-    <!-- TAB 2: Damaged & Quarantined Products -->
+<!-- Printer Settings Modal -->
     <div class="tab-pane fade" id="pill-damaged" role="tabpanel">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -816,11 +774,8 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
             <div class="modal-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom no-print">
                     <span class="text-muted small">Ready to print <strong id="printModalCount">0</strong> sticker label(s)</span>
-                    <button type="button" class="btn btn-success fw-bold px-4" onclick="window.print()">
-                        <i class="bi bi-printer-fill me-1"></i> Print Stickers Now
-                    </button>
                 </div>
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3" id="qrStickersGrid"></div>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" id="qrStickersGrid"></div>
             </div>
             <div class="modal-footer bg-light border-top no-print py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -1229,19 +1184,35 @@ function renderStickersToModal(pieces) {
 
     pieces.forEach((p, idx) => {
         const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
+        const basePrice = parseFloat(p.base_price || 0);
+        const discPrice = parseFloat(p.discount_price || p.base_price || 0);
+        const mrpHtml = (basePrice > discPrice)
+            ? `<span class="text-muted text-decoration-line-through small me-1">${formatCurrency(basePrice)}</span>`
+            : '';
         const col = document.createElement('div');
         col.className = 'col qr-sticker-card-col';
         col.innerHTML = `
-            <div class="card qr-sticker-card p-2 text-center border">
-                <div class="fw-bold small text-truncate text-uppercase mb-1" style="font-size: 11px;">${escapeHtml(COMPANY_TITLE)}</div>
-                <div class="text-center p-1 bg-white mb-1" id="print_qr_${idx}" style="display: flex; justify-content: center;"></div>
-                <div class="font-monospace fw-bold small text-truncate">${escapeHtml(p.variant_sku || p.product_sku || 'SKU')}</div>
-                <div class="small text-muted" style="font-size: 10px;">${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}</div>
-                <div class="d-flex justify-content-center gap-1 small mt-0.5">
-                    ${parseFloat(p.base_price) > parseFloat(p.discount_price) ? `<span class="text-muted text-decoration-line-through">${formatCurrency(parseFloat(p.base_price))}</span>` : ''}
-                    <span class="fw-bold text-dark">${formatCurrency(parseFloat(p.discount_price || p.base_price || 0))}</span>
+            <div class="card qr-sticker-card p-3 border shadow-xs bg-white" style="border-radius: 10px;">
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="flex-shrink-0 text-center p-1 bg-white border rounded" id="print_qr_${idx}" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
+                    <div class="flex-grow-1 min-w-0 text-start">
+                        <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
+                        <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
+                            <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(p.category_name || 'Apparel')}
+                        </div>
+                        <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(variantDisplayCode)}</div>
+                        <div class="small text-muted mb-1" style="font-size: 11.5px;">
+                            Size: <strong class="text-dark">${escapeHtml(p.size_name || 'Std')}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(p.color_name || 'Std')}</strong>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-1 mb-1">
+                            ${mrpHtml}
+                            <span class="fw-bold text-primary">${formatCurrency(discPrice)}</span>
+                        </div>
+                        <div class="pt-1 border-top">
+                            <span class="badge bg-dark text-warning font-monospace px-2 py-1" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(variantDisplayCode)}</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="badge bg-dark text-warning font-monospace mt-1" style="font-size: 11px;">${escapeHtml(variantDisplayCode)}</div>
             </div>
         `;
         grid.appendChild(col);
@@ -1251,8 +1222,8 @@ function renderStickersToModal(pieces) {
             qrTarget.innerHTML = '';
             new QRCode(qrTarget, {
                 text: String(variantDisplayCode),
-                width: 90,
-                height: 90,
+                width: 74,
+                height: 74,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
