@@ -515,11 +515,15 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <span class="text-muted small">View only</span>
                             <?php else: ?>
                                 <?php if (empty($item['qr_generation_id'])): ?>
-                                <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/generate-qr') ?>" class="d-inline">
-                                    <?= CSRF::field() ?>
-                                    <input type="hidden" name="mapping_bill_id" value="<?= $mappingBillId ?>">
-                                    <button class="btn btn-xs btn-outline-info" type="submit"><i class="bi bi-qr-code me-1"></i>Generate QR</button>
-                                </form>
+                                <?php if ($bill['status'] === 'MOVED' || !empty($bill['purchase_id'])): ?>
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/generate-qr') ?>" class="d-inline">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="mapping_bill_id" value="<?= $mappingBillId ?>">
+                                        <button class="btn btn-xs btn-outline-info" type="submit"><i class="bi bi-qr-code me-1"></i>Generate QR</button>
+                                    </form>
+                                <?php else: ?>
+                                    <button class="btn btn-xs btn-outline-secondary" type="button" disabled title="Move to Purchase first to generate QR"><i class="bi bi-lock me-1"></i>Generate QR</button>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <div class="btn-group btn-group-sm">
                                     <button type="button" class="btn btn-xs btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR in this panel">
@@ -809,24 +813,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
 
+            <?php $isMovedToPurchase = ($bill['status'] === 'MOVED' || !empty($bill['purchase_id'])); ?>
             <!-- OPTION 2: QR Generations & In-Panel Inventory Addition -->
             <div class="col-lg-4 col-md-6">
-                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm">
+                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm <?= !$isMovedToPurchase ? 'opacity-75' : '' ?>">
                     <div>
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h6 class="fw-bold text-info mb-0"><i class="bi bi-qr-code me-1"></i>Option 2: QR Generations</h6>
-                            <span class="badge bg-info-subtle text-info border border-info-subtle">Labels &amp; Stock</span>
+                            <span class="badge <?= $isMovedToPurchase ? 'bg-info-subtle text-info border border-info-subtle' : 'bg-secondary-subtle text-secondary border' ?>">
+                                <?= $isMovedToPurchase ? 'Labels &amp; Stock' : 'Locked' ?>
+                            </span>
                         </div>
-                      
+                        <?php if (!$isMovedToPurchase): ?>
+                            <p class="small text-muted mb-2"><i class="bi bi-lock me-1"></i>Move this mapping to Purchase first to enable QR generation.</p>
+                        <?php endif; ?>
                     </div>
                     <div class="d-flex flex-column gap-2">
                         <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/generate-all-qr') ?>" class="m-0 js-draft-confirm-form" data-confirm-title="Generate All Variant QRs" data-confirm-msg="Generate QR batches for all saved variants that do not already have QR codes?" data-confirm-btn="Generate QRs" data-confirm-class="btn-primary">
                             <?= CSRF::field() ?>
-                            <button class="btn btn-outline-info w-100 py-2 fw-semibold" type="submit" <?= $pendingQrCount === 0 ? 'disabled' : '' ?>>
-                                <i class="bi bi-qr-code me-1"></i><?= $pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate') ?>
+                            <button class="btn <?= $isMovedToPurchase ? 'btn-outline-info' : 'btn-outline-secondary' ?> w-100 py-2 fw-semibold" type="submit" <?= (!$isMovedToPurchase || $pendingQrCount === 0) ? 'disabled' : '' ?>>
+                                <i class="bi <?= $isMovedToPurchase ? 'bi-qr-code' : 'bi-lock' ?> me-1"></i><?= !$isMovedToPurchase ? 'Move to Purchase First' : ($pendingQrCount > 0 ? 'Generate QR for ' . $pendingQrCount . ' Variants' : ($items ? 'All Variants Have QR' : 'No Variants to Generate')) ?>
                             </button>
                         </form>
-                        <?php if (!empty($firstQrId)): ?>
+                        <?php if ($isMovedToPurchase && !empty($firstQrId)): ?>
                             <button type="button" class="btn btn-dark btn-sm w-100 py-1" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$firstQrId ?>">
                                 <i class="bi bi-eye me-1"></i>View QRs &amp; Stock in Popup
                             </button>
@@ -846,11 +855,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <!-- OPTION 3: Waiting for Purchase Bill / Link to Bill -->
             <div class="col-lg-4 col-md-12">
-                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm">
+                <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm <?= !$isMovedToPurchase ? 'opacity-75' : '' ?>">
                     <div>
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h6 class="fw-bold text-warning mb-0"><i class="bi bi-clock-history me-1"></i>Option 3: Purchase Bill Status</h6>
-                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Mapping Status</span>
+                            <span class="badge <?= $isMovedToPurchase ? 'bg-warning-subtle text-warning border border-warning-subtle' : 'bg-secondary-subtle text-secondary border' ?>">
+                                <?= $isMovedToPurchase ? 'Mapping Status' : 'Locked' ?>
+                            </span>
                         </div>
                         <p class="small text-muted mb-3">
                             <?php if ($bill['status'] === 'MOVED'): ?>
@@ -861,17 +872,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Matched with existing Purchase Order <strong><?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?></strong>.
                             <?php else: ?>
                                 <span class="badge bg-warning text-dark mb-1">Status: WAITING FOR PURCHASE BILL</span><br>
-                                Pre-mapped invoice waiting for the Purchases bill. As soon as the Purchases team records invoice <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>, it will automatically link.
+                                Move this mapping to Purchase first to enable Purchase Bill Status &amp; linking for invoice <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>.
                             <?php endif; ?>
                         </p>
                     </div>
                     <?php if ($bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
-                        <button type="button" class="btn btn-outline-primary w-100 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#linkExistingPurchaseModal" <?= !$items ? 'disabled' : '' ?>>
-                            <i class="bi bi-link-45deg me-1"></i>Link to Existing Purchase Bill
+                        <button type="button" class="btn btn-outline-primary w-100 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#linkExistingPurchaseModal" <?= (!$isMovedToPurchase || !$items) ? 'disabled' : '' ?>>
+                            <i class="bi <?= $isMovedToPurchase ? 'bi-link-45deg' : 'bi-lock' ?> me-1"></i>Link to Existing Purchase Bill
                         </button>
                     <?php else: ?>
                         <div class="bg-white border rounded p-2 text-center small text-muted">
-                            <i class="bi bi-info-circle me-1"></i><?= $bill['status'] === 'MOVED' ? 'Synchronization complete' : 'Automatic linking active on invoice match' ?>
+                            <i class="bi <?= $isMovedToPurchase ? 'bi-info-circle' : 'bi-lock' ?> me-1"></i><?= $bill['status'] === 'MOVED' ? 'Synchronization complete' : 'Move to Purchase first to unlock' ?>
                         </div>
                     <?php endif; ?>
                 </div>

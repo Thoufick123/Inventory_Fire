@@ -4633,12 +4633,17 @@ class AllmodulesController {
             $params[] = $cid;
         }
         $bill = Database::fetchOne(
-            "SELECT id FROM third_party_mapping_bills WHERE id = ? {$scope}",
+            "SELECT id, status, purchase_id FROM third_party_mapping_bills WHERE id = ? {$scope}",
             $params
         );
         if (!$bill) {
             Session::flash('error', 'Mapping entry not found.');
             Response::redirect(url('purchases/mapping'));
+            return;
+        }
+        if ($bill['status'] !== 'MOVED' && empty($bill['purchase_id'])) {
+            Session::flash('error', 'Please move this mapping to Purchase first before generating QR codes.');
+            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
             return;
         }
 
@@ -5094,7 +5099,7 @@ class AllmodulesController {
         try {
             Database::beginTransaction();
             $item = Database::fetchOne(
-                "SELECT mi.*, mb.seller_id, s.name AS seller_name, s.company AS seller_company
+                "SELECT mi.*, mb.seller_id, mb.status AS bill_status, mb.purchase_id, s.name AS seller_name, s.company AS seller_company
                  FROM third_party_mapping_items mi
                  JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
                  JOIN sellers s ON s.id = mb.seller_id
@@ -5104,6 +5109,9 @@ class AllmodulesController {
             );
             if (!$item) {
                 throw new InvalidArgumentException('Mapping product variant not found.');
+            }
+            if (($item['bill_status'] ?? '') !== 'MOVED' && empty($item['purchase_id'])) {
+                throw new InvalidArgumentException('Please move this mapping to Purchase first before generating QR codes.');
             }
             if (!empty($item['qr_generation_id'])) {
                 $existingQr = Database::fetchOne(
