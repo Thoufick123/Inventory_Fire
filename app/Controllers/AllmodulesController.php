@@ -3972,7 +3972,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
                         $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
@@ -3983,7 +3983,7 @@ class AllmodulesController {
                 }
             }
 
-            // Also include deferred-variant catalog products whose sizes/colors live in products.attributes JSON
+            // Also include deferred-variant catalog products & custom attributes from products.attributes JSON
             $sizeNameById = [];
             foreach ($masterSizes as $msz) {
                 $sizeNameById[(int)$msz['id']] = trim((string)($msz['code'] ?: $msz['name']));
@@ -4007,8 +4007,9 @@ class AllmodulesController {
                 $cName = $dp['cat_name'] ?? '';
                 if ($cName === '') continue;
                 $decodedAttr = json_decode((string)$dp['attributes'], true);
-                $opts = is_array($decodedAttr) ? ($decodedAttr['production_variant_options'] ?? []) : [];
-                if (empty($opts) || !is_array($opts)) continue;
+                if (!is_array($decodedAttr)) continue;
+                $opts = is_array($decodedAttr['production_variant_options'] ?? null) ? $decodedAttr['production_variant_options'] : [];
+                $customAttrs = is_array($decodedAttr['custom_attributes'] ?? null) ? $decodedAttr['custom_attributes'] : [];
 
                 $pSizes = [];
                 foreach ((array)($opts['size_ids'] ?? []) as $sid) {
@@ -4038,7 +4039,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     foreach ($pSizes as $sn) {
                         if (!in_array($sn, $categoryAttributesMap[$k]['sizes'], true)) {
@@ -4050,8 +4051,30 @@ class AllmodulesController {
                             $categoryAttributesMap[$k]['colors'][] = $cn;
                         }
                     }
+                    foreach ($customAttrs as $ca) {
+                        if (!is_array($ca)) continue;
+                        $caName = trim((string)($ca['name'] ?? ''));
+                        if ($caName === '') continue;
+                        $caKey = mb_strtolower($caName);
+                        if (!isset($categoryAttributesMap[$k]['custom_attributes'][$caKey])) {
+                            $categoryAttributesMap[$k]['custom_attributes'][$caKey] = ['name' => $caName, 'values' => []];
+                        }
+                        foreach ((array)($ca['values'] ?? []) as $cv) {
+                            $cvStr = trim((string)$cv);
+                            if ($cvStr !== '' && !in_array($cvStr, $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'], true)) {
+                                $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'][] = $cvStr;
+                            }
+                        }
+                    }
                 }
             }
+            foreach ($categoryAttributesMap as &$camEntry) {
+                $camEntry['custom_attributes'] = array_values(array_filter(
+                    $camEntry['custom_attributes'] ?? [],
+                    static fn($g) => !empty($g['values'])
+                ));
+            }
+            unset($camEntry);
         } catch (\Throwable $e) {}
 
         Response::view('allmodules.purchases.mapping_draft', [
@@ -6317,7 +6340,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
                         $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
@@ -6328,7 +6351,7 @@ class AllmodulesController {
                 }
             }
 
-            // Also include deferred-variant catalog products whose sizes/colors live in products.attributes JSON
+            // Also include deferred-variant catalog products & custom attributes from products.attributes JSON
             $sizeNameById = [];
             foreach ($masterSizes as $msz) {
                 $sizeNameById[(int)$msz['id']] = trim((string)($msz['code'] ?: $msz['name']));
@@ -6352,8 +6375,9 @@ class AllmodulesController {
                 $cName = $dp['cat_name'] ?? '';
                 if ($cName === '') continue;
                 $decodedAttr = json_decode((string)$dp['attributes'], true);
-                $opts = is_array($decodedAttr) ? ($decodedAttr['production_variant_options'] ?? []) : [];
-                if (empty($opts) || !is_array($opts)) continue;
+                if (!is_array($decodedAttr)) continue;
+                $opts = is_array($decodedAttr['production_variant_options'] ?? null) ? $decodedAttr['production_variant_options'] : [];
+                $customAttrs = is_array($decodedAttr['custom_attributes'] ?? null) ? $decodedAttr['custom_attributes'] : [];
 
                 $pSizes = [];
                 foreach ((array)($opts['size_ids'] ?? []) as $sid) {
@@ -6383,7 +6407,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     foreach ($pSizes as $sn) {
                         if (!in_array($sn, $categoryAttributesMap[$k]['sizes'], true)) {
@@ -6395,8 +6419,30 @@ class AllmodulesController {
                             $categoryAttributesMap[$k]['colors'][] = $cn;
                         }
                     }
+                    foreach ($customAttrs as $ca) {
+                        if (!is_array($ca)) continue;
+                        $caName = trim((string)($ca['name'] ?? ''));
+                        if ($caName === '') continue;
+                        $caKey = mb_strtolower($caName);
+                        if (!isset($categoryAttributesMap[$k]['custom_attributes'][$caKey])) {
+                            $categoryAttributesMap[$k]['custom_attributes'][$caKey] = ['name' => $caName, 'values' => []];
+                        }
+                        foreach ((array)($ca['values'] ?? []) as $cv) {
+                            $cvStr = trim((string)$cv);
+                            if ($cvStr !== '' && !in_array($cvStr, $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'], true)) {
+                                $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'][] = $cvStr;
+                            }
+                        }
+                    }
                 }
             }
+            foreach ($categoryAttributesMap as &$camEntry) {
+                $camEntry['custom_attributes'] = array_values(array_filter(
+                    $camEntry['custom_attributes'] ?? [],
+                    static fn($g) => !empty($g['values'])
+                ));
+            }
+            unset($camEntry);
         } catch (\Throwable $e) {
             error_log('categoryAttributesMap build failed: ' . $e->getMessage());
         }

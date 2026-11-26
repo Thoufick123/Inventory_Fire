@@ -210,18 +210,19 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <div class="col-md-5 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
-                                    <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="Select chips above or type comma-separated">
+                                    <input type="hidden" class="gen-sizes-input">
                                 </div>
                                 <div class="col-md-5 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
-                                    <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="Select chips above or type comma-separated">
+                                    <input type="hidden" class="gen-colors-input">
                                 </div>
                                 <div class="col-md-2 ms-auto text-end">
                                     <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                                     </button>
                                 </div>
+                                <div class="col-12 d-none gen-custom-attrs-wrap"></div>
 
                                 <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
                                 <div class="col-12 mt-2 d-none gen-variant-rates-wrap">
@@ -1858,10 +1859,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
 
         const attrCols = card.querySelectorAll('.gen-attributes-col');
+        const customWrap = card.querySelector('.gen-custom-attrs-wrap');
         if (!cName) {
             attrCols.forEach(col => col.classList.add('d-none'));
             sizeWrap.innerHTML = '';
             colorWrap.innerHTML = '';
+            if (customWrap) {
+                customWrap.classList.add('d-none');
+                customWrap.innerHTML = '';
+            }
             return;
         }
         attrCols.forEach(col => col.classList.remove('d-none'));
@@ -1877,17 +1883,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const sizeList = dedupeDraftList((attr && attr.sizes && attr.sizes.length) ? attr.sizes : draftMasterSizes);
         const colorList = dedupeDraftList((attr && attr.colors && attr.colors.length) ? attr.colors : draftMasterColors);
+        const customGroups = (attr && Array.isArray(attr.custom_attributes)) ? attr.custom_attributes : [];
 
         const activeSizes = new Set((card.querySelector('.gen-sizes-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
         const activeColors = new Set((card.querySelector('.gen-colors-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
 
         sizeWrap.innerHTML = sizeList.length
             ? sizeList.map(sz => `<button type="button" class="btn btn-xs ${activeSizes.has(sz.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-size-chip" data-val="${sz.replace(/"/g, '&quot;')}">${sz}</button>`).join('')
-            : '<span class="small text-muted">No catalog sizes for this category yet — type below</span>';
+            : '<span class="small text-muted">No catalog sizes for this category yet</span>';
 
         colorWrap.innerHTML = colorList.length
             ? colorList.map(col => `<button type="button" class="btn btn-xs ${activeColors.has(col.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-color-chip" data-val="${col.replace(/"/g, '&quot;')}">${col}</button>`).join('')
-            : '<span class="small text-muted">No catalog colors for this category yet — type below</span>';
+            : '<span class="small text-muted">No catalog colors for this category yet</span>';
+
+        if (customWrap) {
+            const escAttr = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            if (customGroups.length) {
+                customWrap.innerHTML = '<div class="row g-2 mt-1">' + customGroups.map(g => {
+                    const gName = escAttr(g.name);
+                    const chips = (g.values || []).map(val => {
+                        const vEsc = escAttr(val);
+                        return `<button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-custom-attr-chip" data-attr-name="${gName}" data-val="${vEsc}">${vEsc}</button>`;
+                    }).join('');
+                    return `
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">${gName} <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
+                            <div class="d-flex flex-wrap gap-1">${chips}</div>
+                        </div>
+                    `;
+                }).join('') + '</div>';
+                customWrap.classList.remove('d-none');
+            } else {
+                customWrap.innerHTML = '';
+                customWrap.classList.add('d-none');
+            }
+        }
     }
 
     document.querySelectorAll('.tp-product-card').forEach(renderDraftAttributeChips);
@@ -2169,6 +2199,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function (e) {
+        const customChip = e.target.closest('.gen-custom-attr-chip');
+        if (customChip) {
+            customChip.classList.toggle('btn-primary');
+            customChip.classList.toggle('btn-outline-secondary');
+            renderVariantRateTable(customChip.closest('.tp-product-card'));
+            return;
+        }
         const chip = e.target.closest('.gen-size-chip, .gen-color-chip');
         if (chip) {
             const isSize = chip.classList.contains('gen-size-chip');
