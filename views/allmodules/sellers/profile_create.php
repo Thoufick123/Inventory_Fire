@@ -5,7 +5,15 @@
 <form method="POST" action="<?= url('production/sellers/store') ?>" class="card shadow-sm border" id="supplierForm" novalidate>
     <?= CSRF::field() ?>
     <input type="hidden" name="supplier_profile_only" value="1">
-    <div class="card-header bg-white"><h5 class="mb-0 fw-bold">Supplier Profile &amp; Business Details</h5></div>
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0 fw-bold">Supplier Profile &amp; Business Details</h5>
+        <?php $activeConcern = function_exists('currentConcern') ? currentConcern() : null; ?>
+        <?php if (!empty($activeConcern)): ?>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                <i class="bi bi-building me-1"></i>Concern: <?= e($activeConcern['name'] ?? '') ?><?= !empty($activeConcern['code']) ? ' (' . e($activeConcern['code']) . ')' : '' ?>
+            </span>
+        <?php endif; ?>
+    </div>
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-6">

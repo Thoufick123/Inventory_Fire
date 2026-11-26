@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Production Controller
  * Handles all production submodules: Dashboard, Sellers, Catalog, Programs,
@@ -412,6 +412,8 @@ class AllmodulesController {
         $damageFilter = trim($_GET['damage_filter'] ?? '');
 
         $sql = "SELECT s.*,
+                       c.name AS concern_name,
+                       c.code AS concern_code,
                        (SELECT COUNT(DISTINCT rd.id)
                         FROM roll_damages rd
                         LEFT JOIN seller_rolls sr ON rd.seller_roll_id = sr.id
@@ -428,6 +430,7 @@ class AllmodulesController {
                                OR (rd.replacement_roll_number IS NOT NULL AND rd.replacement_roll_number != ''))
                        ) AS replaced_count
                 FROM sellers s 
+                LEFT JOIN concerns c ON c.id = COALESCE(s.concern_id, 1)
                 WHERE s.seller_type = 'MATERIAL_SUPPLIER' 
                   AND (s.is_active = 1 OR s.is_active IS NULL) 
                   AND s.production_deleted_at IS NULL";
@@ -445,9 +448,10 @@ class AllmodulesController {
 
         if ($search !== '') {
             $sql .= " AND (s.name LIKE ? OR s.company LIKE ? OR s.phone LIKE ? OR s.city LIKE ?
-                OR s.state LIKE ? OR s.gst_number LIKE ? OR s.address LIKE ?)";
+                OR s.state LIKE ? OR s.gst_number LIKE ? OR s.address LIKE ?
+                OR c.name LIKE ? OR c.code LIKE ?)";
             $s = '%' . $search . '%';
-            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s]);
+            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s]);
         }
 
         if ($city !== '') {

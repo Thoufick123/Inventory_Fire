@@ -61,6 +61,7 @@
                 <tr>
                     <th>Supplier / Contact</th>
                     <th>Company</th>
+                    <th>Concern</th>
                     <th>Contact Details</th>
                     <th>Location</th>
                     <th>Damages &amp; Replacements</th>
@@ -69,7 +70,7 @@
             </thead>
             <tbody>
                 <?php if (empty($sellers)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-5">
+                    <tr><td colspan="7" class="text-center text-muted py-5">
                         <i class="bi bi-inbox fs-2 d-block mb-2"></i>
                         No suppliers match these filters.
                         <?php if (hasPermission('sellers', 'create')): ?>
@@ -77,9 +78,18 @@
                         <?php endif; ?>
                     </td></tr>
                 <?php else: foreach ($sellers as $seller): ?>
-                    <tr class="seller-row" data-city="<?= strtolower(e($seller['city'] ?? '')) ?>" data-search="<?= strtolower(e($seller['name'] . ' ' . ($seller['company'] ?? '') . ' ' . ($seller['phone'] ?? '') . ' ' . ($seller['email'] ?? '') . ' ' . ($seller['address'] ?? '') . ' ' . ($seller['city'] ?? '') . ' ' . ($seller['state'] ?? '') . ' ' . ($seller['gst_number'] ?? ''))) ?>">
+                    <tr class="seller-row" data-city="<?= strtolower(e($seller['city'] ?? '')) ?>" data-search="<?= strtolower(e($seller['name'] . ' ' . ($seller['company'] ?? '') . ' ' . ($seller['concern_name'] ?? '') . ' ' . ($seller['concern_code'] ?? '') . ' ' . ($seller['phone'] ?? '') . ' ' . ($seller['email'] ?? '') . ' ' . ($seller['address'] ?? '') . ' ' . ($seller['city'] ?? '') . ' ' . ($seller['state'] ?? '') . ' ' . ($seller['gst_number'] ?? ''))) ?>">
                         <td class="fw-semibold"><?= e($seller['name']) ?></td>
                         <td><?= e($seller['company'] ?: '—') ?></td>
+                        <td>
+                            <?php if (!empty($seller['concern_name']) || !empty($seller['concern_code'])): ?>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 11px;">
+                                    <i class="bi bi-building me-1"></i><?= e($seller['concern_name'] ?: 'Concern') ?><?= !empty($seller['concern_code']) ? ' (' . e($seller['concern_code']) . ')' : '' ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <div><?= e($seller['phone']) ?></div>
                             <?php if (!empty($seller['email'])): ?><small class="text-muted"><?= e($seller['email']) ?></small><?php endif; ?>
