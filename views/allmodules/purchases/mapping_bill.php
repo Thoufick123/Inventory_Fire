@@ -677,9 +677,15 @@ tr.table-danger, tr.table-danger > td {
             </div>
             <div class="card-body p-3">
                 <div class="border rounded-3 p-3 bg-white" id="billVariantGeneratorCard">
-                    <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-                        <span class="badge bg-primary text-white rounded-pill px-2 py-1">Product</span>
-                        <strong class="text-dark"><?= e($activeItem['item_name']) ?></strong>
+                    <?php $isRollItem = strtoupper((string)($activeItem['item_type'] ?? '')) === 'FABRIC_ROLL'; ?>
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary text-white rounded-pill px-2 py-1"><?= $isRollItem ? 'Roll' : 'Product' ?></span>
+                            <strong class="text-dark"><?= e($activeItem['item_name']) ?></strong>
+                        </div>
+                        <span class="badge <?= $isRollItem ? 'bg-info-subtle text-info border border-info-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' ?>">
+                            <i class="bi <?= $isRollItem ? 'bi-layers-half' : 'bi-tag' ?> me-1"></i><?= $isRollItem ? 'Fabric Roll' : 'Third-Party Product' ?>
+                        </span>
                     </div>
                     <div class="row g-2 align-items-end">
                         <div class="col-md-4">
@@ -721,7 +727,7 @@ tr.table-danger, tr.table-danger > td {
                         <div class="col-md-3">
                             <label class="form-label small fw-semibold mb-1">HSN Code</label>
                             <div class="input-group input-group-sm">
-                                <input type="text" class="form-control form-control-sm font-monospace" id="billGenHsn" value="<?= e($baseHsn) ?>" placeholder="Type or select HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
+                                <input type="text" class="form-control form-control-sm font-monospace" id="billGenHsn" value="<?= e($activeHsn ?? '') ?>" placeholder="Type or select HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
                                 <button type="button" class="btn btn-outline-secondary" id="btnBillHsnDropdown" title="Browse all HSN codes" tabindex="-1">
                                     <i class="bi bi-chevron-down"></i>
                                 </button>
@@ -729,7 +735,7 @@ tr.table-danger, tr.table-danger > td {
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-semibold mb-1">GST %</label>
-                            <input type="text" inputmode="decimal" class="form-control form-control-sm" id="billGenGst" value="<?= number_format($baseGst, 2, '.', '') ?>">
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm" id="billGenGst" value="<?= number_format((float)($gstRate ?? 5), 2, '.', '') ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold mb-1">GST Mode</label>
