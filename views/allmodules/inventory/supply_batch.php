@@ -153,12 +153,12 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
         </div>
     </div>
 
-    <!-- 2. Outward Dispatched -->
+    <!-- 2. Outward & Dispatched -->
     <div class="col-xl-3 col-sm-6">
         <div class="card revenue-kpi-card border-0 border-start border-danger border-4 p-3 shadow-sm h-100">
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
-                    <div class="text-uppercase fw-semibold text-muted small">Outward Dispatched</div>
+                    <div class="text-uppercase fw-semibold text-muted small">Outward & Dispatched</div>
                     <div class="fw-bold text-danger fs-3 mt-1"><?= number_format($totalOutwardPieces) ?> <span class="fs-6 fw-normal text-muted"><?= e(strtolower($unit)) ?></span></div>
                     <div class="small text-muted mt-2 text-truncate"><i class="bi bi-truck text-danger me-1"></i>Dispatched to warehouses</div>
                 </div>
@@ -261,7 +261,7 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
     </div>
 </div>
 
-<!-- Outward Dispatch History & Inventory Movement (Exact styling of QC Outwards Card) -->
+<!-- Outward & Dispatch History & Inventory Movement (Exact styling of QC Outwards Card) -->
 <div class="card shadow-sm mb-4 border-0">
     <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
@@ -269,13 +269,13 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
                 <i class="bi bi-truck fs-5"></i>
             </div>
             <div>
-                <h5 class="card-title mb-0 fw-bold text-dark">Outward Dispatch History &amp; Inventory Movement</h5>
+                <h5 class="card-title mb-0 fw-bold text-dark">Outward & Dispatch History &amp; Inventory Movement</h5>
                 <small class="text-muted">Track all product batches dispatched outward from production unit to central warehouses</small>
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fw-bold">
-                <?= count($outwards) ?> Outward Dispatch(es) &nbsp;·&nbsp; <?= number_format($totalOutwardPieces) ?> <?= e(strtolower($unit)) ?> dispatched
+                <?= count($outwards) ?> Outward & Dispatch(es) &nbsp;·&nbsp; <?= number_format($totalOutwardPieces) ?> <?= e(strtolower($unit)) ?> dispatched
             </span>
         </div>
     </div>
@@ -343,7 +343,7 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
         <?php else: ?>
         <div class="p-4 text-center text-muted">
             <i class="bi bi-info-circle fs-3 d-block mb-2 text-info"></i>
-            <h6 class="fw-semibold text-dark mb-1">No Outward Dispatches Yet</h6>
+            <h6 class="fw-semibold text-dark mb-1">No Outward & Dispatch Yet</h6>
             <p class="small text-muted mb-0">100% of inwarded supplies in this batch (<strong><?= number_format($totalPieces) ?> <?= e($unit) ?></strong>) are currently available in production unit inventory.</p>
         </div>
         <?php endif; ?>

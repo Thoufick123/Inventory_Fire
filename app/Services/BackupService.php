@@ -700,7 +700,7 @@ class BackupService {
             'assets',
             'asset_maintenance_logs',
 
-            // 6. Product Catalog & Styles
+            // 6. Catalog & Styles
             'product_variants',
             'products',
             'qr_generations',

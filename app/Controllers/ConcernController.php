@@ -16,7 +16,7 @@ class ConcernController {
             'desc'        => 'Fabric rolls, production programs, cutting, stitching, labels, QC, and packing batch outward.'
         ],
         'purchases' => [
-            'name'        => 'Purchases & Suppliers',
+            'name'        => 'Purchases & Sellers',
             'icon'        => 'bi bi-truck',
             'badge_color' => 'info',
             'desc'        => 'Supplier sourcing, purchase orders (Fabric rolls, raw materials, third-party), and mapping.'

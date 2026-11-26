@@ -31,16 +31,16 @@
         ?>
         <?php if ($isProduction): ?>
             <?php if ($isQcPassed): ?>
-                <span class="btn btn-success fw-bold disabled qr-square-action" title="Quality Control inspection passed">
+                <span class="btn btn-success fw-bold disabled qr-square-action" title="Quality Check inspection passed">
                     <i class="bi bi-patch-check-fill me-1"></i> Passed QC & Added to Finished Goods
                 </span>
                 <a href="<?= url('production/inventory') ?>" class="btn btn-outline-success fw-bold qr-square-action">
-                    <i class="bi bi-boxes me-1"></i> Finished Goods Inventory
+                    <i class="bi bi-boxes me-1"></i> Inventory
                 </a>
             <?php else: ?>
                 <?php if ($qcBatchId > 0): ?>
                     <a href="<?= url('production/qc/inspect/' . $qcBatchId) ?>" class="btn btn-warning text-dark fw-bold qr-square-action">
-                        <i class="bi bi-shield-check me-1"></i> Inspect in Quality Control (QC)
+                        <i class="bi bi-shield-check me-1"></i> Inspect in Quality Check (QC)
                     </a>
                 <?php endif; ?>
             <?php endif; ?>
@@ -74,7 +74,7 @@
                 QC Batch: <strong class="font-monospace text-dark"><?= e($batch['qc_batch_number'] ?? ('QC-' . $qcBatchId)) ?></strong>
                 · Status: <span class="badge bg-<?= $isQcPassed ? 'success' : 'warning text-dark' ?>"><?= e($qcStatus) ?></span>
                 · Passed Pieces: <strong><?= number_format((int)($batch['qc_passed_qty'] ?? 0)) ?></strong> / <?= count($batch['items']) ?>
-                · <em>Pieces enter Finished Goods Inventory automatically upon QC approval.</em>
+                · <em>Pieces enter Inventory automatically upon QC approval.</em>
             </div>
         </div>
         <div>

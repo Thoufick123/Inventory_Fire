@@ -2,7 +2,7 @@
 /**
  * Production Product QR generation form:
  * Generates QR codes from completed Stitching Unit batches, then automatically registers
- * a Quality Control (QC) batch. Finished goods inventory is added only after passing QC.
+ * a Quality Check (QC) batch. Finished goods inventory is added only after passing QC.
  */
 $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
@@ -28,8 +28,8 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                             <div class="small text-muted mt-1">
                                 <strong>Stitching Unit</strong> (Completed) &rarr;
                                 <strong class="text-success">Generate QR Batch</strong> (Current) &rarr;
-                                <strong>Quality Control (QC)</strong> &rarr;
-                                <strong>Finished Goods Inventory</strong> (Automatic upon QC pass)
+                                <strong>Quality Check (QC)</strong> &rarr;
+                                <strong>Inventory</strong> (Automatic upon QC pass)
                             </div>
                         </div>
                     </div>
@@ -179,11 +179,11 @@ $stitchingData = json_encode(array_values($stitchingBatches ?? []), JSON_UNESCAP
                 </div>
 
                 <div class="card border border-success-subtle bg-light text-start mt-4 p-3 rounded-3">
-                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-shield-check me-1"></i> Quality Control Policy</h6>
+                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-shield-check me-1"></i> Quality Check Policy</h6>
                     <ul class="small text-muted ps-3 mb-0">
                         <li class="mb-1">QR batch generates unique tracking codes for every stitched piece.</li>
-                        <li class="mb-1">The batch is automatically queued into <strong>Quality Control (QC)</strong>.</li>
-                        <li><strong>Finished Goods Inventory</strong> is credited only for pieces that pass QC inspection.</li>
+                        <li class="mb-1">The batch is automatically queued into <strong>Quality Check (QC)</strong>.</li>
+                        <li><strong>Inventory</strong> is credited only for pieces that pass QC inspection.</li>
                     </ul>
                 </div>
             </div>

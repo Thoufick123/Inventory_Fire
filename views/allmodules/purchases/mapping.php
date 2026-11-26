@@ -1,6 +1,6 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Product Mapping</h2>
+        <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Third-Party Bill Creations</h2>
     </div>
     <a href="<?= url('purchases/mapping/create') ?>" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i>New Mapping Invoice
@@ -10,7 +10,7 @@
 <ul class="nav nav-tabs mb-3" id="mappingPageTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active fw-semibold" id="mappingProductsTab" data-bs-toggle="tab" data-bs-target="#mappingProductsPane" type="button" role="tab" aria-controls="mappingProductsPane" aria-selected="true">
-            <i class="bi bi-diagram-3 me-1"></i>Product Mapping
+            <i class="bi bi-diagram-3 me-1"></i>Bill Creations
         </button>
     </li>
     <li class="nav-item" role="presentation">

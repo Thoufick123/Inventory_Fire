@@ -1,7 +1,7 @@
 <?php
 /**
  * QC Batch Model
- * Handles Quality Control inspection, defect classification, rework and approval.
+ * Handles Quality Check inspection, defect classification, rework and approval.
  */
 
 class QCBatch {

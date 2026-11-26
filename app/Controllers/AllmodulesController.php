@@ -2,7 +2,7 @@
 /**
  * Production Controller
  * Handles all production submodules: Dashboard, Sellers, Catalog, Programs,
- * Cutting, Stitching, QC, Packing Batches, Outward, and Reports.
+ * Cutting, Stitching, QC, Batches, Outward, and Reports.
  */
 
 if (!defined('BASE_PATH')) {
@@ -479,7 +479,7 @@ class AllmodulesController {
         $cities = Database::fetchAll("SELECT DISTINCT city FROM sellers $cityWhere ORDER BY city ASC", $cityParams);
 
         Response::view('allmodules.sellers.index', [
-            'pageTitle'      => 'Suppliers',
+            'pageTitle'      => 'Sellers',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-sellers',
             'sellers'        => $sellers,
@@ -490,7 +490,7 @@ class AllmodulesController {
             'damageFilter'   => $damageFilter,
             'breadcrumb'     => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Suppliers'],
+                ['label' => 'Sellers'],
             ],
         ]);
     }
@@ -503,7 +503,7 @@ class AllmodulesController {
             'activeMenu'   => 'prod-sellers',
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Suppliers', 'url' => url('production/sellers')],
+                ['label' => 'Sellers', 'url' => url('production/sellers')],
                 ['label' => 'Add Supplier'],
             ],
         ]);
@@ -977,7 +977,7 @@ class AllmodulesController {
             'totalDamagesCount'         => count($allDamages),
             'breadcrumb'                => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Suppliers', 'url' => url('production/sellers')],
+                ['label' => 'Sellers', 'url' => url('production/sellers')],
                 ['label' => $seller['name']],
             ],
         ]);
@@ -1020,7 +1020,7 @@ class AllmodulesController {
             'seller'       => $seller,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Suppliers', 'url' => url('production/sellers')],
+                ['label' => 'Sellers', 'url' => url('production/sellers')],
                 ['label' => 'Edit Supplier'],
             ],
         ]);
@@ -1189,7 +1189,7 @@ class AllmodulesController {
             'canDelete'    => $connections['can_delete'],
             'breadcrumb'   => [
                 ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Suppliers', 'url' => url('production/sellers')],
+                ['label' => 'Sellers', 'url' => url('production/sellers')],
                 ['label' => 'Delete Supplier'],
             ],
         ]);
@@ -1421,7 +1421,7 @@ class AllmodulesController {
             'search' => $search,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Record Purchase'],
+                ['label' => 'Purchases'],
             ],
         ]);
     }
@@ -1821,7 +1821,7 @@ class AllmodulesController {
             'documents' => $documents,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Record Purchase', 'url' => url('purchases')],
+                ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => $purchase['purchase_number']],
             ],
         ]);
@@ -1885,7 +1885,7 @@ class AllmodulesController {
             "SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC"
         );
         Response::view('allmodules.purchases.edit', [
-            'pageTitle' => 'Edit Record Purchase — ' . $purchase['purchase_number'],
+            'pageTitle' => 'Edit Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-purchases',
             'purchase' => $purchase,
@@ -1899,8 +1899,8 @@ class AllmodulesController {
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Record Purchase', 'url' => url('purchases')],
-                ['label' => 'Edit Record Purchase'],
+                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'Edit Purchase'],
             ],
         ]);
     }
@@ -2614,7 +2614,7 @@ class AllmodulesController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
         Response::view('allmodules.purchases.create', [
-            'pageTitle' => 'Add Record Purchase',
+            'pageTitle' => 'Add Purchase',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-create',
             'sellers' => $sellers,
@@ -2625,8 +2625,8 @@ class AllmodulesController {
             'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Record Purchase', 'url' => url('purchases')],
-                ['label' => 'Add Record Purchase'],
+                ['label' => 'Purchases', 'url' => url('purchases')],
+                ['label' => 'Add Purchase'],
             ],
         ]);
     }
@@ -6282,7 +6282,7 @@ class AllmodulesController {
             'categoryAttributesMap' => $categoryAttributesMap,
             'breadcrumb' => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Product Mapping', 'url' => url('purchases/mapping')],
+                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
                 ['label' => $purchase['purchase_number'], 'url' => url('purchases/mapping/bill/' . $purchase['id'])],
                 ['label' => 'Map Finished Good'],
             ],
@@ -6316,7 +6316,7 @@ class AllmodulesController {
     }
 
     /**
-     * Third-Party Product Mapping: Save Category Hierarchy, Attributes, and Variant Matrix.
+     * Third-Party Bill Creations: Save Category Hierarchy, Attributes, and Variant Matrix.
      */
     public function saveThirdPartyMapping(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
@@ -8405,7 +8405,7 @@ class AllmodulesController {
             return;
         }
 
-        // 3. Check if already recorded in Damage Management
+        // 3. Check if already recorded in Damages
         $existingDamage = Database::fetchOne(
             "SELECT damage_number, damage_reason, status FROM roll_damages WHERE qr_code = ? LIMIT 1",
             [$scanCode]
@@ -9671,7 +9671,7 @@ class AllmodulesController {
             'count_closed'           => count(array_filter($allDamages, fn($d) => $d['status'] === 'CLOSED')),
         ];
 
-        // Suppliers list for dropdown
+        // Sellers list for dropdown
         $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
         $damSellerWhere = "WHERE seller_type = 'MATERIAL_SUPPLIER' AND production_deleted_at IS NULL";
         $damSellerParams = [];
@@ -9687,7 +9687,7 @@ class AllmodulesController {
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
         Response::view('allmodules.damages.index', [
-            'pageTitle'      => 'Fabric & Roll Damage Management',
+            'pageTitle'      => 'Fabric & Roll Damages',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-damages',
             'damages'        => $damages,
@@ -9702,7 +9702,7 @@ class AllmodulesController {
             'damageReasons'  => $damageReasons,
             'breadcrumb'     => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Damage Management'],
+                ['label' => 'Damages'],
             ],
         ]);
     }
@@ -10929,7 +10929,7 @@ class AllmodulesController {
         $subcategories = Database::fetchAll("SELECT * FROM subcategories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
 
         Response::view('allmodules.catalog.index', [
-            'pageTitle'      => 'Product Catalog',
+            'pageTitle'      => 'Catalog',
             'activeModule'   => 'production',
             'activeMenu'     => 'prod-catalog',
             'products'       => $products,
@@ -10940,7 +10940,7 @@ class AllmodulesController {
             'subcategoryId'  => $subcategoryId,
             'breadcrumb'     => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Product Catalog'],
+                ['label' => 'Catalog'],
             ],
         ]);
     }
@@ -10958,7 +10958,7 @@ class AllmodulesController {
         $suggestedCode = 'GRM-STY-' . str_pad((string)($count + 1), 4, '0', STR_PAD_LEFT);
 
         Response::view('allmodules.catalog.create', [
-            'pageTitle'     => 'Add Product Style | Product Catalog',
+            'pageTitle'     => 'Add Product Style | Catalog',
             'activeModule'  => 'production',
             'activeMenu'    => 'prod-catalog',
             'categories'    => $categories,
@@ -10969,8 +10969,8 @@ class AllmodulesController {
             'suggestedCode' => $suggestedCode,
             'breadcrumb'    => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
-                ['label' => 'Add Product Catalog'],
+                ['label' => 'Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Add Catalog'],
             ],
         ]);
     }
@@ -11220,7 +11220,7 @@ class AllmodulesController {
         );
 
         Response::view('allmodules.catalog.view', [
-            'pageTitle'    => $product['name'] . ' | Product Catalog',
+            'pageTitle'    => $product['name'] . ' | Catalog',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-catalog',
             'product'      => $product,
@@ -11228,7 +11228,7 @@ class AllmodulesController {
             'programs'     => $programs,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Catalog', 'url' => url('production/catalog')],
                 ['label' => $product['name']],
             ],
         ]);
@@ -11315,7 +11315,7 @@ class AllmodulesController {
             'hsnCodes'         => Database::fetchAll("SELECT * FROM hsn_codes ORDER BY hsn_code ASC"),
             'breadcrumb'       => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Product Catalog', 'url' => url('production/catalog')],
+                ['label' => 'Catalog', 'url' => url('production/catalog')],
                 ['label' => 'Edit Product Catlog ' . $product['code']],
             ],
         ]);
@@ -16369,7 +16369,7 @@ class AllmodulesController {
             }
 
             // 6. Log price adjustment
-            $logNotes = $notes ?: 'Price adjustment via Finished Goods Inventory';
+            $logNotes = $notes ?: 'Price adjustment via Inventory';
             if ($dontAffectOldQr) {
                 $logNotes .= ' [Protected Old QR Tags]';
             }
@@ -17658,7 +17658,7 @@ class AllmodulesController {
             'scopedUnitId'    => $scopedUnitId,
             'breadcrumb'      => [
                 ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Outward Dispatch'],
+                ['label' => 'Outward & Dispatch'],
             ],
         ]);
     }
@@ -18044,7 +18044,7 @@ class AllmodulesController {
 
         ProductionOutward::update($outwardId, $updateData);
 
-        Session::flash('success', 'Outward Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' updated successfully.');
+        Session::flash('success', 'Outward & Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' updated successfully.');
         Response::redirect('production/outward');
     }
 
@@ -18090,7 +18090,7 @@ class AllmodulesController {
             Database::execute("DELETE FROM production_outwards WHERE id = ?", [$outwardId]);
 
             Database::commit();
-            Session::flash('success', 'Outward Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' deleted successfully. Associated batch(es) returned to Approved status.');
+            Session::flash('success', 'Outward & Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' deleted successfully. Associated batch(es) returned to Approved status.');
         } catch (Exception $e) {
             Database::rollback();
             Session::flash('error', 'Failed to delete outward dispatch: ' . $e->getMessage());
@@ -18416,7 +18416,7 @@ class AllmodulesController {
         ]);
 
         Response::view('allmodules.qc.index', [
-            'pageTitle'    => 'Quality Control',
+            'pageTitle'    => 'Quality Check',
             'activeModule' => 'production',
             'activeMenu'   => 'qc',
             'batches'      => $batches,
@@ -18424,7 +18424,7 @@ class AllmodulesController {
             'scopedUnitId' => $scopedUnitId,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Quality Control'],
+                ['label' => 'Quality Check'],
             ],
         ]);
     }
@@ -18607,7 +18607,7 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.qc.create', [
-            'pageTitle'         => 'New Quality Control',
+            'pageTitle'         => 'New Quality Check',
             'activeModule'      => 'production',
             'activeMenu'        => 'qc',
             'qrBatches'         => $qrBatches,
@@ -18618,8 +18618,8 @@ class AllmodulesController {
             'distinctCatalogs'  => array_values($distinctCatalogs),
             'breadcrumb'        => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Quality Control', 'url' => url('production/qc')],
-                ['label' => 'New Quality Control'],
+                ['label' => 'Quality Check', 'url' => url('production/qc')],
+                ['label' => 'New Quality Check'],
             ],
         ]);
     }
@@ -18932,7 +18932,7 @@ class AllmodulesController {
             'distinctCatalogs' => array_values($distinctCatalogs),
             'breadcrumb'       => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Quality Control', 'url' => url('production/qc')],
+                ['label' => 'Quality Check', 'url' => url('production/qc')],
                 ['label' => 'Inspect Batch #' . $batchId],
             ],
         ]);
@@ -20255,7 +20255,7 @@ class AllmodulesController {
             'categoryFilter' => $categoryFilter,
             'breadcrumb'     => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Quality Control', 'url' => url('production/qc')],
+                ['label' => 'Quality Check', 'url' => url('production/qc')],
                 ['label' => 'Inventory'],
             ],
         ]);
@@ -23982,7 +23982,7 @@ class AllmodulesController {
         $this->renderProductionRecord(
             'Damage Record ' . $damageNumber,
             'prod-damages',
-            'Damage Management',
+            'Damages',
             url('production/damages'),
             $fields,
             [],
@@ -23991,7 +23991,7 @@ class AllmodulesController {
             $qrLabelData,
             [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Damage Management', 'url' => url('production/damages')],
+                ['label' => 'Damages', 'url' => url('production/damages')],
                 ['label' => $damageNumber],
             ]
         );
@@ -24161,7 +24161,7 @@ class AllmodulesController {
         $this->renderProductionRecord(
             'QC Batch #' . $batch['id'],
             'qc',
-            'Quality Control',
+            'Quality Check',
             url('production/qc'),
             [
                 'Program'         => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
@@ -25398,7 +25398,7 @@ class AllmodulesController {
         ", $metricParams);
 
         Response::view('allmodules.third_party_catalog.index', [
-            'pageTitle'     => 'Third-Party Product Catalog',
+            'pageTitle'     => 'Third-Party Catalog',
             'activeModule'  => 'purchases',
             'activeMenu'    => 'purchases-mapping',
             'products'      => $products,
@@ -25410,7 +25410,7 @@ class AllmodulesController {
             'metrics'       => $metrics,
             'breadcrumb'    => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Product Mapping', 'url' => url('purchases/mapping')],
+                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
                 ['label' => 'Third-Party Catalog'],
             ],
         ]);

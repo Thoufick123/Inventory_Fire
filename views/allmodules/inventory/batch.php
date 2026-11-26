@@ -658,7 +658,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                         <thead class="table-light">
                             <tr>
                                 <th>Outward / Log #</th>
-                                <th>Packing Batch</th>
+                                <th>Batches</th>
                                 <th>Destination Warehouse</th>
                                 <th class="text-end">Dispatched Qty</th>
                                 <th class="text-end">Boxes</th>

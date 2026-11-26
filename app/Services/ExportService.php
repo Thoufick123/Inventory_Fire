@@ -170,7 +170,7 @@ class ExportService
             );
         }
 
-        // 5. Quality Control (QC)
+        // 5. Quality Check (QC)
         if (in_array('qc', $selectedModules, true)) {
             $data['qc'] = Database::fetchAll(
                 "SELECT qb.batch_number, qb.qc_number, pp.program_number, qb.total_qty AS inspected_quantity,
@@ -503,7 +503,7 @@ class ExportService
             );
         }
 
-        // 15. Suppliers & Mills Directory
+        // 15. Sellers & Mills Directory
         if (in_array('suppliers', $selectedModules, true)) {
             $suppOrdersFilter = $hasConcerns ? " AND pp.concern_id IN ($concernPlaceholders)" : "";
             $suppParams = array_merge(
@@ -526,7 +526,7 @@ class ExportService
             );
         }
 
-        // 16. Goods Inward Notes (GRN)
+        // 16. Inward Notes (GRN)
         if (in_array('goods_inward', $selectedModules, true)) {
             $data['goods_inward'] = Database::fetchAll(
                 "SELECT pi.id, pi.grn_number, pi.invoice_number, pi.invoice_date, pi.received_date,
@@ -566,7 +566,7 @@ class ExportService
             );
         }
 
-        // 18. Product Catalog & Style Master
+        // 18. Catalog & Style Master
         if (in_array('catalog', $selectedModules, true)) {
             $data['catalog'] = Database::fetchAll(
                 "SELECT p.id, p.name AS product_name, p.code AS product_code, p.source_type,
@@ -631,7 +631,7 @@ class ExportService
             );
         }
 
-        // 20. Finished Goods Inventory (On-Hand Balances)
+        // 20. Inventory (On-Hand Balances)
         if (in_array('inventory', $selectedModules, true)) {
             $data['inventory'] = Database::fetchAll(
                 "SELECT sb.id, sb.location_type, sb.stock_state, sb.quantity, sb.last_updated,
@@ -1016,7 +1016,7 @@ class ExportService
             fputcsv($out, ['Fabric Rolls Inward', $stk['inward_rolls_count'] . ' Rolls', number_format($stk['inward_weight_kg'], 2, '.', '') . ' kg', 'Value: INR ' . number_format($stk['inward_value'], 2, '.', '')]);
             fputcsv($out, ['Cutting Output', $stk['cuttings_batches_count'] . ' Batches', $stk['cuttings_pieces'] . ' Cut Pcs', 'Scrap: ' . number_format($stk['cuttings_wastage_kg'], 2, '.', '') . ' kg']);
             fputcsv($out, ['Stitching Output', $stk['stitching_batches_count'] . ' Batches', $stk['stitching_pieces'] . ' Stitched Pcs', "Rework: {$stk['stitching_rework']} / Reject: {$stk['stitching_rejected']}"]);
-            fputcsv($out, ['Quality Control (QC)', $stk['qc_batches_count'] . ' Batches', $stk['qc_passed_pieces'] . ' Passed Pcs', "Yield: {$stk['qc_yield_pct']}% / Inspected: {$stk['qc_inspected_pieces']}"]);
+            fputcsv($out, ['Quality Check (QC)', $stk['qc_batches_count'] . ' Batches', $stk['qc_passed_pieces'] . ' Passed Pcs', "Yield: {$stk['qc_yield_pct']}% / Inspected: {$stk['qc_inspected_pieces']}"]);
             fputcsv($out, ['Finished Goods Packed (Batches)', $stk['batches_count'] . ' Batches', $stk['batches_pieces'] . ' Pcs Packed', $stk['batches_boxes'] . ' Master Cartons']);
             fputcsv($out, ['Dispatched to Warehouses (Outward)', $stk['outward_count'] . ' Outwards', $stk['outward_pieces'] . ' Dispatched Pcs', $stk['outward_boxes'] . ' Cartons Dispatched']);
             fputcsv($out, ['Direct Factory Sales (Billed)', ($data['summary']['financial']['billing_count'] ?? 0) . ' Invoices', $stk['billing_pieces'] . ' Sold Pcs', 'Direct Billed Pieces']);
@@ -1155,7 +1155,7 @@ class ExportService
         // 7. Batches (Packed Master Cartons)
         if (!empty($data['batches'])) {
             fputcsv($out, ['=== 7. FINISHED GOODS PACKING BATCHES ===']);
-            fputcsv($out, ['Packing Batch #', 'Program #', 'QC Batch #', 'Cartons Count', 'Total Pieces', 'Cost/Pc (INR)', 'Total Value (INR)', 'Destination Warehouse', 'Status', 'Packed Date', 'Concern']);
+            fputcsv($out, ['Batches #', 'Program #', 'QC Batch #', 'Cartons Count', 'Total Pieces', 'Cost/Pc (INR)', 'Total Value (INR)', 'Destination Warehouse', 'Status', 'Packed Date', 'Concern']);
             foreach ($data['batches'] as $b) {
                 fputcsv($out, [
                     $b['batch_number'],
@@ -1174,10 +1174,10 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 8. Outward Dispatches
+        // 8. Outward & Dispatch
         if (!empty($data['outward'])) {
             fputcsv($out, ['=== 8. WAREHOUSE OUTWARD DISPATCHES ===']);
-            fputcsv($out, ['Outward #', 'Packing Batch #', 'Destination Warehouse', 'Boxes Dispatched', 'Pieces Dispatched', 'Transporter', 'Vehicle #', 'LR / Docket #', 'Driver', 'Status', 'Dispatch Date', 'Concern']);
+            fputcsv($out, ['Outward #', 'Batches #', 'Destination Warehouse', 'Boxes Dispatched', 'Pieces Dispatched', 'Transporter', 'Vehicle #', 'LR / Docket #', 'Driver', 'Status', 'Dispatch Date', 'Concern']);
             foreach ($data['outward'] as $o) {
                 fputcsv($out, [
                     $o['outward_number'],
@@ -1274,7 +1274,7 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 9. Standard Billing / POS Sales
+        // 9. Standard Billing / Pos Sales
         if (!empty($data['billing'])) {
             fputcsv($out, ['=== 9. STANDARD FACTORY BILLING (NORMAL POS SALES) ===']);
             fputcsv($out, ['Invoice / Bill #', 'Bill Date', 'Client / Buyer Type', 'Customer Name', 'Phone', 'Total Pieces', 'Taxable (INR)', 'GST Tax (INR)', 'Grand Total (INR)', 'Payment Mode', 'Status', 'Concern']);
@@ -1469,7 +1469,7 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 16. Suppliers & Mills Directory
+        // 16. Sellers & Mills Directory
         if (!empty($data['suppliers'])) {
             fputcsv($out, ['=== 16. SUPPLIERS & MILLS DIRECTORY ===']);
             fputcsv($out, ['Supplier / Mill Name', 'Company', 'Type', 'Phone', 'Email', 'GSTIN', 'City', 'State', 'Payment Terms', 'Total Orders Placed', 'Total Inward Value (INR)', 'Registered Date', 'Concern']);
@@ -1493,7 +1493,7 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 17. Goods Inward Notes (GRN)
+        // 17. Inward Notes (GRN)
         if (!empty($data['goods_inward'])) {
             fputcsv($out, ['=== 17. GOODS INWARD NOTES (GRN) ===']);
             fputcsv($out, ['GRN Number', 'Invoice #', 'Invoice Date', 'Received Date', 'Destination Warehouse', 'Gate Pass #', 'Vehicle #', 'Driver Name', 'Total Received Qty', 'Accepted Qty', 'Rejected Qty', 'Status', 'Received By', 'Concern']);
@@ -1545,7 +1545,7 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 19. Product Catalog & Style Master
+        // 19. Catalog & Style Master
         if (!empty($data['catalog'])) {
             fputcsv($out, ['=== 19. PRODUCT CATALOG & STYLE MASTER ===']);
             fputcsv($out, ['Product / Style Name', 'Product Code', 'Source Type', 'Category', 'Subcategory', 'Sub-Subcategory', 'HSN Code', 'Material', 'Active Variants Count', 'Status', 'Created Date']);
@@ -1634,7 +1634,7 @@ class ExportService
             fputcsv($out, []);
         }
 
-        // 21. Finished Goods Inventory (On-Hand)
+        // 21. Inventory (On-Hand)
         if (!empty($data['inventory'])) {
             fputcsv($out, ['=== 21. FINISHED GOODS INVENTORY (ON-HAND) ===']);
             fputcsv($out, ['Product Name', 'Variant Code', 'Size', 'Color', 'Location Name', 'Location Type', 'Stock State', 'On-Hand Quantity', 'Purchase Price (INR)', 'Selling Price (INR)', 'MRP (INR)', 'Last Updated', 'Concern']);

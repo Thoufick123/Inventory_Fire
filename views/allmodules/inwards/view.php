@@ -95,12 +95,12 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
     </div>
 <?php endif; ?>
 <div class="row g-3 mb-4">
-    <!-- 1. Outward Dispatched -->
+    <!-- 1. Outward & Dispatched -->
     <div class="col-sm-6 col-md-4 col-xl">
         <div class="card revenue-kpi-card border-0 border-start border-primary border-4 p-3 shadow-sm h-100">
             <div class="d-flex align-items-center justify-content-between">
                 <div class="me-2" style="min-width: 0;">
-                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Outward Dispatched</div>
+                    <div class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Outward & Dispatched</div>
                     <h4 class="mb-0 fw-bold text-primary mt-1" id="statExpected"><?= number_format($totalExpected) ?> <small class="fs-6 text-muted fw-normal">pcs</small></h4>
                 </div>
                 <div class="bg-primary-subtle text-primary revenue-kpi-icon">
@@ -172,7 +172,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
 </div>
 
 <div class="row g-4 mb-4">
-    <!-- LEFT COLUMN: Outward Dispatch Info & QR Widget (Responsive 4-col on XL) -->
+    <!-- LEFT COLUMN: Outward & Dispatch Info & QR Widget (Responsive 4-col on XL) -->
     <div class="col-xl-4 col-lg-5">
         <!-- Scannable Batch QR Card -->
         <div class="card border-0 shadow-sm mb-4 text-center">
@@ -186,10 +186,10 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
             </div>
         </div>
 
-        <!-- Outward Dispatch & Gate Pass Metadata -->
+        <!-- Outward & Dispatch & Gate Pass Metadata -->
         <div class="card border-0 shadow-sm mb-4 inward-meta-card">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h6 class="card-title mb-0 fw-bold"><i class="bi bi-info-circle me-2 text-primary"></i>Outward Dispatch Details</h6>
+                <h6 class="card-title mb-0 fw-bold"><i class="bi bi-info-circle me-2 text-primary"></i>Outward & Dispatch Details</h6>
                 <button type="button" class="btn btn-xs btn-outline-info py-1 px-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#batchHistoryModal">
                     <i class="bi bi-clock-history me-1"></i> Traceability
                 </button>
@@ -3271,7 +3271,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         });
 
         if (missingCount > 0) {
-            return confirm(`⚠️ WARNING: There is a discrepancy of ${missingCount} missing units!\n\nOutward Dispatched: ${TOTAL_EXPECTED} pcs\nActual Inward: ${totalScanned} pcs\n\nAre you sure you want to proceed and log this discrepancy in the ${WAREHOUSE_NAME} (${WAREHOUSE_CODE}) stock ledger?`);
+            return confirm(`⚠️ WARNING: There is a discrepancy of ${missingCount} missing units!\n\nOutward & Dispatched: ${TOTAL_EXPECTED} pcs\nActual Inward: ${totalScanned} pcs\n\nAre you sure you want to proceed and log this discrepancy in the ${WAREHOUSE_NAME} (${WAREHOUSE_CODE}) stock ledger?`);
         }
         return confirm(`Confirm inward verification of ${totalScanned} pcs into ${WAREHOUSE_NAME} (${WAREHOUSE_CODE}) warehouse inventory?`);
     }
@@ -3479,7 +3479,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                     `;
                 }
 
-                // 4. Quality Control
+                // 4. Quality Check
                 if (qc) {
                     const qcStatusRaw = (qc.qc_status || qc.status || 'PASSED').toUpperCase();
                     let qcBadgeClass = 'bg-success';

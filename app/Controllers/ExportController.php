@@ -55,14 +55,14 @@ class ExportController {
                 'category' => 'Procurement & Materials'
             ],
             'suppliers' => [
-                'name' => 'Suppliers & Mills Directory',
+                'name' => 'Sellers & Mills Directory',
                 'desc' => 'Registered vendors, mill profiles, contact details, GSTIN, payment terms & procurement volumes',
                 'icon' => 'bi bi-person-lines-fill',
                 'color' => 'secondary',
                 'category' => 'Procurement & Materials'
             ],
             'goods_inward' => [
-                'name' => 'Goods Inward Notes (GRN)',
+                'name' => 'Inward Notes (GRN)',
                 'desc' => 'Warehouse & factory receipts, challan verification, received, accepted & rejected quantities',
                 'icon' => 'bi bi-box-arrow-in-down',
                 'color' => 'success',
@@ -92,7 +92,7 @@ class ExportController {
                 'category' => 'Manufacturing'
             ],
             'qc' => [
-                'name' => 'Quality Control (QC)',
+                'name' => 'Quality Check (QC)',
                 'desc' => 'Inspection audits, pass percentage yield, defects & rework logging',
                 'icon' => 'bi bi-patch-check',
                 'color' => 'success',
@@ -106,7 +106,7 @@ class ExportController {
                 'category' => 'Manufacturing'
             ],
             'catalog' => [
-                'name' => 'Product Catalog & Style Master',
+                'name' => 'Catalog & Style Master',
                 'desc' => 'Master finished garment styles, category hierarchy, HSN codes, default specs & active variant counts',
                 'icon' => 'bi bi-grid-3x3-gap',
                 'color' => 'primary',
@@ -129,21 +129,21 @@ class ExportController {
 
             // LOGISTICS & WAREHOUSING
             'batches' => [
-                'name' => 'Packing Batches (Cartons)',
+                'name' => 'Batches (Cartons)',
                 'desc' => 'Master cartons, packaging batches, piece counts & production costing',
                 'icon' => 'bi bi-box-seam',
                 'color' => 'success',
                 'category' => 'Logistics & Warehousing'
             ],
             'outward' => [
-                'name' => 'Outward Dispatches',
+                'name' => 'Outward & Dispatch',
                 'desc' => 'Warehouse transfers, gate passes, transporter details, vehicle & LR logs',
                 'icon' => 'bi bi-truck',
                 'color' => 'primary',
                 'category' => 'Logistics & Warehousing'
             ],
             'inventory' => [
-                'name' => 'Finished Goods Inventory (On-Hand)',
+                'name' => 'Inventory (On-Hand)',
                 'desc' => 'Real-time available stock levels by variant, style, color, size, location & stock states',
                 'icon' => 'bi bi-layers',
                 'color' => 'info',
@@ -157,7 +157,7 @@ class ExportController {
                 'category' => 'Logistics & Warehousing'
             ],
             'stock_requests' => [
-                'name' => 'Stock Requirements',
+                'name' => 'Stock Request',
                 'desc' => 'Warehouse requisition orders, priority levels, fulfillment statuses',
                 'icon' => 'bi bi-box-arrow-in-down-right',
                 'color' => 'info',

@@ -1,5 +1,5 @@
 <?php
-// Production Unit & Inter-Module Stock Requirements View (Two Tabs: Requests Sent vs Requests Received)
+// Production Unit & Inter-Module Stock Request View (Two Tabs: Requests Sent vs Requests Received)
 $activeTab = $activeTab ?? 'sent';
 $isSentTab = ($activeTab === 'sent');
 ?>
@@ -8,7 +8,7 @@ $isSentTab = ($activeTab === 'sent');
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
             <h4 class="fw-bold text-dark mb-1">
-                <i class="bi bi-arrow-left-right text-primary me-2"></i>Stock Requirements &amp; Inter-Module Requests
+                <i class="bi bi-arrow-left-right text-primary me-2"></i>Stock Request &amp; Inter-Module Requests
             </h4>
             <span class="text-muted small">Manage inter-concern requisitions: track requests sent to other facilities and incoming stock requests to fulfill.</span>
         </div>
@@ -17,7 +17,7 @@ $isSentTab = ($activeTab === 'sent');
                 <i class="bi bi-plus-circle me-1"></i> New Stock Requirement
             </a>
             <a href="<?= url('production/inventory') ?>" class="btn btn-outline-success btn-sm fw-semibold shadow-sm">
-                <i class="bi bi-box-seam me-1"></i> Finished Goods Inventory
+                <i class="bi bi-box-seam me-1"></i> Inventory
             </a>
         </div>
     </div>
@@ -298,7 +298,7 @@ $isSentTab = ($activeTab === 'sent');
                             <tr>
                                 <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="bi <?= $isSentTab ? 'bi-send-dash' : 'bi-inbox' ?> fs-1 d-block mb-2 text-secondary opacity-50"></i>
-                                    <strong><?= $isSentTab ? 'No Outgoing Stock Requirements Found' : 'No Incoming Stock Requirements Received' ?></strong>
+                                    <strong><?= $isSentTab ? 'No Outgoing Stock Request Found' : 'No Incoming Stock Request Received' ?></strong>
                                     <div class="small mt-1">
                                         <?= $isSentTab 
                                             ? 'Submit a new requirement to request stock from another concern or facility.' 

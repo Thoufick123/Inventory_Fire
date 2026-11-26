@@ -1215,7 +1215,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                         <div class="card border-0 shadow-sm">
                             <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
-                                <strong class="text-dark"><i class="bi bi-shield-check text-success me-1"></i>Stage 4: Quality Control (QC Inspection)</strong>
+                                <strong class="text-dark"><i class="bi bi-shield-check text-success me-1"></i>Stage 4: Quality Check (QC Inspection)</strong>
                                 <span class="badge ${qcBadgeClass}">${escapeHtml(qcStatusUpper)}</span>
                             </div>
                             <div class="card-body p-3">

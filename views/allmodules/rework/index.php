@@ -10,7 +10,7 @@
         <div class="d-flex gap-2 align-items-center">
             <?php if (hasPermission('outward', 'view')): ?>
                 <a href="<?= url('production/outward') ?>" class="btn btn-outline-secondary">
-                    <i class="bi bi-truck me-1"></i> Outward Dispatches
+                    <i class="bi bi-truck me-1"></i> Outward & Dispatch
                 </a>
             <?php endif; ?>
             <?php if (hasPermission('warehouse_rework', 'create')): ?>

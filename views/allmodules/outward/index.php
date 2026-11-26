@@ -107,7 +107,7 @@
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
-            <h5 class="card-title mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Outward Dispatch History</h5>
+            <h5 class="card-title mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Outward & Dispatch History</h5>
             <span class="badge bg-light text-dark border rounded-pill px-3 py-2"><?= count($outwards) ?> Records</span>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -189,14 +189,14 @@
                                             <i class="bi bi-eye"></i>
                                         </button>
                                         <?php if (hasPermission('outward', 'edit')): ?>
-                                            <button type="button" class="btn btn-outline-primary btn-action-icon" onclick='openEditOutwardModal(<?= json_encode($o, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)' title="Edit Outward Dispatch">
+                                            <button type="button" class="btn btn-outline-primary btn-action-icon" onclick='openEditOutwardModal(<?= json_encode($o, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)' title="Edit Outward & Dispatch">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         <?php endif; ?>
                                         <?php if (hasPermission('outward', 'delete')): ?>
-                                            <form method="POST" action="<?= url('production/outward/delete/' . $o['id']) ?>" class="d-inline" onsubmit="return confirm('Delete Outward Dispatch <?= e($o['outward_number']) ?>? Associated batch(es) will be returned to Approved status.');">
+                                            <form method="POST" action="<?= url('production/outward/delete/' . $o['id']) ?>" class="d-inline" onsubmit="return confirm('Delete Outward & Dispatch <?= e($o['outward_number']) ?>? Associated batch(es) will be returned to Approved status.');">
                                                 <?= CSRF::field() ?>
-                                                <button type="submit" class="btn btn-outline-danger btn-action-icon" title="Delete Outward Dispatch">
+                                                <button type="submit" class="btn btn-outline-danger btn-action-icon" title="Delete Outward & Dispatch">
                                                     <i class="bi bi-trash3"></i>
                                                 </button>
                                             </form>
@@ -234,13 +234,13 @@
     </div>
 </div>
 
-<!-- Modal: View Outward Dispatch Breakdown -->
+<!-- Modal: View Outward & Dispatch Breakdown -->
 <div class="modal fade" id="viewOutwardDispatchModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-dark text-white py-3">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-truck me-2 text-primary"></i>Outward Dispatch Breakdown
+                    <i class="bi bi-truck me-2 text-primary"></i>Outward & Dispatch Breakdown
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -315,7 +315,7 @@
     </div>
 </div>
 
-<!-- Modal for Outward Dispatch -->
+<!-- Modal for Outward & Dispatch -->
 <?php if (!empty($approvedBatches)): ?>
 <div class="modal fade" id="newOutwardModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -375,13 +375,13 @@
     </div>
 </div>
 
-<!-- Modal: Edit Production Outward Dispatch -->
+<!-- Modal: Edit Production Outward & Dispatch -->
 <div class="modal fade" id="editOutwardModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-pencil-square me-2"></i>Edit Outward Dispatch
+                    <i class="bi bi-pencil-square me-2"></i>Edit Outward & Dispatch
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

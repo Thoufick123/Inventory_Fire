@@ -217,7 +217,7 @@ class InwardController {
             'totalReceivedQty'       => $totalReceivedQty,
             'breadcrumb'             => [
                 ['label' => 'Production', 'url' => url('production/dashboard')],
-                ['label' => 'Goods Inward (GRN)'],
+                ['label' => 'Inward (GRN)'],
             ],
         ]);
     }
@@ -364,7 +364,7 @@ class InwardController {
             'totalMissing'  => $totalMissing,
             'breadcrumb'    => [
                 ['label' => 'Production', 'url' => url('production/dashboard')],
-                ['label' => 'Goods Inward (GRN)', 'url' => url('production/inwards')],
+                ['label' => 'Inward (GRN)', 'url' => url('production/inwards')],
                 ['label' => 'Cross-Check Batch #' . $batch['batch_number']],
             ],
         ]);

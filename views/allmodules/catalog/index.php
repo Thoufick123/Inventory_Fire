@@ -1,6 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Product Catalog</h2>
+        <h2 class="mb-1"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Catalog</h2>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <?php if (hasPermission('catalog', 'create')): ?>

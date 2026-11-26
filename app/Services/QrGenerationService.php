@@ -1265,7 +1265,7 @@ class QrGenerationService {
 
     /**
      * Handle QR generation from a completed Stitching Unit batch.
-     * Generates QR codes for stitched pieces and automatically registers a Quality Control (QC) batch.
+     * Generates QR codes for stitched pieces and automatically registers a Quality Check (QC) batch.
      */
     public static function generateStitchingBatch(array $data): array {
         self::ensureSourceSchema();

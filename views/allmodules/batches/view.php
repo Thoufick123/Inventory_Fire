@@ -364,10 +364,10 @@ if (!empty($bill['total_amount'])) {
 </div>
 
 <?php if ($outward): ?>
-<!-- Outward Dispatch Details -->
+<!-- Outward & Dispatch Details -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-primary text-white py-3 fw-bold">
-        <i class="bi bi-truck me-2"></i>Outward Dispatch to Warehouse
+        <i class="bi bi-truck me-2"></i>Outward & Dispatch to Warehouse
     </div>
     <div class="card-body p-3">
         <div class="row g-3">

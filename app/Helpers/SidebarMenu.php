@@ -31,7 +31,7 @@ class SidebarMenu {
         return [
             [
                 'key'          => 'sellers',
-                'label'        => 'Suppliers',
+                'label'        => 'Sellers',
                 'url'          => 'allmodules/sellers',
                 'active_menus' => ['prod-sellers'],
                 'module'       => 'purchases',
@@ -40,7 +40,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'purchases',
-                'label'        => 'Record Purchases',
+                'label'        => 'Purchases',
                 'url'          => 'allmodules/purchases',
                 'active_menus' => ['purchases', 'prod-purchases'],
                 'module'       => 'purchases',
@@ -49,7 +49,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'mapping',
-                'label'        => 'Product Mapping',
+                'label'        => 'Bill Creations',
                 'url'          => 'allmodules/purchases/mapping',
                 'active_menus' => ['purchases-mapping', 'prod-purchases-mapping'],
                 'module'       => 'purchases',
@@ -67,7 +67,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'damages',
-                'label'        => 'Damage Management',
+                'label'        => 'Damages',
                 'url'          => 'allmodules/damages',
                 'active_menus' => ['prod-damages'],
                 'module'       => 'production',
@@ -76,7 +76,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'catalog',
-                'label'        => 'Product Catalog',
+                'label'        => 'Catalog',
                 'url'          => 'allmodules/catalog',
                 'active_menus' => ['prod-catalog'],
                 'module'       => 'production',
@@ -157,7 +157,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'qc',
-                'label'        => 'Quality Control',
+                'label'        => 'Quality Check',
                 'url'          => 'allmodules/qc',
                 'active_menus' => ['qc'],
                 'module'       => 'production',
@@ -166,7 +166,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'inventory',
-                'label'        => 'Finished Goods Inventory',
+                'label'        => 'Inventory',
                 'url'          => 'allmodules/inventory',
                 'active_menus' => ['prod-inventory'],
                 'module'       => 'warehouse',
@@ -175,7 +175,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'inwards',
-                'label'        => 'Goods Inward',
+                'label'        => 'Inward',
                 'url'          => 'allmodules/inwards',
                 'active_menus' => ['inwards', 'prod-inwards'],
                 'module'       => 'warehouse',
@@ -184,7 +184,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'stock_requests',
-                'label'        => 'Stock Requirements',
+                'label'        => 'Stock Request',
                 'url'          => 'allmodules/stock-requests',
                 'active_menus' => ['prod-stock-requests', 'stock-requests', 'stock-requirements'],
                 'module'       => 'warehouse',
@@ -202,7 +202,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'billing',
-                'label'        => 'Billing / POS',
+                'label'        => 'Billing / Pos',
                 'url'          => 'allmodules/billing',
                 'active_menus' => ['prod-billing'],
                 'module'       => 'retail_pos',
@@ -220,7 +220,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'batches',
-                'label'        => 'Packing Batches',
+                'label'        => 'Batches',
                 'url'          => 'allmodules/batches',
                 'active_menus' => ['batches', 'prod-batches'],
                 'module'       => 'warehouse',
@@ -229,7 +229,7 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'outward',
-                'label'        => 'Outward Dispatch',
+                'label'        => 'Outward & Dispatch',
                 'url'          => 'allmodules/outward',
                 'active_menus' => ['outward', 'prod-outward', 'batch-outward'],
                 'module'       => 'warehouse',

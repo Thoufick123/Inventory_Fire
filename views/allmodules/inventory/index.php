@@ -1,6 +1,6 @@
 <?php
 // views/production/inventory/index.php
-// Production & Finished Goods Inventory: Stitching Stock & Third-Party Products
+// Production & Inventory: Stitching Stock & Third-Party Products
 $activeTab = $activeTab ?? 'all';
 $stockState = $stockState ?? '';
 $inventoryVariantCount = array_sum(array_map(
