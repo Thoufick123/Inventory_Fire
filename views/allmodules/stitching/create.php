@@ -47,6 +47,7 @@ input[type=number] {
 
 <form method="POST" action="<?= url('production/stitching/store') ?>" id="stitchingForm">
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
     <input type="hidden" name="program_id" id="inputProgramId" value="<?= e($selectedProgram['id'] ?? ($selectedCutting['program_id'] ?? '')) ?>">
     <input type="hidden" name="category_id" id="inputCategoryId" value="<?= e($selectedProgram['category_id'] ?? ($selectedCutting['category_id'] ?? '')) ?>">

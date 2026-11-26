@@ -162,6 +162,7 @@
                             <th class="text-end">Damaged Qty / Wt</th>
                             <th class="text-end">Loss Valuation</th>
                             <th class="text-center">Resolution &amp; Status</th>
+                            <th>Concern</th>
                             <th class="text-center" style="width: 170px;">Actions</th>
                         </tr>
                     </thead>
@@ -309,6 +310,9 @@
                                     <?php endif; ?>
                                 </td>
 
+                                <!-- Concern -->
+                                <td><?= renderConcernBadge($d) ?></td>
+
                                 <!-- Actions -->
                                 <td class="text-center text-nowrap">
                                     <div class="action-btns-group justify-content-center">
@@ -375,6 +379,7 @@
                 <?= CSRF::field() ?>
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <?php $concernSelectColClass = 'col-12'; $concernSelectId = 'adminConcernDamage'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                         <div class="col-12">
                             <div class="p-3 bg-light rounded-3 border">
                                 <!-- Scan Target Options Switcher: Both Roll and Variant -->

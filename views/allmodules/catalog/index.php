@@ -98,12 +98,13 @@
                     <th>HSN &amp; GST</th>
                     <th class="text-center">Variants</th>
                     <th class="text-center">Status</th>
+                    <th>Concern</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody id="catalogTableBody">
                 <tr id="emptyCatalogLiveStateTable" style="display: none;">
-                    <td colspan="8" class="text-center py-5 text-muted">
+                    <td colspan="9" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 opacity-50 mb-2 d-block"></i>
                         <h6 class="fw-bold">No Matching Product Styles Found</h6>
                         <p class="small mb-0">Try adjusting your search keywords or choosing another category filter.</p>
@@ -111,7 +112,7 @@
                 </tr>
                 <?php if (empty($products)): ?>
                     <tr id="noProductsServerStateTable">
-                        <td colspan="8" class="text-center py-5 text-muted">
+                        <td colspan="9" class="text-center py-5 text-muted">
                             <i class="bi bi-journal-plus fs-2 text-primary opacity-75 mb-2 d-block"></i>
                             <h6 class="fw-bold text-dark">No In-House Production Styles Found</h6>
                             <p class="small mb-2">Start by adding your manufactured garment styles.</p>
@@ -133,7 +134,8 @@
                             data-subcategory-name="<?= strtolower(e($p['subcategory_name'] ?? '')) ?>"
                             data-subsub-name="<?= strtolower(e($p['sub_subcategory_name'] ?? '')) ?>"
                             data-material="<?= strtolower(e($p['material'] ?? '')) ?>"
-                            data-brand="<?= strtolower(e($p['brand_name'] ?? '')) ?>">
+                            data-brand="<?= strtolower(e($p['brand_name'] ?? '')) ?>"
+                            data-concern="<?= strtolower(e(($p['concern_name'] ?? '') . ' ' . ($p['concern_code'] ?? ''))) ?>">
                             <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                             <td>
                                 <span class="badge bg-dark font-monospace px-2 py-1"><?= e($p['code']) ?></span>
@@ -176,6 +178,7 @@
                             <td class="text-center">
                                 <span class="badge bg-success-subtle text-success border">In-House</span>
                             </td>
+                            <td><?= renderConcernBadge($p) ?></td>
                             <td class="text-end text-nowrap">
                                 <div class="action-btns-group justify-content-end">
                                     <a href="<?= url('production/catalog/view/' . $p['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Full Details">
@@ -319,6 +322,7 @@ function liveFilterCatalog() {
         const subsubName = el.getAttribute('data-subsub-name') || '';
         const material = el.getAttribute('data-material') || '';
         const brand = el.getAttribute('data-brand') || '';
+        const concern = el.getAttribute('data-concern') || '';
 
         const matchesQuery = !query || 
             code.includes(query) || 
@@ -327,7 +331,8 @@ function liveFilterCatalog() {
             subcatName.includes(query) || 
             subsubName.includes(query) || 
             material.includes(query) || 
-            brand.includes(query);
+            brand.includes(query) ||
+            concern.includes(query);
 
         const matchesCategory = !selectedCatId || catId === selectedCatId;
         const matchesSubcategory = !selectedSubcatId || subcatId === selectedSubcatId;

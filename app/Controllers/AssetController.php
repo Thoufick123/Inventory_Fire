@@ -82,6 +82,7 @@ class AssetController {
         $barcodeQr = trim($_POST['barcode_qr'] ?? '') ?: ($assetCode . '-QR');
 
         $data = [
+            'concern_id'         => resolveSubmittedConcernId(),
             'asset_code'         => $assetCode,
             'name'               => $name,
             'category_id'        => $categoryId,

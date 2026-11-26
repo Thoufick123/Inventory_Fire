@@ -80,13 +80,14 @@
                         <th>Destination Warehouse</th>
                         <th>Packed By</th>
                         <th>Status</th>
+                        <th>Concern</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="batchesTableBody">
                     <?php if (empty($batches)): ?>
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
                                 <h6 class="fw-semibold mb-1"><?= (!empty($filters['status']) || !empty($filters['destination_warehouse_id']) || !empty($filters['search'])) ? 'No Matching Production Batches Found' : 'No Finished Production Batches Found' ?></h6>
                                 <p class="small text-muted mb-3">
@@ -119,6 +120,8 @@
                                     ($b['warehouse_code'] ?? '') . ' ' . 
                                     ($b['prepared_by_name'] ?? '') . ' ' . 
                                     ($b['status'] ?? '') . ' ' . 
+                                    ($b['concern_name'] ?? '') . ' ' . 
+                                    ($b['concern_code'] ?? '') . ' ' . 
                                     'batch #' . ($b['id'] ?? '') . ' ' . 
                                     'program #' . ($b['program_id'] ?? '')
                                 );
@@ -156,6 +159,7 @@
                                 <td><span class="badge bg-light text-dark border"><?= e($b['warehouse_name'] ?: 'Unassigned') ?></span></td>
                                 <td><?= e($b['prepared_by_name'] ?: 'Staff') ?></td>
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
+                                <td><?= renderConcernBadge($b) ?></td>
                                 <td class="text-end">
                                     <?php
                                         $isDispatched = ($b['status'] === 'DISPATCHED' || $b['status'] === 'RECEIVED' || !empty($b['outward_id']) || !empty($b['production_outward_id']));
@@ -936,7 +940,7 @@ function initBatchesPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveBatchesResultsRow';
-                    noResultRow.innerHTML = `<td colspan="9" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="10" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No production batches matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted d-block mb-2">Try searching with a different keyword or clear the search filter.</small>

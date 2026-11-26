@@ -44,6 +44,7 @@
                             <th>Destination Warehouse</th>
                             <th>Total Pieces &amp; Boxes</th>
                             <th>Status</th>
+                            <th>Concern</th>
                             <th class="text-end" style="min-width: 160px;">Action</th>
                         </tr>
                     </thead>
@@ -87,6 +88,7 @@
                                         <i class="bi bi-patch-check-fill me-1"></i>APPROVED
                                     </span>
                                 </td>
+                                <td><?= renderConcernBadge($ab) ?></td>
                                 <td class="text-end">
                                     <button type="button" 
                                             class="btn btn-sm btn-primary fw-semibold shadow-xs" 
@@ -130,13 +132,14 @@
                         <th>Vehicle Number</th>
                         <th>Dispatched At</th>
                         <th>Status</th>
+                        <th>Concern</th>
                         <th class="text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody id="outwardTableBody">
                     <?php if (empty($outwards)): ?>
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i> No outward dispatches recorded yet.
                             </td>
                         </tr>
@@ -152,6 +155,8 @@
                                     ($o['created_by_name'] ?? '') . ' ' . 
                                     ($o['total_qty'] ?? '') . ' ' . 
                                     ($o['box_count'] ?? '') . ' ' . 
+                                    ($o['concern_name'] ?? '') . ' ' . 
+                                    ($o['concern_code'] ?? '') . ' ' . 
                                     'dispatched'
                                 );
                             ?>
@@ -183,6 +188,7 @@
                                 <td><span class="badge bg-dark font-monospace"><?= e($o['vehicle_number'] ?: 'Direct Handover') ?></span></td>
                                 <td><?= formatDateTime($o['dispatch_date']) ?></td>
                                 <td><span class="badge bg-success px-2 py-1"><i class="bi bi-check-all me-1"></i>DISPATCHED</span></td>
+                                <td><?= renderConcernBadge($o) ?></td>
                                 <td class="text-end">
                                     <div class="action-btns-group justify-content-end d-flex gap-1">
                                         <button type="button" class="btn btn-outline-info btn-action-icon" onclick="viewOutwardDispatchDetails(<?= $o['id'] ?>)" title="View Outward & Product Breakdown">
@@ -327,6 +333,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
+                    <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernOutward'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                     <!-- Dynamic Batch Summary Preview -->
                     <div class="mb-3 p-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3" id="modalBatchPreview">
                         <div class="small text-muted fw-semibold text-uppercase">Selected Batch for Dispatch</div>
@@ -388,6 +395,7 @@
             <form method="POST" id="editOutwardForm" action="">
                 <?= CSRF::field() ?>
                 <div class="modal-body p-4">
+                    <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernOutward'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                     <div class="d-flex justify-content-between align-items-center p-3 rounded-3 bg-light border mb-4 flex-wrap gap-2">
                         <div>
                             <span class="text-uppercase small text-muted fw-bold d-block">Outward Document #</span>
@@ -785,7 +793,7 @@ function initOutwardPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveOutwardResultsRow';
-                    noResultRow.innerHTML = `<td colspan="9" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="10" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No outward dispatches matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted d-block mb-2">Try searching with a different keyword or clear the search filter.</small>

@@ -138,13 +138,14 @@
                         <th style="min-width: 130px;">Scrap / Wastage</th>
                         <th style="min-width: 110px;">Fabric Cost</th>
                         <th>Status</th>
+                        <th>Concern</th>
                         <th class="text-end" style="min-width: 120px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="cuttingTableBody">
                     <?php if (empty($batches)): ?>
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-scissors fs-1 text-secondary d-block mb-3"></i>
                                 <h5 class="fw-bold text-secondary">No Cutting Batches Found</h5>
                                 <p class="text-muted mb-3">Start by creating a new cutting batch to process fabric rolls and pattern variants.</p>
@@ -264,6 +265,7 @@
                                 <td>
                                     <span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span>
                                 </td>
+                                <td><?= renderConcernBadge($b) ?></td>
                                 <td class="text-end">
                                     <div class="action-btns-group justify-content-end">
                                         <a href="<?= url('production/cutting/view/' . $b['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Cutting Batch">
@@ -374,7 +376,7 @@ function initCuttingPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveCuttingResultsRow';
-                    noResultRow.innerHTML = `<td colspan="8" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="9" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No cutting batches matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted">Try searching with a different keyword or clear the search filter.</small>

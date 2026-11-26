@@ -73,8 +73,10 @@ class ProductionProgram {
                        c.name as category_name,
                        sc.name as subcategory_name,
                        ssc.name as sub_subcategory_name,
-                       u.full_name as assigned_to_name
+                       u.full_name as assigned_to_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM production_programs pp
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pp.concern_id, 1)
                 LEFT JOIN production_units pu ON pp.production_unit_id = pu.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 LEFT JOIN seller_rolls sr ON pp.seller_roll_id = sr.id
@@ -231,7 +233,7 @@ class ProductionProgram {
             if (!$ssc) $subSubcategoryId = null;
         }
 
-        $cid = currentConcernId();
+        $cid = !empty($data['concern_id']) ? (int)$data['concern_id'] : currentConcernId();
 
         Database::execute(
             "INSERT INTO production_programs 

@@ -183,13 +183,14 @@
                         <th class="text-center">Unit Stock</th>
                         <th class="text-center">QR Identity</th>
                         <th class="text-center">Status</th>
+                        <th>Concern</th>
                         <th class="text-end pe-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($variants)): ?>
                     <tr>
-                        <td colspan="8" class="text-center py-5 text-muted">
+                        <td colspan="9" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                             No variants found matching your criteria.
                             <?php if (hasPermission('catalog', 'create')): ?>
@@ -308,6 +309,9 @@
                             <span class="badge bg-secondary">Inactive</span>
                             <?php endif; ?>
                         </td>
+
+                        <!-- Concern -->
+                        <td><?= renderConcernBadge($v, 'concern_name', 'concern_code', 'product_concern_id') ?></td>
 
                         <!-- Actions -->
                         <td class="text-end text-nowrap pe-3">

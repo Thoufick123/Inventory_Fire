@@ -154,8 +154,17 @@ class SystemController {
             Response::error(403, 'Your assigned role does not have permission to update Settings.');
             return;
         }
-        $group = $_POST['group'] ?? 'general';
+        $group = $_POST['group'] ?? 'inventory';
+        $allowedGroups = ['inventory', 'security', 'theme', 'backup'];
+        if (!in_array($group, $allowedGroups, true)) {
+            Session::setFlash('error', 'That settings section has been removed.');
+            Response::redirect(url('system/settings?tab=inventory'));
+            return;
+        }
         $settingsData = is_array($_POST['settings'] ?? null) ? $_POST['settings'] : [];
+        if ($group === 'inventory') {
+            unset($settingsData['default_warehouse_id']);
+        }
 
         if ($group === 'theme') {
             $defaults = SettingsService::getDefaults()['theme'];

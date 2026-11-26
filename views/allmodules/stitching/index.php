@@ -54,13 +54,14 @@
                         <th>Cut vs Stitched Qty</th>
                         <th>Total Weight</th>
                         <th>Status</th>
+                        <th>Concern</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="stitchingTableBody">
                     <?php if (empty($batches)): ?>
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i> No stitching batches found.
                             </td>
                         </tr>
@@ -111,6 +112,7 @@
                                     <span class="fw-bold text-info fs-6"><?= number_format($b['total_weight'] ?? 0, 2) ?> kg</span>
                                 </td>
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
+                                <td><?= renderConcernBadge($b) ?></td>
                                 <td class="text-end">
                                     <div class="action-btns-group justify-content-end">
                                         <a href="<?= url('production/stitching/view/' . $b['id']) ?>" class="btn btn-outline-info btn-action-icon" title="View Stitching Batch">
@@ -223,7 +225,7 @@ function initStitchingPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveStitchingResultsRow';
-                    noResultRow.innerHTML = `<td colspan="8" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="9" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No stitching batches matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted">Try searching with a different keyword or clear the search filter.</small>

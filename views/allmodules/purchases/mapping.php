@@ -147,6 +147,9 @@
                 'purchase_number' => $item['purchase_number'],
                 'purchase_date' => $item['purchase_date'],
                 'invoice_number' => $item['invoice_number'],
+                'concern_id' => $item['concern_id'] ?? 1,
+                'concern_name' => $item['concern_name'] ?? '',
+                'concern_code' => $item['concern_code'] ?? '',
                 'seller_name' => $item['seller_name'],
                 'seller_company' => $item['seller_company'],
                 'items' => [],
@@ -182,13 +185,14 @@
                     <th class="text-end">Total Qty</th>
                     <th>Mapping Progress</th>
                     <th>QR / GRN Progress</th>
+                    <th>Concern</th>
                     <th class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($billGroups)): ?>
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
+                        <td colspan="9" class="text-center text-muted py-5">
                             <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
                             No purchase items found matching your current filter criteria.
                         </td>
@@ -262,6 +266,7 @@
                                 <div><i class="bi bi-qr-code me-1"></i><?= (int)$bill['qr_count'] ?> / <?= $lineCount ?> QR</div>
                                 <div><i class="bi bi-truck me-1"></i><?= (int)$bill['grn_count'] ?> / <?= $lineCount ?> GRN</div>
                             </td>
+                            <td><?= renderConcernBadge($bill) ?></td>
                             <td class="text-center">
                                 <div class="d-inline-flex gap-1.5 align-items-center">
                                     <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id']) ?>"
@@ -306,12 +311,13 @@
                             <th>Roll / Color / Design</th>
                             <th class="text-end">Quantity / Weight</th>
                             <th>QR / GRN</th>
+                            <th>Concern</th>
                             <th class="text-end">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($fabricRollItems)): ?>
-                            <tr><td colspan="7" class="text-center text-muted py-5">No fabric-roll purchase lines found.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-5">No fabric-roll purchase lines found.</td></tr>
                         <?php else: foreach ($fabricRollItems as $roll): 
                             $isDraft = !empty($roll['is_mapping_draft']);
                             $rowKey = ($isDraft ? 'draft-' : 'item-') . (int)$roll['id'];
@@ -367,6 +373,7 @@
                                         <span class="badge bg-light text-secondary border ms-1">GRN pending</span>
                                     <?php endif; ?>
                                 </td>
+                                <td><?= renderConcernBadge($roll) ?></td>
                                 <td class="text-end text-nowrap">
                                     <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
                                         <button type="button" class="btn btn-sm btn-outline-warning text-dark me-1" onclick="openEditFabricRollModal(<?= htmlspecialchars(json_encode($roll), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Fabric Roll Details">
@@ -402,10 +409,10 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th class="text-end">Action</th></tr></thead>
+                    <thead class="table-light"><tr><th>Supplier Invoice</th><th>Supplier</th><th>Products</th><th>Qty</th><th>Status</th><th>Purchase</th><th>Concern</th><th class="text-end">Action</th></tr></thead>
                     <tbody>
                         <?php if (empty($mappingDrafts)): ?>
-                            <tr><td colspan="7" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">No Mapping invoices have been saved.</td></tr>
                         <?php else: foreach ($mappingDrafts as $draft): ?>
                             <tr>
                                 <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
@@ -422,6 +429,7 @@
                                         <span class="badge bg-light text-muted border">Not linked</span>
                                     <?php endif; ?>
                                 </td>
+                                <td><?= renderConcernBadge($draft) ?></td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
                                         <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping Invoice">

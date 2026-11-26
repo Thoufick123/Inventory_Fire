@@ -10,6 +10,7 @@
 
 <form method="POST" action="<?= url('production/qc/store') ?>">
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
     <div class="row g-4">
         <div class="col-lg-4">

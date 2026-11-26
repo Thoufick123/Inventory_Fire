@@ -53,12 +53,13 @@ class AllmodulesReturnController
             $params[] = $dateTo;
         }
 
-        $sql = "SELECT pr.*, 
+        $sql = "SELECT pr.*, c_con.name AS concern_name, c_con.code AS concern_code,
                        (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id) AS item_count,
                        (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'PENDING_INSPECTION') AS pending_triage_count,
                        (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'RESTOCKED') AS restocked_count,
                        (SELECT COUNT(*) FROM production_return_items WHERE return_id = pr.id AND action_taken = 'DAMAGED') AS damaged_count
                 FROM production_returns pr
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pr.concern_id, 1)
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY pr.id DESC";
 

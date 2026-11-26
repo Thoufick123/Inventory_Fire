@@ -59,7 +59,7 @@ class AllmodulesBillingController
         $whereSql = !empty($whereConditions) ? "WHERE " . implode(" AND ", $whereConditions) : "";
 
         $bills = Database::fetchAll(
-            "SELECT pb.*,
+            "SELECT pb.*, c_con.name AS concern_name, c_con.code AS concern_code,
                     (SELECT COUNT(*) FROM production_bill_items pbi WHERE pbi.bill_id = pb.id) AS line_count,
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id) AS linked_batch_count,
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id AND pbat.status = 'PREPARING') AS preparing_batch_count,
@@ -67,6 +67,7 @@ class AllmodulesBillingController
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id AND pbat.status = 'DISPATCHED') AS dispatched_batch_count,
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id AND pbat.status = 'RECEIVED') AS received_batch_count
              FROM production_bills pb
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(pb.concern_id, 1)
              {$whereSql}
              ORDER BY pb.bill_date DESC, pb.id DESC"
         );
@@ -2496,8 +2497,8 @@ class AllmodulesBillingController
         Database::beginTransaction();
         try {
             if ($billId === null) {
-                $activeConcernId = currentConcernId();
-                $activeConcern = currentConcern();
+                $activeConcernId = resolveSubmittedConcernId();
+                $activeConcern = concernById($activeConcernId) ?: currentConcern();
                 $invPrefix = !empty($activeConcern['invoice_prefix']) ? rtrim($activeConcern['invoice_prefix'], '-') . '-' : 'PB-';
                 $billNumber = $invPrefix . date('Y') . '-' . date('mdHis') . '-' . random_int(10, 99);
                 Database::execute(

@@ -168,6 +168,7 @@
                                 <th class="text-end">GST Reversal</th>
                                 <th class="text-end">Net Refund</th>
                                 <th>Date</th>
+                                <th>Concern</th>
                                 <th class="text-end" style="min-width: 120px;">Actions</th>
                             </tr>
                         </thead>
@@ -221,6 +222,7 @@
                                     <td class="text-end text-muted"><?= formatCurrency((float)((float)$r['gst_reversal_amount'])) ?></td>
                                     <td class="text-end fw-bold text-danger"><?= formatCurrency((float)((float)$r['net_amount'])) ?></td>
                                     <td class="small text-muted"><?= date('d M Y', strtotime($r['created_at'])) ?></td>
+                                    <td><?= renderConcernBadge($r) ?></td>
                                     <td class="text-end">
                                         <div class="d-flex justify-content-end gap-1">
                                             <?php if ($r['status'] === 'PENDING_INSPECTION'): ?>

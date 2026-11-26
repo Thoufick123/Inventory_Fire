@@ -12,6 +12,7 @@ $canDeleteCutting = hasPermission('cutting', 'delete');
 
 <form method="POST" action="<?= url('production/cutting/store') ?>" id="cuttingForm">
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
     <input type="hidden" name="seller_roll_id" id="inputSellerRollId" value="<?= e($selectedProgram['seller_roll_id'] ?? '') ?>">
     <input type="hidden" name="production_unit_id" id="inputProductionUnitId" value="<?= e($selectedProgram['production_unit_id'] ?? '') ?>">

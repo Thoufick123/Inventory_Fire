@@ -123,13 +123,14 @@
                     <th class="text-end" style="min-width: 110px;">Stocked Qty</th>
                     <th style="min-width: 160px;">Taxonomy / Category</th>
                     <th style="min-width: 140px;">Stocked Date</th>
+                    <th>Concern</th>
                     <th class="text-end pe-3" style="min-width: 130px;">Actions</th>
                 </tr>
             </thead>
             <tbody id="stockTableBody">
                 <?php if (empty($stockItems)): ?>
                     <tr id="emptyStockRow">
-                        <td colspan="9" class="text-center py-5 text-muted">
+                        <td colspan="10" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                             No purchased items have been added to stock yet.
                             <div class="mt-2 text-muted small">
@@ -219,6 +220,7 @@
                                     <div class="small text-muted">by <?= e($item['stock_added_by_name']) ?></div>
                                 <?php endif; ?>
                             </td>
+                            <td><?= renderConcernBadge($item) ?></td>
                             <td class="text-end text-nowrap pe-3">
                                 <div class="action-btns-group justify-content-end">
                                     <a href="<?= url('production/purchased-stock/view/' . (int)$item['generation_id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Product Details & QR Codes">
@@ -401,7 +403,7 @@ function decrementKpis(itemType, units) {
         const tbody = document.getElementById('stockTableBody');
         tbody.innerHTML = `
             <tr id="emptyStockRow">
-                <td colspan="9" class="text-center py-5 text-muted">
+                <td colspan="10" class="text-center py-5 text-muted">
                     <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                     No purchased items have been added to stock yet.
                     <div class="mt-2 text-muted small">

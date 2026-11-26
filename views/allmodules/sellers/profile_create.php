@@ -16,6 +16,7 @@
     </div>
     <div class="card-body">
         <div class="row g-3">
+            <?php $concernSelectColClass = 'col-12'; include BASE_PATH . '/views/partials/admin_concern_select.php'; ?>
             <div class="col-md-6">
                 <label class="form-label required">Contact Person / Supplier Name *</label>
                 <input name="name" id="supplierNameInput" class="form-control text-uppercase" required minlength="2" maxlength="200" value="<?= e(old('name')) ?>" placeholder="e.g. Ramesh Kumar">

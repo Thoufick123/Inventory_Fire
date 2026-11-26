@@ -41,9 +41,11 @@ class Asset {
 
     public static function getAll(array $filters = []): array {
         $db = Database::getInstance();
-        $sql = "SELECT a.*, c.name AS category_name, c.icon AS category_icon, c.code AS category_code
+        $sql = "SELECT a.*, c.name AS category_name, c.icon AS category_icon, c.code AS category_code,
+                       c_con.name AS concern_name, c_con.code AS concern_code
                 FROM assets a
                 LEFT JOIN asset_categories c ON c.id = a.category_id
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(a.concern_id, 1)
                 WHERE 1=1";
         $params = [];
 
@@ -97,13 +99,13 @@ class Asset {
     public static function create(array $data): int {
         $db = Database::getInstance();
         $sql = "INSERT INTO assets (
-            asset_code, name, category_id, location_type, location_id, floor_area, brand,
+            concern_id, asset_code, name, category_id, location_type, location_id, floor_area, brand,
             model_number, serial_number, barcode_qr, specifications, purchase_date, purchase_cost,
             vendor_name, vendor_contact, invoice_number, warranty_expiry, useful_life_years,
             salvage_value, current_book_value, status, condition_state, custodian_name,
             notes, created_by, created_at
         ) VALUES (
-            :asset_code, :name, :category_id, :location_type, :location_id, :floor_area, :brand,
+            :concern_id, :asset_code, :name, :category_id, :location_type, :location_id, :floor_area, :brand,
             :model_number, :serial_number, :barcode_qr, :specifications, :purchase_date, :purchase_cost,
             :vendor_name, :vendor_contact, :invoice_number, :warranty_expiry, :useful_life_years,
             :salvage_value, :current_book_value, :status, :condition_state, :custodian_name,
@@ -112,6 +114,7 @@ class Asset {
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
+            ':concern_id'         => !empty($data['concern_id']) ? (int)$data['concern_id'] : (function_exists('currentConcernId') ? (currentConcernId() ?: 1) : 1),
             ':asset_code'         => $data['asset_code'],
             ':name'               => $data['name'],
             ':category_id'        => $data['category_id'],

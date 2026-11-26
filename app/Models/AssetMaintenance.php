@@ -26,10 +26,12 @@ class AssetMaintenance {
 
     public static function getAll(array $filters = []): array {
         $db = Database::getInstance();
-        $sql = "SELECT m.*, a.asset_code, a.name AS asset_name, a.brand AS asset_brand,
-                       c.name AS category_name, u.full_name AS creator_name
+        $sql = "SELECT m.*, a.asset_code, a.name AS asset_name, a.brand AS asset_brand, a.concern_id AS asset_concern_id,
+                       c.name AS category_name, u.full_name AS creator_name,
+                       c_con.name AS concern_name, c_con.code AS concern_code
                 FROM asset_maintenance_logs m
                 JOIN assets a ON a.id = m.asset_id
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(a.concern_id, 1)
                 LEFT JOIN asset_categories c ON c.id = a.category_id
                 LEFT JOIN users u ON u.id = m.created_by
                 WHERE 1=1";
