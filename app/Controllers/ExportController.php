@@ -119,13 +119,6 @@ class ExportController {
                 'color' => 'info',
                 'category' => 'Manufacturing'
             ],
-            'qr_generations' => [
-                'name' => 'QR Code Generation Batches',
-                'desc' => 'Thermal QR/barcode generation batches, brand names, variant codes & printed serial sequences',
-                'icon' => 'bi bi-qr-code-scan',
-                'color' => 'dark',
-                'category' => 'Manufacturing'
-            ],
 
             // LOGISTICS & WAREHOUSING
             'batches' => [
@@ -294,7 +287,7 @@ class ExportController {
 
         $allModules = [
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward',
-            'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations',
+            'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants',
             'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework',
             'billing', 'direct_billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];

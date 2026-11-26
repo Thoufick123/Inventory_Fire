@@ -32,11 +32,6 @@
                         <?php if (empty($qrBatches) && !$selectedQrBatch): ?>
                             <div class="alert alert-warning py-2 px-3 small mt-2 mb-0">
                                 <i class="bi bi-info-circle me-1"></i> No QR generated batches are pending inspection.
-                                <div class="mt-2">
-                                    <a href="<?= url('production/qr-generations/create?tab=production_product') ?>" class="btn btn-sm btn-outline-dark fw-semibold">
-                                        <i class="bi bi-qr-code me-1"></i> Generate QR Code Batch First
-                                    </a>
-                                </div>
                             </div>
                         <?php endif; ?>
                     </div>

@@ -119,12 +119,12 @@ class AllmodulesBillingController
         $stats['unique_customers'] = count($customerSet);
 
         Response::view('allmodules.billing.index', [
-            'pageTitle' => 'Production Billing',
+            'pageTitle' => 'Billing / Pos',
             'activeModule' => 'production',
             'activeMenu' => 'prod-billing',
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing'],
+                ['label' => 'Billing / Pos'],
             ],
             'bills' => $bills,
             'stats' => $stats,
@@ -252,7 +252,7 @@ class AllmodulesBillingController
             'activeMenu' => 'prod-billing',
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => 'Billing / Pos', 'url' => url('production/billing')],
                 ['label' => 'Move Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) . ' to Batch'],
             ],
             'bill' => $bill,
@@ -434,7 +434,7 @@ class AllmodulesBillingController
             'activeMenu' => 'prod-billing',
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => 'Billing / Pos', 'url' => url('production/billing')],
                 ['label' => 'Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id'])],
             ],
             'bill' => $bill,
@@ -1342,7 +1342,7 @@ class AllmodulesBillingController
             'activeMenu'              => 'prod-billing',
             'breadcrumb'              => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing', 'url' => url('production/billing')],
+                ['label' => 'Billing / Pos', 'url' => url('production/billing')],
                 ['label' => $bill ? ('Edit Billing ' . $billLabel) : 'Create Billing'],
             ],
             'bill'                    => $bill,
