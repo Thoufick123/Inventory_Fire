@@ -38,7 +38,7 @@ class Role {
             'production', 'sellers', 'production_purchases', 'production_purchase_mapping', 'cash_flow', 'damages', 'catalog', 'programs', 'cutting', 'wastage',
             'stitching', 'stitching_wastage', 'qc', 'inventory', 'production_expenses',
             'production_billing', 'production_returns', 'batches', 'outward', 'production_stock_requests',
-            'warehouse_rework', 'production_hsn', 'reports'
+            'production_hsn', 'reports'
         ],
         'ASSETS' => ['asset_register', 'asset_dashboard', 'asset_maintenance'],
         'GENERAL'    => [
@@ -401,10 +401,7 @@ class Role {
             ['outward', 'edit', 'Edit Outward Challans & Delivery Notes', 'outward.edit', null],
             ['outward', 'delete', 'Delete Outward Challans & Dispatch Records', 'outward.delete', null],
 
-            ['warehouse_rework', 'view', 'View Warehouse Rework Queue', 'warehouse_rework.view', null],
-            ['warehouse_rework', 'create', 'Create Rework Dispatch & Repair Jobs', 'warehouse_rework.create', null],
-            ['warehouse_rework', 'edit', 'Edit Rework Records & Repair Status', 'warehouse_rework.edit', null],
-            ['warehouse_rework', 'delete', 'Delete Rework Records', 'warehouse_rework.delete', null],
+            // Warehouse Rework module removed
 
             // â”€â”€ Warehouse submodules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             ['warehouse', 'view', 'View Warehouse Dashboard & Capacity', 'warehouse.view', null],
@@ -775,7 +772,6 @@ class Role {
                     'batches'                   => ['name' => 'Batches', 'icon' => 'bi-box-seam', 'desc' => 'Carton packing, variant bundles, and master box packaging', 'department' => 'PRODUCTION'],
                     'outward'                   => ['name' => 'Outward & Dispatch', 'icon' => 'bi-truck', 'desc' => 'Delivery challans and outward dispatch to Central Warehouses', 'department' => 'PRODUCTION'],
                     'production_stock_requests' => ['name' => 'Stock Request', 'icon' => 'bi-inbox', 'desc' => 'Warehouse stock requisitions and production fulfillment requests', 'department' => 'PRODUCTION'],
-                    'warehouse_rework'          => ['name' => 'Rework', 'icon' => 'bi-tools', 'desc' => 'Repair and dispatch damaged warehouse goods', 'department' => 'PRODUCTION'],
                     'production_hsn'            => ['name' => 'HSN Config', 'icon' => 'bi-hash', 'desc' => 'Production HSN codes, tax slabs, GST percentage, and category tax rates', 'department' => 'PRODUCTION'],
                 ]
             ],

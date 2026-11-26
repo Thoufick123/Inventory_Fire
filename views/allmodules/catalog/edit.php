@@ -283,12 +283,11 @@ if (empty($existingColorIds)) {
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div>
-                    <div>
                         <h5 class="card-title mb-0 fw-bold text-dark">
                             <i class="bi bi-palette2 me-2 text-primary"></i> 2. Product Attributes
                         </h5>
                         <?php if (!empty($product['variants_deferred'])): ?>
-                            <small class="text-muted">Variants are created after stitching is completed and QR codes are generated; they appear in the variant list after stock is posted.</small>
+                            <small class="text-muted d-block mt-1">Variants are created after stitching is completed and QR codes are generated; they appear in the variant list after stock is posted.</small>
                         <?php endif; ?>
                     </div>
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddCustomAttribute">
@@ -296,6 +295,7 @@ if (empty($existingColorIds)) {
                     </button>
                 </div>
                 <div class="card-body">
+                    <input type="hidden" name="attributes_submitted" value="1">
                     <!-- Size Attributes Multi-Select -->
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">

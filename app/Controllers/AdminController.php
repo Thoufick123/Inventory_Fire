@@ -500,7 +500,6 @@ class AdminController {
                 'batches'                    => ['production/batches', 'production/batches/create'],
                 'outward'                    => ['production/outward', null],
                 'production_stock_requests'  => ['production/stock-requests', 'production/stock-requests/create'],
-                'warehouse_rework'           => ['production/warehouse-rework', null],
                 'production_hsn'             => ['production/hsn-config', 'production/hsn-config/create'],
                 'asset_register'             => ['assets', 'assets/create'],
                 'asset_maintenance'          => ['assets/maintenance', 'assets/maintenance/create'],

@@ -3890,17 +3890,24 @@ class AllmodulesController {
         $existingRollProducts = Database::fetchAll("
             SELECT DISTINCT p.name, p.code, p.hsn_code, p.gst_percentage
             FROM products p
-            WHERE p.code LIKE 'ROL-%' 
-               OR p.source_type = 'EXTERNAL_PURCHASE'
-               OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'FABRIC_ROLL')
+            WHERE p.is_active = 1
+              AND (
+                  p.code LIKE 'ROL-%'
+                  OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'FABRIC_ROLL' AND product_id IS NOT NULL)
+              )
             ORDER BY p.name ASC
         ");
 
         $existingProducts = Database::fetchAll("
-            SELECT DISTINCT p.name, p.code, p.category_id, p.hsn_code, p.gst_percentage
+            SELECT p.id, p.name, p.code, p.category_id, p.subcategory_id, p.sub_subcategory_id,
+                   p.hsn_code, p.gst_percentage,
+                   c.name AS category_name, sc.name AS subcategory_name, ssc.name AS sub_subcategory_name
             FROM products p
-            WHERE (p.source_type = 'EXTERNAL_PURCHASE' OR p.code LIKE 'TP-%')
-               OR p.id IN (SELECT DISTINCT product_id FROM third_party_mapping_items WHERE item_type = 'THIRD_PARTY')
+            LEFT JOIN categories c ON c.id = p.category_id
+            LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+            LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+            WHERE p.is_active = 1
+              AND (p.code IS NULL OR p.code NOT LIKE 'ROL-%')
             ORDER BY p.name ASC
         ");
 
@@ -3937,7 +3944,7 @@ class AllmodulesController {
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
                 LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
-                LEFT JOIN product_variants pv ON pv.product_id = p.id
+                LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.is_active = 1
                 LEFT JOIN sizes sz ON sz.id = pv.size_id AND sz.is_active = 1
                 LEFT JOIN colors col ON col.id = pv.color_id AND col.is_active = 1
                 WHERE p.is_active = 1
@@ -3965,7 +3972,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
                         $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
@@ -3975,6 +3982,99 @@ class AllmodulesController {
                     }
                 }
             }
+
+            // Also include deferred-variant catalog products & custom attributes from products.attributes JSON
+            $sizeNameById = [];
+            foreach ($masterSizes as $msz) {
+                $sizeNameById[(int)$msz['id']] = trim((string)($msz['code'] ?: $msz['name']));
+            }
+            $colorNameById = [];
+            foreach ($masterColors as $mcl) {
+                $colorNameById[(int)$mcl['id']] = trim((string)$mcl['name']);
+            }
+            $deferredProducts = Database::fetchAll("
+                SELECT LOWER(TRIM(COALESCE(c.name, ''))) AS cat_name,
+                       LOWER(TRIM(COALESCE(sc.name, ''))) AS sub_name,
+                       LOWER(TRIM(COALESCE(ssc.name, ''))) AS sub_sub_name,
+                       p.attributes
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+                LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+                WHERE p.is_active = 1 AND p.attributes IS NOT NULL AND p.attributes <> ''
+            ");
+            foreach ($deferredProducts as $dp) {
+                $cName = $dp['cat_name'] ?? '';
+                if ($cName === '') continue;
+                $decodedAttr = json_decode((string)$dp['attributes'], true);
+                if (!is_array($decodedAttr)) continue;
+                $opts = is_array($decodedAttr['production_variant_options'] ?? null) ? $decodedAttr['production_variant_options'] : [];
+                $customAttrs = is_array($decodedAttr['custom_attributes'] ?? null) ? $decodedAttr['custom_attributes'] : [];
+
+                $pSizes = [];
+                foreach ((array)($opts['size_ids'] ?? []) as $sid) {
+                    $sn = $sizeNameById[(int)$sid] ?? '';
+                    if ($sn !== '') $pSizes[] = $sn;
+                }
+                foreach ((array)($opts['sizes'] ?? []) as $sn) {
+                    $sn = trim((string)$sn);
+                    if ($sn !== '' && !in_array($sn, $pSizes, true)) $pSizes[] = $sn;
+                }
+                $pColors = [];
+                foreach ((array)($opts['color_ids'] ?? []) as $cid2) {
+                    $cn = $colorNameById[(int)$cid2] ?? '';
+                    if ($cn !== '') $pColors[] = $cn;
+                }
+                foreach ((array)($opts['colors'] ?? []) as $cn) {
+                    $cn = trim((string)$cn);
+                    if ($cn !== '' && !in_array($cn, $pColors, true)) $pColors[] = $cn;
+                }
+
+                $sName = $dp['sub_name'] ?? '';
+                $ssName = $dp['sub_sub_name'] ?? '';
+                $keys = array_unique(array_filter([
+                    $cName,
+                    $sName !== '' ? "$cName|$sName" : '',
+                    ($sName !== '' && $ssName !== '') ? "$cName|$sName|$ssName" : '',
+                ]));
+                foreach ($keys as $k) {
+                    if (!isset($categoryAttributesMap[$k])) {
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
+                    }
+                    foreach ($pSizes as $sn) {
+                        if (!in_array($sn, $categoryAttributesMap[$k]['sizes'], true)) {
+                            $categoryAttributesMap[$k]['sizes'][] = $sn;
+                        }
+                    }
+                    foreach ($pColors as $cn) {
+                        if (!in_array($cn, $categoryAttributesMap[$k]['colors'], true)) {
+                            $categoryAttributesMap[$k]['colors'][] = $cn;
+                        }
+                    }
+                    foreach ($customAttrs as $ca) {
+                        if (!is_array($ca)) continue;
+                        $caName = trim((string)($ca['name'] ?? ''));
+                        if ($caName === '') continue;
+                        $caKey = mb_strtolower($caName);
+                        if (!isset($categoryAttributesMap[$k]['custom_attributes'][$caKey])) {
+                            $categoryAttributesMap[$k]['custom_attributes'][$caKey] = ['name' => $caName, 'values' => []];
+                        }
+                        foreach ((array)($ca['values'] ?? []) as $cv) {
+                            $cvStr = trim((string)$cv);
+                            if ($cvStr !== '' && !in_array($cvStr, $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'], true)) {
+                                $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'][] = $cvStr;
+                            }
+                        }
+                    }
+                }
+            }
+            foreach ($categoryAttributesMap as &$camEntry) {
+                $camEntry['custom_attributes'] = array_values(array_filter(
+                    $camEntry['custom_attributes'] ?? [],
+                    static fn($g) => !empty($g['values'])
+                ));
+            }
+            unset($camEntry);
         } catch (\Throwable $e) {}
 
         Response::view('allmodules.purchases.mapping_draft', [
@@ -3990,6 +4090,7 @@ class AllmodulesController {
             'masterSizes' => $masterSizes,
             'masterColors' => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
+            'hsnList' => $hsnList,
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
             'concerns' => $concerns,
@@ -5779,82 +5880,117 @@ class AllmodulesController {
      */
     private function syncCatalogCategoriesToThirdParty(): void {
         try {
+            $makeUniqueSlug = static function (string $table, string $baseSlug): string {
+                $slugBase = trim($baseSlug, '-') ?: 'cat';
+                $slug = $slugBase;
+                $idx = 2;
+                while (Database::fetchOne("SELECT id FROM {$table} WHERE slug = ? LIMIT 1", [$slug])) {
+                    $slug = $slugBase . '-' . $idx++;
+                }
+                return $slug;
+            };
+
             $mainCats = Database::fetchAll("SELECT id, name, code, slug, sort_order FROM categories WHERE is_active = 1");
             $catMap = [];
             foreach ($mainCats as $mc) {
-                $name = trim((string)$mc['name']);
-                if ($name === '') continue;
-                $existing = Database::fetchOne(
-                    "SELECT id FROM third_party_categories WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
-                    [$name]
-                );
-                if ($existing) {
-                    $catMap[(int)$mc['id']] = (int)$existing['id'];
-                } else {
-                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mc['code'] ?: $name), 0, 3)) ?: 'CAT';
-                    $code = $codeBase;
-                    $cnt = 1;
-                    while (Database::fetchOne("SELECT id FROM third_party_categories WHERE code = ?", [$code])) {
-                        $code = $codeBase . $cnt++;
-                    }
-                    $slug = $mc['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
-                    Database::execute(
-                        "INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, 1)",
-                        [$name, $code, $slug, (int)($mc['sort_order'] ?? 0)]
+                try {
+                    $name = trim((string)$mc['name']);
+                    if ($name === '') continue;
+                    $existing = Database::fetchOne(
+                        "SELECT id, is_active FROM third_party_categories WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                        [$name]
                     );
-                    $catMap[(int)$mc['id']] = (int)Database::lastInsertId();
+                    if ($existing) {
+                        if (empty($existing['is_active'])) {
+                            Database::execute("UPDATE third_party_categories SET is_active = 1 WHERE id = ?", [(int)$existing['id']]);
+                        }
+                        $catMap[(int)$mc['id']] = (int)$existing['id'];
+                    } else {
+                        $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mc['code'] ?: $name), 0, 3)) ?: 'CAT';
+                        $code = $codeBase;
+                        $cnt = 1;
+                        while (Database::fetchOne("SELECT id FROM third_party_categories WHERE code = ?", [$code])) {
+                            $code = $codeBase . $cnt++;
+                        }
+                        $rawSlug = $mc['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                        $slug = $makeUniqueSlug('third_party_categories', $rawSlug);
+                        Database::execute(
+                            "INSERT INTO third_party_categories (name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, 1)",
+                            [$name, $code, $slug, (int)($mc['sort_order'] ?? 0)]
+                        );
+                        $catMap[(int)$mc['id']] = (int)Database::lastInsertId();
+                    }
+                } catch (\Throwable $e) {
+                    error_log('syncCatalogCategoriesToThirdParty cat failed: ' . $e->getMessage());
                 }
             }
 
             $mainSubs = Database::fetchAll("SELECT id, category_id, name, code, slug, sort_order FROM subcategories WHERE is_active = 1");
             $subMap = [];
             foreach ($mainSubs as $ms) {
-                $tpCatId = $catMap[(int)$ms['category_id']] ?? 0;
-                $name = trim((string)$ms['name']);
-                if ($tpCatId <= 0 || $name === '') continue;
-                $existing = Database::fetchOne(
-                    "SELECT id FROM third_party_subcategories WHERE category_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
-                    [$tpCatId, $name]
-                );
-                if ($existing) {
-                    $subMap[(int)$ms['id']] = (int)$existing['id'];
-                } else {
-                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $ms['code'] ?: $name), 0, 3)) ?: 'SUB';
-                    $code = $codeBase;
-                    $cnt = 1;
-                    while (Database::fetchOne("SELECT id FROM third_party_subcategories WHERE category_id = ? AND code = ?", [$tpCatId, $code])) {
-                        $code = $codeBase . $cnt++;
-                    }
-                    $slug = $ms['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
-                    Database::execute(
-                        "INSERT INTO third_party_subcategories (category_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
-                        [$tpCatId, $name, $code, $slug, (int)($ms['sort_order'] ?? 0)]
+                try {
+                    $tpCatId = $catMap[(int)$ms['category_id']] ?? 0;
+                    $name = trim((string)$ms['name']);
+                    if ($tpCatId <= 0 || $name === '') continue;
+                    $existing = Database::fetchOne(
+                        "SELECT id, is_active FROM third_party_subcategories WHERE category_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                        [$tpCatId, $name]
                     );
-                    $subMap[(int)$ms['id']] = (int)Database::lastInsertId();
+                    if ($existing) {
+                        if (empty($existing['is_active'])) {
+                            Database::execute("UPDATE third_party_subcategories SET is_active = 1 WHERE id = ?", [(int)$existing['id']]);
+                        }
+                        $subMap[(int)$ms['id']] = (int)$existing['id'];
+                    } else {
+                        $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $ms['code'] ?: $name), 0, 3)) ?: 'SUB';
+                        $code = $codeBase;
+                        $cnt = 1;
+                        while (Database::fetchOne("SELECT id FROM third_party_subcategories WHERE category_id = ? AND code = ?", [$tpCatId, $code])) {
+                            $code = $codeBase . $cnt++;
+                        }
+                        $rawSlug = $ms['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                        $slug = $makeUniqueSlug('third_party_subcategories', $rawSlug);
+                        Database::execute(
+                            "INSERT INTO third_party_subcategories (category_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                            [$tpCatId, $name, $code, $slug, (int)($ms['sort_order'] ?? 0)]
+                        );
+                        $subMap[(int)$ms['id']] = (int)Database::lastInsertId();
+                    }
+                } catch (\Throwable $e) {
+                    error_log('syncCatalogCategoriesToThirdParty sub failed: ' . $e->getMessage());
                 }
             }
 
             $mainSubSubs = Database::fetchAll("SELECT id, subcategory_id, name, code, slug, sort_order FROM sub_subcategories WHERE is_active = 1");
             foreach ($mainSubSubs as $mss) {
-                $tpSubId = $subMap[(int)$mss['subcategory_id']] ?? 0;
-                $name = trim((string)$mss['name']);
-                if ($tpSubId <= 0 || $name === '') continue;
-                $existing = Database::fetchOne(
-                    "SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
-                    [$tpSubId, $name]
-                );
-                if (!$existing) {
-                    $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mss['code'] ?: $name), 0, 3)) ?: 'SSC';
-                    $code = $codeBase;
-                    $cnt = 1;
-                    while (Database::fetchOne("SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND code = ?", [$tpSubId, $code])) {
-                        $code = $codeBase . $cnt++;
-                    }
-                    $slug = $mss['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
-                    Database::execute(
-                        "INSERT INTO third_party_sub_subcategories (subcategory_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
-                        [$tpSubId, $name, $code, $slug, (int)($mss['sort_order'] ?? 0)]
+                try {
+                    $tpSubId = $subMap[(int)$mss['subcategory_id']] ?? 0;
+                    $name = trim((string)$mss['name']);
+                    if ($tpSubId <= 0 || $name === '') continue;
+                    $existing = Database::fetchOne(
+                        "SELECT id, is_active FROM third_party_sub_subcategories WHERE subcategory_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1",
+                        [$tpSubId, $name]
                     );
+                    if ($existing) {
+                        if (empty($existing['is_active'])) {
+                            Database::execute("UPDATE third_party_sub_subcategories SET is_active = 1 WHERE id = ?", [(int)$existing['id']]);
+                        }
+                    } else {
+                        $codeBase = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $mss['code'] ?: $name), 0, 3)) ?: 'SSC';
+                        $code = $codeBase;
+                        $cnt = 1;
+                        while (Database::fetchOne("SELECT id FROM third_party_sub_subcategories WHERE subcategory_id = ? AND code = ?", [$tpSubId, $code])) {
+                            $code = $codeBase . $cnt++;
+                        }
+                        $rawSlug = $mss['slug'] ?: strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
+                        $slug = $makeUniqueSlug('third_party_sub_subcategories', $rawSlug);
+                        Database::execute(
+                            "INSERT INTO third_party_sub_subcategories (subcategory_id, name, code, slug, sort_order, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+                            [$tpSubId, $name, $code, $slug, (int)($mss['sort_order'] ?? 0)]
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    error_log('syncCatalogCategoriesToThirdParty sub-sub failed: ' . $e->getMessage());
                 }
             }
         } catch (\Throwable $e) {
@@ -6176,7 +6312,7 @@ class AllmodulesController {
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
                 LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
-                LEFT JOIN product_variants pv ON pv.product_id = p.id
+                LEFT JOIN product_variants pv ON pv.product_id = p.id AND pv.is_active = 1
                 LEFT JOIN sizes sz ON sz.id = pv.size_id AND sz.is_active = 1
                 LEFT JOIN colors col ON col.id = pv.color_id AND col.is_active = 1
                 WHERE p.is_active = 1
@@ -6204,7 +6340,7 @@ class AllmodulesController {
                 ]));
                 foreach ($keys as $k) {
                     if (!isset($categoryAttributesMap[$k])) {
-                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
                     }
                     if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
                         $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
@@ -6214,6 +6350,99 @@ class AllmodulesController {
                     }
                 }
             }
+
+            // Also include deferred-variant catalog products & custom attributes from products.attributes JSON
+            $sizeNameById = [];
+            foreach ($masterSizes as $msz) {
+                $sizeNameById[(int)$msz['id']] = trim((string)($msz['code'] ?: $msz['name']));
+            }
+            $colorNameById = [];
+            foreach ($masterColors as $mcl) {
+                $colorNameById[(int)$mcl['id']] = trim((string)$mcl['name']);
+            }
+            $deferredProducts = Database::fetchAll("
+                SELECT LOWER(TRIM(COALESCE(c.name, ''))) AS cat_name,
+                       LOWER(TRIM(COALESCE(sc.name, ''))) AS sub_name,
+                       LOWER(TRIM(COALESCE(ssc.name, ''))) AS sub_sub_name,
+                       p.attributes
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+                LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+                WHERE p.is_active = 1 AND p.attributes IS NOT NULL AND p.attributes <> ''
+            ");
+            foreach ($deferredProducts as $dp) {
+                $cName = $dp['cat_name'] ?? '';
+                if ($cName === '') continue;
+                $decodedAttr = json_decode((string)$dp['attributes'], true);
+                if (!is_array($decodedAttr)) continue;
+                $opts = is_array($decodedAttr['production_variant_options'] ?? null) ? $decodedAttr['production_variant_options'] : [];
+                $customAttrs = is_array($decodedAttr['custom_attributes'] ?? null) ? $decodedAttr['custom_attributes'] : [];
+
+                $pSizes = [];
+                foreach ((array)($opts['size_ids'] ?? []) as $sid) {
+                    $sn = $sizeNameById[(int)$sid] ?? '';
+                    if ($sn !== '') $pSizes[] = $sn;
+                }
+                foreach ((array)($opts['sizes'] ?? []) as $sn) {
+                    $sn = trim((string)$sn);
+                    if ($sn !== '' && !in_array($sn, $pSizes, true)) $pSizes[] = $sn;
+                }
+                $pColors = [];
+                foreach ((array)($opts['color_ids'] ?? []) as $cid2) {
+                    $cn = $colorNameById[(int)$cid2] ?? '';
+                    if ($cn !== '') $pColors[] = $cn;
+                }
+                foreach ((array)($opts['colors'] ?? []) as $cn) {
+                    $cn = trim((string)$cn);
+                    if ($cn !== '' && !in_array($cn, $pColors, true)) $pColors[] = $cn;
+                }
+
+                $sName = $dp['sub_name'] ?? '';
+                $ssName = $dp['sub_sub_name'] ?? '';
+                $keys = array_unique(array_filter([
+                    $cName,
+                    $sName !== '' ? "$cName|$sName" : '',
+                    ($sName !== '' && $ssName !== '') ? "$cName|$sName|$ssName" : '',
+                ]));
+                foreach ($keys as $k) {
+                    if (!isset($categoryAttributesMap[$k])) {
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => [], 'custom_attributes' => []];
+                    }
+                    foreach ($pSizes as $sn) {
+                        if (!in_array($sn, $categoryAttributesMap[$k]['sizes'], true)) {
+                            $categoryAttributesMap[$k]['sizes'][] = $sn;
+                        }
+                    }
+                    foreach ($pColors as $cn) {
+                        if (!in_array($cn, $categoryAttributesMap[$k]['colors'], true)) {
+                            $categoryAttributesMap[$k]['colors'][] = $cn;
+                        }
+                    }
+                    foreach ($customAttrs as $ca) {
+                        if (!is_array($ca)) continue;
+                        $caName = trim((string)($ca['name'] ?? ''));
+                        if ($caName === '') continue;
+                        $caKey = mb_strtolower($caName);
+                        if (!isset($categoryAttributesMap[$k]['custom_attributes'][$caKey])) {
+                            $categoryAttributesMap[$k]['custom_attributes'][$caKey] = ['name' => $caName, 'values' => []];
+                        }
+                        foreach ((array)($ca['values'] ?? []) as $cv) {
+                            $cvStr = trim((string)$cv);
+                            if ($cvStr !== '' && !in_array($cvStr, $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'], true)) {
+                                $categoryAttributesMap[$k]['custom_attributes'][$caKey]['values'][] = $cvStr;
+                            }
+                        }
+                    }
+                }
+            }
+            foreach ($categoryAttributesMap as &$camEntry) {
+                $camEntry['custom_attributes'] = array_values(array_filter(
+                    $camEntry['custom_attributes'] ?? [],
+                    static fn($g) => !empty($g['values'])
+                ));
+            }
+            unset($camEntry);
         } catch (\Throwable $e) {
             error_log('categoryAttributesMap build failed: ' . $e->getMessage());
         }
@@ -6257,6 +6486,25 @@ class AllmodulesController {
             }
         }
 
+        try {
+            $hsnList = Database::fetchAll("
+                SELECT id, hsn_code, description, gst_rate,
+                       NULL AS category_name, NULL AS subcategory_name, NULL AS sub_subcategory_name
+                FROM hsn_codes
+                UNION
+                SELECT id, hsn_code,
+                       COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description,
+                       gst_percentage AS gst_rate,
+                       categories AS category_name,
+                       subcategories AS subcategory_name,
+                       sub_subcategories AS sub_subcategory_name
+                FROM production_hsn_config WHERE is_active = 1
+                ORDER BY hsn_code ASC
+            ");
+        } catch (\Throwable $e) {
+            $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
+        }
+
         Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
             'activeModule' => 'purchases',
@@ -6280,6 +6528,7 @@ class AllmodulesController {
             'masterSizes' => $masterSizes,
             'masterColors' => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
+            'hsnList' => $hsnList,
             'breadcrumb' => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
@@ -11397,17 +11646,21 @@ class AllmodulesController {
         $productAttributes = json_decode((string)($product['attributes'] ?? ''), true);
         $savedOptions = is_array($productAttributes) ? ($productAttributes['production_variant_options'] ?? []) : [];
         $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
-        $selectedColors = isset($_POST['colors']) && is_array($_POST['colors'])
+        $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors'])
             ? array_filter(array_map('intval', $_POST['colors']))
-            : ($savedOptions['color_ids'] ?? []);
+            : (!empty($_POST['attributes_submitted']) ? [] : ($savedOptions['color_ids'] ?? []));
         $customAttributes = self::parseSubmittedCustomAttributes();
-        $attributes = $isDeferredVariants
-            ? self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes)
-            : ($product['attributes'] ?? null);
+        if ($isDeferredVariants) {
+            $attributes = self::encodeProductionVariantOptions($selectedSizes, $selectedColors, $product['attributes'] ?? null, $customAttributes);
+        } else {
+            $decodedAttrs = is_array($productAttributes) ? $productAttributes : [];
+            $decodedAttrs['custom_attributes'] = $customAttributes;
+            $attributes = json_encode($decodedAttrs, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        }
 
         if (!empty($qrCodePrefix)) {
             $existingQr = Database::fetchOne(
-                "SELECT id, name FROM products WHERE qr_code_prefix = ? AND id != ? LIMIT 1",
+                "SELECT id, name FROM products WHERE qr_code_prefix = ? AND id != ? AND is_active = 1 LIMIT 1",
                 [$qrCodePrefix, $id]
             );
             if ($existingQr) {
@@ -18097,306 +18350,6 @@ class AllmodulesController {
         }
 
         Response::redirect('production/outward');
-    }
-
-    // =========================================================================
-    // REWORK FROM WAREHOUSE MODULE
-    // =========================================================================
-
-    public function warehouseReworkList(): void {
-        $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
-        $search = trim($_GET['search'] ?? '');
-        $status = trim($_GET['status'] ?? '');
-        $warehouseId = !empty($_GET['warehouse_id']) ? (int)$_GET['warehouse_id'] : null;
-        $defectType = trim($_GET['defect_type'] ?? '');
-
-        $filters = array_filter([
-            'search'             => $search,
-            'status'             => $status,
-            'warehouse_id'       => $warehouseId,
-            'defect_type'        => $defectType,
-            'production_unit_id' => $scopedUnitId,
-        ]);
-
-        $reworks = ProductionWarehouseRework::getAll($filters);
-        $stats = ProductionWarehouseRework::getStats(['production_unit_id' => $scopedUnitId]);
-
-        $warehouses = Database::fetchAll("SELECT id, name, code FROM warehouses ORDER BY name ASC");
-        
-        $unitClause = $scopedUnitId ? " AND pp.production_unit_id = $scopedUnitId" : "";
-        $dispatchedBatches = Database::fetchAll(
-            "SELECT pb.id, pb.batch_number, pb.total_qty, pb.destination_warehouse_id as warehouse_id,
-                    w.name as warehouse_name, COALESCE(p.name, pp.name, 'General Garment') as product_name,
-                    p.id as product_id, po.id as outward_id, po.outward_number, po.dispatch_date
-             FROM production_batches pb
-             JOIN production_programs pp ON pb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
-             JOIN warehouses w ON pb.destination_warehouse_id = w.id
-             LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
-             WHERE pb.status IN ('DISPATCHED', 'RECEIVED', 'APPROVED') $unitClause
-             ORDER BY pb.id DESC"
-        );
-
-        $productionUnits = Database::fetchAll("SELECT id, name, code FROM production_units WHERE is_active = 1 ORDER BY name ASC");
-
-        $allVariants = Database::fetchAll(
-            "SELECT pv.id, pv.sku, p.name as product_name, s.name as size_name, c.name as color_name
-             FROM product_variants pv
-             JOIN products p ON pv.product_id = p.id
-             LEFT JOIN sizes s ON pv.size_id = s.id
-             LEFT JOIN colors c ON pv.color_id = c.id
-             WHERE pv.is_active = 1
-             ORDER BY p.name ASC, pv.sku ASC LIMIT 500"
-        );
-
-        Response::view('allmodules.rework.index', [
-            'pageTitle'         => 'Rework from Warehouse',
-            'activeModule'      => 'production',
-            'activeMenu'        => 'warehouse-rework',
-            'reworks'           => $reworks,
-            'stats'             => $stats,
-            'warehouses'        => $warehouses,
-            'dispatchedBatches' => $dispatchedBatches,
-            'productionUnits'   => $productionUnits,
-            'allVariants'       => $allVariants,
-            'filters'           => [
-                'search'       => $search,
-                'status'       => $status,
-                'warehouse_id' => $warehouseId,
-                'defect_type'  => $defectType,
-            ],
-            'scopedUnitId'      => $scopedUnitId,
-            'breadcrumb'        => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Rework from Warehouse'],
-            ],
-        ]);
-    }
-
-    public function lookupBatchVariantsAjax(string $batchId): void {
-        $bId = (int)$batchId;
-        $items = Database::fetchAll(
-            "SELECT pbi.variant_id, pbi.quantity, pv.sku, p.name as product_name, p.id as product_id,
-                    s.name as size_name, c.name as color_name
-             FROM production_batch_items pbi
-             JOIN product_variants pv ON pbi.variant_id = pv.id
-             JOIN products p ON pv.product_id = p.id
-             LEFT JOIN sizes s ON pv.size_id = s.id
-             LEFT JOIN colors c ON pv.color_id = c.id
-             WHERE pbi.production_batch_id = ?",
-            [$bId]
-        );
-
-        if (empty($items)) {
-            // Fallback from program items
-            $batch = Database::fetchOne("SELECT program_id FROM production_batches WHERE id = ?", [$bId]);
-            if ($batch && !empty($batch['program_id'])) {
-                $items = Database::fetchAll(
-                    "SELECT ppi.variant_id, ppi.planned_quantity as quantity, pv.sku, p.name as product_name, p.id as product_id,
-                            s.name as size_name, c.name as color_name
-                     FROM production_program_items ppi
-                     JOIN product_variants pv ON ppi.variant_id = pv.id
-                     JOIN products p ON pv.product_id = p.id
-                     LEFT JOIN sizes s ON pv.size_id = s.id
-                     LEFT JOIN colors c ON pv.color_id = c.id
-                     WHERE ppi.program_id = ?",
-                    [(int)$batch['program_id']]
-                );
-            }
-        }
-
-        Response::json([
-            'success'  => true,
-            'variants' => $items,
-        ]);
-    }
-
-    public function storeWarehouseRework(): void {
-        if (!CSRF::validateRequest()) {
-            Session::flash('error', 'Invalid security token. Please try again.');
-            Response::back();
-        }
-
-        $warehouseId = (int)($_POST['warehouse_id'] ?? 0);
-        $variantId = (int)($_POST['variant_id'] ?? 0);
-        $quantity = max(1, (int)($_POST['quantity'] ?? 1));
-        $damageReason = trim($_POST['damage_reason'] ?? '');
-        $defectType = trim($_POST['defect_type'] ?? 'STITCHING_ERROR');
-
-        if ($warehouseId <= 0 || $variantId <= 0 || empty($damageReason)) {
-            Session::flash('error', 'Please select a warehouse, product variant, and provide the damage reason.');
-            Response::back();
-        }
-
-        $batchId = !empty($_POST['production_batch_id']) ? (int)$_POST['production_batch_id'] : null;
-        $outwardId = !empty($_POST['production_outward_id']) ? (int)$_POST['production_outward_id'] : null;
-
-        if ($batchId && !$outwardId) {
-            $po = Database::fetchOne("SELECT id FROM production_outwards WHERE production_batch_id = ?", [$batchId]);
-            if ($po) $outwardId = (int)$po['id'];
-        }
-
-        $photoUrl = null;
-        if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-            $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'avif'];
-            $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, $allowedExts, true)) {
-                if (class_exists('CloudinaryService')) {
-                    $photoUrl = CloudinaryService::upload($_FILES['photo'], 'grm_inventory/production/rework', 'image');
-                }
-            }
-        }
-
-        try {
-            $userId = Session::userId() ?? 1;
-            $reworkId = ProductionWarehouseRework::create([
-                'warehouse_id'          => $warehouseId,
-                'production_batch_id'   => $batchId,
-                'production_outward_id' => $outwardId,
-                'variant_id'            => $variantId,
-                'quantity'              => $quantity,
-                'defect_type'           => $defectType,
-                'damage_reason'         => $damageReason,
-                'defect_notes'          => trim($_POST['defect_notes'] ?? ''),
-                'challan_number'        => trim($_POST['challan_number'] ?? ''),
-                'received_date'         => !empty($_POST['received_date']) ? $_POST['received_date'] : date('Y-m-d'),
-                'received_by'           => $userId,
-                'assigned_to'           => trim($_POST['assigned_to'] ?? ''),
-                'production_unit_id'    => !empty($_POST['production_unit_id']) ? (int)$_POST['production_unit_id'] : null,
-                'photo_url'             => $photoUrl,
-                'status'                => !empty($_POST['start_immediately']) && hasPermission('warehouse_rework', 'edit') ? 'IN_REWORK' : 'RECEIVED',
-                'created_by'            => $userId,
-            ]);
-
-            Session::flash('success', "Damaged goods return successfully logged for rework (Ref: #{$reworkId}).");
-        } catch (Exception $e) {
-            Session::flash('error', 'Error logging rework: ' . $e->getMessage());
-        }
-
-        Response::redirect(url('production/warehouse-rework'));
-    }
-
-    public function updateWarehouseReworkStatus(string $id): void {
-        if (!CSRF::validateRequest()) {
-            Session::flash('error', 'Invalid security token.');
-            Response::back();
-        }
-
-        $reworkId = (int)$id;
-        $rework = ProductionWarehouseRework::find($reworkId);
-        if (!$rework) {
-            Session::flash('error', 'Rework record not found.');
-            Response::back();
-        }
-
-        $newStatus = trim($_POST['status'] ?? '');
-        $assignedTo = trim($_POST['assigned_to'] ?? ($rework['assigned_to'] ?? ''));
-        $unitId = !empty($_POST['production_unit_id']) ? (int)$_POST['production_unit_id'] : ($rework['production_unit_id'] ?? null);
-        $notes = trim($_POST['repair_notes'] ?? ($rework['repair_notes'] ?? ''));
-
-        $updateData = [
-            'status'             => $newStatus,
-            'assigned_to'        => $assignedTo,
-            'production_unit_id' => $unitId,
-            'repair_notes'       => $notes,
-        ];
-
-        ProductionWarehouseRework::update($reworkId, $updateData);
-        Session::flash('success', "Rework #{$rework['rework_number']} updated to {$newStatus}.");
-        Response::redirect(url('production/warehouse-rework'));
-    }
-
-    public function completeWarehouseRework(string $id): void {
-        if (!CSRF::validateRequest()) {
-            Session::flash('error', 'Invalid security token.');
-            Response::back();
-        }
-
-        $reworkId = (int)$id;
-        $rework = ProductionWarehouseRework::find($reworkId);
-        if (!$rework) {
-            Session::flash('error', 'Rework record not found.');
-            Response::back();
-        }
-
-        $totalQty = (int)$rework['quantity'];
-        $repairedQty = max(0, (int)($_POST['repaired_qty'] ?? 0));
-        $scrappedQty = max(0, (int)($_POST['scrapped_qty'] ?? 0));
-        $repairNotes = trim($_POST['repair_notes'] ?? '');
-
-        if (($repairedQty + $scrappedQty) <= 0) {
-            Session::flash('error', 'Please enter a valid repaired or scrapped quantity.');
-            Response::back();
-        }
-
-        if (($repairedQty + $scrappedQty) > $totalQty) {
-            Session::flash('error', "Total repaired ({$repairedQty}) and scrapped ({$scrappedQty}) cannot exceed returned quantity ({$totalQty}).");
-            Response::back();
-        }
-
-        $finalStatus = ($repairedQty > 0) ? 'REPAIRED' : 'SCRAPPED';
-
-        ProductionWarehouseRework::update($reworkId, [
-            'repaired_qty' => $repairedQty,
-            'scrapped_qty' => $scrappedQty,
-            'status'       => $finalStatus,
-            'repair_notes' => $repairNotes,
-            'repaired_at'  => date('Y-m-d H:i:s'),
-        ]);
-
-        Session::flash('success', "Rework #{$rework['rework_number']} completed: {$repairedQty} pcs repaired successfully, {$scrappedQty} pcs scrapped.");
-        Response::redirect(url('production/warehouse-rework'));
-    }
-
-    public function redispatchWarehouseRework(string $id): void {
-        if (!CSRF::validateRequest()) {
-            Session::flash('error', 'Invalid security token.');
-            Response::back();
-        }
-
-        $reworkId = (int)$id;
-        $rework = ProductionWarehouseRework::find($reworkId);
-        if (!$rework) {
-            Session::flash('error', 'Rework record not found.');
-            Response::back();
-        }
-
-        $vehicle = trim($_POST['redispatched_vehicle'] ?? 'Direct Courier / Handover');
-        $notes = trim($_POST['redispatched_notes'] ?? '');
-
-        ProductionWarehouseRework::update($reworkId, [
-            'status'               => 'RE_DISPATCHED',
-            'redispatched_date'    => date('Y-m-d H:i:s'),
-            'redispatched_vehicle' => $vehicle,
-            'redispatched_notes'   => $notes,
-        ]);
-
-        Session::flash('success', "Repaired items for Rework #{$rework['rework_number']} re-dispatched to {$rework['warehouse_name']}.");
-        Response::redirect(url('production/warehouse-rework'));
-    }
-
-    public function viewWarehouseReworkAjax(string $id): void {
-        $rework = ProductionWarehouseRework::find((int)$id);
-        if (!$rework) {
-            Response::json(['success' => false, 'message' => 'Rework record not found.'], 404);
-            return;
-        }
-
-        Response::json([
-            'success' => true,
-            'data'    => $rework,
-        ]);
-    }
-
-    public function deleteWarehouseRework(string $id): void {
-        if (!CSRF::validateRequest()) {
-            Session::flash('error', 'Invalid security token.');
-            Response::back();
-        }
-
-        ProductionWarehouseRework::delete((int)$id);
-        Session::flash('success', 'Rework record deleted successfully.');
-        Response::redirect(url('production/warehouse-rework'));
     }
 
     // =========================================================================

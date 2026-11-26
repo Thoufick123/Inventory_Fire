@@ -210,18 +210,19 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 <div class="col-md-5 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
-                                    <input type="text" class="form-control form-control-sm gen-sizes-input" placeholder="Select chips above or type comma-separated">
+                                    <input type="hidden" class="gen-sizes-input">
                                 </div>
                                 <div class="col-md-5 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
-                                    <input type="text" class="form-control form-control-sm gen-colors-input" placeholder="Select chips above or type comma-separated">
+                                    <input type="hidden" class="gen-colors-input">
                                 </div>
                                 <div class="col-md-2 ms-auto text-end">
                                     <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
                                         <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
                                     </button>
                                 </div>
+                                <div class="col-12 d-none gen-custom-attrs-wrap"></div>
 
                                 <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
                                 <div class="col-12 mt-2 d-none gen-variant-rates-wrap">
@@ -1527,11 +1528,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        if (rollRowsToAddInput) {
-            rollRowsToAddInput.addEventListener('input', function() {
-                this.value = this.value.replace(/[^0-9]/g, '');
-            });
-        }
         if (defaultRollGst) {
             defaultRollGst.addEventListener('input', function() {
                 this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
@@ -1802,6 +1798,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const draftMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const draftMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const draftHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const draftCatalogProductsMap = <?= json_encode((static function () use ($existingProducts) {
+        $map = [];
+        foreach (($existingProducts ?? []) as $ep) {
+            $k = mb_strtolower(trim((string)($ep['name'] ?? '')));
+            if ($k === '') continue;
+            $map[$k] = [
+                'name' => $ep['name'] ?? '',
+                'category_name' => $ep['category_name'] ?? '',
+                'subcategory_name' => $ep['subcategory_name'] ?? '',
+                'sub_subcategory_name' => $ep['sub_subcategory_name'] ?? '',
+                'hsn_code' => $ep['hsn_code'] ?? '',
+                'gst_percentage' => $ep['gst_percentage'] ?? '',
+            ];
+        }
+        return $map;
+    })(), JSON_UNESCAPED_UNICODE) ?>;
+    const draftRollProductsMap = <?= json_encode((static function () use ($existingRollProducts) {
+        $map = [];
+        foreach (($existingRollProducts ?? []) as $rp) {
+            $k = mb_strtolower(trim((string)($rp['name'] ?? '')));
+            if ($k === '') continue;
+            $map[$k] = [
+                'name' => $rp['name'] ?? '',
+                'hsn_code' => $rp['hsn_code'] ?? '',
+                'gst_percentage' => $rp['gst_percentage'] ?? '',
+            ];
+        }
+        return $map;
+    })(), JSON_UNESCAPED_UNICODE) ?>;
     const savedExistingVariantKeys = new Set(<?= json_encode(array_values(array_map(static function ($it) {
         return mb_strtolower(trim((string)($it['item_name'] ?? '')) . '|' . trim((string)($it['size'] ?? '')) . '|' . trim((string)($it['color'] ?? '')) . '|' . (int)($it['category_id'] ?? 0));
     }, $items ?? [])), JSON_UNESCAPED_UNICODE) ?>);
@@ -1834,10 +1859,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const ssName = (ssSel && ssSel.selectedOptions[0]?.value ? ssSel.selectedOptions[0].textContent.trim().toLowerCase() : '');
 
         const attrCols = card.querySelectorAll('.gen-attributes-col');
+        const customWrap = card.querySelector('.gen-custom-attrs-wrap');
         if (!cName) {
             attrCols.forEach(col => col.classList.add('d-none'));
             sizeWrap.innerHTML = '';
             colorWrap.innerHTML = '';
+            if (customWrap) {
+                customWrap.classList.add('d-none');
+                customWrap.innerHTML = '';
+            }
             return;
         }
         attrCols.forEach(col => col.classList.remove('d-none'));
@@ -1853,17 +1883,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const sizeList = dedupeDraftList((attr && attr.sizes && attr.sizes.length) ? attr.sizes : draftMasterSizes);
         const colorList = dedupeDraftList((attr && attr.colors && attr.colors.length) ? attr.colors : draftMasterColors);
+        const customGroups = (attr && Array.isArray(attr.custom_attributes)) ? attr.custom_attributes : [];
 
         const activeSizes = new Set((card.querySelector('.gen-sizes-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
         const activeColors = new Set((card.querySelector('.gen-colors-input')?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
 
         sizeWrap.innerHTML = sizeList.length
             ? sizeList.map(sz => `<button type="button" class="btn btn-xs ${activeSizes.has(sz.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-size-chip" data-val="${sz.replace(/"/g, '&quot;')}">${sz}</button>`).join('')
-            : '<span class="small text-muted">No catalog sizes for this category yet — type below</span>';
+            : '<span class="small text-muted">No catalog sizes for this category yet</span>';
 
         colorWrap.innerHTML = colorList.length
             ? colorList.map(col => `<button type="button" class="btn btn-xs ${activeColors.has(col.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small gen-color-chip" data-val="${col.replace(/"/g, '&quot;')}">${col}</button>`).join('')
-            : '<span class="small text-muted">No catalog colors for this category yet — type below</span>';
+            : '<span class="small text-muted">No catalog colors for this category yet</span>';
+
+        if (customWrap) {
+            const escAttr = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            if (customGroups.length) {
+                customWrap.innerHTML = '<div class="row g-2 mt-1">' + customGroups.map(g => {
+                    const gName = escAttr(g.name);
+                    const chips = (g.values || []).map(val => {
+                        const vEsc = escAttr(val);
+                        return `<button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2 small gen-custom-attr-chip" data-attr-name="${gName}" data-val="${vEsc}">${vEsc}</button>`;
+                    }).join('');
+                    return `
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">${gName} <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
+                            <div class="d-flex flex-wrap gap-1">${chips}</div>
+                        </div>
+                    `;
+                }).join('') + '</div>';
+                customWrap.classList.remove('d-none');
+            } else {
+                customWrap.innerHTML = '';
+                customWrap.classList.add('d-none');
+            }
+        }
     }
 
     document.querySelectorAll('.tp-product-card').forEach(renderDraftAttributeChips);
@@ -1992,16 +2046,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }, true);
 
     document.addEventListener('change', function (e) {
-        if (e.target.classList.contains('gen-category')) {
+        if (e.target.classList.contains('tp-product-name-input')) {
             const card = e.target.closest('.tp-product-card');
-            const catId = e.target.value;
+            const prod = draftCatalogProductsMap[String(e.target.value || '').trim().toLowerCase()];
+            if (card && prod) {
+                const catSel = card.querySelector('.gen-category');
+                const subSel = card.querySelector('.gen-subcategory');
+                const ssSel = card.querySelector('.gen-subsubcategory');
+                const catName = String(prod.category_name || '').trim().toLowerCase();
+                if (catSel && catName) {
+                    const catOpt = Array.from(catSel.options).find(o => o.value && o.textContent.trim().toLowerCase() === catName);
+                    if (catOpt) {
+                        catSel.value = catOpt.value;
+                        catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        const subName = String(prod.subcategory_name || '').trim().toLowerCase();
+                        const subOpt = subName ? Array.from(subSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === subName) : null;
+                        if (subOpt && subSel) {
+                            subSel.value = subOpt.value;
+                            subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            const ssName = String(prod.sub_subcategory_name || '').trim().toLowerCase();
+                            const ssOpt = ssName ? Array.from(ssSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === ssName) : null;
+                            if (ssOpt && ssSel) {
+                                ssSel.value = ssOpt.value;
+                                ssSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    }
+                }
+                const hsnInp = card.querySelector('.gen-hsn');
+                const gstInp = card.querySelector('.gen-gst');
+                if (hsnInp && prod.hsn_code) hsnInp.value = String(prod.hsn_code);
+                if (gstInp && prod.gst_percentage !== '' && prod.gst_percentage !== null && prod.gst_percentage !== undefined) {
+                    gstInp.value = String(parseFloat(prod.gst_percentage) || 0);
+                }
+            }
+        } else if (e.target.id === 'fabricNameInput') {
+            const roll = draftRollProductsMap[String(e.target.value || '').trim().toLowerCase()];
+            if (roll) {
+                const row = e.target.closest('tr') || document.querySelector('#mappingRollRows tr.mapping-roll-row');
+                const gstInp = row?.querySelector('.roll-gst-input');
+                const hsnSel = row?.querySelector('.roll-hsn-select');
+                if (hsnSel && roll.hsn_code) {
+                    const matchOpt = Array.from(hsnSel.options).find(o => String(o.value).trim() === String(roll.hsn_code).trim());
+                    if (matchOpt) hsnSel.value = matchOpt.value;
+                }
+                if (gstInp && roll.gst_percentage !== '' && roll.gst_percentage !== null && roll.gst_percentage !== undefined) {
+                    gstInp.value = String(parseFloat(roll.gst_percentage) || 0);
+                }
+            }
+        } else if (e.target.classList.contains('gen-category')) {
+            const card = e.target.closest('.tp-product-card');
+            const catId = String(e.target.value || '');
             const subSel = card?.querySelector('.gen-subcategory');
             const ssSel = card?.querySelector('.gen-subsubcategory');
             if (subSel) {
                 Array.from(subSel.options).forEach(opt => {
                     if (!opt.value) return;
-                    opt.hidden = opt.dataset.parent !== catId;
-                    if (opt.hidden && opt.selected) opt.selected = false;
+                    const match = Boolean(catId && String(opt.dataset.parent || '') === catId);
+                    opt.hidden = !match;
+                    opt.disabled = !match;
+                    if (!match && opt.selected) opt.selected = false;
                 });
                 subSel.value = '';
             }
@@ -2009,6 +2113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Array.from(ssSel.options).forEach(opt => {
                     if (!opt.value) return;
                     opt.hidden = true;
+                    opt.disabled = true;
                     if (opt.selected) opt.selected = false;
                 });
                 ssSel.value = '';
@@ -2016,13 +2121,15 @@ document.addEventListener('DOMContentLoaded', function() {
             renderDraftAttributeChips(card);
         } else if (e.target.classList.contains('gen-subcategory')) {
             const card = e.target.closest('.tp-product-card');
-            const subId = e.target.value;
+            const subId = String(e.target.value || '');
             const ssSel = card?.querySelector('.gen-subsubcategory');
             if (ssSel) {
                 Array.from(ssSel.options).forEach(opt => {
                     if (!opt.value) return;
-                    opt.hidden = opt.dataset.parent !== subId;
-                    if (opt.hidden && opt.selected) opt.selected = false;
+                    const match = Boolean(subId && String(opt.dataset.parent || '') === subId);
+                    opt.hidden = !match;
+                    opt.disabled = !match;
+                    if (!match && opt.selected) opt.selected = false;
                 });
                 ssSel.value = '';
             }
@@ -2092,6 +2199,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.addEventListener('click', function (e) {
+        const customChip = e.target.closest('.gen-custom-attr-chip');
+        if (customChip) {
+            customChip.classList.toggle('btn-primary');
+            customChip.classList.toggle('btn-outline-secondary');
+            renderVariantRateTable(customChip.closest('.tp-product-card'));
+            return;
+        }
         const chip = e.target.closest('.gen-size-chip, .gen-color-chip');
         if (chip) {
             const isSize = chip.classList.contains('gen-size-chip');

@@ -421,7 +421,6 @@ function concernModuleForPermission(string $module): ?string {
         'batches' => 'warehouse',
         'outward' => 'warehouse',
         'production_stock_requests' => 'warehouse',
-        'warehouse_rework' => 'warehouse',
         'retail_pos' => 'retail_pos',
         'production_billing' => 'retail_pos',
         'returns' => 'returns',

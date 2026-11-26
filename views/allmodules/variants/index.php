@@ -321,7 +321,7 @@
                                 </a>
                                 <?php endif; ?>
                                 <?php if (hasPermission('variants', 'delete')): ?>
-                                <button type="button" class="btn btn-action-icon btn-outline-danger" title="Delete Variant" onclick="openDeleteVariantModal(<?= (int)$v['id'] ?>, '<?= e($v['variant_code']) ?>', '<?= e($v['product_name'] ?? '') ?>')">
+                                <button type="button" class="btn btn-action-icon btn-outline-danger" title="Delete Variant" data-id="<?= (int)$v['id'] ?>" data-code="<?= e($v['variant_code']) ?>" data-product="<?= e($v['product_name'] ?? '') ?>" onclick="openDeleteVariantModal(this)">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 <?php endif; ?>
@@ -522,7 +522,10 @@ function submitQuickAddDesign() {
     });
 }
 
-function openDeleteVariantModal(id, variantCode, productName) {
+function openDeleteVariantModal(btn) {
+    const id = btn.dataset.id || '';
+    const variantCode = btn.dataset.code || '';
+    const productName = btn.dataset.product || '';
     document.getElementById('deleteVariantForm').action = '<?= url("allmodules/variants/delete") ?>/' + id;
     document.getElementById('deleteVariantCodeText').textContent = variantCode || ('#' + id);
     document.getElementById('deleteVariantProductText').textContent = productName || '—';

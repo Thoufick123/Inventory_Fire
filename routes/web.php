@@ -575,19 +575,6 @@ class Router {
         $this->post('allmodules/outward/update/{id}', 'AllmodulesController', 'updateOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'edit']]);
         $this->post('allmodules/outward/delete/{id}', 'AllmodulesController', 'deleteOutward', ['AuthMiddleware', ['PermissionMiddleware', 'outward', 'delete']]);
 
-        // Rework from Warehouse
-        $this->get('allmodules/warehouse-rework', 'AllmodulesController', 'warehouseReworkList', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
-        $this->post('allmodules/warehouse-rework/store', 'AllmodulesController', 'storeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'create']]);
-        $this->post('allmodules/warehouse-rework/status/{id}', 'AllmodulesController', 'updateWarehouseReworkStatus', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
-        $this->post('allmodules/warehouse-rework/complete/{id}', 'AllmodulesController', 'completeWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'edit']]);
-        $this->post('allmodules/warehouse-rework/redispatch/{id}', 'AllmodulesController', 'redispatchWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'dispatch']]);
-        $this->get('allmodules/warehouse-rework/view-ajax/{id}', 'AllmodulesController', 'viewWarehouseReworkAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
-        $this->post('allmodules/warehouse-rework/delete/{id}', 'AllmodulesController', 'deleteWarehouseRework', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'delete']]);
-        $this->get('allmodules/warehouse-rework/lookup-batch/{batchId}', 'AllmodulesController', 'lookupBatchVariantsAjax', ['AuthMiddleware', ['PermissionMiddleware', 'warehouse_rework', 'view']]);
-
-
-
-
         // Production Reports
         $this->get('allmodules/reports', 'AllmodulesController', 'reports', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
         $this->get('allmodules/reports/export', 'ExportController', 'download', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);

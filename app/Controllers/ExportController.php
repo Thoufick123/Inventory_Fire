@@ -27,7 +27,7 @@ class ExportController {
         $modules = [
             // PROCUREMENT & MATERIALS
             'purchases' => [
-                'name' => 'Purchase Orders & Invoices',
+                'name' => 'Purchases',
                 'desc' => 'Procurement orders across fabric rolls, raw materials, third-party goods, supplier invoices & valuations',
                 'icon' => 'bi bi-bag-check',
                 'color' => 'primary',
@@ -48,21 +48,21 @@ class ExportController {
                 'category' => 'Procurement & Materials'
             ],
             'third_party_products' => [
-                'name' => 'Third-Party Products & Mapping',
+                'name' => 'Third-Party Products & Bill Creations',
                 'desc' => 'Ready-to-sell vendor products, retail catalog mapping, 3-tier taxonomy, sizes, colors, MRP & SP',
                 'icon' => 'bi bi-shop',
                 'color' => 'info',
                 'category' => 'Procurement & Materials'
             ],
             'suppliers' => [
-                'name' => 'Sellers & Mills Directory',
+                'name' => 'Sellers',
                 'desc' => 'Registered vendors, mill profiles, contact details, GSTIN, payment terms & procurement volumes',
                 'icon' => 'bi bi-person-lines-fill',
                 'color' => 'secondary',
                 'category' => 'Procurement & Materials'
             ],
             'goods_inward' => [
-                'name' => 'Inward Notes (GRN)',
+                'name' => 'Inward',
                 'desc' => 'Warehouse & factory receipts, challan verification, received, accepted & rejected quantities',
                 'icon' => 'bi bi-box-arrow-in-down',
                 'color' => 'success',
@@ -71,42 +71,42 @@ class ExportController {
 
             // MANUFACTURING
             'programs' => [
-                'name' => 'Production Programs',
+                'name' => 'Programs',
                 'desc' => 'Manufacturing targets, product styles, scheduled dates & planned volumes',
                 'icon' => 'bi bi-kanban',
                 'color' => 'info',
                 'category' => 'Manufacturing'
             ],
             'cuttings' => [
-                'name' => 'Cutting Batches',
+                'name' => 'Cutting',
                 'desc' => 'Cutting master logs, fabric consumption, layer yields & wastage kg',
                 'icon' => 'bi bi-scissors',
                 'color' => 'secondary',
                 'category' => 'Manufacturing'
             ],
             'stitching' => [
-                'name' => 'Stitching Operations',
+                'name' => 'Stitching',
                 'desc' => 'Tailor & operator completions, stitched outputs, reworks & rejections',
                 'icon' => 'bi bi-bezier',
                 'color' => 'warning',
                 'category' => 'Manufacturing'
             ],
             'qc' => [
-                'name' => 'Quality Check (QC)',
+                'name' => 'Quality Check',
                 'desc' => 'Inspection audits, pass percentage yield, defects & rework logging',
                 'icon' => 'bi bi-patch-check',
                 'color' => 'success',
                 'category' => 'Manufacturing'
             ],
             'damages' => [
-                'name' => 'Damage & Rejection Management',
+                'name' => 'Damages',
                 'desc' => 'Roll damages, defect logs, loss amounts, resolutions, debit notes & replacement rolls',
                 'icon' => 'bi bi-exclamation-octagon',
                 'color' => 'danger',
                 'category' => 'Manufacturing'
             ],
             'catalog' => [
-                'name' => 'Catalog & Style Master',
+                'name' => 'Catalog',
                 'desc' => 'Master finished garment styles, category hierarchy, HSN codes, default specs & active variant counts',
                 'icon' => 'bi bi-grid-3x3-gap',
                 'color' => 'primary',
@@ -122,7 +122,7 @@ class ExportController {
 
             // LOGISTICS & WAREHOUSING
             'batches' => [
-                'name' => 'Batches (Cartons)',
+                'name' => 'Batches',
                 'desc' => 'Master cartons, packaging batches, piece counts & production costing',
                 'icon' => 'bi bi-box-seam',
                 'color' => 'success',
@@ -136,7 +136,7 @@ class ExportController {
                 'category' => 'Logistics & Warehousing'
             ],
             'inventory' => [
-                'name' => 'Inventory (On-Hand)',
+                'name' => 'Inventory',
                 'desc' => 'Real-time available stock levels by variant, style, color, size, location & stock states',
                 'icon' => 'bi bi-layers',
                 'color' => 'info',
@@ -156,17 +156,10 @@ class ExportController {
                 'color' => 'info',
                 'category' => 'Logistics & Warehousing'
             ],
-            'warehouse_rework' => [
-                'name' => 'Warehouse Rework & Repairs',
-                'desc' => 'Warehouse repair orders, defect types, repair notes, repaired vs scrapped quantities',
-                'icon' => 'bi bi-wrench-adjustable',
-                'color' => 'warning',
-                'category' => 'Logistics & Warehousing'
-            ],
 
             // SALES & FINANCE
             'billing' => [
-                'name' => 'Standard Factory Billing (POS)',
+                'name' => 'Billing / Pos',
                 'desc' => 'Normal tax invoices, customer details, HSN codes, GST amounts & payment types (excludes direct bills)',
                 'icon' => 'bi bi-receipt',
                 'color' => 'primary',
@@ -180,21 +173,21 @@ class ExportController {
                 'category' => 'Sales & Finance'
             ],
             'returns' => [
-                'name' => 'Customer Returns & Credit Notes',
+                'name' => 'Returns & Exchanges',
                 'desc' => 'Returned merchandise, condition inspection, refund modes & tax reversals',
                 'icon' => 'bi bi-arrow-return-left',
                 'color' => 'danger',
                 'category' => 'Sales & Finance'
             ],
             'wastage' => [
-                'name' => 'Fabric & Stitching Scrap Sales',
+                'name' => 'Wastage Selling',
                 'desc' => 'Cutting scrap & stitching fabric waste monetized sales and buyer invoices',
                 'icon' => 'bi bi-recycle',
                 'color' => 'success',
                 'category' => 'Sales & Finance'
             ],
             'expenses' => [
-                'name' => 'Operating & Machine Expenses',
+                'name' => 'Expenses',
                 'desc' => 'Plant maintenance, operating costs, category breakdown & settlement status',
                 'icon' => 'bi bi-wallet2',
                 'color' => 'warning',
@@ -288,7 +281,7 @@ class ExportController {
         $allModules = [
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward',
             'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants',
-            'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework',
+            'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests',
             'billing', 'direct_billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
         $selectedModules = !empty($_REQUEST['modules']) && is_array($_REQUEST['modules'])

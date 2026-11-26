@@ -346,9 +346,11 @@ tr.table-danger, tr.table-danger > td {
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">1</span>
                     <h5 class="mb-0 fw-bold text-dark">Purchased Product Baseline Details</h5>
                 </div>
-                <span class="small text-muted"><i class="bi bi-info-circle me-1"></i>Procurement baseline from Supplier Bill</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" id="toggleBaselineDetails" title="Collapse or expand baseline details">
+                    <i class="bi bi-arrows-collapse"></i> Compact
+                </button>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-4" id="baselineDetailsBody">
                 <!-- 3 Top Reference Panels -->
                 <div class="row g-3 mb-4">
                     <!-- Column 1: Product Identity -->
@@ -662,32 +664,12 @@ tr.table-danger, tr.table-danger > td {
         <?php }; ?>
 
         <div class="card border shadow-sm mb-4">
-            <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary text-white rounded-pill px-2.5 py-1">2</span>
-                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Product Variants Entry &amp; Pricing</h5>
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Add Variants to Mapping</h5>
                 </div>
-                <!-- Overall Price Inputs & Top-Right Add Row Controls -->
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <div class="input-group input-group-sm" style="width: 155px;">
-                        <span class="input-group-text bg-light text-muted">MRP ₹</span>
-                        <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputMrp" value="<?= number_format($defaultMrp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
-                    </div>
-                    <div class="input-group input-group-sm" style="width: 155px;">
-                        <span class="input-group-text bg-light text-muted">SP ₹</span>
-                        <input type="text" inputmode="decimal" class="form-control text-end" id="batchInputSp" value="<?= number_format($defaultSp, 2, '.', '') ?>" placeholder="0.00" autocomplete="off">
-                    </div>
-                    <div class="vr mx-1 d-none d-md-block"></div>
-                    <input class="form-control form-control-sm text-center" id="variantRowsToAdd" type="text" inputmode="numeric" value="1" style="width: 60px;" autocomplete="off" title="Number of rows to add">
-                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAddVariantRows">
-                        <i class="bi bi-plus-lg me-1"></i>Add Rows
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" id="btnAddOneVariant">
-                        <i class="bi bi-plus-lg me-1"></i>Add 1 Variant
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnSyncRowsToPurchasedQty" title="Auto-load 1 row per purchased qty">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Sync to Qty (<?= max(1, (int)round($purchasedQty)) ?>)
-                    </button>
+                <div class="d-flex align-items-center gap-2">
                     <?php if (!empty($activeItem['is_mapped'])): ?>
                         <button type="button" class="btn btn-sm btn-warning fw-semibold" id="btnUnlockMappingEdit" title="Unlock product details for editing">
                             <i class="bi bi-pencil-square me-1"></i>Edit
@@ -695,82 +677,133 @@ tr.table-danger, tr.table-danger > td {
                     <?php endif; ?>
                 </div>
             </div>
-            <!-- Overall Batch Apply Bar: Category Hierarchy First + Size + Color -->
-            <div class="bg-light-subtle border-bottom px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <span class="small fw-semibold text-muted text-uppercase"><i class="bi bi-sliders me-1 text-primary"></i>Apply to All Rows:</span>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <select class="form-select form-select-sm" id="batchSelectCategory" style="width: 165px;">
-                        <option value="">-- Main Category --</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select class="form-select form-select-sm" id="batchSelectSubcategory" style="width: 165px;">
-                        <option value="">-- Sub Category --</option>
-                        <?php foreach ($allSubcategories as $sc): ?>
-                            <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" hidden><?= e($sc['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select class="form-select form-select-sm" id="batchSelectSubSubcategory" style="width: 175px;">
-                        <option value="">-- Sub Sub Category --</option>
-                        <?php foreach ($allSubSubcategories as $ssc): ?>
-                            <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" hidden><?= e($ssc['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="text" class="form-control form-control-sm" id="batchInputSize" placeholder="Type Size..." style="width: 130px;" autocomplete="off">
-                    <input type="text" class="form-control form-control-sm" id="batchSelectColor" placeholder="Type Color..." style="width: 135px;" autocomplete="off">
-                    <button type="button" class="btn btn-sm btn-primary fw-semibold" id="btnApplyAllAttributes" title="Apply Category Hierarchy, Size, Color &amp; Pricing to all variant rows">
-                        <i class="bi bi-check2-all me-1"></i>Apply to All
-                    </button>
+            <div class="card-body p-3">
+                <div class="border rounded-3 p-3 bg-white" id="billVariantGeneratorCard">
+                    <?php $isRollItem = strtoupper((string)($activeItem['item_type'] ?? '')) === 'FABRIC_ROLL'; ?>
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2 pb-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary text-white rounded-pill px-2 py-1"><?= $isRollItem ? 'Roll' : 'Product' ?></span>
+                            <strong class="text-dark"><?= e($activeItem['item_name']) ?></strong>
+                        </div>
+                        <span class="badge <?= $isRollItem ? 'bg-info-subtle text-info border border-info-subtle' : 'bg-primary-subtle text-primary border border-primary-subtle' ?>">
+                            <i class="bi <?= $isRollItem ? 'bi-layers-half' : 'bi-tag' ?> me-1"></i><?= $isRollItem ? 'Fabric Roll' : 'Third-Party Product' ?>
+                        </span>
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="billGenProductName" value="<?= e($activeItem['item_name']) ?>" placeholder="e.g. Shirt, Pant..." readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Unit</label>
+                            <input type="text" class="form-control form-control-sm bg-light" value="<?= e($activeItem['unit'] ?: 'PCS') ?>" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Category <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="billGenCategory">
+                                <option value="">-- Category --</option>
+                                <?php foreach ($categories as $cat): ?>
+                                    <option value="<?= (int)$cat['id'] ?>" <?= ((int)($activeItem['mapped_third_party_category_id'] ?? 0) === (int)$cat['id']) ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Sub Category</label>
+                            <select class="form-select form-select-sm" id="billGenSubcategory">
+                                <option value="">-- Sub Category --</option>
+                                <?php foreach ($allSubcategories as $sc): ?>
+                                    <option value="<?= (int)$sc['id'] ?>" data-parent="<?= (int)$sc['category_id'] ?>" <?= ((int)($activeItem['mapped_third_party_subcategory_id'] ?? 0) === (int)$sc['id']) ? 'selected' : '' ?> hidden><?= e($sc['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Sub Sub Category</label>
+                            <select class="form-select form-select-sm" id="billGenSubSubcategory">
+                                <option value="">-- Sub Sub --</option>
+                                <?php foreach ($allSubSubcategories as $ssc): ?>
+                                    <option value="<?= (int)$ssc['id'] ?>" data-parent="<?= (int)$ssc['subcategory_id'] ?>" <?= ((int)($activeItem['mapped_third_party_sub_subcategory_id'] ?? 0) === (int)$ssc['id']) ? 'selected' : '' ?> hidden><?= e($ssc['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold mb-1">HSN Code</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control form-control-sm font-monospace" id="billGenHsn" value="<?= e($activeHsn ?? '') ?>" placeholder="Type or select HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
+                                <button type="button" class="btn btn-outline-secondary" id="btnBillHsnDropdown" title="Browse all HSN codes" tabindex="-1">
+                                    <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">GST %</label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm" id="billGenGst" value="<?= number_format((float)($gstRate ?? 5), 2, '.', '') ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold mb-1">GST Mode</label>
+                            <?php $initGstMode = strtoupper((string)($activeItem['tax_treatment'] ?? 'EXCLUDED')) === 'INCLUDED' ? 'INCLUDED' : 'EXCLUDED'; ?>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <input type="radio" class="btn-check bill-gen-gst-mode" name="bill_gen_gst_mode" id="billGstInc" value="INCLUDED" autocomplete="off" <?= $initGstMode === 'INCLUDED' ? 'checked' : '' ?>>
+                                <label class="btn btn-outline-primary fw-semibold" for="billGstInc">GST Included</label>
+                                <input type="radio" class="btn-check bill-gen-gst-mode" name="bill_gen_gst_mode" id="billGstExc" value="EXCLUDED" autocomplete="off" <?= $initGstMode === 'EXCLUDED' ? 'checked' : '' ?>>
+                                <label class="btn btn-outline-primary fw-semibold" for="billGstExc">GST Excluded</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold" id="btnGenerateSaveBillVariants">
+                                <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
+                            </button>
+                        </div>
+
+                        <!-- Category-loaded Attributes (hidden until Category is selected) -->
+                        <div class="col-md-6 d-none bill-gen-attributes-col">
+                            <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
+                            <div class="d-flex flex-wrap gap-1 mb-1" id="billGenSizeChips"></div>
+                            <input type="text" class="form-control form-control-sm" id="billGenSizesInput" placeholder="Select chips above or type comma-separated">
+                        </div>
+                        <div class="col-md-6 d-none bill-gen-attributes-col">
+                            <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
+                            <div class="d-flex flex-wrap gap-1 mb-1" id="billGenColorChips"></div>
+                            <input type="text" class="form-control form-control-sm" id="billGenColorsInput" placeholder="Select chips above or type comma-separated">
+                        </div>
+
+                        <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
+                        <div class="col-12 mt-2 d-none" id="billGenVariantRatesWrap">
+                            <div class="border rounded bg-light-subtle p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1.5">
+                                    <span class="small fw-bold text-dark"><i class="bi bi-sliders me-1 text-primary"></i>Selected Attributes — Qty &amp; Pricing</span>
+                                    <span class="text-muted" style="font-size: 11px;">Purchased Qty: <strong><?= number_format($purchasedQty, 0) ?></strong> · Default Rate: <strong>₹<?= number_format($baseRate, 2) ?></strong></span>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white align-middle mb-0" style="font-size: 12px;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Attribute (Size / Color)</th>
+                                                <th style="width: 110px;">Qty *</th>
+                                                <th style="width: 140px;">Purchase Rate *</th>
+                                                <th style="width: 140px;">MRP (₹) *</th>
+                                                <th style="width: 140px;">Selling Price (₹) *</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="billGenVariantRatesBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="tableVariantRows" style="min-width: 1460px;">
-                        <thead class="table-light small text-uppercase text-muted">
-                            <tr>
-                                <th style="width: 45px; min-width: 45px;" class="text-center">#</th>
-                                <th style="width: 280px; min-width: 265px;">Category Hierarchy <span class="text-danger">*</span></th>
-                                <th style="width: 155px; min-width: 145px;">Size <span class="text-danger">*</span></th>
-                                <th style="width: 165px; min-width: 155px;">Color <span class="text-danger">*</span></th>
-                                <th style="width: 95px; min-width: 90px;" class="text-end">Qty <span class="text-danger">*</span></th>
-                                <th style="width: 130px; min-width: 125px;" class="text-end">Purchased Rate (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 115px; min-width: 110px;" class="text-end">MRP (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 115px; min-width: 110px;" class="text-end">Selling (₹) <span class="text-danger">*</span></th>
-                                <th style="width: 90px; min-width: 85px;" class="text-end">GST %</th>
-                                <th style="width: 115px; min-width: 110px;">HSN Code <span class="text-danger">*</span></th>
-                                <th style="width: 50px; min-width: 50px;" class="text-center"></th>
-                            </tr>
-                        </thead>
+
+                <!-- Hidden Variant Payload Table (populated only when user clicks Generate & Save — no auto-loaded rows) -->
+                <div class="d-none">
+                    <table id="tableVariantRows">
                         <tbody id="tbodyVariantRows">
-                            <?php 
-                            if (!empty($savedVariants)) {
-                                foreach ($savedVariants as $idx => $v) {
-                                    $renderVariantRow($idx, $v);
-                                }
-                            } else {
-                                $autoRowCount = $purchasedQty >= 1 ? min(200, max(1, (int)round($purchasedQty))) : 1;
-                                for ($idx = 0; $idx < $autoRowCount; $idx++) {
-                                    $renderVariantRow($idx, [
-                                        'allocated_qty' => $autoRowCount > 1 ? 1 : max(1, (int)$purchasedQty),
-                                    ]);
-                                }
-                            }
-                            ?>
+                            <?php $renderVariantRow(0, ['allocated_qty' => 1]); ?>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- Live Allocation Summary -->
-                <div class="p-3 bg-light-subtle border-top d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <div class="fs-6" id="labelAllocationStatus">
-                            <!-- JS updates this -->
-                        </div>
-                    </div>
-                    <div class="small text-muted">
-                        <i class="bi bi-info-circle me-1"></i>Add variants manually. When saved, variants are recorded and QR label batches can be generated below.
-                    </div>
+                <div class="mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="small" id="labelAllocationStatus"></div>
                 </div>
             </div>
         </div>
@@ -1270,6 +1303,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
+
+    const toggleBaselineBtn = document.getElementById('toggleBaselineDetails');
+    const baselineDetailsBody = document.getElementById('baselineDetailsBody');
+    if (toggleBaselineBtn && baselineDetailsBody) {
+        toggleBaselineBtn.addEventListener('click', function () {
+            const isHidden = baselineDetailsBody.classList.toggle('d-none');
+            this.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand"></i> Expand'
+                : '<i class="bi bi-arrows-collapse"></i> Compact';
+        });
+    }
 
     function showModernAlert(message, title = 'Notice', type = 'warning') {
         const modalEl = document.getElementById('mappingModernAlertModal');
@@ -2715,5 +2759,269 @@ document.addEventListener('DOMContentLoaded', function () {
             'btn-danger'
         );
     };
+
+    // =========================================================================
+    // BILL MAPPING VARIANT GENERATOR (Matches mapping_draft UI — no auto-loaded rows)
+    // =========================================================================
+    const billCategoryAttrMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
+    const billMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
+    const billHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billCatSel = document.getElementById('billGenCategory');
+    const billSubSel = document.getElementById('billGenSubcategory');
+    const billSsSel = document.getElementById('billGenSubSubcategory');
+    const billSizeChips = document.getElementById('billGenSizeChips');
+    const billColorChips = document.getElementById('billGenColorChips');
+    const billSizesInput = document.getElementById('billGenSizesInput');
+    const billColorsInput = document.getElementById('billGenColorsInput');
+    const billAttrCols = document.querySelectorAll('.bill-gen-attributes-col');
+    const billRatesWrap = document.getElementById('billGenVariantRatesWrap');
+    const billRatesBody = document.getElementById('billGenVariantRatesBody');
+    const billHsnInput = document.getElementById('billGenHsn');
+    const billHsnBtn = document.getElementById('btnBillHsnDropdown');
+    const billGstInput = document.getElementById('billGenGst');
+    const btnGenSaveBill = document.getElementById('btnGenerateSaveBillVariants');
+
+    const dedupeBillList = (arr) => {
+        const seen = new Set();
+        const out = [];
+        for (const v of (arr || [])) {
+            const s = String(v || '').trim();
+            if (!s) continue;
+            const k = s.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(s);
+        }
+        return out;
+    };
+
+    function renderBillAttributeChips() {
+        if (!billCatSel || !billSizeChips || !billColorChips) return;
+        const cName = billCatSel.selectedOptions[0]?.value ? billCatSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+        const sName = billSubSel?.selectedOptions[0]?.value ? billSubSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+        const ssName = billSsSel?.selectedOptions[0]?.value ? billSsSel.selectedOptions[0].textContent.trim().toLowerCase() : '';
+
+        if (!cName) {
+            billAttrCols.forEach(col => col.classList.add('d-none'));
+            billSizeChips.innerHTML = '';
+            billColorChips.innerHTML = '';
+            return;
+        }
+        billAttrCols.forEach(col => col.classList.remove('d-none'));
+
+        let attr = null;
+        if (cName && sName && ssName && billCategoryAttrMap[`${cName}|${sName}|${ssName}`]) attr = billCategoryAttrMap[`${cName}|${sName}|${ssName}`];
+        else if (cName && sName && billCategoryAttrMap[`${cName}|${sName}`]) attr = billCategoryAttrMap[`${cName}|${sName}`];
+        else if (cName && billCategoryAttrMap[cName]) attr = billCategoryAttrMap[cName];
+
+        const sizeList = dedupeBillList((attr && attr.sizes && attr.sizes.length) ? attr.sizes : billMasterSizes);
+        const colorList = dedupeBillList((attr && attr.colors && attr.colors.length) ? attr.colors : billMasterColors);
+        const activeSizes = new Set((billSizesInput?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+        const activeColors = new Set((billColorsInput?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+
+        billSizeChips.innerHTML = sizeList.length
+            ? sizeList.map(sz => `<button type="button" class="btn btn-xs ${activeSizes.has(sz.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small bill-gen-size-chip" data-val="${sz.replace(/"/g, '&quot;')}">${sz}</button>`).join('')
+            : '<span class="small text-muted">No catalog sizes for this category — type below</span>';
+        billColorChips.innerHTML = colorList.length
+            ? colorList.map(col => `<button type="button" class="btn btn-xs ${activeColors.has(col.toLowerCase()) ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-2 small bill-gen-color-chip" data-val="${col.replace(/"/g, '&quot;')}">${col}</button>`).join('')
+            : '<span class="small text-muted">No catalog colors for this category — type below</span>';
+    }
+
+    function renderBillVariantRateTable() {
+        if (!billRatesWrap || !billRatesBody) return;
+        const sizes = dedupeBillList((billSizesInput?.value || '').split(','));
+        const colors = dedupeBillList((billColorsInput?.value || '').split(','));
+        if (!sizes.length && !colors.length) {
+            billRatesWrap.classList.add('d-none');
+            billRatesBody.innerHTML = '';
+            return;
+        }
+        const existingVals = {};
+        billRatesBody.querySelectorAll('tr').forEach(tr => {
+            existingVals[tr.dataset.key || ''] = {
+                qty: tr.querySelector('.bill-rate-qty')?.value ?? '',
+                rate: tr.querySelector('.bill-rate-cost')?.value ?? '',
+                mrp: tr.querySelector('.bill-rate-mrp')?.value ?? '',
+                sp: tr.querySelector('.bill-rate-sp')?.value ?? '',
+            };
+        });
+        const sList = sizes.length ? sizes : [''];
+        const cList = colors.length ? colors : [''];
+        const rowsHtml = [];
+        const defRate = <?= json_encode(number_format($baseRate, 2, '.', '')) ?>;
+        const defMrp = <?= json_encode(number_format($defaultMrp > 0 ? $defaultMrp : round($baseRate * 1.3, 2), 2, '.', '')) ?>;
+        const defSp = <?= json_encode(number_format($defaultSp > 0 ? $defaultSp : round($baseRate * 1.2, 2), 2, '.', '')) ?>;
+
+        for (const sz of sList) {
+            for (const col of cList) {
+                const key = `${sz}|||${col}`;
+                const prev = existingVals[key] || {};
+                const label = [sz, col].filter(Boolean).join(' / ') || 'Standard';
+                rowsHtml.push(`
+                    <tr data-key="${key.replace(/"/g, '&quot;')}">
+                        <td class="fw-semibold text-dark">${label}</td>
+                        <td><input type="number" min="1" step="1" class="form-control form-control-sm bill-rate-qty" value="${prev.qty || '1'}"></td>
+                        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm bill-rate-cost" value="${prev.rate || defRate}"></td>
+                        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm bill-rate-mrp" value="${prev.mrp || defMrp}"></td>
+                        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm bill-rate-sp" value="${prev.sp || defSp}"></td>
+                    </tr>
+                `);
+            }
+        }
+        billRatesBody.innerHTML = rowsHtml.join('');
+        billRatesWrap.classList.remove('d-none');
+    }
+
+    billCatSel?.addEventListener('change', function () {
+        const catId = this.value;
+        if (billSubSel) {
+            Array.from(billSubSel.options).forEach(o => { if (o.value) o.hidden = o.dataset.parent !== catId; });
+            billSubSel.value = '';
+        }
+        if (billSsSel) {
+            Array.from(billSsSel.options).forEach(o => { if (o.value) o.hidden = true; });
+            billSsSel.value = '';
+        }
+        renderBillAttributeChips();
+    });
+    billSubSel?.addEventListener('change', function () {
+        const subId = this.value;
+        if (billSsSel) {
+            Array.from(billSsSel.options).forEach(o => { if (o.value) o.hidden = o.dataset.parent !== subId; });
+            billSsSel.value = '';
+        }
+        renderBillAttributeChips();
+    });
+    billSsSel?.addEventListener('change', renderBillAttributeChips);
+    billSizesInput?.addEventListener('input', () => { renderBillAttributeChips(); renderBillVariantRateTable(); });
+    billColorsInput?.addEventListener('input', () => { renderBillAttributeChips(); renderBillVariantRateTable(); });
+
+    document.addEventListener('click', function (e) {
+        const szChip = e.target.closest('.bill-gen-size-chip');
+        const colChip = e.target.closest('.bill-gen-color-chip');
+        if (szChip && billSizesInput) {
+            const cur = dedupeBillList(billSizesInput.value.split(','));
+            const val = szChip.dataset.val || '';
+            const idx = cur.findIndex(v => v.toLowerCase() === val.toLowerCase());
+            if (idx >= 0) cur.splice(idx, 1); else cur.push(val);
+            billSizesInput.value = cur.join(', ');
+            renderBillAttributeChips();
+            renderBillVariantRateTable();
+        } else if (colChip && billColorsInput) {
+            const cur = dedupeBillList(billColorsInput.value.split(','));
+            const val = colChip.dataset.val || '';
+            const idx = cur.findIndex(v => v.toLowerCase() === val.toLowerCase());
+            if (idx >= 0) cur.splice(idx, 1); else cur.push(val);
+            billColorsInput.value = cur.join(', ');
+            renderBillAttributeChips();
+            renderBillVariantRateTable();
+        }
+    });
+
+    // Multi-purpose scrollable HSN dropdown
+    const billHsnDropdown = document.createElement('div');
+    billHsnDropdown.className = 'list-group shadow-lg border';
+    billHsnDropdown.style.cssText = 'position:fixed;z-index:2050;display:none;max-height:240px;overflow-y:auto;overscroll-behavior:contain;min-width:290px;background:#fff;border-radius:0.5rem;';
+    document.body.appendChild(billHsnDropdown);
+
+    function showBillHsnDropdown(forceAll = false) {
+        if (!billHsnInput || !billHsnList.length) { billHsnDropdown.style.display = 'none'; return; }
+        const q = forceAll ? '' : billHsnInput.value.trim().toUpperCase();
+        const matches = (!q ? billHsnList : billHsnList.filter(it =>
+            String(it.hsn_code || '').toUpperCase().includes(q) || String(it.description || '').toUpperCase().includes(q)
+        )).slice(0, 100);
+        if (!matches.length) { billHsnDropdown.style.display = 'none'; return; }
+        const rect = (billHsnInput.closest('.input-group') || billHsnInput).getBoundingClientRect();
+        billHsnDropdown.style.top = `${rect.bottom + 2}px`;
+        billHsnDropdown.style.left = `${Math.min(rect.left, window.innerWidth - 310)}px`;
+        billHsnDropdown.style.width = `${Math.max(rect.width, 290)}px`;
+        billHsnDropdown.innerHTML = '';
+        matches.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action py-1 px-2.5 text-start small';
+            const gstText = (item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') ? `${Number(item.gst_rate)}%` : 'N/A';
+            btn.innerHTML = `<div class="d-flex justify-content-between"><span class="font-monospace fw-bold">${item.hsn_code}</span><span class="badge bg-light text-dark border">${gstText}</span></div>`
+                + (item.description ? `<div class="text-truncate text-muted" style="font-size:0.75rem;">${String(item.description).slice(0, 48)}</div>` : '');
+            btn.addEventListener('mousedown', ev => {
+                ev.preventDefault();
+                billHsnInput.value = item.hsn_code;
+                if (billGstInput && item.gst_rate !== null && item.gst_rate !== undefined && item.gst_rate !== '') {
+                    billGstInput.value = String(item.gst_rate);
+                }
+                billHsnDropdown.style.display = 'none';
+            });
+            billHsnDropdown.appendChild(btn);
+        });
+        billHsnDropdown.style.display = 'block';
+    }
+    billHsnInput?.addEventListener('input', () => showBillHsnDropdown(false));
+    billHsnInput?.addEventListener('focus', () => showBillHsnDropdown(billHsnInput.value.trim() === ''));
+    billHsnBtn?.addEventListener('click', () => {
+        if (billHsnDropdown.style.display === 'block') billHsnDropdown.style.display = 'none';
+        else { billHsnInput?.focus(); showBillHsnDropdown(true); }
+    });
+    document.addEventListener('click', e => {
+        if (e.target !== billHsnInput && !billHsnBtn?.contains(e.target) && !billHsnDropdown.contains(e.target)) {
+            billHsnDropdown.style.display = 'none';
+        }
+    });
+
+    if (billCatSel?.value) renderBillAttributeChips();
+
+    // Generate & Save -> populate hidden tbodyVariantRows and submit formMapProductBill
+    btnGenSaveBill?.addEventListener('click', function () {
+        if (!billCatSel?.value) {
+            showModernAlert('Please select a Category first.');
+            billCatSel?.focus();
+            return;
+        }
+        const rateRows = Array.from(billRatesBody?.querySelectorAll('tr') || []);
+        if (!rateRows.length) {
+            showModernAlert('Please select at least one Size or Color attribute.');
+            return;
+        }
+        const templateRow = tbodyVariantRows?.querySelector('.variant-row')?.cloneNode(true);
+        if (!templateRow || !tbodyVariantRows) return;
+
+        const gstVal = billGstInput?.value.trim() || '5';
+        const hsnVal = billHsnInput?.value.trim() || '6109';
+        const gstMode = document.querySelector('.bill-gen-gst-mode:checked')?.value || 'EXCLUDED';
+        const gstNum = parseFloat(gstVal) || 0;
+
+        tbodyVariantRows.innerHTML = '';
+        for (let i = 0; i < rateRows.length; i++) {
+            const rEl = rateRows[i];
+            const [sz, col] = (rEl.dataset.key || '|||').split('|||');
+            const q = parseFloat(rEl.querySelector('.bill-rate-qty')?.value || '0');
+            const rawRate = parseFloat(rEl.querySelector('.bill-rate-cost')?.value || '0');
+            const mrp = parseFloat(rEl.querySelector('.bill-rate-mrp')?.value || '0');
+            const sp = parseFloat(rEl.querySelector('.bill-rate-sp')?.value || '0');
+            if (q <= 0 || mrp <= 0 || sp <= 0 || sp > mrp) {
+                showModernAlert('Please check Qty, MRP, and Selling Price (Selling Price cannot exceed MRP).');
+                return;
+            }
+            const effRate = (gstMode === 'INCLUDED' && gstNum > 0 && rawRate > 0) ? (rawRate / (1 + gstNum / 100)).toFixed(2) : rawRate.toFixed(2);
+            const row = templateRow.cloneNode(true);
+            row.querySelectorAll('input, select').forEach(el => {
+                if (el.name) el.name = el.name.replace(/variants\[\d+\]/, `variants[${i}]`);
+            });
+            const set = (sel, v) => { const el = row.querySelector(sel); if (el) el.value = v; };
+            set('.var-category', billCatSel.value);
+            set('.var-subcategory', billSubSel?.value || '');
+            set('.var-subsubcategory', billSsSel?.value || '');
+            set('.var-size', sz || 'Standard');
+            set('.var-color', col || 'Standard');
+            set('.var-qty', String(Math.round(q)));
+            set('.var-rate', effRate);
+            set('.var-mrp', mrp.toFixed(2));
+            set('.var-sp', sp.toFixed(2));
+            set('.var-gst', gstVal);
+            set('.var-hsn', hsnVal);
+            tbodyVariantRows.appendChild(row);
+        }
+        formMapProductBill?.requestSubmit ? formMapProductBill.requestSubmit() : formMapProductBill?.submit();
+    });
 });
 </script>
