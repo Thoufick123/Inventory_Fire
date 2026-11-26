@@ -38,11 +38,20 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
         <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
     </div>
-    <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label class="d-flex align-items-center gap-2 px-3 py-2 bg-white border rounded-3 shadow-xs mb-0" style="cursor: pointer;" for="isDirectBill" title="Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" form="productionBillForm" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?> style="cursor: pointer;">
+            </div>
+            <span class="fw-semibold text-dark small text-nowrap">Direct Bill</span>
+        </label>
+        <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
 </div>
 
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
+    <input type="hidden" name="production_unit_id" id="productionUnitSelect" value="<?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) ?>">
     <?php if (empty($isEdit)) { $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); } ?>
     <div class="row g-3">
         <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
@@ -72,45 +81,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                 </div>
             </div>
 
-            <!-- 2. Issuing Concern & Production Facility -->
-            <div class="card border-0 shadow-sm rounded-3 mb-3">
-                <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between flex-wrap gap-1 py-3">
-                    <span><i class="bi bi-building-gear me-2 text-primary"></i>Issuing Facility</span>
-                    <?php if (!empty($activeConcern['name'])): ?>
-                        <span class="badge bg-primary text-white px-2 py-1 fs-7">
-                            <i class="bi bi-diagram-3 me-1"></i><?= $escape($activeConcern['name']) ?><?= !empty($activeConcern['code']) ? ' (' . $escape($activeConcern['code']) . ')' : '' ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
-                <div class="card-body p-3">
-                    <?php if (!empty($activeConcern)): ?>
-                        <div class="mb-3 p-2 rounded bg-light border border-light-subtle small">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Concern:</span>
-                                <strong class="text-dark"><?= $escape(!empty($activeConcern['legal_name']) ? $activeConcern['legal_name'] : ($activeConcern['name'] ?? 'Primary Concern')) ?></strong>
-                            </div>
-                            <?php if (!empty($activeConcern['gst_number'])): ?>
-                                <div class="d-flex justify-content-between mt-1">
-                                    <span class="text-muted">GSTIN:</span>
-                                    <span class="fw-semibold text-uppercase font-monospace"><?= $escape($activeConcern['gst_number']) ?></span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <label class="form-label small fw-bold text-muted mb-1" for="productionUnitSelect">Production Unit / Plant</label>
-                    <select class="form-select" name="production_unit_id" id="productionUnitSelect" required>
-                        <?php foreach ($productionUnits ?? [] as $unit): ?>
-                            <option value="<?= (int)$unit['id'] ?>" <?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) === (int)$unit['id'] ? 'selected' : '' ?> data-name="<?= $escape($unit['name'] ?? '') ?>" data-code="<?= $escape($unit['code'] ?? '') ?>" data-manager="<?= $escape($unit['manager_name'] ?? '') ?>" data-address="<?= $escape($unit['address'] ?? '') ?>" data-phone="<?= $escape($unit['phone'] ?? '') ?>" data-gstin="<?= $escape($unit['gst_number'] ?? '') ?>" data-logo="<?= $escape($unit['logo_url'] ?? '') ?>">
-                                <?= $escape($unit['name'] ?? 'Production unit') ?><?= !empty($unit['code']) ? ' (' . $escape($unit['code']) . ')' : '' ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="productionUnitDetails" class="small text-muted mt-2" aria-live="polite"></div>
-                </div>
-            </div>
-
-            <!-- 3. Buyer Type Selection -->
+            <!-- 2. Buyer Type Selection -->
             <div class="card border-0 shadow-sm rounded-3 mb-3">
                 <div class="card-body p-3">
                     <label class="form-label fw-bold text-dark mb-2" for="buyerType">Bill To (Buyer Category)</label>
@@ -224,18 +195,6 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         </select>
                     </div>
 
-                    <!-- Separate as Direct Bill Option (Reference Box) -->
-                    <div class="p-3 border rounded-3 bg-light mb-3">
-                        <div class="form-check form-switch mb-1">
-                            <input class="form-check-input" type="checkbox" name="is_direct_bill" id="isDirectBill" value="1" <?= !empty($bill['is_direct_bill']) ? 'checked' : '' ?>>
-                            <label class="form-check-label fw-bold text-dark" for="isDirectBill">
-                                Separate as Direct Bill
-                            </label>
-                        </div>
-                        <div class="small text-muted ps-4">
-                            Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.
-                        </div>
-                    </div>
                     <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
                         <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
                         <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
@@ -1183,6 +1142,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUnitDetails() {
+        if (!unitDetails || !unitSelect || !unitSelect.selectedOptions) {
+            return;
+        }
         const option = unitSelect.selectedOptions[0];
         if (!option) {
             unitDetails.textContent = '';
@@ -1895,7 +1857,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateUnitDetails();
-    unitSelect.addEventListener('change', updateUnitDetails);
+    if (unitSelect) unitSelect.addEventListener('change', updateUnitDetails);
     updatePaymentFields();
     renderCart();
 
