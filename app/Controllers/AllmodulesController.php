@@ -5804,6 +5804,7 @@ class AllmodulesController {
                     COALESCE(mi.hsn_code, '') AS hsn_code,
                     NULL AS seller_roll_id,
                     mi.qr_generation_id, qrg.batch_code AS qr_batch_code, NULL AS grn_id, NULL AS grn_number,
+                    COALESCE(qrg.stock_added, 0) AS stock_added,
                     mb.invoice_number AS purchase_number, DATE(mb.created_at) AS purchase_date, mb.invoice_number, mb.concern_id,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     s.name AS seller_name, s.company AS seller_company,
@@ -5860,14 +5861,20 @@ class AllmodulesController {
                     s.name AS seller_name, s.company AS seller_company,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     pp.purchase_number, COALESCE(mi.product_count, 0) AS product_count,
-                    COALESCE(mi.total_quantity, 0) AS total_quantity
+                    COALESCE(mi.total_quantity, 0) AS total_quantity,
+                    COALESCE(mi.pending_qr_or_stock_count, 0) AS pending_qr_or_stock_count
              FROM third_party_mapping_bills mb
              JOIN sellers s ON s.id = mb.seller_id
              LEFT JOIN concerns c_con ON c_con.id = COALESCE(mb.concern_id, 1)
              LEFT JOIN production_purchases pp ON pp.id = mb.purchase_id
              LEFT JOIN (
-                 SELECT mapping_bill_id, COUNT(*) AS product_count, SUM(quantity) AS total_quantity
-                 FROM third_party_mapping_items GROUP BY mapping_bill_id
+                 SELECT tmi.mapping_bill_id,
+                        COUNT(*) AS product_count,
+                        SUM(tmi.quantity) AS total_quantity,
+                        SUM(CASE WHEN tmi.qr_generation_id IS NULL OR COALESCE(qrg.stock_added, 0) = 0 THEN 1 ELSE 0 END) AS pending_qr_or_stock_count
+                 FROM third_party_mapping_items tmi
+                 LEFT JOIN qr_generations qrg ON qrg.id = tmi.qr_generation_id
+                 GROUP BY tmi.mapping_bill_id
              ) mi ON mi.mapping_bill_id = mb.id
              {$draftWhere}
              ORDER BY mb.id DESC",
