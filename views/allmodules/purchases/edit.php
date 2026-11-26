@@ -58,7 +58,7 @@ $existingItemsForJs = array_map(static function (array $item) use ($taxTypeForIt
 ?>
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Record Purchase — <?= e($purchase['purchase_number']) ?></h2>
+        <h2 class="mb-1"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Purchase — <?= e($purchase['purchase_number']) ?></h2>
     </div>
     <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Purchases</a>
 </div>

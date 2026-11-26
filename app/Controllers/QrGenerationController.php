@@ -434,7 +434,7 @@ class QrGenerationController {
 
         try {
             $result = QrGenerationService::generateStitchingBatch($_POST);
-            Session::flash('success', "Production Product QR Batch {$result['batch_code']} generated with {$result['quantity']} pieces! Now select inspector to start Quality Control (QC).");
+            Session::flash('success', "Production Product QR Batch {$result['batch_code']} generated with {$result['quantity']} pieces! Now select inspector to start Quality Check (QC).");
             Response::redirect(url('production/qc/create?qr_generation_id=' . $result['generation_id']));
             return;
         } catch (Throwable $e) {

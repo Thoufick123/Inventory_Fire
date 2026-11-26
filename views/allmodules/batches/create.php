@@ -235,7 +235,7 @@
                         </div>
                         <div id="reworkNoticeBox" class="small text-muted mt-2 pt-2 border-top border-warning-subtle <?= empty($includeRework) ? 'd-none' : '' ?>">
                             <i class="bi bi-info-circle-fill text-warning me-1"></i>
-                            <strong>Admin Rework Flow Active:</strong> Repaired and reworked pieces are unlocked into the packable pool. These items will be packed into the master cartons and loaded directly for Outward Dispatch to the Central Warehouse.
+                            <strong>Admin Rework Flow Active:</strong> Repaired and reworked pieces are unlocked into the packable pool. These items will be packed into the master cartons and loaded directly for Outward & Dispatch to the Central Warehouse.
                         </div>
                     </div>
                 <?php endif; ?>

@@ -535,7 +535,7 @@ class AllmodulesBillingController
             return;
         }
 
-        // Check if scanned tag / QR matches a quarantined fabric roll in Damage Management
+        // Check if scanned tag / QR matches a quarantined fabric roll in Damages
         $damagedMatch = Database::fetchOne(
             "SELECT rd.damage_number, rd.damage_reason, rd.qr_code, rd.damaged_weight, rd.status,
                     sr.roll_number
@@ -555,12 +555,12 @@ class AllmodulesBillingController
                 'damage_number' => $damagedMatch['damage_number'],
                 'damage_reason' => $damagedMatch['damage_reason'],
                 'qr_code'       => $dmgQr,
-                'message'       => "Cannot bill QR item '{$dmgQr}'! This item is quarantined in the Damage Management module (Damage #{$damagedMatch['damage_number']} — {$damagedMatch['damage_reason']}). Damaged items cannot be sold or billed!"
+                'message'       => "Cannot bill QR item '{$dmgQr}'! This item is quarantined in the Damages module (Damage #{$damagedMatch['damage_number']} — {$damagedMatch['damage_reason']}). Damaged items cannot be sold or billed!"
             ]);
             return;
         }
 
-        // Check if scanned tag matches Warehouse Damage Management
+        // Check if scanned tag matches Warehouse Damages
         $whDamageMatch = Database::fetchOne(
             "SELECT wd.damage_number, wd.damage_reason, wd.tag_code, w.name as warehouse_name
              FROM warehouse_damages wd
@@ -2150,7 +2150,7 @@ class AllmodulesBillingController
                 $availableTagMap = array_fill_keys(array_map('strtoupper', $stock['available_tags']), true);
             }
 
-            // Check against Damage Management records (quarantined fabric rolls)
+            // Check against Damages records (quarantined fabric rolls)
             $damagedCheckRows = Database::fetchAll(
                 "SELECT rd.damage_number, rd.damage_reason, rd.qr_code, sr.roll_number
                  FROM roll_damages rd
@@ -2164,7 +2164,7 @@ class AllmodulesBillingController
                 if (!empty($dCR['roll_number'])) $damagedLookup[strtoupper(trim($dCR['roll_number']))] = $dCR;
             }
 
-            // Check against Outward Dispatches to warehouse
+            // Check against Outward & Dispatch to warehouse
             $outwardCheckRows = Database::fetchAll(
                 "SELECT po.outward_number, w.name as warehouse_name, pbi.piece_tags
                  FROM production_batch_items pbi
@@ -2194,7 +2194,7 @@ class AllmodulesBillingController
                 $normalized = strtoupper($tag);
                 if (isset($damagedLookup[$normalized])) {
                     $d = $damagedLookup[$normalized];
-                    Session::flash('error', "Cannot bill QR item '{$tag}'! It has been quarantined in Damage Management (Damage #{$d['damage_number']} — {$d['damage_reason']}).");
+                    Session::flash('error', "Cannot bill QR item '{$tag}'! It has been quarantined in Damages (Damage #{$d['damage_number']} — {$d['damage_reason']}).");
                     Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create');
                     return;
                 }

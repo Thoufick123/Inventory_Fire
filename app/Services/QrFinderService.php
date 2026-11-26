@@ -195,7 +195,7 @@ class QrFinderService {
                 if ($qc) {
                     $timeline[] = [
                         'stage'       => 'QC_INSPECTION',
-                        'title'       => 'Quality Control Inspection #' . $qc['batch_number'],
+                        'title'       => 'Quality Check Inspection #' . $qc['batch_number'],
                         'timestamp'   => $qc['created_at'],
                         'badge'       => 'QC_PASSED',
                         'badge_color' => 'success',
@@ -223,7 +223,7 @@ class QrFinderService {
                 $currentLocation = ($qri['concern_name'] ?: 'Warehouse') . ' Active Stock Bin';
             }
 
-            // 7. Check Packing Batches
+            // 7. Check Batches
             $batchItem = Database::fetchOne("
                 SELECT pbi.*, pb.batch_number, pb.created_at as batch_date, pb.status as batch_status,
                        w.name as dest_warehouse_name
@@ -260,7 +260,7 @@ class QrFinderService {
                     $isRcv = ($outward['status'] === 'RECEIVED');
                     $timeline[] = [
                         'stage'       => 'DISPATCH_TRANSIT',
-                        'title'       => 'Outward Dispatch #' . $outward['outward_number'],
+                        'title'       => 'Outward & Dispatch #' . $outward['outward_number'],
                         'timestamp'   => $outward['dispatch_date'] ?: $outward['created_at'],
                         'badge'       => $outward['status'] ?: 'DISPATCHED',
                         'badge_color' => $isRcv ? 'success' : 'warning',
@@ -741,7 +741,7 @@ class QrFinderService {
                 if ($qcItem) {
                     $timeline[] = [
                         'stage' => 'QC_INSPECTION',
-                        'title' => 'Quality Control Inspection',
+                        'title' => 'Quality Check Inspection',
                         'timestamp' => $qcItem['qc_date'],
                         'badge' => $qcItem['action_taken'] ?: 'PASSED',
                         'badge_color' => ($qcItem['action_taken'] === 'PASSED') ? 'success' : 'warning',
@@ -771,7 +771,7 @@ class QrFinderService {
                     $statusColor = 'primary';
                 }
 
-                // Outward Dispatch
+                // Outward & Dispatch
                 $prodBatchId = (int)($batchItem['production_batch_id'] ?? 0);
                 $outward = Database::fetchOne(
                     "SELECT po.*, w.name as warehouse_name
@@ -785,7 +785,7 @@ class QrFinderService {
                     $isRcv = ($outward['status'] === 'RECEIVED');
                     $timeline[] = [
                         'stage' => 'DISPATCH_TRANSIT',
-                        'title' => 'Outward Dispatch #' . $outward['outward_number'],
+                        'title' => 'Outward & Dispatch #' . $outward['outward_number'],
                         'timestamp' => $outward['dispatch_date'] ?: $outward['created_at'],
                         'badge' => $outward['status'] ?: 'DISPATCHED',
                         'badge_color' => $isRcv ? 'success' : 'warning',
@@ -1044,7 +1044,7 @@ class QrFinderService {
             );
             if ($out) {
                 $matched = true;
-                $itemType = 'Outward Dispatch Consignment';
+                $itemType = 'Outward & Dispatch Consignment';
                 $itemTitle = "Outward Consignment {$out['outward_number']}";
                 $details = [
                     'Outward #' => $out['outward_number'],

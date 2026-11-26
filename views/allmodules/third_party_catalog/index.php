@@ -1,11 +1,11 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-collection me-2 text-primary"></i>Third-Party Product Catalog</h2>
+        <h2 class="mb-1"><i class="bi bi-collection me-2 text-primary"></i>Third-Party Catalog</h2>
         <span class="text-muted small">Dedicated catalog for third-party purchased products and styles, separated from fabric/production items.</span>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <a href="<?= url('production/purchases/mapping') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-diagram-3 me-1"></i> Product Mapping
+            <i class="bi bi-diagram-3 me-1"></i> Bill Creations
         </a>
         <a href="<?= url('production/purchases/mapping/catalog/create') ?>" class="btn btn-primary shadow-sm">
             <i class="bi bi-plus-circle-fill me-1"></i> Add Third-Party Style

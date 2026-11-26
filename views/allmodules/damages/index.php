@@ -1,7 +1,7 @@
 <div class="page-header mb-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
         <div>
-            <h2 class="mb-0"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Fabric &amp; Roll Damage Management</h2>
+            <h2 class="mb-0"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Fabric &amp; Roll Damages</h2>
             </div>
         <div class="d-flex gap-2 align-items-center ms-auto">
             <?php if (hasPermission('damages', 'create')): ?>
@@ -95,7 +95,7 @@
             </div>
             <div class="col-md-3">
                 <select name="seller_id" class="form-select" style="height: 38px; border-color: #cbd5e1; border-radius: 8px; font-size: 0.875rem; color: #334155;" onchange="this.form.submit()">
-                    <option value="">-- All Material Suppliers --</option>
+                    <option value="">-- All Material Sellers --</option>
                     <?php foreach ($sellers as $s): ?>
                         <option value="<?= $s['id'] ?>" <?= $sellerId == $s['id'] ? 'selected' : '' ?>>
                             <?= e($s['name']) ?><?= !empty($s['company']) ? ' (' . e($s['company']) . ')' : '' ?>

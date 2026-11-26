@@ -130,7 +130,7 @@
                                                 <?php endif; ?>
                                             <?php else: ?>
                                                 <?php if (hasPermission('qc', 'view') || hasPermission('qc', 'create') || hasPermission('qc', 'edit')): ?>
-                                                    <a href="<?= !empty($b['qc_batch_id']) ? url('production/qc/inspect/' . $b['qc_batch_id']) : url('production/qc') ?>" class="btn btn-outline-success btn-action-icon" title="Go to Quality Control (QC)">
+                                                    <a href="<?= !empty($b['qc_batch_id']) ? url('production/qc/inspect/' . $b['qc_batch_id']) : url('production/qc') ?>" class="btn btn-outline-success btn-action-icon" title="Go to Quality Check (QC)">
                                                         <i class="bi bi-patch-check"></i>
                                                     </a>
                                                 <?php endif; ?>

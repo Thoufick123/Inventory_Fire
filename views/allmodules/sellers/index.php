@@ -1,6 +1,6 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-truck-flatbed me-2 text-primary"></i>Suppliers</h2>
+        <h2 class="mb-1"><i class="bi bi-truck-flatbed me-2 text-primary"></i>Sellers</h2>
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('production/sellers/export-replaced') ?>" class="btn btn-outline-success" title="Export All Replaced Rolls (CSV)">

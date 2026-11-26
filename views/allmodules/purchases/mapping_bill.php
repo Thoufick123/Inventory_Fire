@@ -1,6 +1,6 @@
 <?php
 /**
- * Modern ERP Product Mapping Workspace — Map Purchase Bill Lines
+ * Modern ERP Bill Creations Workspace — Map Purchase Bill Lines
  * Matches Image 2, 3, 4 & 5 Format with User Refinements:
  *  1. Purchased Product Baseline Details (Financial Valuation & Supplier Profile)
  *  2. Category Hierarchy (3-Tier) & HSN Classification (Tier 1/2/3, Short Codes, QR Key) - Level Purpose removed
@@ -209,7 +209,7 @@ tr.table-danger, tr.table-danger > td {
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-0 small">
                 <li class="breadcrumb-item"><a href="<?= url('purchases') ?>" class="text-decoration-none text-muted">Purchases</a></li>
-                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping') ?>" class="text-decoration-none text-muted">Product Mapping</a></li>
+                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping') ?>" class="text-decoration-none text-muted">Bill Creations</a></li>
                 <li class="breadcrumb-item"><a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id']) ?>" class="text-decoration-none text-muted"><?= e($purchase['purchase_number']) ?></a></li>
                 <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">Map Finished Good</li>
             </ol>

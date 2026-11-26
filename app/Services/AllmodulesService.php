@@ -802,7 +802,7 @@ class AllmodulesService {
     }
 
     /**
-     * Create Outward Dispatch for Finished Batch(es) — supports multiple batch selection.
+     * Create Outward & Dispatch for Finished Batch(es) — supports multiple batch selection.
      */
     public static function createOutward(array $outwardData, int $userId): int {
         Database::beginTransaction();

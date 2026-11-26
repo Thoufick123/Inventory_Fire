@@ -11,7 +11,7 @@ class AllmodulesStockRequestController
         'Retail Showroom / POS Store'             => 'Retail Showroom',
         'Cutting Section'                         => 'Cutting Section',
         'Stitching Unit'                          => 'Stitching Unit',
-        'Quality Control (QC) Department'         => 'Quality Control',
+        'Quality Check (QC) Department'         => 'Quality Check',
         'Finishing & Packing Section'             => 'Finishing & Packing',
         'Raw Materials & Fabric Store'            => 'Fabric Store',
         'WhatsApp B2B Sales Hub'                  => 'WhatsApp Sales Hub',
@@ -40,7 +40,7 @@ class AllmodulesStockRequestController
     }
 
     /**
-     * Display all Stock Requirements and Requisitions (Separated by Requests Sent vs Requests Received)
+     * Display all Stock Request and Requisitions (Separated by Requests Sent vs Requests Received)
      */
     public function index(): void
     {
@@ -176,7 +176,7 @@ class AllmodulesStockRequestController
         ];
 
         Response::view('allmodules.stock_requests.index', [
-            'pageTitle'            => 'Stock Requirements & Inter-Module Requests | Production Unit',
+            'pageTitle'            => 'Stock Request & Inter-Module Requests | Production Unit',
             'activeModule'         => 'production',
             'activeMenu'           => 'prod-stock-requests',
             'activeTab'            => $activeTab,

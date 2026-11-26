@@ -1077,7 +1077,7 @@ function onCuttingBatchCheckChange() {
     } else {
         document.getElementById('newInfoBatchName').textContent = `Multiple Batches (${checkedBoxes.length} Selected)`;
         document.getElementById('newInfoProg').textContent = programNos.length ? `(Programs: ${programNos.join(', ')})` : '';
-        document.getElementById('newInfoSeller').textContent = 'Multiple Suppliers / In-House';
+        document.getElementById('newInfoSeller').textContent = 'Multiple Sellers / In-House';
     }
 
     document.getElementById('newInfoTotalWst').textContent = `${totalWst.toFixed(2)} kg`;

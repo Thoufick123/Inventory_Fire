@@ -228,7 +228,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                         <td class="right strong"><?= number_format((int)($stk['stitching_pieces'] ?? 0)) ?> Stitched Pcs</td>
                     </tr>
                     <tr>
-                        <td>Quality Control (QC Passed)</td>
+                        <td>Quality Check (QC Passed)</td>
                         <td class="center">Inspected: <?= number_format((int)($stk['qc_inspected_pieces'] ?? 0)) ?></td>
                         <td class="right strong text-success"><?= number_format((int)($stk['qc_passed_pieces'] ?? 0)) ?> Pcs (<?= number_format((float)($stk['qc_yield_pct'] ?? 0), 1) ?>%)</td>
                     </tr>
@@ -451,11 +451,11 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
         </div>
     <?php endif; ?>
 
-    <!-- 6. Quality Control (QC) -->
+    <!-- 6. Quality Check (QC) -->
     <?php if (in_array('qc', $selectedModules, true) && !empty($data['qc'])): ?>
         <div class="section">
             <div class="section-header">
-                <h3 class="section-title">6. Quality Control (QC) &amp; Yield</h3>
+                <h3 class="section-title">6. Quality Check (QC) &amp; Yield</h3>
                 <span class="section-count"><?= count($data['qc']) ?> batches</span>
             </div>
             <table class="data-table">
@@ -976,7 +976,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
         </div>
     <?php endif; ?>
 
-    <!-- Suppliers Directory -->
+    <!-- Sellers Directory -->
     <?php if (in_array('suppliers', $selectedModules, true) && !empty($data['suppliers'])): ?>
         <div class="section">
             <div class="section-header">
@@ -1014,11 +1014,11 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
         </div>
     <?php endif; ?>
 
-    <!-- Goods Inward (GRN) -->
+    <!-- Inward (GRN) -->
     <?php if (in_array('goods_inward', $selectedModules, true) && !empty($data['goods_inward'])): ?>
         <div class="section">
             <div class="section-header">
-                <h3 class="section-title">Goods Inward Notes (GRN)</h3>
+                <h3 class="section-title">Inward Notes (GRN)</h3>
                 <span class="section-count"><?= count($data['goods_inward']) ?> receipts</span>
             </div>
             <table class="data-table">
@@ -1098,7 +1098,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
     <?php if (in_array('catalog', $selectedModules, true) && !empty($data['catalog'])): ?>
         <div class="section">
             <div class="section-header">
-                <h3 class="section-title">Product Catalog &amp; Style Master</h3>
+                <h3 class="section-title">Catalog &amp; Style Master</h3>
                 <span class="section-count"><?= count($data['catalog']) ?> styles</span>
             </div>
             <table class="data-table">
@@ -1176,11 +1176,11 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
         </div>
     <?php endif; ?>
 
-    <!-- Finished Goods Inventory -->
+    <!-- Inventory -->
     <?php if (in_array('inventory', $selectedModules, true) && !empty($data['inventory'])): ?>
         <div class="section">
             <div class="section-header">
-                <h3 class="section-title">Finished Goods Inventory (On-Hand)</h3>
+                <h3 class="section-title">Inventory (On-Hand)</h3>
                 <span class="section-count"><?= count($data['inventory']) ?> SKUs</span>
             </div>
             <table class="data-table">

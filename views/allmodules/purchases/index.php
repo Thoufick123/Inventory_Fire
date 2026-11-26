@@ -1,12 +1,12 @@
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i> Record Purchases</h2>
+        <h2 class="mb-1 fw-bold text-dark"><i class="bi bi-bag-check me-2 text-primary"></i> Purchases</h2>
     </div>
     <div class="d-flex align-items-center gap-2">
         <?php if (hasPermission('production_purchases', 'create') || hasPermission('sellers', 'create')): ?>
         <div class="btn-group shadow-sm">
             <a href="<?= url('purchases/create') ?>" class="btn btn-primary fw-semibold">
-                <i class="bi bi-plus-circle me-1"></i> Record Purchase
+                <i class="bi bi-plus-circle me-1"></i> Purchases
                 </a>
                 <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                     <span class="visually-hidden">Toggle Dropdown</span>

@@ -193,18 +193,18 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     <span class="badge bg-primary-subtle text-primary border">B2B Order Mode</span>
                 </div>
                 <div class="card-body p-3">
-                    <!-- Option to load a Packing Batch for B2B Billing -->
+                    <!-- Option to load a Batches for B2B Billing -->
                     <div class="p-3 bg-light rounded-3 border mb-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <label class="form-label fw-bold text-dark mb-0" for="selectPackingBatch">
-                                <i class="bi bi-boxes text-primary me-1"></i> Bill from Packing Batch (Optional)
+                                <i class="bi bi-boxes text-primary me-1"></i> Bill from Batches (Optional)
                             </label>
                             <span class="badge bg-primary text-white">Batch Option</span>
                         </div>
                         <p class="small text-muted mb-2">Select an unbilled packing batch to automatically load all packed garments, piece tags, and buyer destination into this bill.</p>
                         <div class="input-group">
                             <select class="form-select form-select-sm fw-semibold" id="selectPackingBatch" name="production_batch_id">
-                                <option value="">-- Choose Packing Batch to Bill --</option>
+                                <option value="">-- Choose Batches to Bill --</option>
                                 <?php if (!empty($availablePackingBatches)): ?>
                                     <?php foreach ($availablePackingBatches as $pb): ?>
                                         <option value="<?= $pb['id'] ?>" 

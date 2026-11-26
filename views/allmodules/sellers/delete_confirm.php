@@ -5,7 +5,7 @@
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Back to Suppliers
+            <i class="bi bi-arrow-left me-1"></i>Back to Sellers
         </a>
     </div>
 </div>
@@ -73,7 +73,7 @@
 
                     <div class="d-flex justify-content-center gap-2">
                         <a href="<?= url('production/sellers') ?>" class="btn btn-primary px-4 py-2 fw-semibold">
-                            <i class="bi bi-arrow-left me-1"></i>Back to Suppliers List
+                            <i class="bi bi-arrow-left me-1"></i>Back to Sellers List
                         </a>
                         <a href="<?= url('production/sellers/view/' . (int)$seller['id']) ?>" class="btn btn-outline-secondary px-3 py-2 fw-semibold">
                             <i class="bi bi-eye me-1"></i>View Supplier Profile

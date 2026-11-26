@@ -194,7 +194,7 @@
                                             <?php if ($canApproveThis): ?>
                                                 <form method="POST" action="<?= url('production/batches/approve/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Approve Batch #<?= e($b['batch_number']) ?> for outward dispatch?');">
                                                     <?= CSRF::field() ?>
-                                                    <button type="submit" class="btn btn-sm btn-success text-white fw-bold shadow-xs px-2 py-1" title="Approve Batch for Outward Dispatch">
+                                                    <button type="submit" class="btn btn-sm btn-success text-white fw-bold shadow-xs px-2 py-1" title="Approve Batch for Outward & Dispatch">
                                                         <i class="bi bi-patch-check-fill me-1"></i>Approve
                                                     </button>
                                                 </form>
@@ -214,7 +214,7 @@
                                                 </span>
                                             <?php endif; ?>
                                         <?php else: ?>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="viewBatchDispatchDetails(<?= $b['id'] ?>)" title="Outward Dispatched Details">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="viewBatchDispatchDetails(<?= $b['id'] ?>)" title="Outward & Dispatched Details">
                                                 <i class="bi bi-truck-flatbed me-1"></i>Dispatched
                                             </button>
                                         <?php endif; ?>
@@ -272,7 +272,7 @@
         <div class="modal-content shadow-lg border-0">
             <div class="modal-header bg-dark text-white py-3">
                 <h5 class="modal-title fw-bold" id="vbdModalTitle">
-                    <i class="bi bi-truck me-2 text-primary"></i>Batch Outward Dispatch Details
+                    <i class="bi bi-truck me-2 text-primary"></i>Batch Outward & Dispatch Details
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

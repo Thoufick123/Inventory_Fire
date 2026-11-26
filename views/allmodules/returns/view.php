@@ -169,7 +169,7 @@
                 <div class="alert alert-success border-0 rounded-0 m-0 py-2 px-3 small d-flex align-items-center">
                     <i class="bi bi-check-circle-fill fs-5 text-success me-2"></i>
                     <div>
-                        <strong>All Items Triaged:</strong> Every returned piece has been processed into active inventory or quarantined in Damage Management.
+                        <strong>All Items Triaged:</strong> Every returned piece has been processed into active inventory or quarantined in Damages.
                     </div>
                 </div>
             <?php endif; ?>
@@ -300,7 +300,7 @@
                 </div>
 
                 <div class="alert alert-warning border-0 small mb-0">
-                    <i class="bi bi-info-circle me-1"></i> This item will be quarantined from active stock and a case will be opened in the Damage Management module.
+                    <i class="bi bi-info-circle me-1"></i> This item will be quarantined from active stock and a case will be opened in the Damages module.
                 </div>
             </div>
             <div class="modal-footer bg-light">
