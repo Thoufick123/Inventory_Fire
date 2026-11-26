@@ -902,7 +902,7 @@ function buildInventoryPieceCards() {
             variantMap.set(vKey, {
                 variantKey: vKey,
                 variantCode: variantDisplayCode,
-                variantSku: vCode,
+                variantSku: variantDisplayCode,
                 productName: p.product_name || 'Finished Product',
                 categoryName: p.category_name || 'Apparel',
                 sizeName: p.size_name || 'Std',
