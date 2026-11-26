@@ -215,10 +215,6 @@ tr.table-danger, tr.table-danger > td {
             </ol>
         </nav>
         <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm"
-                    data-bs-toggle="modal" data-bs-target="#modalAddBillProduct">
-                <i class="bi bi-plus-circle"></i> Add Product to Bill
-            </button>
             <?php if (!empty($activeItem['is_mapped']) && empty($activeItem['qr_generation_id']) && empty($activeItem['qr_batch_code'])): ?>
                 <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=' . (int)$purchase['id'] . '&purchase_item_id=' . $activeItemId) ?>"
                    class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
@@ -1299,6 +1295,21 @@ tr.table-danger, tr.table-danger > td {
     </div>
 </div>
 
+<script>
+(function () {
+    const btn = document.getElementById('toggleBaselineDetails');
+    const body = document.getElementById('baselineDetailsBody');
+    if (btn && body) {
+        btn.addEventListener('click', function () {
+            const isHidden = body.classList.toggle('d-none');
+            this.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand"></i> Expand'
+                : '<i class="bi bi-arrows-collapse"></i> Compact';
+        });
+    }
+})();
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <!-- ========================================================================= -->
@@ -1309,17 +1320,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const BASE_URL = '<?= rtrim(url(), '/') ?>';
     const purchasedQty = <?= json_encode($purchasedQty) ?>;
     const supplierUnitCost = <?= json_encode($unitPrice) ?>;
-
-    const toggleBaselineBtn = document.getElementById('toggleBaselineDetails');
-    const baselineDetailsBody = document.getElementById('baselineDetailsBody');
-    if (toggleBaselineBtn && baselineDetailsBody) {
-        toggleBaselineBtn.addEventListener('click', function () {
-            const isHidden = baselineDetailsBody.classList.toggle('d-none');
-            this.innerHTML = isHidden
-                ? '<i class="bi bi-arrows-expand"></i> Expand'
-                : '<i class="bi bi-arrows-collapse"></i> Compact';
-        });
-    }
 
     function showModernAlert(message, title = 'Notice', type = 'warning') {
         const modalEl = document.getElementById('mappingModernAlertModal');

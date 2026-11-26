@@ -374,9 +374,9 @@
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     <?php if (($purchase['accounts_status'] ?? '') === 'PENDING_ACCOUNTS'): ?>
-                                        <form method="POST" action="<?= url('allmodules/purchases/verify-accounts/' . (int)$purchase['id']) ?>" class="d-inline" onsubmit="return confirm('Mark bill <?= e(addslashes($purchase['purchase_number'])) ?> as Accounts Verified?')">
+                                        <form method="POST" action="<?= url('allmodules/purchases/verify-accounts/' . (int)$purchase['id']) ?>" class="d-inline">
                                             <?= CSRF::field() ?>
-                                            <button type="submit" class="btn btn-action-icon btn-outline-success" title="Verify &amp; Finalize Accounts Bill">
+                                            <button type="button" class="btn btn-action-icon btn-outline-success" title="Verify &amp; Finalize Accounts Bill" onclick="confirmVerifyAccounts(this, '<?= e(addslashes($purchase['purchase_number'])) ?>')">
                                                 <i class="bi bi-check2-circle"></i>
                                             </button>
                                         </form>
@@ -406,6 +406,26 @@ function filterPurchasesTable(query) {
         const text = (r.getAttribute('data-search') || '') + ' ' + (r.textContent || '').toLowerCase();
         r.style.display = (!q || text.includes(q)) ? '' : 'none';
     });
+}
+
+function confirmVerifyAccounts(btn, purchaseNumber) {
+    const form = btn?.closest('form');
+    if (!form) return;
+    const msg = 'Mark bill ' + purchaseNumber + ' as Accounts Verified?';
+    if (typeof window.showModernConfirm === 'function') {
+        window.showModernConfirm({
+            title: 'Please Confirm',
+            message: msg,
+            confirmText: 'Confirm',
+            btnClass: 'btn-primary',
+            iconClass: 'bi bi-exclamation-triangle-fill text-warning',
+            onConfirm: function() {
+                form.submit();
+            }
+        });
+    } else if (confirm(msg)) {
+        form.submit();
+    }
 }
 
 function confirmDeletePurchase(actionUrl, purchaseNumber) {

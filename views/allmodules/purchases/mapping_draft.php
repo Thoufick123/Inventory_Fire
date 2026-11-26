@@ -207,24 +207,19 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     </div>
                                 </div>
 
-                                <div class="col-md-5 d-none gen-attributes-col">
+                                <div class="col-md-6 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Sizes <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-size-chips"></div>
                                     <input type="hidden" class="gen-sizes-input">
                                 </div>
-                                <div class="col-md-5 d-none gen-attributes-col">
+                                <div class="col-md-6 d-none gen-attributes-col">
                                     <label class="form-label small fw-semibold mb-1">Colors <span class="text-muted fw-normal">(auto-loaded from Category)</span></label>
                                     <div class="d-flex flex-wrap gap-1 mb-1 gen-color-chips"></div>
                                     <input type="hidden" class="gen-colors-input">
                                 </div>
-                                <div class="col-md-2 ms-auto text-end">
-                                    <button type="button" class="btn btn-primary btn-sm w-100 fw-semibold btn-generate-variants">
-                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
-                                    </button>
-                                </div>
                                 <div class="col-12 d-none gen-custom-attrs-wrap"></div>
 
-                                <!-- Per-Attribute Rate Table (appears when Sizes / Colors are selected) -->
+                                <!-- Per-Attribute Rate Table (appears when Sizes / Colors / Custom Attributes are selected) -->
                                 <div class="col-12 mt-2 d-none gen-variant-rates-wrap">
                                     <div class="border rounded bg-light-subtle p-2">
                                         <div class="d-flex justify-content-between align-items-center mb-1.5">
@@ -246,6 +241,12 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             </table>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="col-12 d-flex justify-content-end mt-2">
+                                    <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold btn-generate-variants">
+                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
+                                    </button>
                                 </div>
                             </div>
 
@@ -293,6 +294,15 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 </tr>
                             </thead>
                             <tbody id="mappingRollRows">
+                                <?php
+                                $existingRollCount = 0;
+                                foreach (($items ?? []) as $it) {
+                                    if (($it['item_type'] ?? '') === 'FABRIC_ROLL') {
+                                        $existingRollCount++;
+                                    }
+                                }
+                                $autoRollCode = sprintf('ROLL-%02d', $existingRollCount + 1);
+                                ?>
                                 <tr class="mapping-roll-row">
                                     <td>
                                         <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
@@ -308,7 +318,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             <option value="RAYON / VISCOSE PRINTED FABRIC">
                                         </datalist>
                                     </td>
-                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
+                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" value="<?= e($autoRollCode) ?>" placeholder="ROLL-01"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="Solid, Printed..."></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
@@ -1186,11 +1196,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerAddProductBtn = document.getElementById('btnHeaderAddProduct');
     const fabricTab = document.getElementById('tabFabricRollsBtn');
     const productTab = document.getElementById('tabThirdPartyBtn');
+    const tabStorageKey = 'mapping_draft_active_tab_' + <?= (int)$mappingBillId ?>;
+    try {
+        const savedTabId = sessionStorage.getItem(tabStorageKey);
+        if (savedTabId && typeof bootstrap !== 'undefined') {
+            const targetTabEl = document.getElementById(savedTabId);
+            if (targetTabEl) {
+                bootstrap.Tab.getOrCreateInstance(targetTabEl).show();
+                if (savedTabId === 'tabFabricRollsBtn') {
+                    headerAddProductBtn?.classList.add('d-none');
+                }
+            }
+        }
+    } catch (e) {}
     fabricTab?.addEventListener('shown.bs.tab', function () {
         headerAddProductBtn?.classList.add('d-none');
+        try { sessionStorage.setItem(tabStorageKey, 'tabFabricRollsBtn'); } catch (e) {}
     });
     productTab?.addEventListener('shown.bs.tab', function () {
         headerAddProductBtn?.classList.remove('d-none');
+        try { sessionStorage.setItem(tabStorageKey, 'tabThirdPartyBtn'); } catch (e) {}
     });
 })();
 </script>
