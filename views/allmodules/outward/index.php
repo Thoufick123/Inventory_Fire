@@ -1,99 +1,77 @@
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="bi bi-truck me-2 text-primary"></i>Production Outward &amp; Dispatch</h2>
-        <span class="text-muted">Dispatch finished production boxes to central warehouses with vehicle tracking</span>
+        <span class="text-muted">Dispatch B2B Company billed products directly to destination warehouses with vehicle tracking</span>
     </div>
-    <?php if (!empty($approvedBatches) && hasPermission('outward', 'create')): ?>
+    <?php if (!empty($pendingOutwardBills) && hasPermission('outward', 'create')): ?>
         <button type="button" class="btn btn-primary shadow-sm" onclick="openDispatchModal(null)">
             <i class="bi bi-plus-circle me-1"></i> New Dispatch Outward
         </button>
     <?php endif; ?>
 </div>
 
-<!-- Approved Batches Container (One-by-One Listing with Dispatch Now Buttons) -->
-<?php if (!empty($approvedBatches) && hasPermission('outward', 'create')): ?>
+<!-- Pending Company Bills Ready for Outward Dispatch -->
+<?php if (!empty($pendingOutwardBills) && hasPermission('outward', 'create')): ?>
     <div class="card border-primary shadow-sm mb-4">
         <div class="card-header bg-primary bg-opacity-10 border-primary py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-box-seam-fill text-primary fs-5"></i>
+                <i class="bi bi-receipt-cutoff text-primary fs-5"></i>
                 <div>
-                    <h6 class="mb-0 fw-bold text-dark">Approved Batches Ready for Dispatch</h6>
-                    <small class="text-muted">The following approved finished production batches are packed and waiting for outward dispatch:</small>
+                    <h6 class="mb-0 fw-bold text-dark">Company Bills Ready for Outward</h6>
+                    <small class="text-muted">B2B Company bills moved from POS Billing awaiting vehicle details &amp; outward dispatch:</small>
                 </div>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <button type="button" id="btnDispatchSelected" class="btn btn-success btn-sm fw-bold shadow-sm d-none" onclick="openMultiBatchDispatchModal()">
-                    <i class="bi bi-truck me-1"></i> Dispatch Selected (<span id="selectedBatchesCountBadge">0</span> Batches &bull; <span id="selectedBatchesQtyBadge">0</span> Pcs) &rarr;
-                </button>
-                <span class="badge bg-primary rounded-pill px-3 py-2 fs-7 fw-semibold">
-                    <i class="bi bi-clock-history me-1"></i><?= count($approvedBatches) ?> Batch(es) Ready
-                </span>
-            </div>
+            <span class="badge bg-primary rounded-pill px-3 py-2 fs-7 fw-semibold">
+                <i class="bi bi-clock-history me-1"></i><?= count($pendingOutwardBills) ?> Bill(s) Ready
+            </span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 40px;" class="text-center">
-                                <input type="checkbox" id="masterBatchCheckbox" class="form-check-input" onchange="toggleSelectAllApprovedBatches(this)" title="Select all approved batches for combined outward dispatch">
-                            </th>
                             <th style="width: 45px;">#</th>
-                            <th>Production Batch</th>
-                            <th>Product &amp; Program</th>
-                            <th>Destination Warehouse</th>
-                            <th>Total Pieces &amp; Boxes</th>
-                            <th>Status</th>
+                            <th>Bill #</th>
+                            <th>Company</th>
+                            <th>Products</th>
+                            <th>Total Pieces</th>
+                            <th class="text-end">Bill Amount</th>
                             <th>Concern</th>
-                            <th class="text-end" style="min-width: 160px;">Action</th>
+                            <th class="text-end" style="min-width: 180px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($approvedBatches as $idx => $ab): ?>
-                            <tr id="approved-batch-row-<?= $ab['id'] ?>">
-                                <td class="text-center">
-                                    <input type="checkbox" class="form-check-input approved-batch-chk" 
-                                           value="<?= $ab['id'] ?>" 
-                                           data-wh-id="<?= $ab['destination_warehouse_id'] ?>" 
-                                           data-wh-name="<?= e($ab['warehouse_name']) ?>" 
-                                           data-batch='<?= json_encode($ab, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>' 
-                                           onchange="onBatchCheckChange()">
-                                </td>
+                        <?php foreach ($pendingOutwardBills as $idx => $pb): ?>
+                            <tr>
                                 <td class="text-muted fw-bold"><?= $idx + 1 ?></td>
                                 <td>
                                     <div class="fw-bold text-primary font-monospace fs-7">
-                                        <i class="bi bi-box-seam me-1"></i><?= e($ab['batch_number']) ?>
+                                        <i class="bi bi-receipt me-1"></i><?= e($pb['bill_number']) ?>
                                     </div>
-                                    <small class="text-muted"><i class="bi bi-calendar3 me-1"></i><?= formatDate($ab['created_at']) ?></small>
+                                    <small class="text-muted"><i class="bi bi-calendar3 me-1"></i><?= formatDate($pb['bill_date']) ?></small>
                                 </td>
                                 <td>
-                                    <div class="fw-bold text-dark"><?= e($ab['product_name']) ?></div>
-                                    <small class="text-muted">
-                                        Program: <a href="<?= url('production/programs/view/' . $ab['program_id']) ?>" class="text-decoration-none fw-semibold"><?= e($ab['program_number']) ?></a>
-                                    </small>
+                                    <div class="fw-bold text-dark"><?= e($pb['company_name'] ?: 'Company') ?></div>
+                                    <?php if (!empty($pb['company_phone'])): ?>
+                                        <small class="text-muted"><?= e($pb['company_phone']) ?></small>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge bg-light text-dark border px-2 py-1">
-                                        <i class="bi bi-geo-alt text-primary me-1"></i><?= e($ab['warehouse_name']) ?>
-                                    </span>
+                                    <div class="small text-dark fw-semibold"><?= e($pb['product_summary'] ?: 'Scanned Products') ?></div>
+                                    <small class="text-muted"><?= (int)$pb['line_count'] ?> line(s)</small>
                                 </td>
                                 <td>
                                     <div class="fw-bold text-success fs-6">
-                                        <i class="bi bi-check-circle me-1"></i><?= number_format($ab['total_qty']) ?> pcs
+                                        <i class="bi bi-check-circle me-1"></i><?= number_format((int)$pb['total_qty']) ?> pcs
                                     </div>
-                                    <span class="badge bg-secondary-subtle text-secondary border font-monospace"><?= number_format($ab['box_count']) ?> <?= $ab['box_count'] == 1 ? 'box' : 'boxes' ?></span>
                                 </td>
-                                <td>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                                        <i class="bi bi-patch-check-fill me-1"></i>APPROVED
-                                    </span>
-                                </td>
-                                <td><?= renderConcernBadge($ab) ?></td>
+                                <td class="text-end fw-semibold"><?= formatCurrency((float)($pb['total_amount'] ?? 0)) ?></td>
+                                <td><?= renderConcernBadge($pb) ?></td>
                                 <td class="text-end">
                                     <button type="button" 
                                             class="btn btn-sm btn-primary fw-semibold shadow-xs" 
-                                            onclick='openDispatchModal(<?= json_encode($ab, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
-                                        <i class="bi bi-truck me-1"></i> Dispatch Now &rarr;
+                                            onclick='openDispatchModal(<?= json_encode($pb, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>
+                                        <i class="bi bi-truck me-1"></i> Fill Vehicle &amp; Dispatch &rarr;
                                     </button>
                                 </td>
                             </tr>
@@ -125,7 +103,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Outward #</th>
-                        <th>Production Batch</th>
+                        <th>Bill # / Company</th>
                         <th>Product</th>
                         <th>Destination Warehouse</th>
                         <th>Total Pieces</th>
@@ -166,22 +144,17 @@
                                     <small class="text-muted">Dispatched by <?= e($o['created_by_name'] ?? 'Staff') ?></small>
                                 </td>
                                 <td>
-                                    <?php if (!empty($o['linked_batches_count']) && $o['linked_batches_count'] > 1): ?>
-                                        <div class="d-flex align-items-center gap-1.5 flex-wrap">
-                                            <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.68rem;" title="Combined Multi-Batch Dispatch">
-                                                <i class="bi bi-boxes me-1"></i><?= $o['linked_batches_count'] ?> Batches
-                                            </span>
-                                            <code class="fw-bold text-dark small" title="<?= e($o['all_batch_numbers']) ?>"><?= e($o['all_batch_numbers'] ?: $o['batch_number']) ?></code>
-                                        </div>
+                                    <?php if (!empty($o['bill_number'])): ?>
+                                        <div class="fw-bold text-dark font-monospace"><?= e($o['bill_number']) ?></div>
+                                        <?php if (!empty($o['company_name'])): ?>
+                                            <small class="text-muted"><?= e($o['company_name']) ?></small>
+                                        <?php endif; ?>
                                     <?php else: ?>
-                                        <code class="fw-bold text-dark"><?= e($o['batch_number']) ?></code>
+                                        <span class="text-muted">—</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="fw-bold text-dark"><?= e($o['product_name']) ?></div>
-                                    <?php if (!empty($o['linked_batches_count']) && $o['linked_batches_count'] > 1): ?>
-                                        <small class="text-primary fw-semibold"><i class="bi bi-shuffle me-0.5"></i>Mixed Batches Outward</small>
-                                    <?php endif; ?>
+                                    <div class="fw-bold text-dark"><?= e($o['product_name'] ?: 'Finished Product') ?></div>
                                 </td>
                                 <td><span class="badge bg-light text-dark border"><?= e($o['warehouse_name']) ?></span></td>
                                 <td class="text-success fw-bold"><?= number_format($o['total_quantity'] ?: $o['total_qty']) ?> pcs (<?= (int)($o['total_boxes'] ?: $o['box_count']) ?> <?= ($o['total_boxes'] ?: $o['box_count']) == 1 ? 'box' : 'boxes' ?>)</td>
@@ -321,56 +294,79 @@
     </div>
 </div>
 
-<!-- Modal for Outward & Dispatch -->
-<?php if (!empty($approvedBatches)): ?>
+<!-- Modal for Outward & Dispatch (Direct from Company Bill) -->
+<?php if (!empty($pendingOutwardBills)): ?>
 <div class="modal fade" id="newOutwardModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
             <form method="POST" action="<?= url('production/outward/store') ?>" id="outwardDispatchForm">
                 <?= CSRF::field() ?>
                 <div class="modal-header bg-dark text-white py-3">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Dispatch Production Batch</h5>
+                    <h5 class="modal-title fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Outward Dispatch &amp; Vehicle Details</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-4">
                     <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernOutward'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
-                    <!-- Dynamic Batch Summary Preview -->
-                    <div class="mb-3 p-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3" id="modalBatchPreview">
-                        <div class="small text-muted fw-semibold text-uppercase">Selected Batch for Dispatch</div>
-                        <div class="fw-bold text-dark fs-6" id="modalBatchTitle">Select a batch below</div>
-                        <div class="small text-muted mt-1" id="modalBatchDetails">-</div>
+                    <!-- Dynamic Bill Summary Preview -->
+                    <div class="mb-3 p-3 bg-light border rounded-3" id="modalBillPreview">
+                        <div class="small text-muted fw-semibold text-uppercase">Selected Company Bill for Outward</div>
+                        <div class="fw-bold text-dark fs-6" id="modalBillTitle">Select a bill below</div>
+                        <div class="small text-muted mt-1" id="modalBillDetails">-</div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold required">Select Approved Batch <span class="text-danger">*</span></label>
-                        <select name="production_batch_id" id="modal_batch_id" class="form-select fw-medium" required onchange="updateModalBatchSummary(this.value)">
-                            <?php foreach ($approvedBatches as $ab): ?>
-                                <option value="<?= $ab['id'] ?>" 
-                                        data-batch-number="<?= e($ab['batch_number']) ?>"
-                                        data-product="<?= e($ab['product_name']) ?>"
-                                        data-warehouse="<?= e($ab['warehouse_name']) ?>"
-                                        data-qty="<?= $ab['total_qty'] ?>"
-                                        data-boxes="<?= $ab['box_count'] ?>">
-                                    <?= e($ab['batch_number']) ?> — <?= e($ab['product_name']) ?> (<?= number_format($ab['total_qty']) ?> pcs &rarr; <?= e($ab['warehouse_name']) ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold required">Company Bill <span class="text-danger">*</span></label>
+                            <select name="production_bill_id" id="modal_bill_id" class="form-select fw-medium" required onchange="updateModalBillSummary(this.value)">
+                                <?php foreach ($pendingOutwardBills as $pb): ?>
+                                    <option value="<?= (int)$pb['id'] ?>" <?= ((int)($preselectBillId ?? 0) === (int)$pb['id']) ? 'selected' : '' ?>>
+                                        <?= e($pb['bill_number']) ?> — <?= e($pb['company_name'] ?: 'Company') ?> (<?= number_format((int)$pb['total_qty']) ?> pcs)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold required">Vehicle / Transport Number <span class="text-danger">*</span></label>
-                        <input type="text" name="vehicle_number" id="vehicle_number" class="form-control text-uppercase fw-semibold" placeholder="e.g. TN-38-AB-1234 or Courier Reference" required>
-                        <div class="form-text small text-muted">Vehicle plate number or courier consignment tracking number.</div>
-                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold required">Destination Warehouse <span class="text-danger">*</span></label>
+                            <select name="destination_warehouse_id" id="modal_warehouse_id" class="form-select fw-medium" required>
+                                <option value="">Select Warehouse...</option>
+                                <?php foreach ($warehouses ?? [] as $wh): ?>
+                                    <option value="<?= (int)$wh['id'] ?>" data-concern-id="<?= (int)($wh['concern_id'] ?? 0) ?>">
+                                        <?= e($wh['name']) ?> (<?= e($wh['code'] ?? 'WH') ?>)<?= !empty($wh['concern_name']) ? ' — [' . e($wh['concern_name']) . ']' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Dispatch Date &amp; Time</label>
-                        <input type="datetime-local" name="dispatch_date" class="form-control" value="<?= date('Y-m-d\TH:i') ?>">
-                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold required">Vehicle / Transport Number <span class="text-danger">*</span></label>
+                            <input type="text" name="vehicle_number" id="vehicle_number" class="form-control text-uppercase fw-semibold" placeholder="e.g. TN-38-AB-1234 or Courier Ref" required>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Delivery / Dispatch Notes</label>
-                        <textarea name="notes" class="form-control" rows="2" placeholder="Driver contact, delivery challan reference, gate pass #..."></textarea>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Dispatch Date &amp; Time</label>
+                            <input type="datetime-local" name="dispatch_date" class="form-control" value="<?= date('Y-m-d\TH:i') ?>">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Driver Name</label>
+                            <input type="text" name="driver_name" class="form-control" placeholder="Driver name">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Driver Contact</label>
+                            <input type="text" name="driver_contact" class="form-control" placeholder="Mobile number">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Total Boxes / Cartons</label>
+                            <input type="number" name="total_boxes" class="form-control" min="1" value="1">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Delivery / Dispatch Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Gate pass #, delivery challan reference, remarks..."></textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light py-2">
@@ -381,6 +377,7 @@
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Modal: Edit Production Outward & Dispatch -->
 <div class="modal fade" id="editOutwardModal" tabindex="-1" aria-hidden="true">
@@ -535,20 +532,20 @@ function openEditOutwardModal(outward) {
         modal.show();
     }
 }
-window.approvedBatchesData = <?= json_encode($approvedBatches) ?>;
+window.pendingOutwardBillsData = <?= json_encode($pendingOutwardBills ?? []) ?>;
 
-function openDispatchModal(batchData) {
+function openDispatchModal(billData) {
     const modalEl = document.getElementById('newOutwardModal');
     if (!modalEl) return;
 
-    const selectEl = document.getElementById('modal_batch_id');
+    const selectEl = document.getElementById('modal_bill_id');
     const vehicleInput = document.getElementById('vehicle_number');
 
-    if (batchData && batchData.id) {
-        if (selectEl) selectEl.value = batchData.id;
-        updateModalBatchSummary(batchData.id);
+    if (billData && billData.id) {
+        if (selectEl) selectEl.value = billData.id;
+        updateModalBillSummary(billData.id);
     } else if (selectEl && selectEl.value) {
-        updateModalBatchSummary(selectEl.value);
+        updateModalBillSummary(selectEl.value);
     }
 
     const modal = new bootstrap.Modal(modalEl);
@@ -559,24 +556,31 @@ function openDispatchModal(batchData) {
     }, 400);
 }
 
-function updateModalBatchSummary(batchId) {
-    const titleEl = document.getElementById('modalBatchTitle');
-    const detailsEl = document.getElementById('modalBatchDetails');
+function updateModalBillSummary(billId) {
+    const titleEl = document.getElementById('modalBillTitle');
+    const detailsEl = document.getElementById('modalBillDetails');
     if (!titleEl || !detailsEl) return;
 
-    const batch = window.approvedBatchesData.find(b => b.id == batchId);
-    if (batch) {
-        titleEl.innerHTML = `<i class="bi bi-box-seam me-1 text-primary"></i> ${batch.batch_number} — ${batch.product_name}`;
-        detailsEl.innerHTML = `<strong>Destination:</strong> ${batch.warehouse_name} &nbsp;|&nbsp; <strong>Quantity:</strong> <span class="text-success fw-bold">${parseInt(batch.total_qty).toLocaleString()} pcs</span> (${batch.box_count} ${batch.box_count == 1 ? 'box' : 'boxes'})`;
+    const bill = window.pendingOutwardBillsData.find(b => b.id == billId);
+    if (bill) {
+        titleEl.innerHTML = `<i class="bi bi-receipt me-1 text-primary"></i> ${escapeHtml(bill.bill_number)} — ${escapeHtml(bill.company_name || 'Company')}`;
+        detailsEl.innerHTML = `<strong>Products:</strong> ${escapeHtml(bill.product_summary || 'Scanned Items')} &nbsp;|&nbsp; <strong>Quantity:</strong> <span class="text-success fw-bold">${parseInt(bill.total_qty || 0).toLocaleString()} pcs</span>`;
+        const whSelect = document.getElementById('modal_warehouse_id');
+        if (whSelect && bill.destination_concern_id) {
+            const matchOpt = Array.from(whSelect.options).find(opt => opt.dataset.concernId == bill.destination_concern_id);
+            if (matchOpt) {
+                whSelect.value = matchOpt.value;
+            }
+        }
     }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-open modal if batch_id is in query string
+    // Auto-open modal if bill_id is in query string
     const urlParams = new URLSearchParams(window.location.search);
-    const preselectBatchId = urlParams.get('batch_id');
-    if (preselectBatchId && window.approvedBatchesData) {
-        const found = window.approvedBatchesData.find(b => b.id == preselectBatchId);
+    const preselectBillId = urlParams.get('bill_id') || <?= (int)($preselectBillId ?? 0) ?>;
+    if (preselectBillId && window.pendingOutwardBillsData && window.pendingOutwardBillsData.length) {
+        const found = window.pendingOutwardBillsData.find(b => b.id == preselectBillId);
         if (found) {
             openDispatchModal(found);
         }
@@ -585,13 +589,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('outwardDispatchForm');
     if (form) {
         form.addEventListener('submit', function(e) {
-            const batchSelect = document.getElementById('modal_batch_id');
+            const billSelect = document.getElementById('modal_bill_id');
+            const whSelect = document.getElementById('modal_warehouse_id');
             const vehicleInput = document.getElementById('vehicle_number');
 
-            if (!batchSelect || !batchSelect.value) {
+            if (!billSelect || !billSelect.value) {
                 e.preventDefault();
-                alert('Please select an approved batch to dispatch.');
-                if (batchSelect) batchSelect.focus();
+                alert('Please select a Company Bill to outward.');
+                if (billSelect) billSelect.focus();
+                return false;
+            }
+
+            if (!whSelect || !whSelect.value) {
+                e.preventDefault();
+                alert('Please select a Destination Warehouse.');
+                if (whSelect) whSelect.focus();
                 return false;
             }
 
@@ -612,7 +624,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-<?php endif; ?>
 
 <script>
 function viewOutwardDispatchDetails(outwardId) {

@@ -986,6 +986,186 @@ class AllmodulesService {
     }
 
     /**
+     * Create Outward & Dispatch directly from a B2B Company POS Bill (bypassing manual Batch UI).
+     */
+    public static function createOutwardFromBill(int $billId, array $outwardData, int $userId): int {
+        Database::ensureColumn('production_outwards', 'production_bill_id', 'INT NULL DEFAULT NULL');
+        try {
+            Database::execute("ALTER TABLE production_batches MODIFY program_id INT(10) UNSIGNED NULL DEFAULT NULL");
+        } catch (Throwable $e) {
+            try {
+                Database::execute("ALTER TABLE production_batches MODIFY program_id INT NULL DEFAULT NULL");
+            } catch (Throwable $e2) {}
+        }
+
+        Database::beginTransaction();
+        try {
+            $bill = Database::fetchOne("SELECT * FROM production_bills WHERE id = ? FOR UPDATE", [$billId]);
+            if (!$bill) {
+                throw new Exception("Company bill #{$billId} not found.");
+            }
+            if (strtoupper((string)($bill['buyer_type'] ?? '')) !== 'COMPANY') {
+                throw new Exception("Only B2B Company bills can be moved directly to Outward.");
+            }
+
+            $existingBatch = Database::fetchOne("SELECT id FROM production_batches WHERE production_bill_id = ? LIMIT 1", [$billId]);
+            $existingOutward = Database::fetchOne("SELECT id, outward_number FROM production_outwards WHERE production_bill_id = ? LIMIT 1", [$billId]);
+            if ($existingBatch || $existingOutward) {
+                throw new Exception("Bill " . ($bill['bill_number'] ?? "#{$billId}") . " has already been moved to Outward.");
+            }
+
+            $warehouseId = (int)($outwardData['warehouse_id'] ?? 0);
+            if ($warehouseId <= 0) {
+                throw new Exception("Please select a Destination Warehouse.");
+            }
+            $wh = Database::fetchOne("SELECT id, name FROM warehouses WHERE id = ? AND is_active = 1", [$warehouseId]);
+            if (!$wh) {
+                throw new Exception("Selected Destination Warehouse is invalid or inactive.");
+            }
+
+            $vehicleNumber = trim((string)($outwardData['vehicle_number'] ?? ''));
+            if ($vehicleNumber === '') {
+                throw new Exception("Please enter Vehicle / Transport Number or Courier reference.");
+            }
+
+            $billItems = Database::fetchAll(
+                "SELECT pbi.*, qi.qc_batch_id, qb.program_id
+                 FROM production_bill_items pbi
+                 LEFT JOIN qc_items qi ON qi.id = pbi.qc_item_id
+                 LEFT JOIN qc_batches qb ON qb.id = qi.qc_batch_id
+                 WHERE pbi.bill_id = ?
+                 ORDER BY pbi.id ASC",
+                [$billId]
+            );
+            if (empty($billItems)) {
+                throw new Exception("This bill has no scanned items to outward.");
+            }
+
+            $tagRows = Database::fetchAll("SELECT bill_item_id, tag_code FROM production_bill_item_tags WHERE bill_id = ? ORDER BY id ASC", [$billId]);
+            $tagsByItem = [];
+            foreach ($tagRows as $tr) {
+                $tagsByItem[(int)$tr['bill_item_id']][] = trim((string)$tr['tag_code']);
+            }
+
+            $totalQty = 0;
+            $programId = null;
+            $qcBatchId = null;
+            foreach ($billItems as $bi) {
+                $totalQty += (int)($bi['quantity'] ?? 0);
+                if ($programId === null && !empty($bi['program_id'])) {
+                    $programId = (int)$bi['program_id'];
+                }
+                if ($qcBatchId === null && !empty($bi['qc_batch_id'])) {
+                    $qcBatchId = (int)$bi['qc_batch_id'];
+                }
+            }
+
+            $boxCount = max(1, (int)($outwardData['total_boxes'] ?? 1));
+            $concernId = !empty($outwardData['concern_id']) ? (int)$outwardData['concern_id'] : (!empty($bill['concern_id']) ? (int)$bill['concern_id'] : currentConcernId());
+            $pUnitId = !empty($bill['production_unit_id']) ? (int)$bill['production_unit_id'] : (int)(Database::fetchOne("SELECT id FROM production_units WHERE is_active = 1 LIMIT 1")['id'] ?? 1);
+
+            if ($programId === null) {
+                $progCol = Database::fetchOne("SHOW COLUMNS FROM production_batches LIKE 'program_id'");
+                if ($progCol && strtoupper((string)($progCol['Null'] ?? '')) === 'NO') {
+                    $fallbackProg = Database::fetchOne("SELECT id FROM production_programs ORDER BY id DESC LIMIT 1");
+                    $programId = !empty($fallbackProg['id']) ? (int)$fallbackProg['id'] : 1;
+                }
+            }
+
+            // Create internal tracking record in production_batches so Warehouse Inward continues to work seamlessly
+            $internalBatchNumber = self::generateSequenceNumber('production_batches', 'batch_number', 'BAT');
+            Database::execute(
+                "INSERT INTO production_batches
+                 (concern_id, batch_number, production_bill_id, program_id, qc_batch_id, is_multi_qc, total_qty, box_count, destination_warehouse_id, status, prepared_by, approved_by, approved_at, notes)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'DISPATCHED', ?, ?, NOW(), ?)",
+                [
+                    $concernId,
+                    $internalBatchNumber,
+                    $billId,
+                    $programId,
+                    $qcBatchId,
+                    $totalQty,
+                    $boxCount,
+                    $warehouseId,
+                    $userId,
+                    $userId,
+                    'Direct outward from Bill ' . ($bill['bill_number'] ?? ('#' . $billId)),
+                ]
+            );
+            $internalBatchId = (int)Database::lastInsertId();
+
+            foreach ($billItems as $bi) {
+                $biId = (int)$bi['id'];
+                $vId = (int)($bi['variant_id'] ?? 0);
+                $qty = (int)($bi['quantity'] ?? 0);
+                $tags = $tagsByItem[$biId] ?? [];
+                if ($qty > 0 && $vId > 0) {
+                    ProductionBatchItem::create([
+                        'production_batch_id' => $internalBatchId,
+                        'variant_id'          => $vId,
+                        'quantity'            => $qty,
+                        'piece_tags'          => $tags,
+                    ]);
+                }
+            }
+
+            $outwardNumber = !empty($outwardData['outward_number'])
+                ? (string)$outwardData['outward_number']
+                : self::generateSequenceNumber('production_outwards', 'outward_number', 'OUT');
+
+            $outwardId = ProductionOutward::create([
+                'concern_id'          => $concernId,
+                'production_bill_id'  => $billId,
+                'production_batch_id' => $internalBatchId,
+                'batch_ids'           => json_encode([$internalBatchId]),
+                'is_multi_batch'      => 0,
+                'warehouse_id'        => $warehouseId,
+                'production_unit_id'  => $pUnitId,
+                'quantity'            => $totalQty,
+                'total_quantity'      => $totalQty,
+                'total_boxes'         => $boxCount,
+                'outward_number'      => $outwardNumber,
+                'dispatch_date'       => !empty($outwardData['dispatch_date']) ? $outwardData['dispatch_date'] : date('Y-m-d H:i:s'),
+                'vehicle_number'      => $vehicleNumber,
+                'driver_name'         => trim((string)($outwardData['driver_name'] ?? '')),
+                'driver_contact'      => trim((string)($outwardData['driver_contact'] ?? '')),
+                'transporter_name'    => trim((string)($outwardData['transporter_name'] ?? '')),
+                'lr_number'           => trim((string)($outwardData['lr_number'] ?? '')),
+                'notes'               => trim((string)($outwardData['notes'] ?? '')),
+                'dispatched_by'       => $userId,
+                'created_by'          => $userId,
+                'status'              => 'DISPATCHED',
+            ]);
+
+            Database::execute("UPDATE production_outwards SET production_bill_id = ? WHERE id = ?", [$billId, $outwardId]);
+            Database::execute(
+                "INSERT INTO production_outward_batches (production_outward_id, production_batch_id, total_qty, box_count) VALUES (?, ?, ?, ?)",
+                [$outwardId, $internalBatchId, $totalQty, $boxCount]
+            );
+            Database::execute(
+                "UPDATE production_batches SET production_outward_id = ?, updated_at = NOW() WHERE id = ?",
+                [$outwardId, $internalBatchId]
+            );
+
+            // Inventory stock was already deducted when the POS Bill was created (persistBill)
+
+            AuditService::log('production', 'create', 'production_outward', $outwardId, null, [
+                'outward_number' => $outwardNumber,
+                'bill_id'        => $billId,
+                'bill_number'    => $bill['bill_number'] ?? null,
+                'total_quantity' => $totalQty,
+                'total_boxes'    => $boxCount,
+            ]);
+
+            Database::commit();
+            return $outwardId;
+        } catch (Exception $e) {
+            Database::rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Dispatch an Outward.
      */
     public static function dispatchOutward(int $id, int $userId): bool {

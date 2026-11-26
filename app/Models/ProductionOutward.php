@@ -13,15 +13,22 @@ class ProductionOutward {
         return Database::fetchOne(
             "SELECT po.*, 
                     pb.batch_number, pb.total_qty, pb.box_count, pb.status as batch_status,
+                    COALESCE(po.production_bill_id, pb.production_bill_id) as production_bill_id,
+                    p_bill.bill_number, p_bill.company_name,
                     pp.program_number,
-                    COALESCE(p.name, pp.name) as product_name, p.code as product_code,
-                    w.id as warehouse_id, w.name as warehouse_name, w.code as warehouse_code,
+                    COALESCE(p.name, pp.name, (SELECT GROUP_CONCAT(DISTINCT pbi2.product_name SEPARATOR ', ') FROM production_bill_items pbi2 WHERE pbi2.bill_id = p_bill.id)) as product_name,
+                    p.code as product_code,
+                    COALESCE(w.id, pw.id) as warehouse_id,
+                    COALESCE(w.name, pw.name) as warehouse_name,
+                    COALESCE(w.code, pw.code) as warehouse_code,
                     u.full_name as created_by_name
              FROM production_outwards po
-             JOIN production_batches pb ON po.production_batch_id = pb.id
-             JOIN production_programs pp ON pb.program_id = pp.id
+             LEFT JOIN production_batches pb ON po.production_batch_id = pb.id
+             LEFT JOIN production_bills p_bill ON COALESCE(po.production_bill_id, pb.production_bill_id) = p_bill.id
+             LEFT JOIN production_programs pp ON pb.program_id = pp.id
              LEFT JOIN products p ON pp.product_id = p.id
-             JOIN warehouses w ON pb.destination_warehouse_id = w.id
+             LEFT JOIN warehouses w ON po.warehouse_id = w.id
+             LEFT JOIN warehouses pw ON pb.destination_warehouse_id = pw.id
              LEFT JOIN users u ON po.created_by = u.id
              WHERE po.id = ?",
             [$id]
@@ -126,8 +133,10 @@ class ProductionOutward {
         $sql = "SELECT po.*, 
                        COALESCE(po.warehouse_id, pb.destination_warehouse_id) as warehouse_id,
                        pb.batch_number, pb.total_qty, pb.box_count, pb.status as batch_status,
+                       COALESCE(po.production_bill_id, pb.production_bill_id) as production_bill_id,
+                       p_bill.bill_number, p_bill.company_name,
                        pp.program_number,
-                       COALESCE(p.name, pp.name) as product_name,
+                       COALESCE(p.name, pp.name, (SELECT GROUP_CONCAT(DISTINCT pbi2.product_name SEPARATOR ', ') FROM production_bill_items pbi2 WHERE pbi2.bill_id = p_bill.id)) as product_name,
                        COALESCE(w.name, pw.name) as warehouse_name,
                        u.full_name as created_by_name,
                        c_con.name as concern_name, c_con.code as concern_code,
@@ -145,6 +154,7 @@ class ProductionOutward {
                 FROM production_outwards po
                 LEFT JOIN concerns c_con ON c_con.id = COALESCE(po.concern_id, 1)
                 LEFT JOIN production_batches pb ON po.production_batch_id = pb.id
+                LEFT JOIN production_bills p_bill ON COALESCE(po.production_bill_id, pb.production_bill_id) = p_bill.id
                 LEFT JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 LEFT JOIN warehouses w ON po.warehouse_id = w.id

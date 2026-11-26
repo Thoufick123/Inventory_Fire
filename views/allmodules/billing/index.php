@@ -189,8 +189,8 @@
                                         <i class="bi <?= ($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' ? 'bi-building' : 'bi-person' ?> me-1"></i><?= htmlspecialchars($bill['buyer_type'] ?? 'COMPANY') ?>
                                     </span>
                                     <?php if (($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
-                                        <a href="<?= url('production/billing/move-to-batch/' . (int)$bill['id']) ?>" class="badge bg-success text-white text-decoration-none shadow-sm" title="Directly move to batch creation for this company bill">
-                                            <i class="bi bi-box-seam me-1"></i>Pack Batch
+                                        <a href="<?= url('production/outward?bill_id=' . (int)$bill['id']) ?>" class="badge bg-success text-white text-decoration-none shadow-sm" title="Directly move scanned products to outward and fill vehicle details">
+                                            <i class="bi bi-truck me-1"></i>Move to Outward
                                         </a>
                                     <?php endif; ?>
                                 </div>
@@ -204,26 +204,24 @@
                                     <?= htmlspecialchars($bill['payment_status']) ?>
                                 </span>
                                 <?php if ((int)($bill['linked_batch_count'] ?? 0) > 0): ?>
-                                    <?php if ((int)($bill['preparing_batch_count'] ?? 0) > 0): ?>
-                                        <span class="badge bg-warning-subtle text-warning-emphasis">Batch approval pending</span>
-                                    <?php elseif ((int)($bill['approved_batch_count'] ?? 0) > 0): ?>
-                                        <span class="badge bg-primary-subtle text-primary">Ready for outward</span>
+                                    <?php if ((int)($bill['received_batch_count'] ?? 0) === (int)$bill['linked_batch_count']): ?>
+                                        <span class="badge bg-success-subtle text-success">Received</span>
                                     <?php elseif ((int)($bill['dispatched_batch_count'] ?? 0) > 0): ?>
                                         <span class="badge bg-info-subtle text-info-emphasis">Dispatched</span>
-                                    <?php elseif ((int)($bill['received_batch_count'] ?? 0) === (int)$bill['linked_batch_count']): ?>
-                                        <span class="badge bg-success-subtle text-success">Received</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis">Outward Pending</span>
                                     <?php endif; ?>
+                                <?php elseif (($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY'): ?>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis">Outward Pending</span>
                                 <?php endif; ?>
                             </td>
                             <td><?= renderConcernBadge($bill) ?></td>
                             <td class="text-end text-nowrap">
                                 <div class="action-btns-group justify-content-end">
-                                    <?php if ((int)($bill['linked_batch_count'] ?? 0) === 0): ?>
-                                        <a class="btn btn-outline-success btn-action-icon" title="Directly move to batch creation for this bill" href="<?= url('production/billing/move-to-batch/' . (int)$bill['id']) ?>"><i class="bi bi-box-seam"></i></a>
-                                    <?php elseif ((int)($bill['preparing_batch_count'] ?? 0) > 0): ?>
-                                        <a class="btn btn-outline-warning btn-action-icon" title="Review linked production batches" href="<?= url('production/batches') ?>"><i class="bi bi-box-seam"></i></a>
-                                    <?php elseif ((int)($bill['approved_batch_count'] ?? 0) > 0): ?>
-                                        <a class="btn btn-outline-primary btn-action-icon" title="Continue to outward dispatch" href="<?= url('production/outward') ?>"><i class="bi bi-truck"></i></a>
+                                    <?php if (($bill['buyer_type'] ?? 'COMPANY') === 'COMPANY' && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
+                                        <a class="btn btn-outline-success btn-action-icon" title="Move to Outward &amp; Dispatch" href="<?= url('production/outward?bill_id=' . (int)$bill['id']) ?>"><i class="bi bi-truck"></i></a>
+                                    <?php elseif ((int)($bill['linked_batch_count'] ?? 0) > 0): ?>
+                                        <a class="btn btn-outline-info btn-action-icon" title="View in Outward &amp; Dispatch" href="<?= url('production/outward') ?>"><i class="bi bi-truck"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'view')): ?>
                                         <a class="btn btn-outline-info btn-action-icon" title="View" href="<?= url('production/billing/view/' . (int)$bill['id']) ?>"><i class="bi bi-eye"></i></a>

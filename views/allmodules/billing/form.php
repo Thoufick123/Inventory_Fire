@@ -31,12 +31,28 @@ $concernBrand = function_exists('getConcernBranding')
     ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit ?? null) 
     : [];
 $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
+$defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
+$defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
+$defaultStaffRole = '';
+foreach ($staffUsers ?? [] as $st) {
+    if ((int)$st['id'] === $defaultStaffId) {
+        $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
+        $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
+        break;
+    }
+}
+$defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
 ?>
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <img id="productionUnitLogo" src="<?= $escape($activeLogo) ?>" alt="<?= $escape($concernBrand['name'] ?? ($prodUnit['name'] ?? 'Production unit')) ?> logo" class="mb-2 <?= empty($activeLogo) ? 'd-none' : '' ?>" style="max-width:180px;max-height:64px;object-fit:contain;">
         <h4 class="mb-1 fw-bold"><?= $isEdit ? 'Edit Production POS Bill' : 'Production POS Billing' ?></h4>
-        <div class="text-muted small">Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.</div>
+        <div class="text-muted small">
+            Scan QR labels from available inventory, auto-fetch customer history, and record staff attribution.
+            <?php if ($defaultStaffDisplay !== ''): ?>
+                <span class="ms-2">&bull; Billed by: <strong class="text-dark"><?= $escape($defaultStaffDisplay) ?></strong></span>
+            <?php endif; ?>
+        </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <label class="d-flex align-items-center gap-2 px-3 py-2 bg-white border rounded-3 shadow-xs mb-0" style="cursor: pointer;" for="isDirectBill" title="Checked bills appear in the Direct Bills tab and are excluded from normal billing counts and totals.">
@@ -52,34 +68,12 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
     <input type="hidden" name="production_unit_id" id="productionUnitSelect" value="<?= (int)($bill['production_unit_id'] ?? $prodUnit['id'] ?? 0) ?>">
+    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
+    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
     <?php if (empty($isEdit)) { $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); } ?>
     <div class="row g-3">
-        <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
+        <!-- LEFT COLUMN: Buyer, Customer & Invoice Settings -->
         <div class="col-xl-4">
-            <!-- 1. Billed By Staff (Cashier / Salesperson) -->
-            <?php
-            $defaultStaffId = (int)($bill['staff_id'] ?? $currentUserId ?? (Auth::user()['id'] ?? 0));
-            $defaultStaffName = (string)($bill['staff_name'] ?? (Auth::user()['full_name'] ?? ''));
-            $defaultStaffRole = '';
-            foreach ($staffUsers ?? [] as $st) {
-                if ((int)$st['id'] === $defaultStaffId) {
-                    $defaultStaffName = (string)($st['full_name'] ?? $defaultStaffName);
-                    $defaultStaffRole = (string)($st['staff_role'] ?: $st['department'] ?: $st['username'] ?? '');
-                    break;
-                }
-            }
-            $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $defaultStaffRole . ')' : '');
-            ?>
-            <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-primary">
-                <div class="card-body p-3">
-                    <label class="form-label fw-bold text-dark mb-1">
-                        <i class="bi bi-person-badge-fill text-primary me-1"></i>Billed by (Staff / Cashier) <span class="text-danger">*</span>
-                    </label>
-                    <input type="text" class="form-control fw-semibold bg-light" value="<?= $escape($defaultStaffDisplay) ?>" readonly>
-                    <input type="hidden" name="staff_id" id="staffSelect" value="<?= $defaultStaffId ?>">
-                    <input type="hidden" name="staff_name" id="staffNameInput" value="<?= $escape($defaultStaffName) ?>">
-                </div>
-            </div>
 
             <!-- 2. Buyer Type Selection -->
             <div class="card border-0 shadow-sm rounded-3 mb-3">
@@ -172,6 +166,32 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                     <span class="badge bg-primary-subtle text-primary border">B2B Order Mode</span>
                 </div>
                 <div class="card-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark" for="destinationConcernSelect">
+                            <i class="bi bi-diagram-3 me-1 text-primary"></i>Send To Concern
+                        </label>
+                        <select class="form-select fw-semibold" name="destination_concern_id" id="destinationConcernSelect" onchange="onDestinationConcernChange(this)">
+                            <option value="">-- Custom / External Company --</option>
+                            <?php
+                            $currentCid = (int)($activeConcern['id'] ?? 0);
+                            $savedDestCid = (int)($bill['destination_concern_id'] ?? 0);
+                            foreach ($targetConcerns ?? [] as $tc):
+                                if ($currentCid > 0 && (int)$tc['id'] === $currentCid) continue;
+                                $tcLegal = !empty($tc['legal_name']) ? $tc['legal_name'] : $tc['name'];
+                            ?>
+                                <option value="<?= (int)$tc['id'] ?>"
+                                    <?= $savedDestCid === (int)$tc['id'] ? 'selected' : '' ?>
+                                    data-name="<?= $escape($tcLegal) ?>"
+                                    data-address="<?= $escape($tc['address'] ?? '') ?>"
+                                    data-phone="<?= $escape($tc['phone'] ?? '') ?>"
+                                    data-email="<?= $escape($tc['email'] ?? '') ?>"
+                                    data-gstin="<?= $escape($tc['gst_number'] ?? '') ?>">
+                                    <?= $escape($tc['name']) ?><?= !empty($tc['code']) ? ' (' . $escape($tc['code']) . ')' : '' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text small text-muted">Select which concern to send this B2B outward to, or enter a custom company below.</div>
+                    </div>
                     <div class="mb-3"><label class="form-label">Company name <span class="text-danger">*</span></label><input class="form-control fw-semibold" name="company_name" id="companyNameInput" data-required-for="COMPANY" value="<?= $escape($bill['company_name'] ?? '') ?>" placeholder="Company Legal Name"></div>
                     <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="company_address" id="companyAddressInput" rows="2"><?= $escape($bill['company_address'] ?? '') ?></textarea></div>
                     <div class="row g-2">
@@ -179,42 +199,6 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                         <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email" name="company_email" id="companyEmailInput" value="<?= $escape($bill['company_email'] ?? '') ?>"></div>
                     </div>
                     <div class="mt-3"><label class="form-label">GSTIN</label><input class="form-control text-uppercase font-monospace" name="company_gstin" id="companyGstinInput" maxlength="30" value="<?= $escape($bill['company_gstin'] ?? '') ?>"></div>
-                </div>
-            </div>
-
-            <!-- 6. Invoice & Payment Method -->
-            <div class="card border-0 shadow-sm rounded-3 mb-3">
-                <div class="card-header bg-white fw-semibold py-3"><i class="bi bi-credit-card me-2 text-primary"></i>Invoice &amp; Payment</div>
-                <div class="card-body p-3">
-                    <div class="mb-3"><label class="form-label fw-bold">Bill date</label><input class="form-control" type="date" name="bill_date" required value="<?= $escape($bill['bill_date'] ?? date('Y-m-d')) ?>"></div>
-                    <div class="mb-3"><label class="form-label fw-bold">Payment method</label>
-                        <select class="form-select fw-semibold" name="payment_method" id="paymentMethod">
-                            <?php foreach (['CASH' => 'Cash', 'UPI' => 'UPI', 'CASH_UPI' => 'Cash + UPI', 'CARD' => 'Card', 'NET_BANKING' => 'Net Banking', 'CREDIT' => 'Credit'] as $value => $label): ?>
-                                <option value="<?= $value ?>" <?= ($bill['payment_method'] ?? 'CASH') === $value ? 'selected' : '' ?>><?= $label ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div id="splitPaymentFields" class="row g-2 <?= $usesSplitPayment ? '' : 'd-none' ?>">
-                        <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
-                        <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
-                    </div>
-                    <div id="upiPaymentFields" class="<?= $usesUpiPayment ? '' : 'd-none' ?>">
-                        <div class="mt-3"><label class="form-label small text-muted" for="upiReference">UPI / GPay reference</label><input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number"></div>
-                        <div class="mt-3">
-                            <label class="form-label small text-muted" for="upiPaymentScreenshot">GPay payment screenshot <span class="fw-normal">(optional)</span></label>
-                            <input class="form-control" type="file" name="upi_payment_screenshot" id="upiPaymentScreenshot" accept="image/jpeg,image/png,image/webp,image/avif">
-                            <small class="text-muted">JPG, PNG, WEBP, or AVIF; maximum 5 MB.</small>
-                            <div id="upiScreenshotPreview" class="mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>">
-                                <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
-                                    <a href="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'])) ?>" target="_blank" rel="noopener">View current GPay screenshot</a>
-                                <?php endif; ?>
-                                <div id="upiScreenshotSelectedLabel" class="small text-primary d-none">New screenshot selected; it will replace the current proof.</div>
-                                <img id="upiScreenshotPreviewImage" class="img-thumbnail mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>" <?= !empty($bill['upi_payment_screenshot_url']) ? 'src="' . $escape(uploadUrl($bill['upi_payment_screenshot_url'])) . '"' : '' ?> data-existing-src="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'] ?? '')) ?>" alt="GPay payment screenshot" style="max-width:180px;max-height:180px;object-fit:contain;">
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -349,12 +333,54 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                 </div>
             </div>
 
-            <!-- 3. Settlement & Checkout Card (Image 2 Matching Flow) -->
+            <!-- 3. Single Unified Invoice, Payment & Settlement Card -->
             <div class="card border-0 shadow-sm rounded-3">
                 <div class="card-body p-4">
-                    <div class="row g-4 align-items-center">
-                        <!-- Left Side: Cash Given by Customer & Change to Return (Ref: Image 2) -->
+                    <div class="row g-4 align-items-start">
+                        <!-- Left Side: Invoice & Payment + Cash Calculator + Notes -->
                         <div class="col-lg-7 border-end-lg pe-lg-4">
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="bi bi-calendar3 text-primary me-1"></i>Bill date</label>
+                                    <input class="form-control" type="date" name="bill_date" required value="<?= $escape($bill['bill_date'] ?? date('Y-m-d')) ?>">
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label fw-bold text-dark mb-1"><i class="bi bi-credit-card text-primary me-1"></i>Payment method</label>
+                                    <select class="form-select fw-semibold" name="payment_method" id="paymentMethod">
+                                        <?php foreach (['CASH' => 'Cash', 'UPI' => 'UPI', 'CASH_UPI' => 'Cash + UPI', 'CARD' => 'Card', 'NET_BANKING' => 'Net Banking', 'CREDIT' => 'Credit'] as $value => $label): ?>
+                                            <option value="<?= $value ?>" <?= ($bill['payment_method'] ?? 'CASH') === $value ? 'selected' : '' ?>><?= $label ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="splitPaymentFields" class="row g-2 mb-3 <?= $usesSplitPayment ? '' : 'd-none' ?>">
+                                <div class="col-6"><label class="form-label small" for="cashAmount">Cash amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="cash_amount" id="cashAmount" value="<?= $escape($bill['cash_amount'] ?? '0.00') ?>"></div>
+                                <div class="col-6"><label class="form-label small" for="upiAmount">UPI / GPay amount</label><input class="form-control font-monospace text-end" type="text" inputmode="decimal" autocomplete="off" name="upi_amount" id="upiAmount" value="<?= $escape($bill['upi_amount'] ?? '0.00') ?>"></div>
+                                <div class="col-12"><small class="text-muted">Cash and UPI / GPay amounts must equal the bill total.</small></div>
+                            </div>
+
+                            <div id="upiPaymentFields" class="mb-3 p-3 bg-light rounded-3 border <?= $usesUpiPayment ? '' : 'd-none' ?>">
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted" for="upiReference">UPI / GPay reference</label>
+                                        <input class="form-control font-monospace" name="upi_reference" id="upiReference" maxlength="150" value="<?= $escape($bill['upi_reference'] ?? '') ?>" placeholder="e.g. 12-digit UTR number">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted" for="upiPaymentScreenshot">GPay payment screenshot <span class="fw-normal">(optional)</span></label>
+                                        <input class="form-control" type="file" name="upi_payment_screenshot" id="upiPaymentScreenshot" accept="image/jpeg,image/png,image/webp,image/avif">
+                                        <small class="text-muted">JPG, PNG, WEBP, or AVIF; max 5 MB.</small>
+                                    </div>
+                                </div>
+                                <div id="upiScreenshotPreview" class="mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>">
+                                    <?php if (!empty($bill['upi_payment_screenshot_url'])): ?>
+                                        <a href="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'])) ?>" target="_blank" rel="noopener">View current GPay screenshot</a>
+                                    <?php endif; ?>
+                                    <div id="upiScreenshotSelectedLabel" class="small text-primary d-none">New screenshot selected; it will replace the current proof.</div>
+                                    <img id="upiScreenshotPreviewImage" class="img-thumbnail mt-2 <?= empty($bill['upi_payment_screenshot_url']) ? 'd-none' : '' ?>" <?= !empty($bill['upi_payment_screenshot_url']) ? 'src="' . $escape(uploadUrl($bill['upi_payment_screenshot_url'])) . '"' : '' ?> data-existing-src="<?= $escape(uploadUrl($bill['upi_payment_screenshot_url'] ?? '')) ?>" alt="GPay payment screenshot" style="max-width:180px;max-height:180px;object-fit:contain;">
+                                </div>
+                            </div>
+
                             <div class="p-3 bg-light rounded-3 border">
                                 <div class="row g-3">
                                     <div class="col-sm-6">
@@ -423,11 +449,16 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                             </div>
                             <div id="splitBalance" class="small text-muted text-end mb-3"></div>
 
-                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3 flex-wrap">
                                 <a class="btn btn-outline-secondary px-3 py-2 fw-semibold" href="<?= url('production/billing') ?>">Cancel</a>
-                                <button class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm" id="saveBillButton">
-                                    <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>
-                                </button>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="submit" class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm" id="saveBillButton">
+                                        <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>
+                                    </button>
+                                    <button type="submit" name="move_to_outward" value="1" class="btn btn-success btn-lg px-4 py-2 fw-bold shadow-sm <?= $selectedBuyerType === 'COMPANY' ? '' : 'd-none' ?>" id="moveToOutwardButton">
+                                        <i class="bi bi-truck me-1"></i>Move to Outward
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -606,16 +637,36 @@ function updateStaffName(sel) {
     document.getElementById('staffNameInput').value = name || '';
 }
 
+function onDestinationConcernChange(sel) {
+    const opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
+    if (!opt || !opt.value) {
+        return;
+    }
+    const nameEl = document.getElementById('companyNameInput');
+    const addrEl = document.getElementById('companyAddressInput');
+    const phoneEl = document.getElementById('companyPhoneInput');
+    const emailEl = document.getElementById('companyEmailInput');
+    const gstEl = document.getElementById('companyGstinInput');
+    if (nameEl) nameEl.value = opt.dataset.name || '';
+    if (addrEl) addrEl.value = opt.dataset.address || '';
+    if (phoneEl) phoneEl.value = opt.dataset.phone || '';
+    if (emailEl) emailEl.value = opt.dataset.email || '';
+    if (gstEl) gstEl.value = opt.dataset.gstin || '';
+}
+
 function onBuyerTypeChange(type) {
     document.getElementById('buyerType').value = type;
     const companyFields = document.getElementById('companyFields');
     const customerFields = document.getElementById('customerFields');
+    const moveOutwardBtn = document.getElementById('moveToOutwardButton');
     if (type === 'COMPANY') {
         companyFields.classList.remove('d-none');
         customerFields.classList.add('d-none');
+        if (moveOutwardBtn) moveOutwardBtn.classList.remove('d-none');
     } else {
         companyFields.classList.add('d-none');
         customerFields.classList.remove('d-none');
+        if (moveOutwardBtn) moveOutwardBtn.classList.add('d-none');
     }
 }
 

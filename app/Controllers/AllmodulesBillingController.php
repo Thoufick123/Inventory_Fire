@@ -182,84 +182,7 @@ class AllmodulesBillingController
 
     public function moveBillToBatchForm(string $id): void
     {
-        if (!isAdmin() && !hasPermission('batches', 'create') && !hasPermission('production_billing', 'create')) {
-            Response::error(403, 'You do not have permission to move a billed order to production batches.');
-            return;
-        }
-        $bill = $this->findBill((int)$id);
-        if (!$bill) {
-            Response::redirect('production/billing', 'error', 'Bill not found.');
-            return;
-        }
-        if (($bill['payment_status'] ?? '') !== 'PAID') {
-            Response::redirect('production/billing', 'error', 'Only paid bills can move to batch dispatch.');
-            return;
-        }
-        $linkedBatchCount = (int)(Database::fetchOne("SELECT COUNT(*) AS total FROM production_batches WHERE production_bill_id = ?", [(int)$bill['id']])['total'] ?? 0);
-        if ($linkedBatchCount > 0) {
-            Response::redirect('production/billing', 'error', 'This bill has already been moved to a production batch.');
-            return;
-        }
-
-        $items = $this->loadBillItems((int)$bill['id']);
-
-        $sourceConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
-        if (!$sourceConcernId && !empty($bill['production_unit_id'])) {
-            $pu = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [(int)$bill['production_unit_id']]);
-            if (!empty($pu['concern_id'])) {
-                $sourceConcernId = (int)$pu['concern_id'];
-            }
-        }
-
-        // Auto-provision warehouse records for all active concerns if missing
-        $activeConcerns = Database::fetchAll("SELECT id, name, code, address, phone, gst_number FROM concerns WHERE is_active = 1");
-        foreach ($activeConcerns as $ac) {
-            $existingWh = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ?", [(int)$ac['id']]);
-            if (!$existingWh) {
-                $whCode = 'WH-' . $ac['code'];
-                $suffix = 1;
-                while (Database::fetchOne("SELECT id FROM warehouses WHERE code = ?", [$whCode])) {
-                    $whCode = 'WH-' . $ac['code'] . '-' . (++$suffix);
-                }
-                try {
-                    Database::execute(
-                        "INSERT INTO warehouses (concern_id, name, code, address, phone, gst_number, is_active, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW())",
-                        [(int)$ac['id'], $ac['name'] . ' (Warehouse)', $whCode, $ac['address'] ?: null, $ac['phone'] ?: null, $ac['gst_number'] ?: null]
-                    );
-                } catch (\Throwable $e) {}
-            }
-        }
-
-        $whWhere = "WHERE w.is_active = 1";
-        $whParams = [];
-        if ($sourceConcernId) {
-            // Only show OTHER concerns, never the current / same concern
-            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
-            $whParams[] = $sourceConcernId;
-        }
-
-        $warehouses = Database::fetchAll("
-            SELECT w.*, c.name as concern_name, c.code as concern_code 
-            FROM warehouses w 
-            LEFT JOIN concerns c ON w.concern_id = c.id 
-            {$whWhere} 
-            ORDER BY COALESCE(c.name, w.name) ASC
-        ", $whParams);
-
-        Response::view('allmodules.billing.move_to_batch', [
-            'pageTitle' => 'Move Bill to Batch',
-            'activeModule' => 'production',
-            'activeMenu' => 'prod-billing',
-            'breadcrumb' => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing / Pos', 'url' => url('production/billing')],
-                ['label' => 'Move Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) . ' to Batch'],
-            ],
-            'bill' => $bill,
-            'billItems' => $items,
-            'warehouses' => $warehouses,
-        ]);
+        Response::redirect('production/outward?bill_id=' . (int)$id);
     }
 
     public function createBillDispatchBatch(string $id): void
@@ -515,25 +438,36 @@ class AllmodulesBillingController
         }
         $needle = strtoupper($query);
 
-        $billedTagParams = [$needle];
-        $billExclusion = '';
-        if ($billId > 0) {
-            $billExclusion = ' AND bill_id <> ?';
-            $billedTagParams[] = $billId;
+        $isVariantLookupNeedle = (bool)preg_match('/^V0*[0-9]+$/i', $needle);
+        if (!$isVariantLookupNeedle) {
+            $isVariantRow = Database::fetchOne(
+                "SELECT id FROM product_variants WHERE UPPER(TRIM(variant_code)) = ? OR UPPER(TRIM(qr_code)) = ? LIMIT 1",
+                [$needle, $needle]
+            );
+            $isVariantLookupNeedle = !empty($isVariantRow);
         }
-        $billedTag = Database::fetchOne(
-            "SELECT id FROM production_bill_item_tags
-             WHERE UPPER(TRIM(tag_code)) = ?{$billExclusion}
-             LIMIT 1",
-            $billedTagParams
-        );
-        if ($billedTag) {
-            Response::jsonSuccess('QR item already billed.', [
-                'items' => [],
-                'stock_limit_reached' => true,
-                'message' => 'This QR item has already been billed and is no longer available.',
-            ]);
-            return;
+
+        if (!$isVariantLookupNeedle) {
+            $billedTagParams = [$needle];
+            $billExclusion = '';
+            if ($billId > 0) {
+                $billExclusion = ' AND bill_id <> ?';
+                $billedTagParams[] = $billId;
+            }
+            $billedTag = Database::fetchOne(
+                "SELECT id FROM production_bill_item_tags
+                 WHERE UPPER(TRIM(tag_code)) = ?{$billExclusion}
+                 LIMIT 1",
+                $billedTagParams
+            );
+            if ($billedTag) {
+                Response::jsonSuccess('QR item already billed.', [
+                    'items' => [],
+                    'stock_limit_reached' => true,
+                    'message' => 'This QR item has already been billed and is no longer available.',
+                ]);
+                return;
+            }
         }
 
         // Check if scanned tag / QR matches a quarantined fabric roll in Damages
@@ -1244,8 +1178,26 @@ class AllmodulesBillingController
             return;
         }
         try {
+            $billRow = $this->findBill($billId);
+            $oldItems = Database::fetchAll("SELECT variant_id, quantity FROM production_bill_items WHERE bill_id = ?", [$billId]);
+            $pUnitId = (int)($billRow['production_unit_id'] ?? 0);
+            foreach ($oldItems as $oi) {
+                $vId = (int)($oi['variant_id'] ?? 0);
+                $qty = (float)($oi['quantity'] ?? 0);
+                if ($vId > 0 && $qty > 0 && class_exists('StockService')) {
+                    $whBal = Database::fetchOne(
+                        "SELECT location_type, location_id FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' ORDER BY (location_type = 'WAREHOUSE') DESC, id ASC LIMIT 1",
+                        [$vId]
+                    );
+                    $locType = $whBal['location_type'] ?? 'PRODUCTION_UNIT';
+                    $locId = (int)($whBal['location_id'] ?? ($pUnitId ?: 1));
+                    try {
+                        StockService::increase($vId, $locType, $locId, 'AVAILABLE', $qty, 'PRODUCTION_BILL_DELETE_RESTORE', 'production_bills', $billId, (int)(Auth::id() ?? 0) ?: null, "Restored stock on delete of Bill #{$billId}");
+                    } catch (Throwable $se) {}
+                }
+            }
             Database::execute("DELETE FROM production_bills WHERE id = ?", [$billId]);
-            Response::redirect('production/billing', 'success', 'Production bill deleted.');
+            Response::redirect('production/billing', 'success', 'Production bill deleted and inventory stock restored.');
         } catch (Throwable $e) {
             error_log('ProductionBillingController::deleteBill failed: ' . $e->getMessage());
             Response::redirect('production/billing', 'error', 'Unable to delete this bill.');
@@ -1317,23 +1269,8 @@ class AllmodulesBillingController
         }
 
         $staffUsers = Database::fetchAll("SELECT id, full_name, username, phone, department, staff_role FROM users WHERE is_active = 1 ORDER BY full_name ASC");
-
-        $availablePackingBatches = Database::fetchAll(
-            "SELECT pb.*, 
-                    COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
-                    w.name AS warehouse_name,
-                    w.code AS warehouse_code,
-                    c.name AS concern_name,
-                    c.code AS concern_code
-             FROM production_batches pb
-             JOIN production_programs pp ON pb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
-             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
-             LEFT JOIN concerns c ON pb.concern_id = c.id OR w.concern_id = c.id
-             WHERE pb.production_bill_id IS NULL
-               AND pb.status IN ('PREPARING', 'APPROVED')
-             ORDER BY pb.id DESC"
-        );
+        $targetConcerns = Database::fetchAll("SELECT id, name, legal_name, code, address, phone, email, gst_number FROM concerns WHERE is_active = 1 ORDER BY name ASC");
+        $availablePackingBatches = [];
 
         $billLabel = $bill ? (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) : '';
 
@@ -1351,6 +1288,7 @@ class AllmodulesBillingController
             'prodUnit'                => $prodUnit,
             'productionUnits'         => $productionUnits,
             'activeConcern'           => $activeConcern,
+            'targetConcerns'          => $targetConcerns,
             'staffUsers'              => $staffUsers,
             'availablePackingBatches' => $availablePackingBatches,
             'currentUserId'           => Auth::id(),
@@ -2456,6 +2394,8 @@ class AllmodulesBillingController
 
         $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
         $isDirectBill = !empty($_POST['is_direct_bill']) ? 1 : 0;
+        $destinationConcernId = ($buyerType === 'COMPANY' && !empty($_POST['destination_concern_id'])) ? (int)$_POST['destination_concern_id'] : null;
+        Database::ensureColumn('production_bills', 'destination_concern_id', 'INT NULL DEFAULT NULL');
         $header = [
             $productionUnitId,
             $buyerType,
@@ -2503,19 +2443,19 @@ class AllmodulesBillingController
                 $billNumber = $invPrefix . date('Y') . '-' . date('mdHis') . '-' . random_int(10, 99);
                 Database::execute(
                     "INSERT INTO production_bills
-                     (concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
+                     (concern_id, destination_concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
                       bill_date, payment_method, is_direct_bill, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
                       upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
                       total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    array_merge([$activeConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    array_merge([$activeConcernId, $destinationConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
             } else {
                 Database::execute(
-                    "UPDATE production_bills SET production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
+                    "UPDATE production_bills SET destination_concern_id = ?, production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
                      customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, is_direct_bill = ?, payment_status = ?,
                      tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, upi_payment_screenshot_url = ?,
@@ -2523,8 +2463,25 @@ class AllmodulesBillingController
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,
                      cash_given = ?, change_returned = ?, staff_id = ?, staff_name = ?
                      WHERE id = ?",
-                    array_merge($header, [$billId])
+                    array_merge([$destinationConcernId], $header, [$billId])
                 );
+                // Restore stock for previous items before replacing them on edit
+                $prevItems = Database::fetchAll("SELECT variant_id, quantity FROM production_bill_items WHERE bill_id = ?", [$billId]);
+                foreach ($prevItems as $pi) {
+                    $pvId = (int)($pi['variant_id'] ?? 0);
+                    $pQty = (float)($pi['quantity'] ?? 0);
+                    if ($pvId > 0 && $pQty > 0 && class_exists('StockService')) {
+                        $whBal = Database::fetchOne(
+                            "SELECT location_type, location_id FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' ORDER BY (location_type = 'WAREHOUSE') DESC, id ASC LIMIT 1",
+                            [$pvId]
+                        );
+                        $locType = $whBal['location_type'] ?? 'PRODUCTION_UNIT';
+                        $locId = (int)($whBal['location_id'] ?? ($productionUnitId ?: 1));
+                        try {
+                            StockService::increase($pvId, $locType, $locId, 'AVAILABLE', $pQty, 'PRODUCTION_BILL_EDIT_RESTORE', 'production_bills', $billId, (int)(Auth::id() ?? 0) ?: null, "Restored stock on edit of Bill #{$billId}");
+                        } catch (Throwable $se) {}
+                    }
+                }
                 Database::execute("DELETE FROM production_bill_items WHERE bill_id = ?", [$billId]);
                 Database::execute("DELETE FROM production_bill_item_tags WHERE bill_id = ?", [$billId]);
             }
@@ -2559,56 +2516,97 @@ class AllmodulesBillingController
                     );
                 }
 
-                // Inventory integration: Deduct stock from stock_balances using StockService
-                // Only immediately deduct stock at POS counter for walk-in retail CUSTOMER bills or direct sales.
-                // For B2B COMPANY bills, stock remains in production until packed into a batch and OUTWARD DISPATCHED.
-                if ($buyerType === 'CUSTOMER' || $isDirectBill) {
-                    $vId = (int)($stock['variant_id'] ?? 0);
-                    if ($vId > 0 && $productionUnitId > 0) {
-                        try {
-                            $currentBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
-                            $billQty = (float)$item['quantity'];
-                            if ($currentBal < $billQty) {
-                                // Ensure the manufactured finished goods balance exists in stock ledger
-                                StockService::increase(
+                // Inventory integration: Deduct stock from stock_balances immediately for all POS bills (Customer, B2B Company, Direct)
+                $vId = (int)($stock['variant_id'] ?? 0);
+                if ($vId > 0) {
+                    try {
+                        $remainingToDeduct = (float)$item['quantity'];
+                        if ($productionUnitId > 0) {
+                            $puBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
+                            if ($puBal > 0) {
+                                $deductPu = min($puBal, $remainingToDeduct);
+                                StockService::decrease(
                                     $vId,
                                     'PRODUCTION_UNIT',
                                     $productionUnitId,
                                     'AVAILABLE',
-                                    ($billQty - $currentBal),
-                                    'QC_INSPECTION_PASSED',
-                                    'qc_items',
-                                    (int)$stock['qc_item_id'],
+                                    $deductPu,
+                                    'PRODUCTION_SALE',
+                                    'production_bills',
+                                    $billId,
                                     (int)(Auth::id() ?? 0) ?: null,
-                                    "Pre-bill sync for manufactured stock (Bill #{$billNumber})"
+                                    "Billed in Production Bill #{$billId}"
                                 );
+                                $remainingToDeduct -= $deductPu;
                             }
+                        }
+                        if ($remainingToDeduct > 0) {
+                            $otherBalances = Database::fetchAll(
+                                "SELECT location_type, location_id, quantity
+                                 FROM stock_balances
+                                 WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND quantity > 0
+                                 ORDER BY (location_type = 'WAREHOUSE') DESC, quantity DESC",
+                                [$vId]
+                            );
+                            foreach ($otherBalances as $ob) {
+                                if ($remainingToDeduct <= 0) break;
+                                $obQty = (float)$ob['quantity'];
+                                $take = min($obQty, $remainingToDeduct);
+                                if ($take > 0) {
+                                    StockService::decrease(
+                                        $vId,
+                                        (string)$ob['location_type'],
+                                        (int)$ob['location_id'],
+                                        'AVAILABLE',
+                                        $take,
+                                        'PRODUCTION_SALE',
+                                        'production_bills',
+                                        $billId,
+                                        (int)(Auth::id() ?? 0) ?: null,
+                                        "Billed in Production Bill #{$billId}"
+                                    );
+                                    $remainingToDeduct -= $take;
+                                }
+                            }
+                        }
+                        if ($remainingToDeduct > 0 && $productionUnitId > 0) {
+                            StockService::increase(
+                                $vId,
+                                'PRODUCTION_UNIT',
+                                $productionUnitId,
+                                'AVAILABLE',
+                                $remainingToDeduct,
+                                'QC_INSPECTION_PASSED',
+                                'qc_items',
+                                (int)$stock['qc_item_id'],
+                                (int)(Auth::id() ?? 0) ?: null,
+                                "Pre-bill sync for manufactured stock (Bill #{$billId})"
+                            );
                             StockService::decrease(
                                 $vId,
                                 'PRODUCTION_UNIT',
                                 $productionUnitId,
                                 'AVAILABLE',
-                                $billQty,
+                                $remainingToDeduct,
                                 'PRODUCTION_SALE',
                                 'production_bills',
                                 $billId,
                                 (int)(Auth::id() ?? 0) ?: null,
-                                "Billed in Production Bill #{$billNumber}"
+                                "Billed in Production Bill #{$billId}"
                             );
-                        } catch (Throwable $se) {
-                            error_log("StockService production sync note: " . $se->getMessage());
                         }
+                    } catch (Throwable $se) {
+                        error_log("StockService production sync note: " . $se->getMessage());
                     }
                 }
             }
 
-            // Link packing batch to this bill if billed from a packing batch
-            $batchIdParam = (int)($_POST['production_batch_id'] ?? 0);
-            if ($batchIdParam > 0) {
-                Database::execute("UPDATE production_batches SET production_bill_id = ? WHERE id = ?", [$billId, $batchIdParam]);
-            }
-
             Database::commit();
+            $moveToOutward = !empty($_POST['move_to_outward']) && $buyerType === 'COMPANY';
+            if ($moveToOutward) {
+                Response::redirect('production/outward?bill_id=' . $billId, 'success', 'Company bill saved. Fill vehicle details to complete outward dispatch.');
+                return;
+            }
             Response::redirect('production/billing/view/' . $billId, 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
         } catch (Throwable $e) {
             Database::rollback();
