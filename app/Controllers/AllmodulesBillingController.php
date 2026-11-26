@@ -438,25 +438,36 @@ class AllmodulesBillingController
         }
         $needle = strtoupper($query);
 
-        $billedTagParams = [$needle];
-        $billExclusion = '';
-        if ($billId > 0) {
-            $billExclusion = ' AND bill_id <> ?';
-            $billedTagParams[] = $billId;
+        $isVariantLookupNeedle = (bool)preg_match('/^V0*[0-9]+$/i', $needle);
+        if (!$isVariantLookupNeedle) {
+            $isVariantRow = Database::fetchOne(
+                "SELECT id FROM product_variants WHERE UPPER(TRIM(variant_code)) = ? OR UPPER(TRIM(qr_code)) = ? LIMIT 1",
+                [$needle, $needle]
+            );
+            $isVariantLookupNeedle = !empty($isVariantRow);
         }
-        $billedTag = Database::fetchOne(
-            "SELECT id FROM production_bill_item_tags
-             WHERE UPPER(TRIM(tag_code)) = ?{$billExclusion}
-             LIMIT 1",
-            $billedTagParams
-        );
-        if ($billedTag) {
-            Response::jsonSuccess('QR item already billed.', [
-                'items' => [],
-                'stock_limit_reached' => true,
-                'message' => 'This QR item has already been billed and is no longer available.',
-            ]);
-            return;
+
+        if (!$isVariantLookupNeedle) {
+            $billedTagParams = [$needle];
+            $billExclusion = '';
+            if ($billId > 0) {
+                $billExclusion = ' AND bill_id <> ?';
+                $billedTagParams[] = $billId;
+            }
+            $billedTag = Database::fetchOne(
+                "SELECT id FROM production_bill_item_tags
+                 WHERE UPPER(TRIM(tag_code)) = ?{$billExclusion}
+                 LIMIT 1",
+                $billedTagParams
+            );
+            if ($billedTag) {
+                Response::jsonSuccess('QR item already billed.', [
+                    'items' => [],
+                    'stock_limit_reached' => true,
+                    'message' => 'This QR item has already been billed and is no longer available.',
+                ]);
+                return;
+            }
         }
 
         // Check if scanned tag / QR matches a quarantined fabric roll in Damages
@@ -1167,8 +1178,26 @@ class AllmodulesBillingController
             return;
         }
         try {
+            $billRow = $this->findBill($billId);
+            $oldItems = Database::fetchAll("SELECT variant_id, quantity FROM production_bill_items WHERE bill_id = ?", [$billId]);
+            $pUnitId = (int)($billRow['production_unit_id'] ?? 0);
+            foreach ($oldItems as $oi) {
+                $vId = (int)($oi['variant_id'] ?? 0);
+                $qty = (float)($oi['quantity'] ?? 0);
+                if ($vId > 0 && $qty > 0 && class_exists('StockService')) {
+                    $whBal = Database::fetchOne(
+                        "SELECT location_type, location_id FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' ORDER BY (location_type = 'WAREHOUSE') DESC, id ASC LIMIT 1",
+                        [$vId]
+                    );
+                    $locType = $whBal['location_type'] ?? 'PRODUCTION_UNIT';
+                    $locId = (int)($whBal['location_id'] ?? ($pUnitId ?: 1));
+                    try {
+                        StockService::increase($vId, $locType, $locId, 'AVAILABLE', $qty, 'PRODUCTION_BILL_DELETE_RESTORE', 'production_bills', $billId, (int)(Auth::id() ?? 0) ?: null, "Restored stock on delete of Bill #{$billId}");
+                    } catch (Throwable $se) {}
+                }
+            }
             Database::execute("DELETE FROM production_bills WHERE id = ?", [$billId]);
-            Response::redirect('production/billing', 'success', 'Production bill deleted.');
+            Response::redirect('production/billing', 'success', 'Production bill deleted and inventory stock restored.');
         } catch (Throwable $e) {
             error_log('ProductionBillingController::deleteBill failed: ' . $e->getMessage());
             Response::redirect('production/billing', 'error', 'Unable to delete this bill.');
@@ -2436,6 +2465,23 @@ class AllmodulesBillingController
                      WHERE id = ?",
                     array_merge([$destinationConcernId], $header, [$billId])
                 );
+                // Restore stock for previous items before replacing them on edit
+                $prevItems = Database::fetchAll("SELECT variant_id, quantity FROM production_bill_items WHERE bill_id = ?", [$billId]);
+                foreach ($prevItems as $pi) {
+                    $pvId = (int)($pi['variant_id'] ?? 0);
+                    $pQty = (float)($pi['quantity'] ?? 0);
+                    if ($pvId > 0 && $pQty > 0 && class_exists('StockService')) {
+                        $whBal = Database::fetchOne(
+                            "SELECT location_type, location_id FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE' ORDER BY (location_type = 'WAREHOUSE') DESC, id ASC LIMIT 1",
+                            [$pvId]
+                        );
+                        $locType = $whBal['location_type'] ?? 'PRODUCTION_UNIT';
+                        $locId = (int)($whBal['location_id'] ?? ($productionUnitId ?: 1));
+                        try {
+                            StockService::increase($pvId, $locType, $locId, 'AVAILABLE', $pQty, 'PRODUCTION_BILL_EDIT_RESTORE', 'production_bills', $billId, (int)(Auth::id() ?? 0) ?: null, "Restored stock on edit of Bill #{$billId}");
+                        } catch (Throwable $se) {}
+                    }
+                }
                 Database::execute("DELETE FROM production_bill_items WHERE bill_id = ?", [$billId]);
                 Database::execute("DELETE FROM production_bill_item_tags WHERE bill_id = ?", [$billId]);
             }
@@ -2470,45 +2516,87 @@ class AllmodulesBillingController
                     );
                 }
 
-                // Inventory integration: Deduct stock from stock_balances using StockService
-                // Only immediately deduct stock at POS counter for walk-in retail CUSTOMER bills or direct sales.
-                // For B2B COMPANY bills, stock remains in production until packed into a batch and OUTWARD DISPATCHED.
-                if ($buyerType === 'CUSTOMER' || $isDirectBill) {
-                    $vId = (int)($stock['variant_id'] ?? 0);
-                    if ($vId > 0 && $productionUnitId > 0) {
-                        try {
-                            $currentBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
-                            $billQty = (float)$item['quantity'];
-                            if ($currentBal < $billQty) {
-                                // Ensure the manufactured finished goods balance exists in stock ledger
-                                StockService::increase(
+                // Inventory integration: Deduct stock from stock_balances immediately for all POS bills (Customer, B2B Company, Direct)
+                $vId = (int)($stock['variant_id'] ?? 0);
+                if ($vId > 0) {
+                    try {
+                        $remainingToDeduct = (float)$item['quantity'];
+                        if ($productionUnitId > 0) {
+                            $puBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $productionUnitId, 'AVAILABLE');
+                            if ($puBal > 0) {
+                                $deductPu = min($puBal, $remainingToDeduct);
+                                StockService::decrease(
                                     $vId,
                                     'PRODUCTION_UNIT',
                                     $productionUnitId,
                                     'AVAILABLE',
-                                    ($billQty - $currentBal),
-                                    'QC_INSPECTION_PASSED',
-                                    'qc_items',
-                                    (int)$stock['qc_item_id'],
+                                    $deductPu,
+                                    'PRODUCTION_SALE',
+                                    'production_bills',
+                                    $billId,
                                     (int)(Auth::id() ?? 0) ?: null,
-                                    "Pre-bill sync for manufactured stock (Bill #{$billNumber})"
+                                    "Billed in Production Bill #{$billId}"
                                 );
+                                $remainingToDeduct -= $deductPu;
                             }
+                        }
+                        if ($remainingToDeduct > 0) {
+                            $otherBalances = Database::fetchAll(
+                                "SELECT location_type, location_id, quantity
+                                 FROM stock_balances
+                                 WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND quantity > 0
+                                 ORDER BY (location_type = 'WAREHOUSE') DESC, quantity DESC",
+                                [$vId]
+                            );
+                            foreach ($otherBalances as $ob) {
+                                if ($remainingToDeduct <= 0) break;
+                                $obQty = (float)$ob['quantity'];
+                                $take = min($obQty, $remainingToDeduct);
+                                if ($take > 0) {
+                                    StockService::decrease(
+                                        $vId,
+                                        (string)$ob['location_type'],
+                                        (int)$ob['location_id'],
+                                        'AVAILABLE',
+                                        $take,
+                                        'PRODUCTION_SALE',
+                                        'production_bills',
+                                        $billId,
+                                        (int)(Auth::id() ?? 0) ?: null,
+                                        "Billed in Production Bill #{$billId}"
+                                    );
+                                    $remainingToDeduct -= $take;
+                                }
+                            }
+                        }
+                        if ($remainingToDeduct > 0 && $productionUnitId > 0) {
+                            StockService::increase(
+                                $vId,
+                                'PRODUCTION_UNIT',
+                                $productionUnitId,
+                                'AVAILABLE',
+                                $remainingToDeduct,
+                                'QC_INSPECTION_PASSED',
+                                'qc_items',
+                                (int)$stock['qc_item_id'],
+                                (int)(Auth::id() ?? 0) ?: null,
+                                "Pre-bill sync for manufactured stock (Bill #{$billId})"
+                            );
                             StockService::decrease(
                                 $vId,
                                 'PRODUCTION_UNIT',
                                 $productionUnitId,
                                 'AVAILABLE',
-                                $billQty,
+                                $remainingToDeduct,
                                 'PRODUCTION_SALE',
                                 'production_bills',
                                 $billId,
                                 (int)(Auth::id() ?? 0) ?: null,
-                                "Billed in Production Bill #{$billNumber}"
+                                "Billed in Production Bill #{$billId}"
                             );
-                        } catch (Throwable $se) {
-                            error_log("StockService production sync note: " . $se->getMessage());
                         }
+                    } catch (Throwable $se) {
+                        error_log("StockService production sync note: " . $se->getMessage());
                     }
                 }
             }

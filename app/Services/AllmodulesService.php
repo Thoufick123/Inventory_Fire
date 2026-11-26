@@ -1147,46 +1147,7 @@ class AllmodulesService {
                 [$outwardId, $internalBatchId]
             );
 
-            // Deduct production unit stock if not already deducted (direct bills deduct at billing time)
-            if (empty($bill['is_direct_bill'])) {
-                foreach ($billItems as $bi) {
-                    $vId = (int)($bi['variant_id'] ?? 0);
-                    $qty = (float)($bi['quantity'] ?? 0);
-                    if ($vId > 0 && $qty > 0 && $pUnitId > 0) {
-                        try {
-                            $curBal = StockService::getBalance($vId, 'PRODUCTION_UNIT', $pUnitId, 'AVAILABLE');
-                            if ($curBal < $qty) {
-                                StockService::increase(
-                                    $vId,
-                                    'PRODUCTION_UNIT',
-                                    $pUnitId,
-                                    'AVAILABLE',
-                                    ($qty - $curBal),
-                                    'QC_INSPECTION_PASSED',
-                                    'production_bills',
-                                    $billId,
-                                    $userId,
-                                    "Stock sync prior to outward dispatch for Bill #" . ($bill['bill_number'] ?? $billId)
-                                );
-                            }
-                            StockService::decrease(
-                                $vId,
-                                'PRODUCTION_UNIT',
-                                $pUnitId,
-                                'AVAILABLE',
-                                $qty,
-                                'PRODUCTION_OUTWARD',
-                                'production_outwards',
-                                $outwardId,
-                                $userId,
-                                "Dispatched under Outward #{$outwardNumber} for Bill #" . ($bill['bill_number'] ?? $billId)
-                            );
-                        } catch (Throwable $stEx) {
-                            error_log("StockService direct bill outward note: " . $stEx->getMessage());
-                        }
-                    }
-                }
-            }
+            // Inventory stock was already deducted when the POS Bill was created (persistBill)
 
             AuditService::log('production', 'create', 'production_outward', $outwardId, null, [
                 'outward_number' => $outwardNumber,
