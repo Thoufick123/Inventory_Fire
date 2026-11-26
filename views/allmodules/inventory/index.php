@@ -492,6 +492,15 @@ $inventoryVariantCount = array_sum(array_map(
                                    class="btn btn-outline-secondary btn-action-icon" title="View Supply Batch & Inventory">
                                     <i class="bi bi-eye"></i>
                                 </a>
+                                <?php if (hasPermission('inventory', 'delete')): ?>
+                                    <form method="POST" action="<?= url('allmodules/inventory/supply/delete') ?>" class="d-inline">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="supply_item_id" value="<?= (int)$batch['supply_item_id'] ?>">
+                                        <button type="button" class="btn btn-outline-danger btn-action-icon" title="Delete Inventory Stock" onclick="confirmDeleteInventoryRow(this, '<?= e(addslashes($batch['product_name'] ?? 'this item')) ?>')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <a href="<?= url('production/inventory/batch/' . $batch['qc_batch_id']) ?>"
                                    class="btn btn-outline-secondary btn-action-icon" title="View Batch Items (Size-wise & Piece-wise)">
@@ -502,6 +511,16 @@ $inventoryVariantCount = array_sum(array_map(
                                        class="btn btn-outline-success btn-action-icon" title="Pack into Boxes for Central Warehouse">
                                        <i class="bi bi-box-seam"></i>
                                     </a>
+                                <?php endif; ?>
+                                <?php if (hasPermission('inventory', 'delete') && !empty($batch['qc_batch_id'])): ?>
+                                    <form method="POST" action="<?= url('allmodules/inventory/qc/delete') ?>" class="d-inline">
+                                        <?= CSRF::field() ?>
+                                        <input type="hidden" name="qc_batch_id" value="<?= (int)$batch['qc_batch_id'] ?>">
+                                        <input type="hidden" name="variant_id" value="<?= (int)($batch['variant_id'] ?? 0) ?>">
+                                        <button type="button" class="btn btn-outline-danger btn-action-icon" title="Delete Inventory Stock" onclick="confirmDeleteInventoryRow(this, '<?= e(addslashes($batch['product_name'] ?? 'this batch')) ?>')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 <?php endif; ?>
                             <?php endif; ?>
                         </div>
@@ -1365,4 +1384,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+function confirmDeleteInventoryRow(btn, label) {
+    const form = btn?.closest('form');
+    if (!form) return;
+    const msg = 'Delete "' + label + '" from Inventory? This will remove its stock balance from the database.';
+    if (typeof window.showModernConfirm === 'function') {
+        window.showModernConfirm({
+            title: 'Delete Inventory Stock',
+            message: msg,
+            confirmText: 'Delete',
+            btnClass: 'btn-danger',
+            iconClass: 'bi bi-trash3-fill text-danger',
+            onConfirm: function() { form.submit(); }
+        });
+    } else if (confirm(msg)) {
+        form.submit();
+    }
+}
 </script>

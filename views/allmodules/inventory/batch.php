@@ -209,7 +209,12 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <i class="bi bi-graph-up-arrow text-primary fs-5"></i>
                 <h5 class="fw-bold mb-0 text-dark">Stock by Warehouse Location</h5>
             </div>
-            <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">View All</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">View All</a>
+            </div>
         </div>
         <div class="d-flex flex-wrap gap-3 align-items-center">
             <?php foreach (($locationCards ?? []) as $loc): ?>

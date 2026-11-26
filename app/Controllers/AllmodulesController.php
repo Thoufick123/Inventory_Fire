@@ -16379,7 +16379,7 @@ class AllmodulesController {
              FROM production_purchase_items ppi
              JOIN production_purchases pp ON ppi.purchase_id = pp.id
              LEFT JOIN products p ON ppi.product_id = p.id
-             WHERE ppi.id = ? AND ppi.item_type = 'GENERAL_SUPPLY'",
+             WHERE ppi.id = ? AND ppi.item_type IN ('GENERAL_SUPPLY', 'THIRD_PARTY', 'FABRIC_ROLL')",
             [$supplyItemId]
         );
 
@@ -16438,18 +16438,24 @@ class AllmodulesController {
                 );
             }
 
-            // 3. Mark supply purchase item as uninwarded
+            // 3. Mark supply purchase item as uninwarded and reset linked QR batch stock_added
             Database::execute(
                 "UPDATE production_purchase_items
                  SET is_inwarded = 0, inwarded_at = NULL, inwarded_by = NULL, inwarded_qty = 0.000
                  WHERE id = ?",
                 [$supplyItemId]
             );
+            try {
+                Database::execute(
+                    "UPDATE qr_generations SET stock_added = 0, stock_added_at = NULL, stock_added_by = NULL WHERE source_purchase_item_id = ?",
+                    [$supplyItemId]
+                );
+            } catch (\Throwable $e) {}
 
             // 4. Check if the purchase still has other inwarded supply items
             $otherInwarded = (int)(Database::fetchOne(
                 "SELECT COUNT(*) AS cnt FROM production_purchase_items
-                 WHERE purchase_id = ? AND item_type = 'GENERAL_SUPPLY' AND is_inwarded = 1",
+                 WHERE purchase_id = ? AND item_type IN ('GENERAL_SUPPLY', 'THIRD_PARTY', 'FABRIC_ROLL') AND is_inwarded = 1",
                 [$purchaseId]
             )['cnt'] ?? 0);
 
