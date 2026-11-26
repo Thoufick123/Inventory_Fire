@@ -1296,6 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.dataset.rowKey = itemKey;
             row.dataset.rowIndex = String(index);
             const pieceTag = (Array.isArray(item.tags) && item.tags[0]) ? String(item.tags[0]) : '';
+            const qty = Math.max(1, Array.isArray(item.tags) ? item.tags.length : 1);
             const remainingStock = selectableTags(item).length;
 
             // 1. Product & Details (1 piece = 1 full editable row with Variant ID + Piece QR Tag)
