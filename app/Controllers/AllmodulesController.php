@@ -16325,12 +16325,14 @@ class AllmodulesController {
 
         $cid = !empty($batch['concern_id']) ? (int)$batch['concern_id'] : (!empty($gen['concern_id']) ? (int)$gen['concern_id'] : 1);
         $concern = function_exists('concernById') ? concernById($cid) : null;
+        $batchItems = StitchingBatch::getItems($batchId);
 
         Response::view('allmodules.stitching.labels', [
             'pageTitle'  => 'QR Labels — ' . ($batch['batch_number'] ?: ('#' . $batchId)),
             'activeModule' => 'production',
             'activeMenu' => 'stitching',
             'batch'      => $batch,
+            'batchItems' => $batchItems,
             'gen'        => $gen,
             'concern'    => $concern,
             'breadcrumb' => [
