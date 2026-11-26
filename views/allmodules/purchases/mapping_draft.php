@@ -479,7 +479,18 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         </td>
                         <td class="text-end">
                             <?php if ($viewOnly): ?>
-                                <span class="text-muted small">View only</span>
+                                <?php if (!empty($item['qr_generation_id'])): ?>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-xs btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR &amp; Stock History">
+                                            <i class="bi bi-eye me-1"></i>View QR
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary btn-print-tsc-batch" data-generation-id="<?= (int)$item['qr_generation_id'] ?>" title="Print Labels">
+                                            <i class="bi bi-printer"></i>
+                                        </button>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-muted small">View only</span>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <?php if (empty($item['qr_generation_id'])): ?>
                                 <?php if ($bill['status'] === 'MOVED' || !empty($bill['purchase_id'])): ?>
