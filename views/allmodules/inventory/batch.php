@@ -611,10 +611,12 @@ function buildInventoryPieceCards() {
         card.dataset.color = (vData.colorName || '').toUpperCase();
         card.dataset.product = (vData.productName || '').toUpperCase();
 
-        const mrpHtml = (vData.basePrice > vData.discountPrice)
-            ? `<span class="text-muted text-decoration-line-through small me-1">MRP: ${formatCurrency(vData.basePrice)}</span>`
+        const mrpHtml = (vData.basePrice > vData.discountPrice && vData.basePrice > 0)
+            ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 12px;">MRP: ${formatCurrency(vData.basePrice)}</div>`
             : '';
-        const priceHtml = `<span class="fw-bold text-primary">${formatCurrency(vData.discountPrice)}</span>`;
+        const priceHtml = vData.discountPrice > 0
+            ? `<div class="fw-bold" style="font-size: 13.5px; color: #15803d;">Disc: ${formatCurrency(vData.discountPrice)}</div>`
+            : '';
 
         const statusBadge = vData.availableQty > 0
             ? `<span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>${vData.availableQty} pcs Available</span>`
@@ -626,33 +628,39 @@ function buildInventoryPieceCards() {
                     <span class="small fw-bold text-secondary">Variant #${vIndex} of ${totalVariants}</span>
                     ${statusBadge}
                 </div>
-                <div class="card-body p-3">
-                    <div class="d-flex gap-3 align-items-center">
-                        <div class="flex-shrink-0 text-center piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_variant_qr_${vIndex}" style="width: 86px; height: 86px;"></div>
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
-                            <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
-                                <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(vData.categoryName)}
+                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11.5px; letter-spacing: 0.5px;">
+                            ${escapeHtml(COMPANY_TITLE)}
+                        </div>
+                        <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                            <div class="d-flex flex-column align-items-center flex-shrink-0">
+                                <div class="piece-qr-target p-1 bg-white border rounded shadow-xs" id="card_variant_qr_${vIndex}" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
+                                <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11.5px; letter-spacing: 0.4px;">${escapeHtml(vData.variantCode)}</div>
                             </div>
-                            <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(vData.variantSku)}</div>
-                            <div class="small text-muted mb-1" style="font-size: 11.5px;">
-                                Size: <strong class="text-dark">${escapeHtml(vData.sizeName)}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(vData.colorName)}</strong>
-                            </div>
-                            <div class="d-flex align-items-baseline gap-1 mb-1.5">
+                            <div class="min-w-0 text-start">
+                                <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
+                                    ${escapeHtml(vData.productName)}
+                                </div>
+                                <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11.5px;">
+                                    ${escapeHtml(vData.categoryName)}
+                                </div>
+                                <div class="fw-semibold text-dark mb-1" style="font-size: 12.5px;">
+                                    ${escapeHtml(vData.sizeName)} / ${escapeHtml(vData.colorName)}
+                                </div>
                                 ${mrpHtml}
                                 ${priceHtml}
                             </div>
-                            <div class="d-flex align-items-center justify-content-between gap-1 pt-1 border-top">
-                                <span class="badge bg-dark text-warning font-monospace px-2 py-1 shadow-xs" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(vData.variantCode)}</span>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1.5" onclick="copyTagCode('${escapeHtml(vData.variantCode)}', this)" title="Copy Variant QR Code">
-                                        <i class="bi bi-clipboard"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1.5" onclick="printVariantGroupLabels('${escapeHtml(vData.sizeName)}', '${escapeHtml(vData.colorName)}')" title="Print Labels">
-                                        <i class="bi bi-printer"></i>
-                                    </button>
-                                </div>
-                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-end gap-1 pt-2 mt-2 border-top no-print">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyTagCode('${escapeHtml(vData.variantCode)}', this)" title="Copy Variant QR Code">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="printVariantGroupLabels('${escapeHtml(vData.sizeName)}', '${escapeHtml(vData.colorName)}')" title="Print Labels">
+                                <i class="bi bi-printer"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -871,31 +879,36 @@ function renderStickersToModal(pieces) {
         const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
         const basePrice = parseFloat(p.base_price || 0);
         const discPrice = parseFloat(p.discount_price || p.base_price || 0);
-        const mrpHtml = (basePrice > discPrice)
-            ? `<span class="text-muted text-decoration-line-through small me-1">${formatCurrency(basePrice)}</span>`
+        const mrpHtml = (basePrice > discPrice && basePrice > 0)
+            ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 11.5px;">MRP: ${formatCurrency(basePrice)}</div>`
+            : '';
+        const discHtml = discPrice > 0
+            ? `<div class="fw-bold" style="font-size: 13px; color: #15803d;">Disc: ${formatCurrency(discPrice)}</div>`
             : '';
         const col = document.createElement('div');
         col.className = 'col qr-sticker-card-col';
         col.innerHTML = `
             <div class="card qr-sticker-card p-3 border shadow-xs bg-white" style="border-radius: 10px;">
-                <div class="d-flex gap-3 align-items-center">
-                    <div class="flex-shrink-0 text-center p-1 bg-white border rounded" id="print_qr_${idx}" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
-                    <div class="flex-grow-1 min-w-0 text-start">
-                        <div class="fw-bolder text-dark text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px;">${escapeHtml(COMPANY_TITLE)}</div>
-                        <div class="text-muted small text-truncate mb-1" style="font-size: 11px;">
-                            <i class="bi bi-grid-fill text-warning me-1"></i>${escapeHtml(p.category_name || 'Apparel')}
+                <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11px; letter-spacing: 0.5px;">
+                    ${escapeHtml(COMPANY_TITLE)}
+                </div>
+                <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                    <div class="d-flex flex-column align-items-center flex-shrink-0">
+                        <div class="p-1 bg-white border rounded" id="print_qr_${idx}" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;"></div>
+                        <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11px; letter-spacing: 0.4px;">${escapeHtml(variantDisplayCode)}</div>
+                    </div>
+                    <div class="min-w-0 text-start">
+                        <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px; color: #881337;">
+                            ${escapeHtml(p.product_name || 'PRODUCT')}
                         </div>
-                        <div class="font-monospace fw-bold text-dark small text-truncate mb-0.5">${escapeHtml(variantDisplayCode)}</div>
-                        <div class="small text-muted mb-1" style="font-size: 11.5px;">
-                            Size: <strong class="text-dark">${escapeHtml(p.size_name || 'Std')}</strong> &middot; Color: <strong class="text-dark">${escapeHtml(p.color_name || 'Std')}</strong>
+                        <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11px;">
+                            ${escapeHtml(p.category_name || 'Apparel')}
                         </div>
-                        <div class="d-flex align-items-baseline gap-1 mb-1">
-                            ${mrpHtml}
-                            <span class="fw-bold text-primary">${formatCurrency(discPrice)}</span>
+                        <div class="fw-semibold text-dark mb-1" style="font-size: 12px;">
+                            ${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}
                         </div>
-                        <div class="pt-1 border-top">
-                            <span class="badge bg-dark text-warning font-monospace px-2 py-1" style="font-size: 11px; letter-spacing: 0.5px;">${escapeHtml(variantDisplayCode)}</span>
-                        </div>
+                        ${mrpHtml}
+                        ${discHtml}
                     </div>
                 </div>
             </div>
