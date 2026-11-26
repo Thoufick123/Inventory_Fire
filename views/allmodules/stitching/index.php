@@ -47,15 +47,15 @@
             <table class="table table-hover align-middle mb-0" id="stitchingTable">
                 <thead class="table-light">
                     <tr>
-                        <th style="min-width: 180px;">Batch / Stitching Name</th>
+                        <th style="min-width: 165px;">Batch / Stitching Name</th>
                         <th>Program</th>
-                        <th>Catalog</th>
+                        <th style="max-width: 210px;">Catalog</th>
                         <th>Worker / Line</th>
-                        <th>Cut vs Stitched Qty</th>
+                        <th>Cut vs Stitched</th>
                         <th>Total Weight</th>
-                        <th>Status</th>
+                        <th>Status &amp; QR</th>
                         <th>Concern</th>
-                        <th class="text-end">Actions</th>
+                        <th class="text-end text-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="stitchingTableBody">
@@ -95,7 +95,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge bg-light text-dark border"><?= e($catText) ?></span>
+                                    <span class="badge bg-light text-dark border text-wrap text-start" style="max-width: 205px; line-height: 1.3;"><?= e($catText) ?></span>
                                 </td>
                                 <td><?= e($b['worker_name'] ?: 'Unassigned') ?></td>
                                 <td>
@@ -111,9 +111,29 @@
                                 <td>
                                     <span class="fw-bold text-info fs-6"><?= number_format($b['total_weight'] ?? 0, 2) ?> kg</span>
                                 </td>
-                                <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
+                                <td>
+                                    <span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span>
+                                    <?php if (!empty($b['qr_batch_code'])): ?>
+                                        <div class="mt-1 d-flex align-items-center gap-1 flex-wrap">
+                                            <a href="<?= url('production/stitching/labels/' . $b['id']) ?>" class="badge bg-dark-subtle text-dark border font-monospace text-decoration-none" style="font-size: 10.5px;" title="Open QR Labels">
+                                                <i class="bi bi-qr-code me-1"></i><?= e($b['qr_batch_code']) ?>
+                                            </a>
+                                            <?php if (!empty($b['labels_printed_at'])): ?>
+                                                <span class="badge bg-success-subtle text-success border" style="font-size: 10px;" title="Labels Printed <?= (int)($b['labels_print_count'] ?? 1) ?> time(s)">
+                                                    <i class="bi bi-printer-fill me-1"></i>Printed
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php elseif ($b['status'] !== 'CANCELLED'): ?>
+                                        <div class="mt-1">
+                                            <a href="<?= url('production/stitching/qr/' . $b['id']) ?>" class="badge bg-warning-subtle text-warning-emphasis border text-decoration-none" style="font-size: 10px;" title="Generate QR Codes for this batch">
+                                                <i class="bi bi-qr-code-scan me-1"></i>Generate QR
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= renderConcernBadge($b) ?></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <div class="action-btns-group justify-content-end">
                                         <a href="<?= url('production/stitching/view/' . $b['id']) ?>" class="btn btn-outline-info btn-action-icon" title="View Stitching Batch">
                                             <i class="bi bi-eye"></i>
@@ -123,12 +143,15 @@
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <?php endif; ?>
-                                        <?php if ($b['status'] === 'COMPLETED'): ?>
-                                            <?php if (!empty($b['qr_generation_id']) && (hasPermission('qc', 'view') || hasPermission('qc', 'create') || hasPermission('qc', 'edit'))): ?>
-                                                <a href="<?= !empty($b['qc_batch_id']) ? url('production/qc/inspect/' . $b['qc_batch_id']) : url('production/qc') ?>" class="btn btn-outline-success btn-action-icon" title="Go to Quality Check (QC)">
-                                                    <i class="bi bi-patch-check"></i>
-                                                </a>
-                                            <?php endif; ?>
+                                        <?php if (empty($b['qr_generation_id']) && $b['status'] !== 'CANCELLED' && (hasPermission('stitching', 'create') || hasPermission('stitching', 'edit'))): ?>
+                                            <a href="<?= url('production/stitching/qr/' . $b['id']) ?>" class="btn btn-outline-warning btn-action-icon text-dark" title="Generate QR Codes &amp; Print Labels">
+                                                <i class="bi bi-qr-code-scan"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if (!empty($b['qr_generation_id'])): ?>
+                                            <a href="<?= url('production/stitching/labels/' . $b['id']) ?>" class="btn btn-outline-dark btn-action-icon" title="QR Codes &amp; Print Garment Labels">
+                                                <i class="bi bi-printer"></i>
+                                            </a>
                                         <?php endif; ?>
                                         <?php if (hasPermission('stitching', 'delete')): ?>
                                         <form method="POST" action="<?= url('production/stitching/delete/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this stitching batch?');">
@@ -158,7 +181,7 @@
             </span>
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-muted mb-0 fw-medium">Show:</label>
-                <select id="stitchingPageSizeSelect" class="form-select form-select-sm" style="width: auto;">
+                <select id="stitchingPageSizeSelect" class="form-select form-select-sm" style="width: auto; min-width: 120px; height: 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; color: #334155; padding-left: 0.75rem; padding-right: 2.25rem;">
                     <option value="10" selected>10 per page</option>
                     <option value="25">25 per page</option>
                     <option value="50">50 per page</option>
