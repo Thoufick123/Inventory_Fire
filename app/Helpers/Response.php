@@ -950,6 +950,88 @@ function currentConcern(): ?array {
 }
 
 /**
+ * Get all active concerns ordered by ID.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function allActiveConcerns(): array {
+    static $concerns = null;
+    if ($concerns !== null) {
+        return $concerns;
+    }
+    if (!class_exists('Database')) {
+        return [];
+    }
+    try {
+        $concerns = Database::fetchAll(
+            "SELECT id, name, code, concern_type, po_prefix, invoice_prefix, dispatch_prefix
+             FROM concerns
+             WHERE is_active = 1
+             ORDER BY id ASC"
+        ) ?: [];
+    } catch (\Throwable $e) {
+        $concerns = [];
+    }
+    return $concerns;
+}
+
+/**
+ * Fetch a specific concern record by ID.
+ */
+function concernById(int $concernId): ?array {
+    if ($concernId <= 0 || !class_exists('Database')) {
+        return null;
+    }
+    static $cache = [];
+    if (!isset($cache[$concernId])) {
+        $cache[$concernId] = Database::fetchOne("SELECT * FROM concerns WHERE id = ?", [$concernId]) ?: null;
+    }
+    return $cache[$concernId];
+}
+
+/**
+ * Resolve the target concern ID for a store action.
+ * When Super Admin is in Global Admin context (currentConcernId() === null) and
+ * submits a valid active concern_id, use that; otherwise use currentConcernId() ?: 1.
+ */
+function resolveSubmittedConcernId(string $field = 'concern_id'): int {
+    $activeCid = currentConcernId();
+    if (isSuperAdmin() && $activeCid === null && isset($_POST[$field]) && is_numeric($_POST[$field])) {
+        $postedCid = (int)$_POST[$field];
+        if ($postedCid > 0) {
+            foreach (allActiveConcerns() as $c) {
+                if ((int)$c['id'] === $postedCid) {
+                    return $postedCid;
+                }
+            }
+        }
+    }
+    return $activeCid ?: 1;
+}
+
+/**
+ * Render a consistent Concern badge for list tables.
+ */
+function renderConcernBadge(array $row, string $nameKey = 'concern_name', string $codeKey = 'concern_code', string $idKey = 'concern_id'): string {
+    $name = trim((string)($row[$nameKey] ?? ''));
+    $code = trim((string)($row[$codeKey] ?? ''));
+    if ($name === '' && $code === '') {
+        $cid = !empty($row[$idKey]) ? (int)$row[$idKey] : 1;
+        $c = concernById($cid);
+        if ($c) {
+            $name = trim((string)($c['name'] ?? ''));
+            $code = trim((string)($c['code'] ?? ''));
+        }
+    }
+    if ($name === '' && $code === '') {
+        return '<span class="text-muted">—</span>';
+    }
+    $label = e($name !== '' ? $name : 'Concern') . ($code !== '' ? ' (' . e($code) . ')' : '');
+    return '<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 11px;">'
+         . '<i class="bi bi-building me-1"></i>' . $label . '</span>';
+}
+
+/**
  * Get concern archetype type string (HEAD_OFFICE, PRODUCTION, WAREHOUSE, RETAIL).
  */
 function currentConcernType(?int $concernId = null): string {

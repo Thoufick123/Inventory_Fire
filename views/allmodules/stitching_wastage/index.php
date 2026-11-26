@@ -199,6 +199,7 @@
                                 <th class="text-end">Total Price</th>
                                 <th class="text-center">Payment Status</th>
                                 <th class="text-center">Bill / Proof</th>
+                                <th>Concern</th>
                                 <th class="text-center" style="width: 130px;">Actions</th>
                             </tr>
                         </thead>
@@ -311,6 +312,9 @@
                                         <?php endif; ?>
                                     </td>
 
+                                    <!-- Concern -->
+                                    <td><?= renderConcernBadge($s) ?></td>
+
                                     <!-- Actions -->
                                     <td class="text-center">
                                         <div class="action-btns-group justify-content-center">
@@ -392,6 +396,7 @@
 
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <?php $concernSelectColClass = 'col-12'; $concernSelectId = 'adminConcernStitchingWastage'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                         <!-- 1. Primary Dropdown: Stitching Module Batch / Program Selection -->
                         <div class="col-12">
                             <div class="p-3 bg-light rounded border border-warning-subtle shadow-sm">
@@ -632,6 +637,7 @@
 
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <?php $concernSelectColClass = 'col-12'; $concernSelectId = 'adminConcernStitchingWastage'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                         <!-- Stitching Module Batch / Program Selection in Edit -->
                         <div class="col-12">
                             <div class="p-3 bg-light rounded border border-primary-subtle shadow-sm">

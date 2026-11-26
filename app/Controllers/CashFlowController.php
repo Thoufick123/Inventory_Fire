@@ -71,10 +71,11 @@ class CashFlowController {
             $shiftParams[] = $cid;
         }
         $shiftLogs = Database::fetchAll(
-            "SELECT s.*, u.full_name AS cashier_name, cb.full_name AS closed_by_name
+            "SELECT s.*, u.full_name AS cashier_name, cb.full_name AS closed_by_name, c_con.name AS concern_name, c_con.code AS concern_code
              FROM shop_shifts s
              LEFT JOIN users u ON u.id = s.cashier_id
              LEFT JOIN users cb ON cb.id = s.closed_by
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(s.concern_id, 1)
              {$shiftScope}
              ORDER BY s.id DESC LIMIT 100",
             $shiftParams
@@ -83,10 +84,11 @@ class CashFlowController {
         // 2. Petty Expenses
         $expenseWhere = $scope ? ($scope . " AND c.transaction_type = 'PETTY_EXPENSE'") : "WHERE c.transaction_type = 'PETTY_EXPENSE'";
         $expenses = Database::fetchAll(
-            "SELECT c.*, u.full_name AS user_name, s.shift_code
+            "SELECT c.*, u.full_name AS user_name, s.shift_code, c_con.name AS concern_name, c_con.code AS concern_code
              FROM cash_flow_transactions c
              LEFT JOIN users u ON u.id = c.created_by
              LEFT JOIN shop_shifts s ON s.id = c.shift_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(c.concern_id, 1)
              {$expenseWhere}
              ORDER BY c.id DESC LIMIT 100",
             $params
@@ -100,10 +102,11 @@ class CashFlowController {
             $bdParams[] = $cid;
         }
         $bankDeposits = Database::fetchAll(
-            "SELECT b.*, u.full_name AS user_name, s.shift_code
+            "SELECT b.*, u.full_name AS user_name, s.shift_code, c_con.name AS concern_name, c_con.code AS concern_code
              FROM bank_deposits b
              LEFT JOIN users u ON u.id = b.created_by
              LEFT JOIN shop_shifts s ON s.id = b.shift_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(b.concern_id, 1)
              {$bdScope}
              ORDER BY b.id DESC LIMIT 100",
             $bdParams
@@ -111,10 +114,11 @@ class CashFlowController {
 
         // 4. Cash Flow Ledger (All transactions)
         $transactions = Database::fetchAll(
-            "SELECT c.*, u.full_name AS user_name, s.shift_code
+            "SELECT c.*, u.full_name AS user_name, s.shift_code, c_con.name AS concern_name, c_con.code AS concern_code
              FROM cash_flow_transactions c
              LEFT JOIN users u ON u.id = c.created_by
              LEFT JOIN shop_shifts s ON s.id = c.shift_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(c.concern_id, 1)
              {$scope}
              ORDER BY c.id DESC LIMIT 200",
             $params

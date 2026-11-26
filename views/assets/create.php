@@ -16,6 +16,7 @@
 
     <form method="POST" action="<?= url('assets/store') ?>">
         <?= CSRF::field() ?>
+        <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
         <div class="row g-4">
             <!-- Asset Identification Card -->

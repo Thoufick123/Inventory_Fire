@@ -152,12 +152,13 @@
                         <th>Inward Items &amp; Summary</th>
                         <th>Invoice #</th>
                         <th class="text-end">Total Amount (₹)</th>
+                        <th>Concern</th>
                         <th class="text-center text-nowrap" style="width: 170px; min-width: 160px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="purchasesTableBody">
                 <?php if (empty($purchases)): ?>
-                    <tr><td colspan="9" class="text-center text-muted py-5">No purchases recorded yet.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-5">No purchases recorded yet.</td></tr>
                 <?php else: foreach ($purchases as $idx => $purchase): 
                     $pType = $purchase['purchase_type'] ?? 'FABRIC_ROLL';
                     $rollItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'FABRIC_ROLL');
@@ -171,7 +172,7 @@
                     $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
                     $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
                 ?>
-                    <tr class="purchase-row" data-search="<?= strtolower(e($purchase['purchase_number'] . ' ' . $pType . ' ' . ($purchase['company'] ?? '') . ' ' . ($purchase['seller_name'] ?? '') . ' ' . ($purchase['invoice_number'] ?? ''))) ?>">
+                    <tr class="purchase-row" data-search="<?= strtolower(e($purchase['purchase_number'] . ' ' . $pType . ' ' . ($purchase['company'] ?? '') . ' ' . ($purchase['seller_name'] ?? '') . ' ' . ($purchase['invoice_number'] ?? '') . ' ' . ($purchase['concern_name'] ?? '') . ' ' . ($purchase['concern_code'] ?? ''))) ?>">
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                         <td>
                             <strong class="font-monospace text-primary"><?= e($purchase['purchase_number']) ?></strong>
@@ -354,6 +355,7 @@
                         <td class="text-end fw-bold text-success fs-6">
                             <?= formatCurrency((float)((float)$purchase['total_amount'])) ?>
                         </td>
+                        <td><?= renderConcernBadge($purchase) ?></td>
                         <td class="text-center text-nowrap">
                             <div class="purchase-action-buttons">
                                 <?php if (hasPermission('production_purchases', 'view') || hasPermission('sellers', 'view')): ?>

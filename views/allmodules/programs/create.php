@@ -9,6 +9,7 @@
 
 <form method="POST" action="<?= url('production/programs/store') ?>" id="programForm">
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
     <div class="row g-4">
         <!-- LEFT COLUMN: Program Info & Raw Material Rolls with Per-Roll Catalog -->

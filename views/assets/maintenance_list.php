@@ -69,13 +69,14 @@
                             <th class="text-center">Cost (₹)</th>
                             <th class="text-center">Downtime</th>
                             <th>Status</th>
+                            <th>Concern</th>
                             <th class="text-end pe-3">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($logs)): ?>
                         <tr>
-                            <td colspan="10" class="text-center py-5 text-muted">
+                            <td colspan="11" class="text-center py-5 text-muted">
                                 <i class="bi bi-tools fs-1 d-block mb-2 text-secondary"></i>
                                 No maintenance service tickets logged yet.
                             </td>
@@ -109,6 +110,7 @@
                                     <?= e($l['status']) ?>
                                 </span>
                             </td>
+                            <td><?= renderConcernBadge($l, 'concern_name', 'concern_code', 'asset_concern_id') ?></td>
                             <td class="text-end pe-3">
                                 <a href="<?= url('assets/maintenance/view/' . $l['id']) ?>" class="btn btn-sm btn-outline-secondary">
                                     <i class="bi bi-eye"></i> View

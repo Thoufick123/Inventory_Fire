@@ -138,13 +138,14 @@
                             <th>Status</th>
                             <th>Condition</th>
                             <th>Book Value</th>
+                            <th>Concern</th>
                             <th class="text-end pe-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($assets)): ?>
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="bi bi-tools fs-1 d-block mb-2 text-secondary"></i>
                                 No equipment or fixed assets registered yet.
                                 <div class="mt-2">
@@ -199,6 +200,7 @@
                                 <span class="small fw-bold <?= $condBadge ?>"><?= e($ast['condition_state']) ?></span>
                             </td>
                             <td class="fw-semibold"><?= formatCurrency((float)($ast['current_book_value'])) ?></td>
+                            <td><?= renderConcernBadge($ast) ?></td>
                             <td class="text-end pe-3">
                                 <div class="btn-group btn-group-sm">
                                     <a href="<?= url('assets/view/' . $ast['id']) ?>" class="btn btn-outline-secondary" title="View Passport">

@@ -104,8 +104,10 @@ class ProductionBatch {
                        p_bill.bill_number,
                        p_bill.total_amount as bill_total_amount,
                        p_bill.tax_amount as bill_tax_amount,
-                       p_bill.payment_status as bill_payment_status
+                       p_bill.payment_status as bill_payment_status,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM production_batches pb
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pb.concern_id, 1)
                 LEFT JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id

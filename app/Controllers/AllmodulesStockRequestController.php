@@ -147,9 +147,10 @@ class AllmodulesStockRequestController
         }
 
         $requests = Database::fetchAll(
-            "SELECT psr.*,
+            "SELECT psr.*, c_con.name AS concern_name, c_con.code AS concern_code,
                     (SELECT COUNT(*) FROM production_stock_request_items WHERE request_id = psr.id) AS item_count
              FROM production_stock_requests psr
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(psr.concern_id, 1)
              WHERE " . implode(' AND ', $where) . "
              ORDER BY CASE psr.status 
                         WHEN 'PENDING' THEN 1 
@@ -219,8 +220,8 @@ class AllmodulesStockRequestController
              ORDER BY pv.id ASC"
         );
 
-        $activeConcern = currentConcern();
-        $activeConcernId = currentConcernId() ?: 1;
+        $activeConcernId = resolveSubmittedConcernId();
+        $activeConcern = concernById($activeConcernId) ?: currentConcern();
         if (!$activeConcern || empty($activeConcern['id'])) {
             $activeConcern = Database::fetchOne("SELECT id, name, code, concern_type FROM concerns WHERE id = ?", [$activeConcernId]) ?: [
                 'id'           => 1,
@@ -411,8 +412,8 @@ class AllmodulesStockRequestController
      */
     public function store(): void
     {
-        $activeConcern = currentConcern();
-        $activeConcernId = currentConcernId() ?: 1;
+        $activeConcernId = resolveSubmittedConcernId();
+        $activeConcern = concernById($activeConcernId) ?: currentConcern();
         $defaultFrom = ($activeConcern && !empty($activeConcern['name'])) ? $activeConcern['name'] : 'Main Business Concern';
 
         $fromModule     = trim((string)($_POST['from_module'] ?? $defaultFrom));

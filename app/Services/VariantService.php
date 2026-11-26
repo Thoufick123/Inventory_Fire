@@ -321,6 +321,8 @@ class VariantService {
                        COALESCE(NULLIF(pv.qr_code, ''), NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as qr_code,
                        COALESCE(NULLIF(pv.variant_code, ''), CONCAT('V', LPAD(pv.id, 4, '0'))) as variant_code,
                        p.name as product_name,
+                       p.concern_id as product_concern_id,
+                       c_con.name as concern_name, c_con.code as concern_code,
                        c.name as category_name, c.id as category_id,
                        sc.name as subcategory_name, sc.id as subcategory_id,
                        b.name as brand_name,
@@ -330,6 +332,7 @@ class VariantService {
                        (COALESCE(stk.total_stock, 0) + COALESCE(qc_stk.total_stock, 0)) as current_stock
                 FROM product_variants pv
                 JOIN products p ON p.id = pv.product_id
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(p.concern_id, 1)
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
                 LEFT JOIN brands b ON b.id = p.brand_id

@@ -130,6 +130,7 @@ class ProductionOutward {
                        COALESCE(p.name, pp.name) as product_name,
                        COALESCE(w.name, pw.name) as warehouse_name,
                        u.full_name as created_by_name,
+                       c_con.name as concern_name, c_con.code as concern_code,
                        COALESCE((
                            SELECT GROUP_CONCAT(DISTINCT pb_sub.batch_number ORDER BY pb_sub.id SEPARATOR ', ')
                            FROM production_outward_batches pob
@@ -142,6 +143,7 @@ class ProductionOutward {
                            WHERE pob.production_outward_id = po.id
                        ), 1) as linked_batches_count
                 FROM production_outwards po
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(po.concern_id, 1)
                 LEFT JOIN production_batches pb ON po.production_batch_id = pb.id
                 LEFT JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id

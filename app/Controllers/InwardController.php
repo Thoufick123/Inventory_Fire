@@ -54,8 +54,10 @@ class InwardController {
                        COALESCE(pu_out.manager_name, pu_prog.manager_name, '') as production_unit_manager,
                        COALESCE(pu_out.phone, pu_prog.phone, '') as production_unit_phone,
                        COALESCE(pu_out.address, pu_prog.address, '') as production_unit_address,
-                       u_prep.full_name as prepared_by_name
+                       u_prep.full_name as prepared_by_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM production_batches pb
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pb.concern_id, 1)
                 LEFT JOIN production_programs pp ON pb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id
                 JOIN warehouses w ON pb.destination_warehouse_id = w.id

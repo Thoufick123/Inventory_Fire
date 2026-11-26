@@ -57,8 +57,10 @@ class QCBatch {
                        ), 0) as already_packed_qty,
                        (SELECT pb.id FROM production_batches pb WHERE pb.qc_batch_id = qb.id AND pb.status != 'CANCELLED' ORDER BY pb.id DESC LIMIT 1) as packed_batch_id,
                        (SELECT pb.batch_number FROM production_batches pb WHERE pb.qc_batch_id = qb.id AND pb.status != 'CANCELLED' ORDER BY pb.id DESC LIMIT 1) as packed_batch_number,
-                       (SELECT pb.status FROM production_batches pb WHERE pb.qc_batch_id = qb.id AND pb.status != 'CANCELLED' ORDER BY pb.id DESC LIMIT 1) as packed_batch_status
+                       (SELECT pb.status FROM production_batches pb WHERE pb.qc_batch_id = qb.id AND pb.status != 'CANCELLED' ORDER BY pb.id DESC LIMIT 1) as packed_batch_status,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM qc_batches qb
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(qb.concern_id, 1)
                 LEFT JOIN production_programs pp ON qb.program_id = pp.id
                 LEFT JOIN qr_generations qg ON qb.qr_generation_id = qg.id
                 LEFT JOIN products p ON COALESCE(pp.product_id, qg.product_id) = p.id

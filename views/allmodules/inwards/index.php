@@ -296,6 +296,7 @@ $canVerify = hasPermission('inward', 'verify');
                                         <th>Quantity &amp; Boxes</th>
                                         <th>Dispatch Date &amp; Vehicle</th>
                                         <th>Status</th>
+                                        <th>Concern</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -373,6 +374,7 @@ $canVerify = hasPermission('inward', 'verify');
                                                     <span class="badge bg-secondary batch-status-badge"><?= e($b['status']) ?></span>
                                                 <?php endif; ?>
                                             </td>
+                                            <td><?= renderConcernBadge($b) ?></td>
                                             <td class="text-end">
                                                 <div class="d-inline-flex gap-1">
                                                     <button type="button" class="btn btn-sm btn-outline-info btn-batch-history" data-batch-id="<?= $b['id'] ?>" data-batch-number="<?= e($b['batch_number']) ?>" title="Batch History &amp; Traceability Logs">
@@ -479,6 +481,7 @@ $canVerify = hasPermission('inward', 'verify');
                                                              <?= e($b['product_name']) ?>
                                                         </h6>
                                                         <small class="text-muted d-block text-truncate">Prog: <?= e($b['program_number']) ?></small>
+                                                        <div class="mt-1"><?= renderConcernBadge($b) ?></div>
                                                     </div>
                                                     <span class="badge bg-light text-dark border font-monospace fs-7 ms-2 flex-shrink-0">
                                                         <?= number_format($totalQty) ?> pcs
@@ -941,7 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!noMatchRow && tableBody) {
                 noMatchRow = document.createElement('tr');
                 noMatchRow.id = 'noBatchTableMatches';
-                noMatchRow.innerHTML = `<td colspan="7" class="text-center py-5 text-muted">
+                noMatchRow.innerHTML = `<td colspan="8" class="text-center py-5 text-muted">
                     <i class="bi bi-search fs-2 d-block mb-2 text-secondary opacity-50"></i>
                     <h6 class="fw-bold text-dark mb-1">No matching batches found</h6>
                     <p class="small text-muted mb-0">No inward shipments match your search criteria. Try a different search term or clear the filter.</p>

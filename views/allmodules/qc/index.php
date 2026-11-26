@@ -55,13 +55,14 @@
                         <th>Rejected</th>
                         <th>Rework</th>
                         <th>Status</th>
+                        <th>Concern</th>
                         <th class="text-center qc-actions-column">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="qcTableBody">
                     <?php if (empty($batches)): ?>
                         <tr>
-                            <td colspan="10" class="text-center py-5 text-muted">
+                            <td colspan="11" class="text-center py-5 text-muted">
                                 <i class="bi bi-funnel fs-2 d-block mb-2 text-secondary"></i>
                                 <?php if (!empty($filters['status']) || !empty($filters['search'])): ?>
                                     <h6 class="fw-bold text-dark">No QC inspections found matching your filter criteria.</h6>
@@ -118,6 +119,7 @@
                                 <td class="text-danger fw-semibold"><?= number_format($b['rejected_qty']) ?> pcs</td>
                                 <td class="text-warning fw-semibold"><?= number_format($b['rework_qty']) ?> pcs</td>
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
+                                <td><?= renderConcernBadge($b) ?></td>
                                 <td class="text-center">
                                     <div class="action-btns-group justify-content-center" role="group" aria-label="QC batch actions">
                                         <a href="<?= url('production/qc/view/' . $b['id']) ?>" class="btn btn-outline-info btn-action-icon" title="View QC Details">
@@ -239,7 +241,7 @@ function initQCPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveQCResultsRow';
-                    noResultRow.innerHTML = `<td colspan="10" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="11" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No QC inspections matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted">Try searching with a different keyword or clear the search filter.</small>

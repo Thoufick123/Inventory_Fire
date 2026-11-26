@@ -211,6 +211,7 @@
                                 <th class="text-end">Total Amount</th>
                                 <th class="text-center">Payment Status</th>
                                 <th class="text-center">Bill / Photo</th>
+                                <th>Concern</th>
                                 <th class="text-center" style="width: 130px;">Actions</th>
                             </tr>
                         </thead>
@@ -344,6 +345,9 @@
                                         <?php endif; ?>
                                     </td>
 
+                                    <!-- Concern -->
+                                    <td><?= renderConcernBadge($e) ?></td>
+
                                     <!-- Actions -->
                                     <td class="text-center">
                                         <div class="action-btns-group justify-content-center">
@@ -427,6 +431,7 @@
                 <?= CSRF::field() ?>
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <?php $concernSelectColClass = 'col-12'; $concernSelectId = 'adminConcernExpense'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                         <!-- Production Unit -->
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-dark">Production Unit Location <span class="text-danger">*</span></label>
@@ -1879,7 +1884,7 @@ function renderExpensesTablePage() {
             if (!noMatchRow && tbody) {
                 noMatchRow = document.createElement('tr');
                 noMatchRow.id = 'expensesNoMatchRow';
-                noMatchRow.innerHTML = `<td colspan="9" class="text-center py-5 text-muted">
+                noMatchRow.innerHTML = `<td colspan="10" class="text-center py-5 text-muted">
                     <i class="bi bi-search fs-2 d-block mb-2 text-secondary opacity-75"></i>
                     <h6 class="fw-bold text-secondary mb-1">No matching expenses found</h6>
                     <small class="text-muted">No records match your search criteria. Try a different term.</small>

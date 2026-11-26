@@ -251,6 +251,7 @@ $inventoryVariantCount = array_sum(array_map(
                 <th class="text-end">MRP (₹)</th>
                 <th class="text-end">Discount Price (₹)</th>
                 <th class="text-end">Valuation (₹)</th>
+                <th>Concern</th>
                 <th class="text-end">Actions</th>
             </tr>
         </thead>
@@ -458,6 +459,9 @@ $inventoryVariantCount = array_sum(array_map(
                         <span class="fw-bold text-primary font-monospace row-val-val"><?= formatCurrency((float)($batchVal)) ?></span>
                     </td>
 
+                    <!-- Concern -->
+                    <td><?= renderConcernBadge($batch) ?></td>
+
                     <!-- Actions -->
                     <td class="text-end">
                         <div class="action-btns-group justify-content-end">
@@ -583,6 +587,7 @@ $inventoryVariantCount = array_sum(array_map(
                 <div class="mb-3 batch-list-product">
                     <h6 class="fw-bold text-dark mb-1"><?= e($batch['product_name']) ?></h6>
                     <div class="small text-muted"><?= e($batch['program_number']) ?> · <?= e($batch['category_name']) ?></div>
+                    <div class="mt-1"><?= renderConcernBadge($batch) ?></div>
                 </div>
 
                 <div class="row g-2 mb-3 text-center batch-list-stats">

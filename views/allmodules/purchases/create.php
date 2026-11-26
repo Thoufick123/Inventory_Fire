@@ -7,6 +7,7 @@
 
 <form method="POST" action="<?= url('purchases/store') ?>" enctype="multipart/form-data" id="productionPurchaseForm" novalidate>
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
     <div class="card shadow-sm border mb-4">
         <div class="card-header bg-white py-3 px-4"><h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-primary"></i>Purchase &amp; Supplier Details</h5></div>
         <div class="card-body p-4">

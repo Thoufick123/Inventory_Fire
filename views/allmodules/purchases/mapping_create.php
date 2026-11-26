@@ -15,6 +15,7 @@
         <form method="POST" action="<?= url('purchases/mapping/create') ?>">
             <?= CSRF::field() ?>
             <div class="row g-3">
+                <?php $concernSelectColClass = 'col-12'; include BASE_PATH . '/views/partials/admin_concern_select.php'; ?>
                 <div class="col-md-6">
                     <div class="d-flex justify-content-between align-items-center gap-2">
                         <label class="form-label fw-semibold mb-2">Supplier / Person <span class="text-danger">*</span></label>

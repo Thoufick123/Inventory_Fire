@@ -55,8 +55,10 @@ class StitchingBatch {
                        GREATEST(COALESCE(sb.rejected_qty, 0), COALESCE(qc.qc_rejected_qty, 0)) as rejected_qty,
                        GREATEST(COALESCE(sb.rework_qty, 0), COALESCE(qc.qc_rework_qty, 0)) as rework_qty,
                        qc.qc_batch_id as qc_batch_id,
-                       qc.qc_status as qc_status
+                       qc.qc_status as qc_status,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM stitching_batches sb
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(sb.concern_id, 1)
                 LEFT JOIN cutting_batches cb ON sb.cutting_batch_id = cb.id
                 LEFT JOIN production_programs pp ON sb.program_id = pp.id
                 LEFT JOIN products p ON pp.product_id = p.id

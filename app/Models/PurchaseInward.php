@@ -30,8 +30,10 @@ class PurchaseInward {
                        po.po_number,
                        w.name AS warehouse_name,
                        u.full_name AS received_by_name,
-                       u2.full_name AS verified_by_name
+                       u2.full_name AS verified_by_name,
+                       c_con.name AS concern_name, c_con.code AS concern_code
                 FROM purchase_inwards pi
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pi.concern_id, 1)
                 LEFT JOIN purchase_orders po ON po.id = pi.purchase_order_id
                 LEFT JOIN warehouses w ON w.id = pi.warehouse_id
                 LEFT JOIN users u ON u.id = pi.received_by

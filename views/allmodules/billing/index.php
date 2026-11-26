@@ -164,6 +164,7 @@
                     <th class="text-center">Lines</th>
                     <th class="text-end">Total</th>
                     <th>Status</th>
+                    <th>Concern</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -214,6 +215,7 @@
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </td>
+                            <td><?= renderConcernBadge($bill) ?></td>
                             <td class="text-end text-nowrap">
                                 <div class="action-btns-group justify-content-end">
                                     <?php if ((int)($bill['linked_batch_count'] ?? 0) === 0): ?>

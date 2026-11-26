@@ -238,7 +238,7 @@ class AllmodulesController {
             $company = $name;
         }
 
-        $activeCid = function_exists('currentConcernId') ? currentConcernId() : 1;
+        $activeCid = resolveSubmittedConcernId();
         $cWhere = ($activeCid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?";
 
         $cleanPhone = preg_replace('/\D/', '', $phone);
@@ -1344,13 +1344,15 @@ class AllmodulesController {
 
         // Explicit column projection (avoiding SELECT *)
         $purchases = Database::fetchAll(
-            "SELECT pp.id, pp.purchase_number, pp.purchase_type, pp.seller_id, pp.purchase_date,
+            "SELECT pp.id, pp.concern_id, pp.purchase_number, pp.purchase_type, pp.seller_id, pp.purchase_date,
                     pp.invoice_number, pp.document_url, pp.document_urls, pp.notes, pp.total_amount,
                     pp.accounts_status, pp.accounts_verified_at, pp.created_by, pp.created_at,
                     s.name AS seller_name, s.company, s.seller_type,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
                     mb.id AS mapping_bill_id, mb.invoice_number AS mapping_invoice_number
              FROM production_purchases pp
              INNER JOIN sellers s ON s.id = pp.seller_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(pp.concern_id, 1)
              LEFT JOIN third_party_mapping_bills mb ON mb.purchase_id = pp.id
              $whereSql
              ORDER BY pp.purchase_date DESC, pp.id DESC",
@@ -3227,8 +3229,8 @@ class AllmodulesController {
         try {
             PurchaseMappingFulfillmentService::ensureSchema();
             Database::beginTransaction();
-            $activeConcernId = currentConcernId() ?: 1;
-            $activeConcern = currentConcern();
+            $activeConcernId = resolveSubmittedConcernId();
+            $activeConcern = concernById($activeConcernId) ?: currentConcern();
             $poPrefix = !empty($activeConcern['po_prefix']) ? rtrim($activeConcern['po_prefix'], '-') . '-' : 'PP-';
 
             $temporaryNumber = 'TMP-PP-' . bin2hex(random_bytes(12));
@@ -3689,7 +3691,7 @@ class AllmodulesController {
             return;
         }
 
-        $cid = currentConcernId() ?: 1;
+        $cid = resolveSubmittedConcernId();
         $sellerParams = [$sellerId];
         $sellerWhere = "WHERE id = ? AND production_deleted_at IS NULL";
         if ($cid === 1) {
@@ -5720,12 +5722,14 @@ class AllmodulesController {
                     ppi.mapped_third_party_sub_subcategory_id,
                     ppi.mapped_attributes, ppi.mapped_at, ppi.mapped_by, ppi.created_at,
                     ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
-                    pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                    pp.purchase_number, pp.purchase_date, pp.invoice_number, pp.concern_id,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
                     s.name AS seller_name, s.company AS seller_company,
                     c.name AS category_name, sub.name AS subcategory_name, subsub.name AS sub_subcategory_name,
                     u.full_name AS mapped_by_name
              FROM production_purchase_items ppi
              INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(pp.concern_id, 1)
              INNER JOIN sellers s ON s.id = pp.seller_id
              LEFT JOIN third_party_categories c ON c.id = ppi.mapped_third_party_category_id
              LEFT JOIN third_party_subcategories sub ON sub.id = ppi.mapped_third_party_subcategory_id
@@ -5761,11 +5765,13 @@ class AllmodulesController {
                     COALESCE(NULLIF(ppi.hsn_code, ''), sr.hsn_code, '') AS hsn_code,
                     ppi.seller_roll_id,
                     ppi.qr_generation_id, ppi.qr_batch_code, ppi.grn_id, ppi.grn_number,
-                    pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                    pp.purchase_number, pp.purchase_date, pp.invoice_number, pp.concern_id,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
                     s.name AS seller_name, s.company AS seller_company,
                     0 AS is_mapping_draft
              FROM production_purchase_items ppi
              INNER JOIN production_purchases pp ON pp.id = ppi.purchase_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(pp.concern_id, 1)
              LEFT JOIN seller_rolls sr ON sr.id = ppi.seller_roll_id
              LEFT JOIN sellers s ON s.id = pp.seller_id
              WHERE " . implode(' AND ', $fabricRollWhere) . "
@@ -5793,11 +5799,13 @@ class AllmodulesController {
                     COALESCE(mi.hsn_code, '') AS hsn_code,
                     NULL AS seller_roll_id,
                     mi.qr_generation_id, qrg.batch_code AS qr_batch_code, NULL AS grn_id, NULL AS grn_number,
-                    mb.invoice_number AS purchase_number, DATE(mb.created_at) AS purchase_date, mb.invoice_number,
+                    mb.invoice_number AS purchase_number, DATE(mb.created_at) AS purchase_date, mb.invoice_number, mb.concern_id,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
                     s.name AS seller_name, s.company AS seller_company,
                     1 AS is_mapping_draft, mi.mapping_bill_id
              FROM third_party_mapping_items mi
              INNER JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(mb.concern_id, 1)
              LEFT JOIN qr_generations qrg ON qrg.id = mi.qr_generation_id
              LEFT JOIN sellers s ON s.id = mb.seller_id
              WHERE " . implode(' AND ', $draftRollWhere) . "
@@ -5843,12 +5851,14 @@ class AllmodulesController {
             $draftParams[] = $cid;
         }
         $mappingDrafts = Database::fetchAll(
-            "SELECT mb.id, mb.invoice_number, mb.status, mb.purchase_id, mb.created_at,
+            "SELECT mb.id, mb.concern_id, mb.invoice_number, mb.status, mb.purchase_id, mb.created_at,
                     s.name AS seller_name, s.company AS seller_company,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
                     pp.purchase_number, COALESCE(mi.product_count, 0) AS product_count,
                     COALESCE(mi.total_quantity, 0) AS total_quantity
              FROM third_party_mapping_bills mb
              JOIN sellers s ON s.id = mb.seller_id
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(mb.concern_id, 1)
              LEFT JOIN production_purchases pp ON pp.id = mb.purchase_id
              LEFT JOIN (
                  SELECT mapping_bill_id, COUNT(*) AS product_count, SUM(quantity) AS total_quantity
@@ -9827,8 +9837,10 @@ class AllmodulesController {
                        repl_sr.photo_url as replacement_roll_photo_url,
                        (SELECT ppi.gst_type FROM production_purchase_items ppi WHERE ppi.seller_roll_id = repl_sr.id ORDER BY ppi.id DESC LIMIT 1) as replacement_gst_type,
                        (SELECT ppi.gst_type FROM production_purchase_items ppi WHERE ppi.seller_roll_id = sr.id ORDER BY ppi.id DESC LIMIT 1) as source_roll_gst_type,
-                       (SELECT ppi.hsn_code FROM production_purchase_items ppi WHERE ppi.seller_roll_id = sr.id ORDER BY ppi.id DESC LIMIT 1) as source_roll_purchase_hsn_code
+                       (SELECT ppi.hsn_code FROM production_purchase_items ppi WHERE ppi.seller_roll_id = sr.id ORDER BY ppi.id DESC LIMIT 1) as source_roll_purchase_hsn_code,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM roll_damages rd
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(rd.concern_id, 1)
                 LEFT JOIN sellers s ON rd.seller_id = s.id
                 LEFT JOIN seller_rolls sr ON rd.seller_roll_id = sr.id
                 LEFT JOIN product_variants pv ON rd.variant_id = pv.id
@@ -10127,7 +10139,7 @@ class AllmodulesController {
                 $tempPrefix = ($item['item_type'] === 'PRODUCT') ? 'TMP-PRD-' : 'TMP-ROL-';
                 $temporaryDamageNumber = $tempPrefix . bin2hex(random_bytes(16));
 
-                $activeConcernId = currentConcernId() ?: 1;
+                $activeConcernId = resolveSubmittedConcernId();
 
                 Database::execute(
                     "INSERT INTO roll_damages (
@@ -11105,6 +11117,7 @@ class AllmodulesController {
         $activeCid = currentConcernId();
 
         $sql = "SELECT p.*, c.name as category_name, sc.name as subcategory_name, ssc.name as sub_subcategory_name, b.name as brand_name,
+                       c_con.name as concern_name, c_con.code as concern_code,
                        COALESCE(pv_summary.variant_count, 0) as variant_count,
                        COALESCE(pv_summary.min_prod_cost, 0) as min_prod_cost,
                        COALESCE(pv_summary.max_prod_cost, 0) as max_prod_cost,
@@ -11113,6 +11126,7 @@ class AllmodulesController {
                        COALESCE(pv_summary.min_mrp, 0) as min_mrp,
                        COALESCE(pv_summary.max_mrp, 0) as max_mrp
                 FROM products p
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(p.concern_id, 1)
                 LEFT JOIN categories c ON p.category_id = c.id
                 LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
                 LEFT JOIN sub_subcategories ssc ON p.sub_subcategory_id = ssc.id
@@ -11345,7 +11359,7 @@ class AllmodulesController {
         $subcategoryCode = mb_strtoupper(trim($_POST['subcategory_code'] ?? ''));
         $subSubcategoryCode = mb_strtoupper(trim($_POST['sub_subcategory_code'] ?? ''));
         $qrCodePrefix = mb_strtoupper(trim($_POST['qr_code_prefix'] ?? ''));
-        $activeConcernId = currentConcernId() ?: 1;
+        $activeConcernId = resolveSubmittedConcernId();
         $selectedSizes = !empty($_POST['sizes']) && is_array($_POST['sizes']) ? array_filter(array_map('intval', $_POST['sizes'])) : [];
         $selectedColors = !empty($_POST['colors']) && is_array($_POST['colors']) ? array_filter(array_map('intval', $_POST['colors'])) : [];
         $customAttributes = self::parseSubmittedCustomAttributes();
@@ -13698,6 +13712,7 @@ class AllmodulesController {
         try {
             $userId = Session::userId();
             $programId = ProductionProgram::create([
+                'concern_id'         => resolveSubmittedConcernId(),
                 'name'               => $name,
                 'program_number'     => $programNumber,
                 'person_name'        => $personName,
@@ -15250,6 +15265,7 @@ class AllmodulesController {
         try {
             $userId = Session::userId();
             $batchId = ProductionService::createCuttingBatch([
+                'concern_id'         => resolveSubmittedConcernId(),
                 'name'               => $name,
                 'program_id'         => $programId,
                 'batch_number'       => $batchNumber,
@@ -15844,6 +15860,7 @@ class AllmodulesController {
         try {
             $userId = Session::userId();
             $batchId = ProductionService::createStitchingBatch([
+                'concern_id'         => resolveSubmittedConcernId(),
                 'name'               => $name,
                 'batch_number'       => $batchNumber,
                 'program_id'         => $programId,
@@ -17530,6 +17547,7 @@ class AllmodulesController {
             $notesStr = !empty($batchNotes) ? implode(' ', $batchNotes) : null;
 
             $batchId = ProductionService::createProductionBatch([
+                'concern_id'               => resolveSubmittedConcernId(),
                 'program_id'               => $programId,
                 'qc_batch_id'              => $qcBatchId,
                 'additional_qc_batch_ids'  => $additionalQcIds,
@@ -17876,8 +17894,10 @@ class AllmodulesController {
         }
 
         $approvedBatches = Database::fetchAll(
-            "SELECT pb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name, w.name as warehouse_name
+            "SELECT pb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name, w.name as warehouse_name,
+                    c_con.name as concern_name, c_con.code as concern_code
              FROM production_batches pb
+             LEFT JOIN concerns c_con ON c_con.id = COALESCE(pb.concern_id, 1)
              JOIN production_programs pp ON pb.program_id = pp.id
              LEFT JOIN products p ON pp.product_id = p.id
              JOIN warehouses w ON pb.destination_warehouse_id = w.id
@@ -17956,6 +17976,7 @@ class AllmodulesController {
         try {
             $userId = Session::userId();
             $outwardId = ProductionService::createOutward([
+                'concern_id'           => resolveSubmittedConcernId(),
                 'production_batch_ids' => $batchIds,
                 'dispatch_date'        => !empty($_POST['dispatch_date']) ? $_POST['dispatch_date'] : date('Y-m-d H:i:s'),
                 'vehicle_number'       => $vehicleNumber,
@@ -18647,6 +18668,7 @@ class AllmodulesController {
             }
 
             $qcBatchId = QCBatch::create([
+                'concern_id'         => resolveSubmittedConcernId(),
                 'program_id'         => $programId,
                 'stitching_batch_id' => $stitchingBatchId,
                 'qr_generation_id'   => $qrGenerationId,
@@ -19299,6 +19321,7 @@ class AllmodulesController {
 
         $sql = "SELECT qi.*, 
                        qb.program_id, 
+                       qb.concern_id,
                        qb.inspector_id,
                        qb.created_at as batch_created_at,
                        pp.program_number, 
@@ -19454,6 +19477,7 @@ class AllmodulesController {
                 $batches[$batchId] = [
                     'inventory_type'      => 'STITCHING',
                     'tab_type'            => 'stitching',
+                    'concern_id'          => (int)($it['concern_id'] ?? 1),
                     'is_fabric'           => false,
                     'is_product'          => true,
                     'is_qc'               => true,
@@ -19766,6 +19790,7 @@ class AllmodulesController {
                 $batches[$batchKey] = [
                     'inventory_type'        => 'THIRD_PARTY',
                     'tab_type'              => 'third_party',
+                    'concern_id'            => (int)($sup['concern_id'] ?? 1),
                     'is_fabric'             => false,
                     'is_product'            => true,
                     'is_qc'                 => false,
@@ -19820,7 +19845,7 @@ class AllmodulesController {
             }
 
             // Also check active catalog products with available stock in stock_balances
-            $prodStockSql = "SELECT p.id AS product_id, p.name AS product_name, p.code AS product_sku,
+            $prodStockSql = "SELECT p.id AS product_id, p.concern_id, p.name AS product_name, p.code AS product_sku,
                                     p.category_id, c.name AS category_name, p.base_price,
                                     pv.id AS variant_id, pv.sku AS variant_sku,
                                     COALESCE(NULLIF(pv.price, 0), pv.selling_price, p.base_price, 0) AS variant_price,
@@ -19868,6 +19893,7 @@ class AllmodulesController {
                     $batches[$prodKey] = [
                         'inventory_type'        => 'THIRD_PARTY',
                         'tab_type'              => 'third_party',
+                        'concern_id'            => (int)($cProd['concern_id'] ?? 1),
                         'is_fabric'             => false,
                         'is_product'            => true,
                         'is_qc'                 => false,
@@ -20013,6 +20039,8 @@ class AllmodulesController {
                     $batches[$bKey] = [
                         'inventory_type'        => 'INWARD',
                         'tab_type'              => 'inward',
+                        'concern_id'            => (int)($row['warehouse_concern_id'] ?: ($row['origin_concern_id'] ?: 1)),
+                        'origin_concern_id'     => (int)($row['origin_concern_id'] ?: 1),
                         'is_fabric'             => false,
                         'is_product'            => true,
                         'is_qc'                 => false,
@@ -20237,6 +20265,7 @@ class AllmodulesController {
         $id = (int)$id;
         $sql = "SELECT qi.*, 
                        qb.program_id, 
+                       qb.concern_id,
                        qb.inspector_id,
                        qb.created_at as batch_created_at,
                        qb.pieces_data,
@@ -21625,8 +21654,10 @@ class AllmodulesController {
                        cb.wastage_cost as batch_wastage_cost,
                        pp.program_number,
                        pp.name as program_name,
-                       u.full_name as created_by_name
+                       u.full_name as created_by_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM wastage_sales ws
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(ws.concern_id, 1)
                 LEFT JOIN cutting_batches cb ON ws.cutting_batch_id = cb.id
                 LEFT JOIN production_programs pp ON ws.program_id = pp.id
                 LEFT JOIN users u ON ws.created_by = u.id
@@ -21967,9 +21998,7 @@ class AllmodulesController {
                 $bStatus = ($bPaid >= $bAmount && $bAmount > 0) ? 'PAID' : (($bPaid > 0) ? 'PARTIAL' : 'PENDING');
                 $bProgId = !empty($b['program_id']) ? (int)$b['program_id'] : $programId;
 
-                $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
-                $batchConcernId = !empty($b['concern_id']) ? (int)$b['concern_id'] : null;
-                $saleConcernId = $activeConcernId ?: ($batchConcernId ?: 1);
+                $saleConcernId = resolveSubmittedConcernId();
 
                 Database::execute(
                     "INSERT INTO wastage_sales 
@@ -22352,8 +22381,10 @@ class AllmodulesController {
                        sb.name as stitching_batch_name,
                        pp.program_number,
                        pp.name as program_name,
-                       u.full_name as created_by_name
+                       u.full_name as created_by_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM stitching_wastage_sales sws
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(sws.concern_id, 1)
                 LEFT JOIN stitching_batches sb ON sws.stitching_batch_id = sb.id
                 LEFT JOIN production_programs pp ON sws.program_id = pp.id
                 LEFT JOIN users u ON sws.created_by = u.id
@@ -22692,9 +22723,7 @@ class AllmodulesController {
                 $bStatus = ($bPaid >= $bAmount && $bAmount > 0) ? 'PAID' : (($bPaid > 0) ? 'PARTIAL' : 'PENDING');
                 $bProgId = !empty($b['program_id']) ? (int)$b['program_id'] : $programId;
 
-                $activeConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
-                $batchConcernId = !empty($b['concern_id']) ? (int)$b['concern_id'] : null;
-                $saleConcernId = $activeConcernId ?: ($batchConcernId ?: 1);
+                $saleConcernId = resolveSubmittedConcernId();
 
                 Database::execute(
                     "INSERT INTO stitching_wastage_sales 
@@ -23031,8 +23060,10 @@ class AllmodulesController {
         $sql = "SELECT pe.*,
                        pp.program_number,
                        pp.name as program_name,
-                       u.full_name as created_by_name
+                       u.full_name as created_by_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM production_expenses pe
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(pe.concern_id, 1)
                 LEFT JOIN production_programs pp ON pe.program_id = pp.id
                 LEFT JOIN users u ON pe.created_by = u.id
                 WHERE 1=1";
@@ -23395,7 +23426,7 @@ class AllmodulesController {
                 $lineTotal = (float)$line['total_cost'];
                 $paidAmt = ($paymentStatus === 'PAID') ? $lineTotal : 0.00;
 
-                $activeConcernId = currentConcernId() ?: 1;
+                $activeConcernId = resolveSubmittedConcernId();
 
                 Database::execute(
                     "INSERT INTO production_expenses
@@ -25212,7 +25243,7 @@ class AllmodulesController {
         $field = trim((string)($_GET['field'] ?? ''));
         $value = trim((string)($_GET['value'] ?? ''));
         $exceptId = !empty($_GET['except_id']) ? (int)$_GET['except_id'] : null;
-        $activeCid = function_exists('currentConcernId') ? currentConcernId() : 1;
+        $activeCid = resolveSubmittedConcernId();
         $cWhere = ($activeCid === 1) ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?";
 
         if ($field === '' || $value === '') {
@@ -25345,11 +25376,12 @@ class AllmodulesController {
         $whereSql = implode(' AND ', $where);
 
         $products = Database::fetchAll("
-            SELECT tp.*,
+            SELECT tp.*, c_con.name AS concern_name, c_con.code AS concern_code,
                    tpc.name AS category_name, tpsc.name AS subcategory_name, tpssc.name AS sub_subcategory_name,
                    s.name AS seller_name, s.company AS seller_company,
                    u.full_name AS created_by_name
             FROM third_party_products tp
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(tp.concern_id, 1)
             LEFT JOIN third_party_categories tpc ON tpc.id = tp.third_party_category_id
             LEFT JOIN third_party_subcategories tpsc ON tpsc.id = tp.third_party_subcategory_id
             LEFT JOIN third_party_sub_subcategories tpssc ON tpssc.id = tp.third_party_sub_subcategory_id
@@ -25686,7 +25718,8 @@ class AllmodulesController {
         $whereSql = implode(' AND ', $where);
 
         $stockItems = Database::fetchAll("
-            SELECT qrg.id AS generation_id, qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
+            SELECT qrg.id AS generation_id, qrg.concern_id, c_con.name AS concern_name, c_con.code AS concern_code,
+                   qrg.batch_code, qrg.qr_source, qrg.quantity AS qr_quantity,
                    qrg.stock_added_at, qrg.brand_name,
                    COALESCE(NULLIF(qrg.color_name, ''), ppi.color, mi.color) AS color_name,
                    COALESCE(NULLIF(qrg.design_name, ''), ppi.design_name, mi.item_name) AS design_name,
@@ -25719,6 +25752,7 @@ class AllmodulesController {
                    used_prog.program_number AS used_program_number,
                    used_prog.program_name AS used_program_name
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
@@ -25762,6 +25796,7 @@ class AllmodulesController {
                    COUNT(CASE WHEN COALESCE(ppi.item_type, mi.item_type, qrg.qr_source) = 'THIRD_PARTY' THEN 1 END) AS third_party_count,
                    COALESCE(SUM(COALESCE(ppi.total_price, mi.unit_price * qrg.quantity, 0)), 0) AS total_stock_value
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
             {$metricWhere}
@@ -25924,6 +25959,7 @@ class AllmodulesController {
                    COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
@@ -26024,6 +26060,7 @@ class AllmodulesController {
                    COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
@@ -26204,6 +26241,7 @@ class AllmodulesController {
                    COALESCE(qrg.sub_subcategory_name, tpssc.name, ssc.name, mi_ssc.name) AS sub_subcategory_name,
                    u.full_name AS stock_added_by_name
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             LEFT JOIN production_purchases pp ON pp.id = ppi.purchase_id
             LEFT JOIN third_party_mapping_items mi ON mi.id = qrg.source_mapping_item_id
@@ -26379,6 +26417,7 @@ class AllmodulesController {
         $gen = Database::fetchOne("
             SELECT qrg.*, ppi.id AS ppi_id, ppi.purchase_id, ppi.inwarded_qty, ppi.variant_id AS ppi_variant_id
             FROM qr_generations qrg
+            LEFT JOIN concerns c_con ON c_con.id = COALESCE(qrg.concern_id, 1)
             LEFT JOIN production_purchase_items ppi ON ppi.id = qrg.source_purchase_item_id
             WHERE qrg.id = ?
         ", [$genId]);

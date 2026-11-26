@@ -43,6 +43,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
 
 <form method="POST" enctype="multipart/form-data" action="<?= url($isEdit ? 'production/billing/update/' . (int)$bill['id'] : 'production/billing/store') ?>" id="productionBillForm">
     <?= CSRF::input() ?>
+    <?php if (empty($isEdit)) { $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); } ?>
     <div class="row g-3">
         <!-- LEFT COLUMN: Staff, Customer & Invoice Settings -->
         <div class="col-xl-4">

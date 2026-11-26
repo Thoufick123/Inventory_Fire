@@ -62,8 +62,10 @@ class CuttingBatch {
                        ssc.name as sub_subcategory_name,
                        pu.name as unit_name, pu.code as unit_code,
                        p.name as product_name, p.code as product_code,
-                       u.full_name as operator_name
+                       u.full_name as operator_name,
+                       c_con.name as concern_name, c_con.code as concern_code
                 FROM cutting_batches cb
+                LEFT JOIN concerns c_con ON c_con.id = COALESCE(cb.concern_id, 1)
                 LEFT JOIN production_programs pp ON cb.program_id = pp.id
                 LEFT JOIN seller_rolls sr ON (cb.seller_roll_id = sr.id OR pp.seller_roll_id = sr.id)
                 LEFT JOIN sellers s ON sr.seller_id = s.id

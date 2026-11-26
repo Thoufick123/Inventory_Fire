@@ -80,13 +80,14 @@
                         <th>Roll Specs</th>
                         <th>Schedule Dates</th>
                         <th>Priority</th>
+                        <th>Concern</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="programsTableBody">
                     <?php if (empty($programs)): ?>
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i> No production programs found.
                             </td>
                         </tr>
@@ -182,6 +183,7 @@
                                     </div>
                                 </td>
                                 <td><span class="badge <?= $prioClass ?>"><?= e($prog['priority']) ?></span></td>
+                                <td><?= renderConcernBadge($prog) ?></td>
                                 <td class="text-end">
                                     <div class="action-btns-group justify-content-end">
                                         <a href="<?= url('production/programs/view/' . $prog['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Details">
@@ -287,7 +289,7 @@ function initProgramsPagination() {
                 if (!noResultRow) {
                     noResultRow = document.createElement('tr');
                     noResultRow.id = 'noLiveProgramsResultsRow';
-                    noResultRow.innerHTML = `<td colspan="7" class="text-center py-5 text-muted">
+                    noResultRow.innerHTML = `<td colspan="8" class="text-center py-5 text-muted">
                         <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
                         <h6 class="fw-bold text-secondary">No production programs matching "${escapeHtml(searchInput.value)}"</h6>
                         <small class="text-muted">Try searching with a different keyword or clear the search filter.</small>

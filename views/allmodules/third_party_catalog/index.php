@@ -122,13 +122,14 @@
                     <th class="text-end" style="min-width: 110px;">Purchase Rate</th>
                     <th class="text-end" style="min-width: 100px;">MRP</th>
                     <th class="text-end" style="min-width: 110px;">Selling Price</th>
+                    <th>Concern</th>
                     <th class="text-center" style="min-width: 100px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($products)): ?>
                     <tr>
-                        <td colspan="8" class="text-center py-5 text-muted">
+                        <td colspan="9" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                             No third-party catalog styles found.
                             <div class="mt-2">
@@ -166,6 +167,7 @@
                             <td class="text-end font-monospace"><?= formatCurrency((float)((float)$p['purchase_rate'])) ?></td>
                             <td class="text-end font-monospace text-muted"><?= formatCurrency((float)((float)$p['mrp'])) ?></td>
                             <td class="text-end font-monospace fw-bold text-success"><?= formatCurrency((float)((float)$p['selling_price'])) ?></td>
+                            <td><?= renderConcernBadge($p) ?></td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="<?= url('production/purchases/mapping/catalog/edit/' . $p['id']) ?>" class="btn btn-outline-primary" title="Edit Style">

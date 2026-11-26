@@ -11,6 +11,7 @@
 
 <form method="POST" action="<?= url('production/catalog/store') ?>" id="catalogForm">
     <?= CSRF::field() ?>
+    <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
     <div class="row">
         <div class="col-12">

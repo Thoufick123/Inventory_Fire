@@ -232,16 +232,17 @@ declare(strict_types=1);
                                 <th class="text-end">Amount</th>
                                 <th>Shift #</th>
                                 <th>Description / Ref</th>
+                                <th>Concern</th>
                                 <th>Handled By</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($transactions)): ?>
-                                <tr><td colspan="9" class="text-center text-muted py-5">No cash transactions logged yet.</td></tr>
+                                <tr><td colspan="10" class="text-center text-muted py-5">No cash transactions logged yet.</td></tr>
                             <?php else: foreach ($transactions as $tx): 
                                 $isInflow = ($tx['flow'] === 'INFLOW');
                             ?>
-                                <tr class="ledger-row" data-search="<?= strtolower(e($tx['tx_number'] . ' ' . $tx['transaction_type'] . ' ' . ($tx['source_or_recipient'] ?? '') . ' ' . ($tx['reason'] ?? '') . ' ' . ($tx['shift_code'] ?? ''))) ?>">
+                                <tr class="ledger-row" data-search="<?= strtolower(e($tx['tx_number'] . ' ' . $tx['transaction_type'] . ' ' . ($tx['source_or_recipient'] ?? '') . ' ' . ($tx['reason'] ?? '') . ' ' . ($tx['shift_code'] ?? '') . ' ' . ($tx['concern_name'] ?? '') . ' ' . ($tx['concern_code'] ?? ''))) ?>">
                                     <td class="font-monospace fw-bold text-primary"><?= e($tx['tx_number']) ?></td>
                                     <td class="small text-nowrap"><?= e(formatDateTime($tx['created_at'])) ?></td>
                                     <td>
@@ -273,6 +274,7 @@ declare(strict_types=1);
                                         <div class="fw-semibold small text-dark"><?= e($tx['source_or_recipient'] ?: '—') ?></div>
                                         <div class="small text-muted"><?= e($tx['reason'] ?: '—') ?></div>
                                     </td>
+                                    <td><?= renderConcernBadge($tx) ?></td>
                                     <td class="small text-muted"><?= e($tx['user_name'] ?? 'System') ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -297,11 +299,12 @@ declare(strict_types=1);
                                 <th class="text-end">Actual Counted</th>
                                 <th class="text-end">Variance</th>
                                 <th>Closing Notes</th>
+                                <th>Concern</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($shiftLogs)): ?>
-                                <tr><td colspan="10" class="text-center text-muted py-5">No shift history found.</td></tr>
+                                <tr><td colspan="11" class="text-center text-muted py-5">No shift history found.</td></tr>
                             <?php else: foreach ($shiftLogs as $sh): 
                                 $var = (float)$sh['variance'];
                             ?>
@@ -332,6 +335,7 @@ declare(strict_types=1);
                                         <?php endif; ?>
                                     </td>
                                     <td class="small text-muted"><?= e($sh['closing_notes'] ?: '—') ?></td>
+                                    <td><?= renderConcernBadge($sh) ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
                         </tbody>
@@ -351,12 +355,13 @@ declare(strict_types=1);
                                 <th>Voucher / Ref</th>
                                 <th>Description / Reason</th>
                                 <th class="text-end">Amount</th>
+                                <th>Concern</th>
                                 <th>Handled By</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($expenses)): ?>
-                                <tr><td colspan="7" class="text-center text-muted py-5">No petty cash expenses recorded yet.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-5">No petty cash expenses recorded yet.</td></tr>
                             <?php else: foreach ($expenses as $ex): ?>
                                 <tr>
                                     <td class="font-monospace text-primary fw-bold"><?= e($ex['tx_number']) ?></td>
@@ -365,6 +370,7 @@ declare(strict_types=1);
                                     <td class="font-monospace small"><?= e($ex['reference_number'] ?: '—') ?></td>
                                     <td class="small text-muted"><?= e($ex['reason'] ?: '—') ?></td>
                                     <td class="text-end fw-bold text-danger">-<?= formatCurrency((float)((float)$ex['amount'])) ?></td>
+                                    <td><?= renderConcernBadge($ex) ?></td>
                                     <td class="small text-muted"><?= e($ex['user_name'] ?? 'System') ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -385,12 +391,13 @@ declare(strict_types=1);
                                 <th>Slip / CDM #</th>
                                 <th>Remarks</th>
                                 <th class="text-end">Deposit Amount</th>
+                                <th>Concern</th>
                                 <th>Logged By</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($bankDeposits)): ?>
-                                <tr><td colspan="7" class="text-center text-muted py-5">No bank deposits logged yet.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-5">No bank deposits logged yet.</td></tr>
                             <?php else: foreach ($bankDeposits as $bd): ?>
                                 <tr>
                                     <td class="font-monospace text-info fw-bold"><?= e($bd['deposit_number']) ?></td>
@@ -399,6 +406,7 @@ declare(strict_types=1);
                                     <td class="font-monospace small"><?= e($bd['slip_number'] ?: '—') ?></td>
                                     <td class="small text-muted"><?= e($bd['remarks'] ?: '—') ?></td>
                                     <td class="text-end fw-bold text-primary"><?= formatCurrency((float)((float)$bd['amount'])) ?></td>
+                                    <td><?= renderConcernBadge($bd) ?></td>
                                     <td class="small text-muted"><?= e($bd['user_name'] ?? 'System') ?></td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -637,6 +645,7 @@ declare(strict_types=1);
             <form method="POST" action="<?= url('production/cash-flow/open-shift') ?>">
                 <?= CSRF::field() ?>
                 <div class="modal-body p-4">
+                    <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernCashOpen'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
                     <div class="mb-3">
                         <label class="form-label fw-semibold small text-muted">Opening Cash Float (₹) <span class="text-danger">*</span></label>
                         <div class="input-group input-group-lg">

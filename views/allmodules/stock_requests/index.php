@@ -290,13 +290,14 @@ $isSentTab = ($activeTab === 'sent');
                             <th class="text-center" style="width: 13%;">Asked vs Sent</th>
                             <th class="text-center" style="width: 10%;">Priority</th>
                             <th class="text-center" style="width: 13%;">Workflow Status</th>
+                            <th>Concern</th>
                             <th class="text-end pe-3" style="width: 10%;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($requests)): ?>
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">
+                                <td colspan="8" class="text-center py-5 text-muted">
                                     <i class="bi <?= $isSentTab ? 'bi-send-dash' : 'bi-inbox' ?> fs-1 d-block mb-2 text-secondary opacity-50"></i>
                                     <strong><?= $isSentTab ? 'No Outgoing Stock Request Found' : 'No Incoming Stock Request Received' ?></strong>
                                     <div class="small mt-1">
@@ -392,6 +393,7 @@ $isSentTab = ($activeTab === 'sent');
                                             <span class="badge bg-danger text-white px-2 py-1">Rejected</span>
                                         <?php endif; ?>
                                     </td>
+                                    <td><?= renderConcernBadge($r) ?></td>
                                     <td class="text-end pe-3">
                                         <?php if (!$isSentTab && $r['status'] === 'PENDING'): ?>
                                             <a href="<?= url('production/stock-requests/view/' . $r['id']) ?>" class="btn btn-sm btn-warning text-dark fw-bold shadow-xs">
