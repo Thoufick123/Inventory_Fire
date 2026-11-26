@@ -19633,7 +19633,7 @@ class AllmodulesController {
              FROM production_outwards po
              JOIN production_batches pb ON po.production_batch_id = pb.id
              LEFT JOIN warehouses w ON (po.warehouse_id = w.id OR pb.destination_warehouse_id = w.id)
-             WHERE 1=1";
+             WHERE pb.production_bill_id IS NULL";
         $outwardParams = [];
         if ($cid) {
             if ($cid === 1) {
@@ -19672,12 +19672,15 @@ class AllmodulesController {
         $allBilledCounts = Database::fetchAll($billedCountsSql);
         $billedByQC = [];
         $billedByVariant = [];
+        $billedByVariantUnlinked = [];
         foreach ($allBilledCounts as $bbc) {
             $qbId = (int)$bbc['qc_batch_id'];
             $vId = (int)$bbc['variant_id'];
             $bQty = (int)$bbc['billed_qty'];
             if ($qbId > 0) {
                 $billedByQC[$qbId] = ($billedByQC[$qbId] ?? 0) + $bQty;
+            } elseif ($vId > 0) {
+                $billedByVariantUnlinked[$vId] = ($billedByVariantUnlinked[$vId] ?? 0) + $bQty;
             }
             if ($vId > 0) {
                 $billedByVariant[$vId] = ($billedByVariant[$vId] ?? 0) + $bQty;
@@ -19847,16 +19850,34 @@ class AllmodulesController {
                 $remainingOutwardQty -= $outwardForItem;
             }
             $remainingBilledQty = $billedPcs;
+            $extraUnlinkedBilled = 0;
             foreach ($variants as &$variant) {
                 $remAfterOutward = max(0, (int)$variant['passed_qty'] - (int)$variant['outward_qty']);
                 $varBilled = min($remAfterOutward, $remainingBilledQty);
+                $remainingBilledQty -= $varBilled;
+
+                $vIdForUnlinked = (int)($variant['variant_id'] ?? 0);
+                if ($vIdForUnlinked > 0 && !empty($billedByVariantUnlinked[$vIdForUnlinked])) {
+                    $takeUnlinked = min(max(0, $remAfterOutward - $varBilled), (int)$billedByVariantUnlinked[$vIdForUnlinked]);
+                    $varBilled += $takeUnlinked;
+                    $billedByVariantUnlinked[$vIdForUnlinked] -= $takeUnlinked;
+                    $extraUnlinkedBilled += $takeUnlinked;
+                }
+
                 $variant['billed_qty'] = $varBilled;
                 $variant['remaining_qty'] = max(0, $remAfterOutward - $varBilled);
-                $remainingBilledQty -= $varBilled;
                 $variant['valuation'] = (float)$variant['remaining_qty'] * (float)$variant['selling_price'];
                 unset($variant['qc_items']);
             }
             unset($variant);
+            if ($extraUnlinkedBilled > 0) {
+                $billedPcs += $extraUnlinkedBilled;
+                $remainingPcs = max(0, $passedPcs - $outwardPcs - $billedPcs);
+                $remainingVal = max(0.0, $remainingPcs * $unitAvgPrice);
+                $batch['total_billed_pieces'] = $billedPcs;
+                $batch['remaining_pieces']    = $remainingPcs;
+                $batch['remaining_value']     = $remainingVal;
+            }
             $batch['variants'] = $variants;
             unset($batch['variant_indexes']);
 
@@ -19972,24 +19993,6 @@ class AllmodulesController {
                     $rawInwardQty = max(1.0, (float)$sup['quantity']);
                 }
 
-                // Query current stock in stock_balances for this variant
-                $currentAvailable = null;
-                if (!empty($sup['variant_id'])) {
-                    $sbRow = Database::fetchOne(
-                        "SELECT COALESCE(SUM(quantity), 0) AS cnt FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
-                        [(int)$sup['variant_id']]
-                    );
-                    if ($sbRow !== null) {
-                        $currentAvailable = (float)$sbRow['cnt'];
-                    }
-                }
-                if ($currentAvailable === null) {
-                    $currentAvailable = $rawInwardQty;
-                }
-
-                $remainingQty = max(0.0, $currentAvailable);
-                $outwardQty = max(0.0, $rawInwardQty - $remainingQty);
-
                 // Variant & Pricing resolution
                 $tpVar = null;
                 if (!empty($sup['variant_id'])) {
@@ -19998,6 +20001,24 @@ class AllmodulesController {
                     $tpVar = Database::fetchOne("SELECT id, sku, mrp, selling_price, production_cost, purchase_price FROM product_variants WHERE product_id = ? ORDER BY id ASC LIMIT 1", [(int)$sup['product_id']]);
                 }
                 $tpVId = $tpVar ? (int)$tpVar['id'] : (int)($sup['variant_id'] ?? 0);
+
+                // Query current stock in stock_balances for this variant
+                $currentAvailable = null;
+                if ($tpVId > 0) {
+                    $sbRow = Database::fetchOne(
+                        "SELECT COALESCE(SUM(quantity), 0) AS cnt, COUNT(*) AS row_cnt FROM stock_balances WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
+                        [$tpVId]
+                    );
+                    if ($sbRow !== null && (int)($sbRow['row_cnt'] ?? 0) > 0) {
+                        $currentAvailable = (float)$sbRow['cnt'];
+                    }
+                }
+                if ($currentAvailable === null) {
+                    $currentAvailable = max(0.0, $rawInwardQty - (float)($billedByVariant[$tpVId] ?? 0));
+                }
+
+                $remainingQty = max(0.0, $currentAvailable);
+                $outwardQty = max(0.0, $rawInwardQty - $remainingQty);
                 $tpSku = $tpVar['sku'] ?? ($sup['product_sku'] ?? ('TP-' . $supplyItemId));
                 $tpCost = (float)($sup['unit_price'] ?: ($tpVar['purchase_price'] ?? 0));
                 $tpMrp = (float)(($tpVar['mrp'] ?? 0) > 0 ? $tpVar['mrp'] : ($tpCost > 0 ? $tpCost * 1.3 : 0));
