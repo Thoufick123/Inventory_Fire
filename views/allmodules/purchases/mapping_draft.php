@@ -293,6 +293,15 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                 </tr>
                             </thead>
                             <tbody id="mappingRollRows">
+                                <?php
+                                $existingRollCount = 0;
+                                foreach (($items ?? []) as $it) {
+                                    if (($it['item_type'] ?? '') === 'FABRIC_ROLL') {
+                                        $existingRollCount++;
+                                    }
+                                }
+                                $autoRollCode = sprintf('ROLL-%02d', $existingRollCount + 1);
+                                ?>
                                 <tr class="mapping-roll-row">
                                     <td>
                                         <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
@@ -308,7 +317,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             <option value="RAYON / VISCOSE PRINTED FABRIC">
                                         </datalist>
                                     </td>
-                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" placeholder="ROLL-001"></td>
+                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" value="<?= e($autoRollCode) ?>" placeholder="ROLL-01"></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
                                     <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="Solid, Printed..."></td>
                                     <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
@@ -1186,11 +1195,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerAddProductBtn = document.getElementById('btnHeaderAddProduct');
     const fabricTab = document.getElementById('tabFabricRollsBtn');
     const productTab = document.getElementById('tabThirdPartyBtn');
+    const tabStorageKey = 'mapping_draft_active_tab_' + <?= (int)$mappingBillId ?>;
+    try {
+        const savedTabId = sessionStorage.getItem(tabStorageKey);
+        if (savedTabId && typeof bootstrap !== 'undefined') {
+            const targetTabEl = document.getElementById(savedTabId);
+            if (targetTabEl) {
+                bootstrap.Tab.getOrCreateInstance(targetTabEl).show();
+                if (savedTabId === 'tabFabricRollsBtn') {
+                    headerAddProductBtn?.classList.add('d-none');
+                }
+            }
+        }
+    } catch (e) {}
     fabricTab?.addEventListener('shown.bs.tab', function () {
         headerAddProductBtn?.classList.add('d-none');
+        try { sessionStorage.setItem(tabStorageKey, 'tabFabricRollsBtn'); } catch (e) {}
     });
     productTab?.addEventListener('shown.bs.tab', function () {
         headerAddProductBtn?.classList.remove('d-none');
+        try { sessionStorage.setItem(tabStorageKey, 'tabThirdPartyBtn'); } catch (e) {}
     });
 })();
 </script>
