@@ -3990,6 +3990,7 @@ class AllmodulesController {
             'masterSizes' => $masterSizes,
             'masterColors' => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
+            'hsnList' => $hsnList,
             'candidatePurchases' => $candidatePurchases,
             'warehouses' => $warehouses,
             'concerns' => $concerns,
@@ -6257,6 +6258,25 @@ class AllmodulesController {
             }
         }
 
+        try {
+            $hsnList = Database::fetchAll("
+                SELECT id, hsn_code, description, gst_rate,
+                       NULL AS category_name, NULL AS subcategory_name, NULL AS sub_subcategory_name
+                FROM hsn_codes
+                UNION
+                SELECT id, hsn_code,
+                       COALESCE(product, sub_subcategories, subcategories, categories, CONCAT('HSN ', hsn_code)) AS description,
+                       gst_percentage AS gst_rate,
+                       categories AS category_name,
+                       subcategories AS subcategory_name,
+                       sub_subcategories AS sub_subcategory_name
+                FROM production_hsn_config WHERE is_active = 1
+                ORDER BY hsn_code ASC
+            ");
+        } catch (\Throwable $e) {
+            $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
+        }
+
         Response::view('allmodules.purchases.mapping_bill', [
             'pageTitle' => 'Map Finished Good to Catalog: ' . ($activeItem['item_name'] ?? 'Item'),
             'activeModule' => 'purchases',
@@ -6280,6 +6300,7 @@ class AllmodulesController {
             'masterSizes' => $masterSizes,
             'masterColors' => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
+            'hsnList' => $hsnList,
             'breadcrumb' => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
