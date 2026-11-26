@@ -1867,6 +1867,7 @@ class QrGenerationService {
             Database::commit();
 
             return [
+                'batch_code'   => $batch['batch_code'] ?? ('QR-' . $generationId),
                 'quantity'     => $quantity,
                 'warehouse_id' => $warehouseId,
                 'variant_id'   => $variantId,
