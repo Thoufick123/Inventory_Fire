@@ -1802,6 +1802,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const draftMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const draftMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const draftHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const draftCatalogProductsMap = <?= json_encode((static function () use ($existingProducts) {
+        $map = [];
+        foreach (($existingProducts ?? []) as $ep) {
+            $k = mb_strtolower(trim((string)($ep['name'] ?? '')));
+            if ($k === '') continue;
+            $map[$k] = [
+                'name' => $ep['name'] ?? '',
+                'category_name' => $ep['category_name'] ?? '',
+                'subcategory_name' => $ep['subcategory_name'] ?? '',
+                'sub_subcategory_name' => $ep['sub_subcategory_name'] ?? '',
+                'hsn_code' => $ep['hsn_code'] ?? '',
+                'gst_percentage' => $ep['gst_percentage'] ?? '',
+            ];
+        }
+        return $map;
+    })(), JSON_UNESCAPED_UNICODE) ?>;
+    const draftRollProductsMap = <?= json_encode((static function () use ($existingRollProducts) {
+        $map = [];
+        foreach (($existingRollProducts ?? []) as $rp) {
+            $k = mb_strtolower(trim((string)($rp['name'] ?? '')));
+            if ($k === '') continue;
+            $map[$k] = [
+                'name' => $rp['name'] ?? '',
+                'hsn_code' => $rp['hsn_code'] ?? '',
+                'gst_percentage' => $rp['gst_percentage'] ?? '',
+            ];
+        }
+        return $map;
+    })(), JSON_UNESCAPED_UNICODE) ?>;
     const savedExistingVariantKeys = new Set(<?= json_encode(array_values(array_map(static function ($it) {
         return mb_strtolower(trim((string)($it['item_name'] ?? '')) . '|' . trim((string)($it['size'] ?? '')) . '|' . trim((string)($it['color'] ?? '')) . '|' . (int)($it['category_id'] ?? 0));
     }, $items ?? [])), JSON_UNESCAPED_UNICODE) ?>);
@@ -1992,16 +2021,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }, true);
 
     document.addEventListener('change', function (e) {
-        if (e.target.classList.contains('gen-category')) {
+        if (e.target.classList.contains('tp-product-name-input')) {
             const card = e.target.closest('.tp-product-card');
-            const catId = e.target.value;
+            const prod = draftCatalogProductsMap[String(e.target.value || '').trim().toLowerCase()];
+            if (card && prod) {
+                const catSel = card.querySelector('.gen-category');
+                const subSel = card.querySelector('.gen-subcategory');
+                const ssSel = card.querySelector('.gen-subsubcategory');
+                const catName = String(prod.category_name || '').trim().toLowerCase();
+                if (catSel && catName) {
+                    const catOpt = Array.from(catSel.options).find(o => o.value && o.textContent.trim().toLowerCase() === catName);
+                    if (catOpt) {
+                        catSel.value = catOpt.value;
+                        catSel.dispatchEvent(new Event('change', { bubbles: true }));
+                        const subName = String(prod.subcategory_name || '').trim().toLowerCase();
+                        const subOpt = subName ? Array.from(subSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === subName) : null;
+                        if (subOpt && subSel) {
+                            subSel.value = subOpt.value;
+                            subSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            const ssName = String(prod.sub_subcategory_name || '').trim().toLowerCase();
+                            const ssOpt = ssName ? Array.from(ssSel?.options || []).find(o => o.value && !o.hidden && o.textContent.trim().toLowerCase() === ssName) : null;
+                            if (ssOpt && ssSel) {
+                                ssSel.value = ssOpt.value;
+                                ssSel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    }
+                }
+                const hsnInp = card.querySelector('.gen-hsn');
+                const gstInp = card.querySelector('.gen-gst');
+                if (hsnInp && prod.hsn_code) hsnInp.value = String(prod.hsn_code);
+                if (gstInp && prod.gst_percentage !== '' && prod.gst_percentage !== null && prod.gst_percentage !== undefined) {
+                    gstInp.value = String(parseFloat(prod.gst_percentage) || 0);
+                }
+            }
+        } else if (e.target.id === 'fabricNameInput') {
+            const roll = draftRollProductsMap[String(e.target.value || '').trim().toLowerCase()];
+            if (roll) {
+                const row = e.target.closest('tr') || document.querySelector('#mappingRollRows tr.mapping-roll-row');
+                const gstInp = row?.querySelector('.roll-gst-input');
+                const hsnSel = row?.querySelector('.roll-hsn-select');
+                if (hsnSel && roll.hsn_code) {
+                    const matchOpt = Array.from(hsnSel.options).find(o => String(o.value).trim() === String(roll.hsn_code).trim());
+                    if (matchOpt) hsnSel.value = matchOpt.value;
+                }
+                if (gstInp && roll.gst_percentage !== '' && roll.gst_percentage !== null && roll.gst_percentage !== undefined) {
+                    gstInp.value = String(parseFloat(roll.gst_percentage) || 0);
+                }
+            }
+        } else if (e.target.classList.contains('gen-category')) {
+            const card = e.target.closest('.tp-product-card');
+            const catId = String(e.target.value || '');
             const subSel = card?.querySelector('.gen-subcategory');
             const ssSel = card?.querySelector('.gen-subsubcategory');
             if (subSel) {
                 Array.from(subSel.options).forEach(opt => {
                     if (!opt.value) return;
-                    opt.hidden = opt.dataset.parent !== catId;
-                    if (opt.hidden && opt.selected) opt.selected = false;
+                    const match = Boolean(catId && String(opt.dataset.parent || '') === catId);
+                    opt.hidden = !match;
+                    opt.disabled = !match;
+                    if (!match && opt.selected) opt.selected = false;
                 });
                 subSel.value = '';
             }
@@ -2009,6 +2088,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Array.from(ssSel.options).forEach(opt => {
                     if (!opt.value) return;
                     opt.hidden = true;
+                    opt.disabled = true;
                     if (opt.selected) opt.selected = false;
                 });
                 ssSel.value = '';
@@ -2016,13 +2096,15 @@ document.addEventListener('DOMContentLoaded', function() {
             renderDraftAttributeChips(card);
         } else if (e.target.classList.contains('gen-subcategory')) {
             const card = e.target.closest('.tp-product-card');
-            const subId = e.target.value;
+            const subId = String(e.target.value || '');
             const ssSel = card?.querySelector('.gen-subsubcategory');
             if (ssSel) {
                 Array.from(ssSel.options).forEach(opt => {
                     if (!opt.value) return;
-                    opt.hidden = opt.dataset.parent !== subId;
-                    if (opt.hidden && opt.selected) opt.selected = false;
+                    const match = Boolean(subId && String(opt.dataset.parent || '') === subId);
+                    opt.hidden = !match;
+                    opt.disabled = !match;
+                    if (!match && opt.selected) opt.selected = false;
                 });
                 ssSel.value = '';
             }
