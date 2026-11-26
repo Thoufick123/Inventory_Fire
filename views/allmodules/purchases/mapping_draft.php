@@ -1527,11 +1527,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        if (rollRowsToAddInput) {
-            rollRowsToAddInput.addEventListener('input', function() {
-                this.value = this.value.replace(/[^0-9]/g, '');
-            });
-        }
         if (defaultRollGst) {
             defaultRollGst.addEventListener('input', function() {
                 this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
