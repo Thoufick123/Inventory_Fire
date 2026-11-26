@@ -178,11 +178,21 @@ if (!empty($authUser['production_unit_name'])) {
     </script>
 </head>
 <body>
+    <script>
+        try {
+            if (window.innerWidth >= 992 && localStorage.getItem('grm_sidebar_collapsed') === '1') {
+                document.body.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <div class="app-layout">
         <!-- ============================================ -->
         <!-- SIDEBAR -->
         <!-- ============================================ -->
         <aside class="sidebar" id="sidebar">
+            <button type="button" class="sidebar-edge-toggle d-none d-lg-flex" id="sidebarEdgeToggle" title="Collapse / Expand Sidebar" aria-label="Collapse or expand sidebar">
+                <i class="bi bi-chevron-left"></i>
+            </button>
             <div class="sidebar-header">
                 <div class="sidebar-brand">
                     <i class="bi bi-boxes text-primary fs-4 me-2"></i>
