@@ -19696,7 +19696,16 @@ class AllmodulesController {
                           LEFT JOIN products p ON ppi.product_id = p.id
                           LEFT JOIN categories c_p ON p.category_id = c_p.id
                           LEFT JOIN categories c_pi ON ppi.mapped_category_id = c_pi.id
-                          WHERE 1=1";
+                          WHERE (
+                              COALESCE(ppi.is_inwarded, 0) = 1
+                              OR COALESCE(ppi.inwarded_qty, 0) > 0
+                              OR EXISTS (
+                                  SELECT 1 FROM stock_balances sb_chk
+                                  WHERE sb_chk.variant_id = ppi.variant_id
+                                    AND sb_chk.stock_state = 'AVAILABLE'
+                                    AND sb_chk.quantity > 0
+                              )
+                          )";
             $supplyParams = [];
 
             if ($cid) {
