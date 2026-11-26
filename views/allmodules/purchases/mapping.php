@@ -267,19 +267,32 @@
                                 <div><i class="bi bi-truck me-1"></i><?= (int)$bill['grn_count'] ?> / <?= $lineCount ?> GRN</div>
                             </td>
                             <td><?= renderConcernBadge($bill) ?></td>
-                            <td class="text-center">
-                                <div class="d-inline-flex gap-1.5 align-items-center">
+                            <td class="text-center text-nowrap">
+                                <div class="d-inline-flex gap-1 align-items-center">
+                                    <a href="<?= url('purchases/view/' . $bill['purchase_id']) ?>"
+                                       class="btn btn-sm btn-outline-info"
+                                       title="View Purchase Bill">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
                                     <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id']) ?>"
                                        class="btn btn-sm <?= $bill['mapped_count'] === $lineCount ? 'btn-outline-primary' : 'btn-warning text-dark fw-bold' ?>">
                                         <i class="bi <?= $bill['mapped_count'] === $lineCount ? 'bi-pencil-square' : 'bi-diagram-3-fill' ?> me-1"></i>
                                         <?= $bill['mapped_count'] === $lineCount ? 'Edit Bill' : 'Map Bill' ?>
                                     </a>
                                     <?php if ($bill['mapped_count'] > 0): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark"
                                                 onclick="unmapBill(<?= (int)$bill['purchase_id'] ?>, '<?= e(addslashes($bill['purchase_number'])) ?>')"
-                                                title="Delete mapping and mark all items as unmapped">
-                                            <i class="bi bi-trash"></i>
+                                                title="Reset mapping and mark all items as unmapped">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
                                         </button>
+                                    <?php endif; ?>
+                                    <?php if (hasPermission('production_purchases', 'delete') || hasPermission('production_purchase_mapping', 'delete')): ?>
+                                        <form method="POST" action="<?= url('purchases/mapping/bill/' . $bill['purchase_id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete purchase bill <?= e(addslashes($bill['purchase_number'])) ?> and all its items? This cannot be undone.');">
+                                            <?= CSRF::field() ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Purchase Bill">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -394,6 +407,11 @@
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
                                     <?php endif; ?>
+                                    <?php if (hasPermission('production_purchase_mapping', 'delete')): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteFabricRoll(<?= (int)$roll['id'] ?>, <?= $isDraft ? '1' : '0' ?>, '<?= e(addslashes($roll['item_name'])) ?>', '<?= e(addslashes($roll['roll_number'] ?? '')) ?>')" title="Delete Fabric Roll">
+                                            <i class="bi bi-trash me-1"></i>Delete
+                                        </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
@@ -418,8 +436,8 @@
                             <tr>
                                 <td><strong class="font-monospace"><?= e($draft['invoice_number']) ?></strong><div class="small text-muted"><?= e(date('d M Y', strtotime($draft['created_at']))) ?></div></td>
                                 <td><?= e($draft['seller_company'] ?: $draft['seller_name']) ?></td>
-                                <td><?= (int)$draft['product_count'] ?></td>
-                                <td><?= number_format((float)$draft['total_quantity'], 3) ?></td>
+                                <td><?= (int)($draft['product_count'] ?? 0) ?></td>
+                                <td><?= number_format((float)($draft['total_quantity'] ?? 0), 3) ?></td>
                                 <td><span class="badge <?= $draft['status'] === 'MOVED' ? 'bg-success' : ($draft['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($draft['status']) ?></span></td>
                                 <td>
                                     <?php if (!empty($draft['purchase_number'])): ?>
@@ -431,24 +449,36 @@
                                     <?php endif; ?>
                                 </td>
                                 <td><?= renderConcernBadge($draft) ?></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
                                     <div class="d-inline-flex gap-1 align-items-center">
                                         <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping History &amp; Stock">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
-                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
-                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Mapping Invoice">
-                                                <i class="bi bi-pencil-square me-1"></i>Edit
-                                            </a>
-                                        <?php elseif ($draft['status'] === 'MOVED' && (int)($draft['pending_qr_or_stock_count'] ?? 0) > 0 && hasPermission('production_purchase_mapping', 'edit')): ?>
-                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Continue QR Generation &amp; Add Remaining Stock">
-                                                <i class="bi bi-arrow-right-circle me-1"></i>Continue QR / Stock
-                                            </a>
+                                        <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="openEditInvoiceLogModal(<?= htmlspecialchars(json_encode($draft), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Invoice Supplier / Number">
+                                                <i class="bi bi-pencil me-1"></i>Edit
+                                            </button>
                                         <?php endif; ?>
-                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
-                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete this draft invoice and all its saved products? This cannot be undone.');">
+                                        <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Products &amp; Variants">
+                                                <i class="bi bi-pencil-square me-1"></i>Edit Items
+                                            </a>
+                                        <?php elseif ($draft['status'] === 'MOVED' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <?php if ((int)($draft['pending_qr_or_stock_count'] ?? 0) > 0): ?>
+                                                <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Continue QR Generation &amp; Add Remaining Stock">
+                                                    <i class="bi bi-arrow-right-circle me-1"></i>Continue QR / Stock
+                                                </a>
+                                            <?php else: ?>
+                                                <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Variant Details &amp; Pricing">
+                                                    <i class="bi bi-pencil-square me-1"></i>Edit Items
+                                                </a>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                        <?php if (hasPermission('production_purchase_mapping', 'delete')): ?>
+                                            <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete invoice <?= e(addslashes($draft['invoice_number'])) ?> and all its unstocked products? This cannot be undone.');">
                                                 <?= CSRF::field() ?>
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Draft Invoice">
+                                                <input type="hidden" name="return_to" value="logs">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Invoice">
                                                     <i class="bi bi-trash me-1"></i>Delete
                                                 </button>
                                             </form>
@@ -548,6 +578,59 @@
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="editRollSubmitBtn">
+                        <i class="bi bi-check-circle me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Invoice Info Modal -->
+<div class="modal fade" id="editInvoiceLogModal" tabindex="-1" aria-labelledby="editInvoiceLogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow">
+            <form id="editInvoiceLogForm" method="POST" action="">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="return_to" value="logs">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="editInvoiceLogModalLabel">
+                        <i class="bi bi-pencil-square me-2 text-primary"></i>Edit Invoice Info
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Supplier / Vendor <span class="text-danger">*</span></label>
+                        <select name="seller_id" id="editInvoiceSellerId" class="form-select" required>
+                            <option value="">-- Select Supplier --</option>
+                            <?php foreach ($sellers ?? [] as $s): ?>
+                                <option value="<?= (int)$s['id'] ?>">
+                                    <?= e($s['company'] ? ($s['company'] . ' (' . $s['name'] . ')') : $s['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Supplier Invoice Number <span class="text-danger">*</span></label>
+                        <input type="text" name="invoice_number" id="editInvoiceNumber" class="form-control font-monospace" required placeholder="e.g. INV-2026-001">
+                    </div>
+
+                    <?php if (!empty($concerns) && count($concerns) > 1): ?>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-secondary">Concern</label>
+                            <select name="concern_id" id="editInvoiceConcernId" class="form-select">
+                                <?php foreach ($concerns as $c): ?>
+                                    <option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?> (<?= e($c['code']) ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
                         <i class="bi bi-check-circle me-1"></i>Save Changes
                     </button>
                 </div>
@@ -676,6 +759,55 @@ function unmapBill(billId, billNumber) {
     form.appendChild(csrf);
     document.body.appendChild(form);
     form.submit();
+}
+
+let editInvoiceLogModalInstance = null;
+
+function openEditInvoiceLogModal(draft) {
+    const modalEl = document.getElementById('editInvoiceLogModal');
+    if (!editInvoiceLogModalInstance) {
+        editInvoiceLogModalInstance = new bootstrap.Modal(modalEl);
+    }
+    const form = document.getElementById('editInvoiceLogForm');
+    form.action = '<?= url('purchases/mapping/draft/') ?>' + draft.id + '/update';
+    document.getElementById('editInvoiceSellerId').value = draft.seller_id || '';
+    document.getElementById('editInvoiceNumber').value = draft.invoice_number || '';
+    const concernSelect = document.getElementById('editInvoiceConcernId');
+    if (concernSelect && draft.concern_id) {
+        concernSelect.value = draft.concern_id;
+    }
+    editInvoiceLogModalInstance.show();
+}
+
+async function deleteFabricRoll(itemId, isDraft, itemName, rollNumber) {
+    const label = rollNumber ? `${itemName} (Roll #${rollNumber})` : itemName;
+    if (!confirm(`Are you sure you want to delete fabric roll '${label}'? This will also remove its unstocked QR batch.`)) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('_csrf_token', '<?= CSRF::token() ?>');
+    formData.append('item_id', itemId);
+    formData.append('is_mapping_draft', isDraft ? '1' : '0');
+
+    try {
+        const response = await fetch('<?= url('purchases/mapping/delete-roll') ?>', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const res = await response.json();
+        if (res.success) {
+            window.location.hash = 'mappingFabricRollsPane';
+            window.location.reload();
+        } else {
+            alert(res.message || 'Could not delete fabric roll.');
+        }
+    } catch (err) {
+        alert('Server error: ' + err.message);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {

@@ -4091,6 +4091,7 @@ class AllmodulesController {
             'bill' => $bill,
             'viewOnly' => $viewOnly,
             'items' => $items,
+            'sellers' => Database::fetchAll("SELECT id, name, company FROM sellers ORDER BY name ASC"),
             'categories' => $categories,
             'subcategories' => $subcategories,
             'subSubcategories' => $subSubcategories,
@@ -4113,6 +4114,125 @@ class AllmodulesController {
         ]);
     }
 
+    /**
+     * Update mapping draft invoice header details (seller, invoice number, concern).
+     */
+    public function updateThirdPartyMappingDraftHeader(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Security token invalid or expired. Please try again.');
+            Response::back();
+            return;
+        }
+
+        $mappingBillId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$mappingBillId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+            $params[] = $cid;
+        }
+
+        $bill = Database::fetchOne(
+            "SELECT * FROM third_party_mapping_bills WHERE id = ?{$scope} FOR UPDATE",
+            $params
+        );
+        if (!$bill) {
+            Session::flash('error', 'Mapping invoice not found or inaccessible.');
+            Response::redirect(url('purchases/mapping?tab=logs'));
+            return;
+        }
+
+        $sellerId = (int)($_POST['seller_id'] ?? 0);
+        $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
+        $targetConcernId = isset($_POST['concern_id']) ? (int)$_POST['concern_id'] : (int)($bill['concern_id'] ?? 1);
+
+        if ($sellerId <= 0) {
+            Session::flash('error', 'Please select a valid supplier/seller.');
+            Response::back();
+            return;
+        }
+        if ($invoiceNumber === '') {
+            Session::flash('error', 'Invoice number cannot be empty.');
+            Response::back();
+            return;
+        }
+
+        // Check if invoice number is duplicate for this seller
+        $dupCheck = Database::fetchOne(
+            "SELECT id FROM third_party_mapping_bills WHERE seller_id = ? AND invoice_number = ? AND id != ?",
+            [$sellerId, $invoiceNumber, $mappingBillId]
+        );
+        if ($dupCheck) {
+            Session::flash('error', "Invoice number '{$invoiceNumber}' already exists for this supplier in QR Generations.");
+            Response::back();
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $updateFields = [
+                'seller_id = ?',
+                'invoice_number = ?',
+                'updated_at = NOW()'
+            ];
+            $updateParams = [$sellerId, $invoiceNumber];
+
+            if ($targetConcernId > 0 && ($cid === null || $cid === 1 || $cid === $targetConcernId)) {
+                $updateFields[] = 'concern_id = ?';
+                $updateParams[] = $targetConcernId;
+            }
+            $updateParams[] = $mappingBillId;
+
+            Database::execute(
+                "UPDATE third_party_mapping_bills SET " . implode(', ', $updateFields) . " WHERE id = ?",
+                $updateParams
+            );
+
+            // Sync with production_purchases if linked
+            if (!empty($bill['purchase_id'])) {
+                Database::execute(
+                    "UPDATE production_purchases
+                     SET supplier_id = ?, invoice_number = ?, updated_at = NOW()
+                     WHERE id = ?",
+                    [$sellerId, $invoiceNumber, (int)$bill['purchase_id']]
+                );
+            }
+
+            // Sync with seller_rolls if linked
+            try {
+                Database::execute(
+                    "UPDATE seller_rolls
+                     SET seller_id = ?, invoice_no = ?, updated_at = NOW()
+                     WHERE id IN (SELECT seller_roll_id FROM production_purchase_items WHERE purchase_id = ? AND seller_roll_id IS NOT NULL)",
+                    [$sellerId, $invoiceNumber, (int)($bill['purchase_id'] ?? 0)]
+                );
+            } catch (\Throwable $e) {}
+
+            Database::commit();
+
+            try {
+                AuditService::log('purchases', 'UPDATE', 'third_party_mapping_bills', $mappingBillId, null, [
+                    'seller_id' => $sellerId,
+                    'invoice_number' => $invoiceNumber,
+                ]);
+            } catch (\Throwable $e) {}
+
+            Session::flash('success', "Invoice details updated successfully.");
+        } catch (Throwable $e) {
+            Database::rollBack();
+            Session::flash('error', 'Error updating invoice details: ' . $e->getMessage());
+        }
+
+        $returnTo = trim((string)($_POST['return_to'] ?? ''));
+        if ($returnTo === 'logs') {
+            Response::redirect(url('purchases/mapping?tab=logs'));
+            return;
+        }
+        Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+    }
+
     public function deleteThirdPartyMappingDraft(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
         if (!CSRF::validateRequest()) {
@@ -4132,15 +4252,45 @@ class AllmodulesController {
         Database::beginTransaction();
         try {
             $bill = Database::fetchOne(
-                "SELECT id, invoice_number, status FROM third_party_mapping_bills WHERE id = ?{$scope} FOR UPDATE",
+                "SELECT id, invoice_number, status, purchase_id FROM third_party_mapping_bills WHERE id = ?{$scope} FOR UPDATE",
                 $params
             );
             if (!$bill) {
                 throw new InvalidArgumentException('Mapping invoice not found.');
             }
-            if ($bill['status'] !== 'DRAFT') {
-                throw new InvalidArgumentException('Only draft mapping invoices can be deleted.');
+            if ($bill['status'] !== 'DRAFT' && $bill['status'] !== 'MOVED' && $bill['status'] !== 'READY') {
+                throw new InvalidArgumentException('Invoice with status ' . $bill['status'] . ' cannot be deleted.');
             }
+
+            // Downstream guard: check if any item has posted warehouse stock
+            $stockedItem = Database::fetchOne(
+                "SELECT mi.id, mi.item_name FROM third_party_mapping_items mi
+                 JOIN qr_generations qrg ON qrg.id = mi.qr_generation_id
+                 WHERE mi.mapping_bill_id = ? AND qrg.stock_added = 1 LIMIT 1",
+                [$mappingBillId]
+            );
+            if ($stockedItem) {
+                throw new InvalidArgumentException("Cannot delete invoice because product '{$stockedItem['item_name']}' already has stock posted to warehouse inventory.");
+            }
+
+            // If linked to production_purchases, guard against GRN / Inward / Payments
+            if (!empty($bill['purchase_id'])) {
+                $hasGrn = Database::fetchOne("SELECT id FROM grn WHERE purchase_id = ? LIMIT 1", [$bill['purchase_id']]);
+                if ($hasGrn) {
+                    throw new InvalidArgumentException("Cannot delete invoice because Goods Received Note (GRN) has already been created for linked purchase.");
+                }
+                $purRow = Database::fetchOne("SELECT is_inwarded FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
+                if ($purRow && !empty($purRow['is_inwarded'])) {
+                    throw new InvalidArgumentException("Cannot delete invoice because purchase items have already been inwarded to inventory.");
+                }
+                try {
+                    $hasPayments = Database::fetchOne("SELECT id FROM purchase_payments WHERE purchase_id = ? LIMIT 1", [$bill['purchase_id']]);
+                    if ($hasPayments) {
+                        throw new InvalidArgumentException("Cannot delete invoice because payments have been recorded for linked purchase.");
+                    }
+                } catch (\Throwable $e) {}
+            }
+
             $items = Database::fetchAll(
                 "SELECT id, item_name, qr_generation_id
                  FROM third_party_mapping_items
@@ -4149,18 +4299,34 @@ class AllmodulesController {
                 [$mappingBillId]
             );
             $this->deleteUnstockedMappingQrBatches($items);
+
+            // Clean up linked production purchase records if linked
+            if (!empty($bill['purchase_id'])) {
+                Database::execute("DELETE FROM third_party_product_variants WHERE purchase_id = ?", [$bill['purchase_id']]);
+                Database::execute("DELETE FROM seller_rolls WHERE purchase_id = ?", [$bill['purchase_id']]);
+                Database::execute("DELETE FROM production_purchase_items WHERE purchase_id = ?", [$bill['purchase_id']]);
+                Database::execute("DELETE FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
+            }
+
             AuditService::log('purchases', 'DELETE', 'third_party_mapping_bills', $mappingBillId, null, [
                 'invoice_number' => $bill['invoice_number'],
                 'product_count' => count($items),
             ]);
-            if (Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ? AND status = 'DRAFT'", [$mappingBillId]) !== 1) {
-                throw new RuntimeException('The invoice status changed before it could be deleted. Refresh and try again.');
-            }
+
+            Database::execute("DELETE FROM third_party_mapping_items WHERE mapping_bill_id = ?", [$mappingBillId]);
+            Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ?", [$mappingBillId]);
+
             Database::commit();
             Session::flash('success', "Mapping invoice {$bill['invoice_number']} and its saved products were deleted.");
         } catch (Throwable $e) {
             Database::rollback();
             Session::flash('error', 'Could not delete mapping invoice: ' . $e->getMessage());
+        }
+
+        $returnTo = trim((string)($_POST['return_to'] ?? ''));
+        if ($returnTo === 'logs') {
+            Response::redirect(url('purchases/mapping?tab=logs'));
+            return;
         }
         Response::redirect(url('purchases/mapping'));
     }
@@ -4193,10 +4359,15 @@ class AllmodulesController {
             Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
             return;
         }
-        if (($item['bill_status'] ?? '') !== 'DRAFT') {
-            Session::flash('error', 'Only DRAFT mapping items can be edited.');
-            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
-            return;
+
+        // Guard: check if stock has already been added
+        if (!empty($item['qr_generation_id'])) {
+            $qrBatch = Database::fetchOne("SELECT stock_added FROM qr_generations WHERE id = ?", [$item['qr_generation_id']]);
+            if ($qrBatch && !empty($qrBatch['stock_added'])) {
+                Session::flash('error', 'Cannot edit this product because stock has already been added to warehouse inventory.');
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+                return;
+            }
         }
 
         $color = trim((string)($_POST['color'] ?? ''));
@@ -4270,6 +4441,49 @@ class AllmodulesController {
                 } catch (\Throwable $qrEx) {}
             }
 
+            // Sync linked production_purchase_items if present
+            if (!empty($item['purchase_item_id'])) {
+                try {
+                    $totalPrice = round($qty * $unitPrice, 2);
+                    Database::execute(
+                        "UPDATE production_purchase_items
+                         SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, total_price = ?
+                         WHERE id = ?",
+                        [
+                            $color !== '' ? $color : null,
+                            $size !== '' ? $size : null,
+                            $hsnCode !== '' ? $hsnCode : null,
+                            $unit,
+                            $qty,
+                            $unitPrice,
+                            $mrp,
+                            $sellingPrice,
+                            $totalPrice,
+                            (int)$item['purchase_item_id']
+                        ]
+                    );
+                    $purId = Database::fetchValue("SELECT purchase_id FROM production_purchase_items WHERE id = ?", [(int)$item['purchase_item_id']]);
+                    if ($purId) {
+                        Database::execute(
+                            "UPDATE production_purchases
+                             SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                                 updated_at = NOW()
+                             WHERE id = ?",
+                            [$purId, $purId]
+                        );
+                    }
+                } catch (\Throwable $purEx) {}
+            }
+
+            // Recalculate mapping bill total_quantity
+            Database::execute(
+                "UPDATE third_party_mapping_bills
+                 SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
+                     updated_at = NOW()
+                 WHERE id = ?",
+                [$mappingBillId, $mappingBillId]
+            );
+
             Database::commit();
             Session::flash('success', 'Saved variant updated successfully.');
         } catch (Exception $e) {
@@ -4318,14 +4532,14 @@ class AllmodulesController {
                 $billParams[] = $cid;
             }
             $bill = Database::fetchOne(
-                "SELECT id, status FROM third_party_mapping_bills WHERE id = ?{$billScope} FOR UPDATE",
+                "SELECT id, status, purchase_id FROM third_party_mapping_bills WHERE id = ?{$billScope} FOR UPDATE",
                 $billParams
             );
-            if (!$bill || $bill['status'] !== 'DRAFT') {
-                throw new InvalidArgumentException('Products can only be deleted from a draft mapping invoice.');
+            if (!$bill) {
+                throw new InvalidArgumentException('Mapping invoice not found.');
             }
             $item = Database::fetchOne(
-                "SELECT mi.id, mi.mapping_bill_id, mi.item_name, mi.qr_generation_id
+                "SELECT mi.id, mi.mapping_bill_id, mi.item_name, mi.qr_generation_id, mi.purchase_item_id
                  FROM third_party_mapping_items mi
                  WHERE mi.id = ? AND mi.mapping_bill_id = ?
                  FOR UPDATE",
@@ -4334,13 +4548,56 @@ class AllmodulesController {
             if (!$item) {
                 throw new InvalidArgumentException('Mapped product not found.');
             }
+
+            // Downstream guard: check if item has posted stock
+            if (!empty($item['qr_generation_id'])) {
+                $qrBatch = Database::fetchOne("SELECT stock_added FROM qr_generations WHERE id = ? FOR UPDATE", [$item['qr_generation_id']]);
+                if ($qrBatch && !empty($qrBatch['stock_added'])) {
+                    throw new InvalidArgumentException("Cannot delete product because stock has already been posted to warehouse inventory.");
+                }
+            }
+
+            // If linked to a purchase item, check GRN
+            if (!empty($item['purchase_item_id'])) {
+                $purItem = Database::fetchOne("SELECT grn_id, purchase_id FROM production_purchase_items WHERE id = ?", [$item['purchase_item_id']]);
+                if ($purItem && !empty($purItem['grn_id'])) {
+                    throw new InvalidArgumentException("Cannot delete product because it has already been verified in GRN.");
+                }
+            }
+
             $this->deleteUnstockedMappingQrBatches([$item]);
+
+            // If linked to purchase_item_id, clean up purchase item
+            if (!empty($item['purchase_item_id'])) {
+                Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?", [$item['purchase_item_id']]);
+                Database::execute("DELETE FROM production_purchase_items WHERE id = ?", [$item['purchase_item_id']]);
+                if (!empty($bill['purchase_id'])) {
+                    Database::execute(
+                        "UPDATE production_purchases
+                         SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                             updated_at = NOW()
+                         WHERE id = ?",
+                        [$bill['purchase_id'], $bill['purchase_id']]
+                    );
+                }
+            }
+
             if (Database::execute(
                 "DELETE FROM third_party_mapping_items WHERE id = ? AND mapping_bill_id = ?",
                 [$mappingItemId, $mappingBillId]
             ) !== 1) {
                 throw new RuntimeException('The product could not be deleted. Refresh and try again.');
             }
+
+            // Recalculate mapping bill total_quantity
+            Database::execute(
+                "UPDATE third_party_mapping_bills
+                 SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
+                     updated_at = NOW()
+                 WHERE id = ?",
+                [$mappingBillId, $mappingBillId]
+            );
+
             AuditService::log('purchases', 'DELETE', 'third_party_mapping_items', $mappingItemId, null, [
                 'item_name' => $item['item_name'],
                 'mapping_bill_id' => $mappingBillId,
@@ -5881,6 +6138,9 @@ class AllmodulesController {
             $draftParams
         );
 
+        $sellers = Database::fetchAll("SELECT id, name, company FROM sellers ORDER BY name ASC");
+        $allConcerns = Database::fetchAll("SELECT id, name, code FROM concerns ORDER BY id ASC");
+
         Response::view('allmodules.purchases.mapping', [
             'pageTitle' => 'QR Generations',
             'activeModule' => 'purchases',
@@ -5890,6 +6150,8 @@ class AllmodulesController {
             'mappingDrafts' => $mappingDrafts,
             'metrics' => $metrics,
             'categories' => $categories,
+            'sellers' => $sellers,
+            'concerns' => $allConcerns,
             'status' => $status,
             'search' => $search,
             'categoryId' => $categoryId,
@@ -7835,6 +8097,166 @@ class AllmodulesController {
     }
 
     /**
+     * AJAX endpoint to delete a fabric roll from Mapping -> Fabric Rolls tab
+     */
+    public function ajaxDeleteFabricRoll(): void {
+        header('Content-Type: application/json; charset=utf-8');
+
+        // Check CSRF
+        if (!CSRF::validateToken($_POST['_csrf_token'] ?? '')) {
+            echo json_encode(['success' => false, 'message' => 'Security token invalid or expired. Please refresh and try again.']);
+            return;
+        }
+
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        $isMappingDraft = !empty($_POST['is_mapping_draft']) && (int)$_POST['is_mapping_draft'] === 1;
+
+        if ($itemId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid roll ID provided.']);
+            return;
+        }
+
+        $cid = currentConcernId();
+        $db = Database::getInstance();
+        $db->beginTransaction();
+        try {
+            if ($isMappingDraft) {
+                $scope = '';
+                $params = [$itemId];
+                if ($cid !== null) {
+                    $scope = $cid === 1 ? ' AND (mb.concern_id = ? OR mb.concern_id IS NULL)' : ' AND mb.concern_id = ?';
+                    $params[] = $cid;
+                }
+                $mappingItem = Database::fetchOne(
+                    "SELECT mi.*, mb.status AS bill_status, mb.invoice_number, mb.concern_id AS bill_concern_id
+                     FROM third_party_mapping_items mi
+                     JOIN third_party_mapping_bills mb ON mb.id = mi.mapping_bill_id
+                     WHERE mi.id = ?{$scope} FOR UPDATE",
+                    $params
+                );
+                if (!$mappingItem) {
+                    throw new Exception("Mapping roll item #{$itemId} not found or inaccessible.");
+                }
+
+                // Check if QR batch exists and whether stock is added
+                if (!empty($mappingItem['qr_generation_id'])) {
+                    $qrBatch = Database::fetchOne(
+                        "SELECT id, stock_added FROM qr_generations WHERE id = ? FOR UPDATE",
+                        [$mappingItem['qr_generation_id']]
+                    );
+                    if ($qrBatch && !empty($qrBatch['stock_added'])) {
+                        throw new Exception("Cannot delete fabric roll because stock has already been added to warehouse inventory.");
+                    }
+                    Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [$mappingItem['qr_generation_id']]);
+                    Database::execute("DELETE FROM qr_generations WHERE id = ?", [$mappingItem['qr_generation_id']]);
+                }
+
+                Database::execute("DELETE FROM third_party_mapping_items WHERE id = ?", [$itemId]);
+
+                // Recalculate bill total quantity
+                Database::execute("
+                    UPDATE third_party_mapping_bills
+                    SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
+                        updated_at = NOW()
+                    WHERE id = ?
+                ", [$mappingItem['mapping_bill_id'], $mappingItem['mapping_bill_id']]);
+
+                try {
+                    AuditService::log('purchases', 'DELETE', 'third_party_mapping_items', $itemId, null, [
+                        'item_name' => $mappingItem['item_name'],
+                        'roll_code' => $mappingItem['roll_code'] ?? '',
+                        'mapping_bill_id' => $mappingItem['mapping_bill_id'],
+                    ]);
+                } catch (\Throwable $e) {}
+
+            } else {
+                // Production purchase item fabric roll
+                $scope = '';
+                $params = [$itemId];
+                if ($cid !== null) {
+                    $scope = $cid === 1 ? ' AND (p.concern_id = ? OR p.concern_id IS NULL)' : ' AND p.concern_id = ?';
+                    $params[] = $cid;
+                }
+                $purchaseItem = Database::fetchOne(
+                    "SELECT pi.*, p.invoice_number, p.concern_id AS purchase_concern_id, p.is_inwarded
+                     FROM production_purchase_items pi
+                     JOIN production_purchases p ON p.id = pi.purchase_id
+                     WHERE pi.id = ?{$scope} FOR UPDATE",
+                    $params
+                );
+                if (!$purchaseItem) {
+                    throw new Exception("Purchase roll item #{$itemId} not found or inaccessible.");
+                }
+
+                // Downstream guard 1: GRN check
+                $hasGrn = Database::fetchOne(
+                    "SELECT id FROM grn WHERE purchase_id = ? LIMIT 1",
+                    [$purchaseItem['purchase_id']]
+                );
+                if ($hasGrn || !empty($purchaseItem['grn_id'])) {
+                    throw new Exception("Cannot delete fabric roll because Goods Received Note (GRN) has already been created for this purchase.");
+                }
+
+                if (!empty($purchaseItem['is_inwarded'])) {
+                    throw new Exception("Cannot delete fabric roll because purchase has already been inwarded to inventory.");
+                }
+
+                // Downstream guard 2: QR stock added check
+                if (!empty($purchaseItem['qr_generation_id'])) {
+                    $qrBatch = Database::fetchOne(
+                        "SELECT id, stock_added FROM qr_generations WHERE id = ? FOR UPDATE",
+                        [$purchaseItem['qr_generation_id']]
+                    );
+                    if ($qrBatch && !empty($qrBatch['stock_added'])) {
+                        throw new Exception("Cannot delete fabric roll because stock has already been added to warehouse inventory.");
+                    }
+                    Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [$purchaseItem['qr_generation_id']]);
+                    Database::execute("DELETE FROM qr_generations WHERE id = ?", [$purchaseItem['qr_generation_id']]);
+                }
+
+                // Downstream guard 3: Cutting orders / allocations
+                if (!empty($purchaseItem['seller_roll_id'])) {
+                    $isUsedInCutting = false;
+                    try {
+                        $checkCutting = Database::fetchOne("SELECT id FROM cutting_order_rolls WHERE roll_id = ? LIMIT 1", [$purchaseItem['seller_roll_id']]);
+                        if ($checkCutting) $isUsedInCutting = true;
+                    } catch (\Throwable $e) {}
+                    if ($isUsedInCutting) {
+                        throw new Exception("Cannot delete fabric roll because it is allocated to a cutting order.");
+                    }
+                    Database::execute("DELETE FROM seller_rolls WHERE id = ?", [$purchaseItem['seller_roll_id']]);
+                }
+
+                Database::execute("DELETE FROM production_purchase_items WHERE id = ?", [$itemId]);
+
+                // Recalculate parent purchase total
+                if (!empty($purchaseItem['purchase_id'])) {
+                    Database::execute("
+                        UPDATE production_purchases
+                        SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ", [$purchaseItem['purchase_id'], $purchaseItem['purchase_id']]);
+                }
+
+                try {
+                    AuditService::log('purchases', 'DELETE', 'production_purchase_items', $itemId, null, [
+                        'item_name' => $purchaseItem['item_name'],
+                        'roll_number' => $purchaseItem['roll_number'] ?? '',
+                        'purchase_id' => $purchaseItem['purchase_id'],
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
+            $db->commit();
+            echo json_encode(['success' => true, 'message' => 'Fabric roll deleted successfully.']);
+        } catch (Throwable $e) {
+            $db->rollBack();
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Unmap / Delete Mapping for a specific purchase item.
      * Reverts item to unmapped state (is_mapped = 0) and deletes its mapped variants.
      */
@@ -7934,6 +8356,32 @@ class AllmodulesController {
         $db = Database::getInstance();
         $db->beginTransaction();
         try {
+            $hasGrn = Database::fetchOne("SELECT id FROM grn WHERE purchase_id = ? LIMIT 1", [$purchaseId]);
+            if ($hasGrn) {
+                throw new Exception("Cannot unmap bill because Goods Received Note (GRN) has already been created.");
+            }
+            $hasStockedQr = Database::fetchOne(
+                "SELECT id FROM qr_generations WHERE (source_purchase_id = ? OR id IN (
+                    SELECT qr_generation_id FROM production_purchase_items WHERE purchase_id = ? AND qr_generation_id IS NOT NULL
+                )) AND stock_added = 1 LIMIT 1",
+                [$purchaseId, $purchaseId]
+            );
+            if ($hasStockedQr) {
+                throw new Exception("Cannot unmap bill because stock has already been added to warehouse inventory.");
+            }
+
+            // Clean up unstocked QR batches linked to this purchase
+            $qrBatches = Database::fetchAll(
+                "SELECT id FROM qr_generations WHERE (source_purchase_id = ? OR id IN (
+                    SELECT qr_generation_id FROM production_purchase_items WHERE purchase_id = ? AND qr_generation_id IS NOT NULL
+                )) AND COALESCE(stock_added, 0) = 0",
+                [$purchaseId, $purchaseId]
+            );
+            foreach ($qrBatches as $qb) {
+                Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [(int)$qb['id']]);
+                Database::execute("DELETE FROM qr_generations WHERE id = ?", [(int)$qb['id']]);
+            }
+
             foreach ($items as $it) {
                 $itemId = (int)$it['id'];
                 $db->prepare("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?")->execute([$itemId]);
@@ -7953,6 +8401,7 @@ class AllmodulesController {
                         color = NULL,
                         size = NULL,
                         is_complementary = 0,
+                        qr_generation_id = NULL,
                         mapped_at = NULL,
                         mapped_by = NULL
                     WHERE id = ?
@@ -7985,6 +8434,131 @@ class AllmodulesController {
             Session::flash('error', 'Error unmapping bill: ' . $e->getMessage());
             Response::redirect(url('purchases/mapping'));
         }
+    }
+
+    /**
+     * Delete an unmapped / uninwarded purchase bill directly from Mapping Tab 1 (Purchase Bills Roster)
+     */
+    public function deleteMappingPurchaseBill(string $id): void {
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Security token invalid or expired. Please try again.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        $purchaseId = (int)$id;
+        $cid = currentConcernId();
+        $scope = '';
+        $params = [$purchaseId];
+        if ($cid !== null) {
+            $scope = $cid === 1 ? ' AND (concern_id = ? OR concern_id IS NULL)' : ' AND concern_id = ?';
+            $params[] = $cid;
+        }
+
+        $purchase = Database::fetchOne(
+            "SELECT * FROM production_purchases WHERE id = ?{$scope} FOR UPDATE",
+            $params
+        );
+        if (!$purchase) {
+            Session::flash('error', 'Purchase bill not found or inaccessible.');
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        // Guard 1: GRN check
+        $hasGrn = Database::fetchOne("SELECT id FROM grn WHERE purchase_id = ? LIMIT 1", [$purchaseId]);
+        if ($hasGrn) {
+            Session::flash('error', "Cannot delete purchase bill '{$purchase['invoice_number']}' because Goods Received Note (GRN) has already been created.");
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        // Guard 2: Inward check
+        if (!empty($purchase['is_inwarded'])) {
+            Session::flash('error', "Cannot delete purchase bill '{$purchase['invoice_number']}' because items have already been inwarded to inventory.");
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        // Guard 3: Posted warehouse stock on QR codes
+        $stockedQr = Database::fetchOne(
+            "SELECT id FROM qr_generations WHERE (source_purchase_id = ? OR id IN (
+                SELECT qr_generation_id FROM production_purchase_items WHERE purchase_id = ? AND qr_generation_id IS NOT NULL
+            )) AND stock_added = 1 LIMIT 1",
+            [$purchaseId, $purchaseId]
+        );
+        if ($stockedQr) {
+            Session::flash('error', "Cannot delete purchase bill '{$purchase['invoice_number']}' because stock has already been posted to warehouse inventory.");
+            Response::redirect(url('purchases/mapping'));
+            return;
+        }
+
+        // Guard 4: Payments
+        try {
+            $hasPayments = Database::fetchOne("SELECT id FROM purchase_payments WHERE purchase_id = ? LIMIT 1", [$purchaseId]);
+            if ($hasPayments) {
+                Session::flash('error', "Cannot delete purchase bill '{$purchase['invoice_number']}' because payments have been recorded.");
+                Response::redirect(url('purchases/mapping'));
+                return;
+            }
+        } catch (\Throwable $e) {}
+
+        // Guard 5: Purchase returns
+        try {
+            $hasReturns = Database::fetchOne("SELECT id FROM purchase_returns WHERE purchase_id = ? LIMIT 1", [$purchaseId]);
+            if ($hasReturns) {
+                Session::flash('error', "Cannot delete purchase bill '{$purchase['invoice_number']}' because return notes have been recorded.");
+                Response::redirect(url('purchases/mapping'));
+                return;
+            }
+        } catch (\Throwable $e) {}
+
+        Database::beginTransaction();
+        try {
+            // Delete unstocked QR generation items and generations
+            $qrBatches = Database::fetchAll(
+                "SELECT id FROM qr_generations WHERE source_purchase_id = ? OR id IN (
+                    SELECT qr_generation_id FROM production_purchase_items WHERE purchase_id = ? AND qr_generation_id IS NOT NULL
+                )",
+                [$purchaseId, $purchaseId]
+            );
+            foreach ($qrBatches as $qb) {
+                Database::execute("DELETE FROM qr_generation_items WHERE generation_id = ?", [(int)$qb['id']]);
+                Database::execute("DELETE FROM qr_generations WHERE id = ?", [(int)$qb['id']]);
+            }
+
+            // Delete third party product variants created for this purchase
+            Database::execute("DELETE FROM third_party_product_variants WHERE purchase_id = ?", [$purchaseId]);
+
+            // Delete seller rolls
+            Database::execute("DELETE FROM seller_rolls WHERE purchase_id = ?", [$purchaseId]);
+
+            // Delete purchase items
+            Database::execute("DELETE FROM production_purchase_items WHERE purchase_id = ?", [$purchaseId]);
+
+            // Delete or unlink mapping bills
+            Database::execute("DELETE FROM third_party_mapping_items WHERE mapping_bill_id IN (SELECT id FROM third_party_mapping_bills WHERE purchase_id = ?)", [$purchaseId]);
+            Database::execute("DELETE FROM third_party_mapping_bills WHERE purchase_id = ?", [$purchaseId]);
+
+            // Delete purchase bill
+            Database::execute("DELETE FROM production_purchases WHERE id = ?", [$purchaseId]);
+
+            Database::commit();
+
+            try {
+                AuditService::log('purchases', 'DELETE', 'production_purchases', $purchaseId, null, [
+                    'invoice_number' => $purchase['invoice_number'],
+                    'total_amount' => $purchase['total_amount'] ?? 0,
+                ]);
+            } catch (\Throwable $e) {}
+
+            Session::flash('success', "Purchase bill '{$purchase['invoice_number']}' and all its items were deleted successfully.");
+        } catch (Throwable $e) {
+            Database::rollBack();
+            Session::flash('error', 'Error deleting purchase bill: ' . $e->getMessage());
+        }
+
+        Response::redirect(url('purchases/mapping'));
     }
 
     public function deleteSellerRoll(string $id): void {

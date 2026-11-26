@@ -66,7 +66,22 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
             <?php endif; ?>
         </div>
     </div>
-    <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <?php if (!$viewOnly && hasPermission('production_purchase_mapping', 'edit')): ?>
+            <button type="button" class="btn btn-outline-warning text-dark" data-bs-toggle="modal" data-bs-target="#modalEditDraftHeader" title="Edit Invoice Details">
+                <i class="bi bi-pencil me-1"></i>Edit Invoice Info
+            </button>
+        <?php endif; ?>
+        <?php if (!$viewOnly && hasPermission('production_purchase_mapping', 'delete')): ?>
+            <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete mapping invoice <?= e(addslashes($bill['invoice_number'])) ?> and all its unstocked products? This cannot be undone.');">
+                <?= CSRF::field() ?>
+                <button type="submit" class="btn btn-outline-danger" title="Delete this invoice">
+                    <i class="bi bi-trash me-1"></i>Delete Invoice
+                </button>
+            </form>
+        <?php endif; ?>
+        <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
+    </div>
 </div>
 
 <?php if (!$viewOnly && $bill['status'] === 'READY'): ?>
@@ -512,7 +527,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     </button>
                                 </div>
                                 <?php endif; ?>
-                                <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
+                                <?php if (empty($item['stock_added']) && hasPermission('production_purchase_mapping', 'edit')): ?>
                                     <button type="button"
                                             class="btn btn-xs btn-outline-primary btn-edit-saved-item"
                                             title="Edit saved variant"
@@ -529,7 +544,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                 <?php endif; ?>
-                                <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'delete')): ?>
+                                <?php if (empty($item['stock_added']) && hasPermission('production_purchase_mapping', 'delete')): ?>
                                     <form method="POST" action="<?= url('purchases/mapping/draft/item/' . (int)$item['id'] . '/delete') ?>" class="d-inline js-draft-confirm-form" data-confirm-title="Delete Saved Product" data-confirm-msg="Delete this product and its unposted QR batch? This cannot be undone." data-confirm-btn="Yes, Delete" data-confirm-class="btn-danger">
                                         <?= CSRF::field() ?>
                                         <button class="btn btn-xs btn-outline-danger" type="submit" title="Delete product from mapping invoice">
@@ -609,6 +624,60 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                 <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Edit Draft Header Modal -->
+<div class="modal fade" id="modalEditDraftHeader" tabindex="-1" aria-labelledby="modalEditDraftHeaderLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0 rounded-3">
+            <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/update') ?>">
+                <?= CSRF::field() ?>
+                <div class="modal-header bg-light border-bottom">
+                    <h5 class="modal-title fw-bold fs-6" id="modalEditDraftHeaderLabel">
+                        <i class="bi bi-pencil-square me-2 text-primary"></i>Edit Invoice Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Supplier / Vendor <span class="text-danger">*</span></label>
+                        <select name="seller_id" class="form-select" required>
+                            <option value="">-- Select Supplier --</option>
+                            <?php foreach ($sellers ?? [] as $s): ?>
+                                <option value="<?= (int)$s['id'] ?>" <?= ((int)$s['id'] === (int)$bill['seller_id']) ? 'selected' : '' ?>>
+                                    <?= e($s['company'] ? ($s['company'] . ' (' . $s['name'] . ')') : $s['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Supplier Invoice Number <span class="text-danger">*</span></label>
+                        <input type="text" name="invoice_number" class="form-control font-monospace" value="<?= e($bill['invoice_number']) ?>" required placeholder="e.g. INV-2026-001">
+                    </div>
+
+                    <?php if (!empty($concerns) && count($concerns) > 1): ?>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-secondary">Concern</label>
+                            <select name="concern_id" class="form-select">
+                                <?php foreach ($concerns as $c): ?>
+                                    <option value="<?= (int)$c['id'] ?>" <?= ((int)$c['id'] === (int)($bill['concern_id'] ?? 1)) ? 'selected' : '' ?>>
+                                        <?= e($c['name']) ?> (<?= e($c['code']) ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

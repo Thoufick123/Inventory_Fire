@@ -214,12 +214,23 @@ tr.table-danger, tr.table-danger > td {
                 <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">QR Generation Finished</li>
             </ol>
         </nav>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <a href="<?= url('purchases/view/' . (int)$purchase['id']) ?>" class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm" title="View Purchase Bill">
+                <i class="bi bi-eye"></i> View Purchase
+            </a>
             <?php if (!empty($activeItem['is_mapped']) && empty($activeItem['qr_generation_id']) && empty($activeItem['qr_batch_code'])): ?>
                 <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=' . (int)$purchase['id'] . '&purchase_item_id=' . $activeItemId) ?>"
                    class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
                     <i class="bi bi-qr-code"></i> Generate QR
                 </a>
+            <?php endif; ?>
+            <?php if (!empty($purchase['id']) && hasPermission('production_purchase_mapping', 'delete')): ?>
+                <form method="POST" action="<?= url('purchases/mapping/unmap-bill/' . (int)$purchase['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to reset and unmap all items on this bill?');">
+                    <?= CSRF::field() ?>
+                    <button type="submit" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm text-dark" title="Reset all mappings for this bill">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset Mapping
+                    </button>
+                </form>
             <?php endif; ?>
             <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
                 <i class="bi bi-arrow-left"></i> Back to Register

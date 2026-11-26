@@ -267,6 +267,7 @@ class Router {
         $this->get('allmodules/purchases/mapping/draft/{id}', 'AllmodulesController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('allmodules/purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('allmodules/purchases/mapping/draft/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftHeader', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('allmodules/purchases/mapping/draft/item/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
@@ -292,10 +293,12 @@ class Router {
         $this->get('allmodules/purchases/mapping/edit/{id}', 'AllmodulesController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/save', 'AllmodulesController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('allmodules/purchases/mapping/edit-roll', 'AllmodulesController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('allmodules/purchases/mapping/delete-roll', 'AllmodulesController', 'ajaxDeleteFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('allmodules/purchases/mapping/add-product', 'AllmodulesController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('allmodules/purchases/mapping/delete-product/{id}', 'AllmodulesController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('allmodules/purchases/mapping/unmap/{id}', 'AllmodulesController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('allmodules/purchases/mapping/unmap-bill/{id}', 'AllmodulesController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('allmodules/purchases/mapping/bill/{id}/delete', 'AllmodulesController', 'deleteMappingPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->get('api/purchases/mapping/item/{id}', 'AllmodulesController', 'ajaxGetThirdPartyItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('allmodules/purchases/mapping/catalog', 'AllmodulesController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->get('allmodules/purchases/mapping/catalog/create', 'AllmodulesController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
@@ -329,6 +332,7 @@ class Router {
         $this->get('purchases/mapping/draft/{id}', 'AllmodulesController', 'viewThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->get('purchases/mapping/draft/{id}/view', 'AllmodulesController', 'viewThirdPartyMappingDraftReadOnly', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->post('purchases/mapping/draft/{id}/add-product', 'AllmodulesController', 'addThirdPartyMappingDraftProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
+        $this->post('purchases/mapping/draft/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftHeader', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraft', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/draft/item/{id}/update', 'AllmodulesController', 'updateThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/draft/item/{id}/delete', 'AllmodulesController', 'deleteThirdPartyMappingDraftItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
@@ -342,10 +346,12 @@ class Router {
         $this->get('purchases/mapping/edit/{id}', 'AllmodulesController', 'thirdPartyMappingEdit', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/save', 'AllmodulesController', 'saveThirdPartyMapping', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
         $this->post('purchases/mapping/edit-roll', 'AllmodulesController', 'ajaxUpdateFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'edit']]);
+        $this->post('purchases/mapping/delete-roll', 'AllmodulesController', 'ajaxDeleteFabricRoll', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/add-product', 'AllmodulesController', 'ajaxAddBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('purchases/mapping/delete-product/{id}', 'AllmodulesController', 'ajaxDeleteBillMappingProduct', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/unmap/{id}', 'AllmodulesController', 'unmapPurchaseItem', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->post('purchases/mapping/unmap-bill/{id}', 'AllmodulesController', 'unmapPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
+        $this->post('purchases/mapping/bill/{id}/delete', 'AllmodulesController', 'deleteMappingPurchaseBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'delete']]);
         $this->get('purchases/mapping/catalog', 'AllmodulesController', 'thirdPartyCatalogList', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'view']]);
         $this->get('purchases/mapping/catalog/create', 'AllmodulesController', 'createThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
         $this->post('purchases/mapping/catalog/store', 'AllmodulesController', 'storeThirdPartyCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'production_purchase_mapping', 'create']]);
