@@ -1280,27 +1280,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const pool = poolTagsForGroup(sourceItem);
-        const newEntries = availableToAssign.slice(0, actualAdd).map(nextTag => {
-            const cloned = {
-                ...sourceItem,
-                available_tags: [...pool],
-                tags: [nextTag]
-            };
-            return [getItemKey(cloned, nextTag), cloned];
-        });
-
-        const rebuilt = new Map();
-        cart.forEach((val, key) => {
-            rebuilt.set(key, val);
-            if (key === sourceKey) {
-                newEntries.forEach(([newKey, newVal]) => {
-                    rebuilt.set(newKey, newVal);
-                });
-            }
-        });
-
-        cart.clear();
-        rebuilt.forEach((val, key) => cart.set(key, val));
+        sourceItem.available_tags = [...pool];
+        if (!Array.isArray(sourceItem.tags)) sourceItem.tags = [];
+        sourceItem.tags.push(...availableToAssign.slice(0, actualAdd));
 
         renderCart();
         showSuccessToast();
@@ -1361,10 +1343,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 mainVarBadge.textContent = `Variant: ${mainVarCode}`;
                 badgeWrap.append(mainVarBadge);
             }
-            if (pieceTag) {
+            const qrDisplayCode = mainVarCode || pieceTag;
+            if (qrDisplayCode) {
                 const tagBadge = document.createElement('span');
                 tagBadge.className = 'badge bg-dark text-white font-monospace';
-                tagBadge.textContent = `QR: ${pieceTag}`;
+                tagBadge.textContent = `QR: ${qrDisplayCode}`;
                 badgeWrap.append(tagBadge);
             }
             if (item.price_edited) {
@@ -1407,7 +1390,12 @@ document.addEventListener('DOMContentLoaded', () => {
             minusBtn.className = 'btn btn-outline-secondary';
             minusBtn.innerHTML = '<i class="bi bi-dash"></i>';
             minusBtn.addEventListener('click', () => {
-                showStockToast('Minimum quantity is 1', 'To remove this piece, click the trash button on the right.');
+                if (Array.isArray(item.tags) && item.tags.length > 1) {
+                    item.tags.pop();
+                    renderCart();
+                } else {
+                    showStockToast('Minimum quantity is 1', 'To remove this item, click the trash button on the right.');
+                }
             });
 
             const quantityInput = document.createElement('input');
@@ -1415,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
             quantityInput.inputMode = 'numeric';
             quantityInput.autocomplete = 'off';
             quantityInput.setAttribute('aria-label', 'Quantity');
-            quantityInput.value = '1';
+            quantityInput.value = String(qty);
             quantityInput.className = 'form-control form-control-sm text-center fw-bold font-monospace billing-qty-input';
             quantityInput.dataset.qtyInputFor = itemKey;
 
@@ -1427,41 +1415,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 expandRowByPieces(itemKey, 1);
             });
 
+            const applyRequestedQty = (rawVal) => {
+                const requestedQuantity = parseInt(rawVal || '1', 10);
+                const curQty = Array.isArray(item.tags) ? item.tags.length : 1;
+                if (isNaN(requestedQuantity) || requestedQuantity < 1) {
+                    quantityInput.value = String(curQty);
+                    return;
+                }
+                if (requestedQuantity > curQty) {
+                    expandRowByPieces(itemKey, requestedQuantity - curQty);
+                } else if (requestedQuantity < curQty) {
+                    item.tags = item.tags.slice(0, requestedQuantity);
+                    renderCart();
+                }
+            };
+
             bindNumericInputValidation(quantityInput, {
                 allowDecimal: false,
                 min: 1,
-                max: Math.max(1, remainingStock + 1),
+                max: Math.max(1, qty + remainingStock),
                 allowEmpty: false,
-                defaultValue: '1',
-                onNormalize: (val) => {
-                    const qty = parseInt(val || '1', 10);
-                    if (qty > 1) {
-                        quantityInput.value = '1';
-                        expandRowByPieces(itemKey, qty - 1);
-                    } else {
-                        quantityInput.value = '1';
-                    }
-                }
-            });
-
-            quantityInput.addEventListener('input', () => {
-                const rawVal = quantityInput.value.trim();
-                if (rawVal === '') return;
-                const requestedQuantity = parseInt(rawVal, 10);
-                if (requestedQuantity > 1) {
-                    quantityInput.value = '1';
-                    expandRowByPieces(itemKey, requestedQuantity - 1);
-                }
+                defaultValue: String(qty),
+                onNormalize: (val) => applyRequestedQty(val)
             });
 
             quantityInput.addEventListener('change', () => {
-                const requestedQuantity = parseInt(quantityInput.value, 10);
-                if (isNaN(requestedQuantity) || requestedQuantity <= 1) {
-                    quantityInput.value = '1';
-                } else {
-                    quantityInput.value = '1';
-                    expandRowByPieces(itemKey, requestedQuantity - 1);
-                }
+                applyRequestedQty(quantityInput.value);
             });
 
             qtyGroup.append(minusBtn, quantityInput, plusBtn);
@@ -1751,14 +1730,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const entry = {
-            ...item,
-            discount_percentage: resolveDiscountPercentage(item),
-            available_tags: [...pool],
-            tags: [chosenTag]
-        };
-        const pieceKey = getItemKey(entry, chosenTag);
-        cart.set(pieceKey, entry);
+        const groupKey = getGroupKey(item);
+        const existing = cart.get(groupKey);
+        if (existing) {
+            existing.available_tags = [...pool];
+            if (!Array.isArray(existing.tags)) existing.tags = [];
+            existing.tags.push(chosenTag);
+        } else {
+            const entry = {
+                ...item,
+                discount_percentage: resolveDiscountPercentage(item),
+                available_tags: [...pool],
+                tags: [chosenTag]
+            };
+            cart.set(groupKey, entry);
+        }
         renderCart();
         showSuccessToast();
 
