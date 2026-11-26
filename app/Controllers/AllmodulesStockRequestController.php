@@ -176,7 +176,7 @@ class AllmodulesStockRequestController
         ];
 
         Response::view('allmodules.stock_requests.index', [
-            'pageTitle'            => 'Stock Request & Inter-Module Requests | Production Unit',
+            'pageTitle'            => 'Stock Request',
             'activeModule'         => 'production',
             'activeMenu'           => 'prod-stock-requests',
             'activeTab'            => $activeTab,

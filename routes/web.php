@@ -462,25 +462,12 @@ class Router {
         $this->get('allmodules/variants/edit/{id}', 'VariantController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
         $this->post('allmodules/variants/update/{id}', 'VariantController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
         $this->post('allmodules/variants/toggle/{id}', 'VariantController', 'toggle', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'edit']]);
+        $this->post('allmodules/variants/delete/{id}', 'VariantController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'delete']]);
         $this->get('allmodules/variants/qr-label/{id}', 'VariantController', 'printQrLabel', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
         $this->post('allmodules/variants/print-labels', 'VariantController', 'printBatchQrLabels', ['AuthMiddleware', ['PermissionMiddleware', 'variants', 'view']]);
 
-        // QR Code Generation Module (Manual & Catalog/Variant Modes)
-        $this->get('allmodules/qr-generations', 'QrGenerationController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->get('allmodules/qr-generations/create', 'QrGenerationController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/store-manual', 'QrGenerationController', 'storeManual', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/store-catalog', 'QrGenerationController', 'storeCatalog', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/store-purchase', 'QrGenerationController', 'storePurchaseBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/store-stitching', 'QrGenerationController', 'storeStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/add-to-stock/{id}', 'QrGenerationController', 'addToStock', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->get('allmodules/qr-generations/view/{id}', 'QrGenerationController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->get('allmodules/qr-generations/edit/{id}', 'QrGenerationController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->post('allmodules/qr-generations/edit/{id}', 'QrGenerationController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'create']]);
-        $this->get('allmodules/qr-generations/print/{id}', 'QrGenerationController', 'printLabels', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'view']]);
-        $this->post('allmodules/qr-generations/delete/{id}', 'QrGenerationController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'qr_generation', 'delete']]);
-
         // Variant & Design AJAX APIs
-        $variantViewPerms = [['variants', 'view'], ['catalog', 'view'], ['qr_generation', 'view'], ['production_billing', 'create']];
+        $variantViewPerms = [['variants', 'view'], ['catalog', 'view'], ['production_billing', 'create']];
         $designCreatePerms = [['variants', 'create'], ['variants', 'edit'], ['catalog', 'create'], ['catalog', 'edit']];
         $this->get('api/variants/catalogs', 'VariantController', 'ajaxCatalogs', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);
         $this->get('api/variants/preview-sku', 'VariantController', 'ajaxPreviewSku', ['AuthMiddleware', ['PermissionMiddleware', $variantViewPerms]]);

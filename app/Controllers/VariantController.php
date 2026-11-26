@@ -240,6 +240,75 @@ class VariantController {
     }
 
     /**
+     * Permanently delete a product variant.
+     */
+    public function delete(string $id): void {
+        if (!CSRF::validateRequest()) {
+            Session::flash('error', 'Invalid security token. Please try again.');
+            Response::redirect(url('production/variants'));
+            return;
+        }
+        if (!hasPermission('variants', 'delete')) {
+            Session::flash('error', 'You do not have permission to delete product variants.');
+            Response::redirect(url('production/variants'));
+            return;
+        }
+
+        $variantId = (int)$id;
+        $variant = ProductVariant::find($variantId);
+        if (!$variant) {
+            Session::flash('error', 'Variant not found.');
+            Response::redirect(url('production/variants'));
+            return;
+        }
+
+        try {
+            Database::beginTransaction();
+
+            // Clean up child references so the variant can be permanently deleted
+            $cleanupTables = [
+                'stock_transactions',
+                'stock_balances',
+                'stock_adjustments',
+                'warehouse_damages',
+                'qc_items',
+                'stitching_items',
+                'cutting_items',
+                'production_batch_items',
+                'production_program_items',
+                'purchase_inward_items',
+                'purchase_items',
+            ];
+            foreach ($cleanupTables as $table) {
+                try {
+                    Database::execute("DELETE FROM `{$table}` WHERE variant_id = ?", [$variantId]);
+                } catch (\Throwable $ignored) {}
+            }
+            foreach (['production_purchase_items', 'product_price_logs'] as $nullableTable) {
+                try {
+                    Database::execute("UPDATE `{$nullableTable}` SET variant_id = NULL WHERE variant_id = ?", [$variantId]);
+                } catch (\Throwable $ignored) {}
+            }
+
+            Database::execute("DELETE FROM product_variants WHERE id = ?", [$variantId]);
+            Database::commit();
+
+            if (class_exists('AuditService')) {
+                AuditService::log('production', 'DELETE', 'product_variants', $variantId, $variant, null);
+            }
+            Session::flash('success', "Variant {$variant['variant_code']} deleted permanently.");
+        } catch (\Throwable $e) {
+            if (Database::inTransaction()) {
+                Database::rollback();
+            }
+            error_log('Variant delete failed: ' . $e->getMessage());
+            Session::flash('error', "Cannot delete variant {$variant['variant_code']}: " . $e->getMessage());
+        }
+
+        Response::redirect(url('production/variants'));
+    }
+
+    /**
      * Render a single printable thermal QR label for a variant.
      */
     public function printQrLabel(string $id): void {

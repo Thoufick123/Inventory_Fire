@@ -535,9 +535,11 @@
             </div>
         </div>
     </div>
-    <div class="d-flex justify-content-end gap-2 mb-4 mt-3">
-        <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary px-4">Cancel</a>
-        <button type="submit" id="savePurchaseSubmitBtn" class="btn btn-primary px-4"><i class="bi bi-check-circle me-1"></i>Save Purchase</button>
+    <div class="card shadow-sm border mb-4 mt-3">
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center py-3 px-4">
+            <a href="<?= url('purchases') ?>" class="btn btn-outline-secondary px-4">Cancel</a>
+            <button type="submit" id="savePurchaseSubmitBtn" class="btn btn-primary px-4"><i class="bi bi-check-circle me-1"></i>Save Purchase</button>
+        </div>
     </div>
 </form>
 

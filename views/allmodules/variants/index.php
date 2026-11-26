@@ -2,16 +2,6 @@
     <div>
         <h2 class="mb-1"><i class="bi bi-grid-3x3-gap-fill me-2 text-primary"></i>Product Variants</h2>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <?php if (hasPermission('catalog', 'create')): ?>
-        <a href="<?= url('production/variants/create') ?>" class="btn btn-primary shadow-sm">
-            <i class="bi bi-plus-circle-fill me-1"></i> Create Variant
-        </a>
-        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalQuickAddDesign">
-            <i class="bi bi-palette-fill me-1"></i> Add Design / Pattern
-        </button>
-        <?php endif; ?>
-    </div>
 </div>
 
 <!-- KPI Summary Cards -->
@@ -80,7 +70,7 @@
         <form method="GET" action="<?= url('production/variants') ?>" id="variantsFilterForm" class="row g-2 align-items-end">
             <!-- Search -->
             <div class="col-lg-3 col-md-6">
-                <label class="form-label small text-muted fw-semibold mb-1">Search Variant / SKU / QR</label>
+                <label class="form-label small text-muted fw-semibold mb-1">Search Variant</label>
                 <div class="input-group">
                     <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
                     <input type="text" name="search" class="form-control" placeholder="Search by SKU, V-ID, Style, QR..." value="<?= e($filters['search'] ?? '') ?>">
@@ -325,22 +315,15 @@
                                 <a href="<?= url('production/variants/view/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-info" title="View Details">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="<?= url('production/variants/qr-label/' . $v['id']) ?>" target="_blank" class="btn btn-action-icon btn-outline-secondary" title="Print Single QR Label">
-                                    <i class="bi bi-printer"></i>
-                                </a>
-                                <button type="button" class="btn btn-action-icon btn-outline-success" onclick="openBatchPrintModal(<?= (int)$v['id'] ?>, '<?= e($v['variant_code']) ?>')" title="Batch Print Labels">
-                                    <i class="bi bi-grid-3x2-gap"></i>
-                                </button>
-                                <?php if (hasPermission('catalog', 'edit')): ?>
+                                <?php if (hasPermission('variants', 'edit') || hasPermission('catalog', 'edit')): ?>
                                 <a href="<?= url('production/variants/edit/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-primary" title="Edit Details">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="<?= url('production/variants/toggle/' . $v['id']) ?>" class="btn btn-action-icon btn-outline-<?= (int)$v['is_active'] === 1 ? 'danger' : 'success' ?>" title="<?= (int)$v['is_active'] === 1 ? 'Deactivate Variant' : 'Activate Variant' ?>" onclick="event.preventDefault(); if (confirm('Change active status for this variant?')) { document.getElementById('toggleVariantForm_<?= $v['id'] ?>').submit(); }">
-                                    <i class="bi bi-power"></i>
-                                </a>
-                                <form id="toggleVariantForm_<?= $v['id'] ?>" method="POST" action="<?= url('production/variants/toggle/' . $v['id']) ?>" class="d-none">
-                                    <?= csrf_field() ?>
-                                </form>
+                                <?php endif; ?>
+                                <?php if (hasPermission('variants', 'delete')): ?>
+                                <button type="button" class="btn btn-action-icon btn-outline-danger" title="Delete Variant" data-id="<?= (int)$v['id'] ?>" data-code="<?= e($v['variant_code']) ?>" data-product="<?= e($v['product_name'] ?? '') ?>" onclick="openDeleteVariantModal(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -538,4 +521,47 @@ function submitQuickAddDesign() {
         errBox.classList.remove('d-none');
     });
 }
+
+function openDeleteVariantModal(btn) {
+    const id = btn.dataset.id || '';
+    const variantCode = btn.dataset.code || '';
+    const productName = btn.dataset.product || '';
+    document.getElementById('deleteVariantForm').action = '<?= url("allmodules/variants/delete") ?>/' + id;
+    document.getElementById('deleteVariantCodeText').textContent = variantCode || ('#' + id);
+    document.getElementById('deleteVariantProductText').textContent = productName || '—';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDeleteVariant')).show();
+}
 </script>
+
+<!-- Modal: Delete Variant Confirmation -->
+<div class="modal fade" id="modalDeleteVariant" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" id="deleteVariantForm" action="">
+                <?= csrf_field() ?>
+                <div class="modal-header bg-danger text-white py-3">
+                    <h5 class="modal-title fs-6 fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Product Variant</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+                        <i class="bi bi-exclamation-triangle-fill text-warning fs-5 mt-0.5"></i>
+                        <div class="small">
+                            <strong>Warning:</strong> This action will permanently delete this variant from the system and database. This cannot be undone.
+                        </div>
+                    </div>
+                    <div class="bg-light border rounded p-3 small">
+                        <div class="mb-1"><span class="text-muted">Variant ID:</span> <strong class="font-monospace text-dark" id="deleteVariantCodeText"></strong></div>
+                        <div><span class="text-muted">Catalog:</span> <strong class="text-dark" id="deleteVariantProductText"></strong></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger btn-sm fw-semibold">
+                        <i class="bi bi-trash-fill me-1"></i>Confirm Delete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

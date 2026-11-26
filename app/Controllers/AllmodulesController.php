@@ -412,6 +412,8 @@ class AllmodulesController {
         $damageFilter = trim($_GET['damage_filter'] ?? '');
 
         $sql = "SELECT s.*,
+                       c.name AS concern_name,
+                       c.code AS concern_code,
                        (SELECT COUNT(DISTINCT rd.id)
                         FROM roll_damages rd
                         LEFT JOIN seller_rolls sr ON rd.seller_roll_id = sr.id
@@ -428,6 +430,7 @@ class AllmodulesController {
                                OR (rd.replacement_roll_number IS NOT NULL AND rd.replacement_roll_number != ''))
                        ) AS replaced_count
                 FROM sellers s 
+                LEFT JOIN concerns c ON c.id = COALESCE(s.concern_id, 1)
                 WHERE s.seller_type = 'MATERIAL_SUPPLIER' 
                   AND (s.is_active = 1 OR s.is_active IS NULL) 
                   AND s.production_deleted_at IS NULL";
@@ -445,9 +448,10 @@ class AllmodulesController {
 
         if ($search !== '') {
             $sql .= " AND (s.name LIKE ? OR s.company LIKE ? OR s.phone LIKE ? OR s.city LIKE ?
-                OR s.state LIKE ? OR s.gst_number LIKE ? OR s.address LIKE ?)";
+                OR s.state LIKE ? OR s.gst_number LIKE ? OR s.address LIKE ?
+                OR c.name LIKE ? OR c.code LIKE ?)";
             $s = '%' . $search . '%';
-            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s]);
+            $params = array_merge($params, [$s, $s, $s, $s, $s, $s, $s, $s, $s]);
         }
 
         if ($city !== '') {
@@ -498,13 +502,13 @@ class AllmodulesController {
     public function createSeller(): void {
         self::ensureDatabaseSchema();
         Response::view('allmodules.sellers.profile_create', [
-            'pageTitle'    => 'Add Material Supplier',
+            'pageTitle'    => 'Add Seller',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Sellers', 'url' => url('production/sellers')],
-                ['label' => 'Add Supplier'],
+                ['label' => 'Add Seller'],
             ],
         ]);
     }
@@ -956,7 +960,7 @@ class AllmodulesController {
         });
 
         Response::view('allmodules.sellers.profile_view', [
-            'pageTitle'                 => 'Supplier Details — ' . $seller['name'],
+            'pageTitle'                 => 'Seller Details — ' . $seller['name'],
             'activeModule'              => 'production',
             'activeMenu'                => 'prod-sellers',
             'seller'                    => $seller,
@@ -1014,14 +1018,14 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.sellers.profile_edit', [
-            'pageTitle'    => 'Edit Material Supplier',
+            'pageTitle'    => 'Edit Seller',
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
             'seller'       => $seller,
             'breadcrumb'   => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Sellers', 'url' => url('production/sellers')],
-                ['label' => 'Edit Supplier'],
+                ['label' => 'Edit Seller'],
             ],
         ]);
     }
@@ -1181,16 +1185,16 @@ class AllmodulesController {
         $connections = self::getSupplierConnectedRecords((int)$id);
 
         Response::view('allmodules.sellers.delete_confirm', [
-            'pageTitle'    => 'Confirm Supplier Deletion — ' . $seller['name'],
+            'pageTitle'    => 'Confirm Seller Deletion — ' . $seller['name'],
             'activeModule' => 'production',
             'activeMenu'   => 'prod-sellers',
             'seller'       => $seller,
             'connections'  => $connections,
             'canDelete'    => $connections['can_delete'],
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Sellers', 'url' => url('production/sellers')],
-                ['label' => 'Delete Supplier'],
+                ['label' => 'Delete Seller'],
             ],
         ]);
     }
@@ -1410,7 +1414,7 @@ class AllmodulesController {
         )['cnt'] ?? 0);
 
         Response::view('allmodules.purchases.index', [
-            'pageTitle' => 'Purchases & Procurement',
+            'pageTitle' => 'Purchases',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-all',
             'purchases' => $purchases,
@@ -3564,15 +3568,15 @@ class AllmodulesController {
         $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
 
         Response::view('allmodules.purchases.mapping_create', [
-            'pageTitle' => 'Create Mapping Entry',
+            'pageTitle' => 'Create Bill Creation',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'sellers' => $sellers,
             'selectedSellerId' => $selectedSellerId,
             'invoiceNumber' => $invoiceNumber,
             'breadcrumb' => [
-                ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
-                ['label' => 'Create Mapping Entry'],
+                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
+                ['label' => 'Create Bill Creation'],
             ],
         ]);
     }
@@ -4078,7 +4082,7 @@ class AllmodulesController {
         } catch (\Throwable $e) {}
 
         Response::view('allmodules.purchases.mapping_draft', [
-            'pageTitle' => 'Mapping Invoice ' . $bill['invoice_number'],
+            'pageTitle' => 'Bill Creation Invoice ' . $bill['invoice_number'],
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'bill' => $bill,
@@ -4099,8 +4103,8 @@ class AllmodulesController {
             'hsnList' => $hsnList,
             'qrItemMap' => $qrItemMap,
             'breadcrumb' => [
-                ['label' => 'Purchase Item Mapping', 'url' => url('purchases/mapping')],
-                ['label' => 'Mapping Invoice ' . $bill['invoice_number']],
+                ['label' => 'Bill Creations', 'url' => url('purchases/mapping')],
+                ['label' => 'Bill Creation Invoice ' . $bill['invoice_number']],
             ],
         ]);
     }
@@ -5856,7 +5860,7 @@ class AllmodulesController {
         );
 
         Response::view('allmodules.purchases.mapping', [
-            'pageTitle' => 'Purchase Item Mapping',
+            'pageTitle' => 'Bill Creations',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
             'items' => $items,
@@ -5869,7 +5873,7 @@ class AllmodulesController {
             'categoryId' => $categoryId,
             'breadcrumb' => [
                 ['label' => 'Purchases', 'url' => url('purchases')],
-                ['label' => 'Purchase Item Mapping'],
+                ['label' => 'Bill Creations'],
             ],
         ]);
     }
@@ -16937,7 +16941,7 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.batches.index', [
-            'pageTitle'    => 'Finished Production Batches',
+            'pageTitle'    => 'Batches',
             'activeModule' => 'production',
             'activeMenu'   => 'batches',
             'batches'      => $batches,
@@ -16945,8 +16949,8 @@ class AllmodulesController {
             'filters'      => $filters,
             'scopedUnitId' => $scopedUnitId,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
-                ['label' => 'Finished Batches'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Batches'],
             ],
         ]);
     }
@@ -17401,7 +17405,7 @@ class AllmodulesController {
             'includeRework'             => $includeRework ?? false,
             'totalQCRework'             => $totalQCRework ?? 0,
             'breadcrumb'                => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Batches', 'url' => url('production/batches')],
                 ['label' => 'Pack Batch'],
             ],
@@ -17749,7 +17753,7 @@ class AllmodulesController {
             'bill'         => $bill,
             'billItems'    => $billItems,
             'breadcrumb'   => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Batches', 'url' => url('production/batches')],
                 ['label' => $batch['batch_number'] ?? ('#' . $batchId)],
             ],
@@ -17910,7 +17914,7 @@ class AllmodulesController {
             'search'          => $search,
             'scopedUnitId'    => $scopedUnitId,
             'breadcrumb'      => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Outward & Dispatch'],
             ],
         ]);
@@ -21506,7 +21510,7 @@ class AllmodulesController {
             'stockHistory'        => $stockHistory,
             'mode'                => $mode,
             'breadcrumb'          => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Inventory', 'url' => url('production/inventory')],
                 ['label' => 'Supply Inward #' . $supplyItemId],
             ],
@@ -21556,7 +21560,7 @@ class AllmodulesController {
             'unitStats'     => $unitStats,
             'stageCounts'   => $stageCounts,
             'breadcrumb'    => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Analytics & Reports'],
             ],
         ]);
@@ -21588,11 +21592,31 @@ class AllmodulesController {
     }
 
     public function wastageList(): void {
-        $search = trim($_GET['search'] ?? '');
-        $type = trim($_GET['type'] ?? '');
-        $batchFilter = trim($_GET['cutting_batch_id'] ?? '');
-        $dateFrom = trim($_GET['date_from'] ?? '');
-        $dateTo = trim($_GET['date_to'] ?? '');
+        $requestedTab = strtolower(trim($_GET['tab'] ?? 'cutting'));
+        $activeTab = $requestedTab === 'stitching' ? 'stitching' : 'cutting';
+        $cuttingData = $this->getCuttingWastageData($activeTab === 'cutting');
+        $stitchingData = $this->getStitchingWastageData($activeTab === 'stitching');
+
+        Response::view('allmodules.wastage.combined', [
+            'pageTitle'     => 'Wastage Selling',
+            'activeModule'  => 'production',
+            'activeMenu'    => $activeTab === 'stitching' ? 'stitching-wastage' : 'wastage-selling',
+            'activeTab'     => $activeTab,
+            'cuttingData'   => $cuttingData,
+            'stitchingData' => $stitchingData,
+            'breadcrumb'    => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Wastage Selling'],
+            ],
+        ]);
+    }
+
+    private function getCuttingWastageData(bool $applyFilters = true): array {
+        $search = $applyFilters ? trim($_GET['search'] ?? '') : '';
+        $type = $applyFilters ? trim($_GET['type'] ?? '') : '';
+        $batchFilter = $applyFilters ? trim($_GET['cutting_batch_id'] ?? '') : '';
+        $dateFrom = $applyFilters ? trim($_GET['date_from'] ?? '') : '';
+        $dateTo = $applyFilters ? trim($_GET['date_to'] ?? '') : '';
 
         $sql = "SELECT ws.*, 
                        cb.batch_number as cutting_batch_number,
@@ -21717,10 +21741,7 @@ class AllmodulesController {
 
         $programs = Database::fetchAll("SELECT id, program_number, name FROM production_programs ORDER BY id DESC LIMIT 50");
 
-        Response::view('allmodules.wastage.index', [
-            'pageTitle'      => 'Fabric & Cutting Wastage Selling',
-            'activeModule'   => 'production',
-            'activeMenu'     => 'wastage-selling',
+        return [
             'sales'          => $sales,
             'stats'          => $stats,
             'cuttingBatches' => $cuttingBatches,
@@ -21730,11 +21751,7 @@ class AllmodulesController {
             'cuttingBatchId' => $batchFilter,
             'dateFrom'       => $dateFrom,
             'dateTo'         => $dateTo,
-            'breadcrumb'     => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Cutting Wastage'],
-            ],
-        ]);
+        ];
     }
 
     public function storeWastage(): void {
@@ -22303,12 +22320,32 @@ class AllmodulesController {
     // =========================================================================
 
     public function stitchingWastageList(): void {
-        $search = trim($_GET['search'] ?? '');
-        $type = trim($_GET['type'] ?? '');
-        $status = trim($_GET['payment_status'] ?? '');
-        $batchFilter = trim($_GET['stitching_batch_id'] ?? '');
-        $dateFrom = trim($_GET['date_from'] ?? '');
-        $dateTo = trim($_GET['date_to'] ?? '');
+        $requestedTab = strtolower(trim($_GET['tab'] ?? 'stitching'));
+        $activeTab = $requestedTab === 'cutting' ? 'cutting' : 'stitching';
+        $cuttingData = $this->getCuttingWastageData($activeTab === 'cutting');
+        $stitchingData = $this->getStitchingWastageData($activeTab === 'stitching');
+
+        Response::view('allmodules.wastage.combined', [
+            'pageTitle'     => 'Wastage Selling',
+            'activeModule'  => 'production',
+            'activeMenu'    => $activeTab === 'cutting' ? 'wastage-selling' : 'stitching-wastage',
+            'activeTab'     => $activeTab,
+            'cuttingData'   => $cuttingData,
+            'stitchingData' => $stitchingData,
+            'breadcrumb'    => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Wastage Selling'],
+            ],
+        ]);
+    }
+
+    private function getStitchingWastageData(bool $applyFilters = true): array {
+        $search = $applyFilters ? trim($_GET['search'] ?? '') : '';
+        $type = $applyFilters ? trim($_GET['type'] ?? '') : '';
+        $status = $applyFilters ? trim($_GET['payment_status'] ?? '') : '';
+        $batchFilter = $applyFilters ? trim($_GET['stitching_batch_id'] ?? '') : '';
+        $dateFrom = $applyFilters ? trim($_GET['date_from'] ?? '') : '';
+        $dateTo = $applyFilters ? trim($_GET['date_to'] ?? '') : '';
 
         $sql = "SELECT sws.*, 
                        sb.batch_number as stitching_batch_number,
@@ -22439,10 +22476,7 @@ class AllmodulesController {
 
         $programs = Database::fetchAll("SELECT id, program_number, name FROM production_programs ORDER BY id DESC LIMIT 50");
 
-        Response::view('allmodules.stitching_wastage.index', [
-            'pageTitle'        => 'Stitching Scrap & Wastage Selling',
-            'activeModule'     => 'production',
-            'activeMenu'       => 'stitching-wastage',
+        return [
             'sales'            => $sales,
             'stats'            => $stats,
             'stitchingBatches' => $stitchingBatches,
@@ -22453,11 +22487,7 @@ class AllmodulesController {
             'stitchingBatchId' => $batchFilter,
             'dateFrom'         => $dateFrom,
             'dateTo'           => $dateTo,
-            'breadcrumb'       => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Stitching Wastage'],
-            ],
-        ]);
+        ];
     }
 
     public function storeStitchingWastage(): void {
@@ -23174,7 +23204,7 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.expenses.index', [
-            'pageTitle'      => 'Production Expenses',
+            'pageTitle'      => 'Expenses',
             'activeModule'   => 'production',
             'activeMenu'     => 'production-expenses',
             'expenses'       => $expenses,
@@ -23191,7 +23221,7 @@ class AllmodulesController {
             'dateFrom'       => $dateFrom,
             'dateTo'         => $dateTo,
             'breadcrumb'     => [
-                ['label' => 'Production', 'url' => url('purchases')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Expenses'],
             ],
         ]);

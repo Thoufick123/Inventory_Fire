@@ -93,21 +93,12 @@ class SidebarMenu {
                 'icon'         => '',
             ],
             [
-                'key'          => 'qr_generations',
-                'label'        => 'QR Generations',
-                'url'          => 'allmodules/qr-generations',
-                'active_menus' => ['prod-qr-generation'],
-                'module'       => 'production',
-                'permissions'  => ['qr_generation'],
-                'icon'         => '',
-            ],
-            [
                 'key'          => 'purchased_stock',
                 'label'        => 'Purchased Stock',
                 'url'          => 'allmodules/purchased-stock',
                 'active_menus' => ['prod-purchased-stock'],
                 'module'       => 'production',
-                'permissions'  => ['qr_generation', 'catalog'],
+                'permissions'  => ['catalog', 'production_purchases'],
                 'icon'         => '',
             ],
             [
@@ -130,11 +121,11 @@ class SidebarMenu {
             ],
             [
                 'key'          => 'wastage',
-                'label'        => 'Cutting Wastage',
+                'label'        => 'Wastage Selling',
                 'url'          => 'allmodules/wastage',
-                'active_menus' => ['wastage-selling'],
+                'active_menus' => ['wastage-selling', 'stitching-wastage'],
                 'module'       => 'production',
-                'permissions'  => ['wastage'],
+                'permissions'  => ['wastage', 'stitching_wastage'],
                 'icon'         => '',
             ],
             [
@@ -144,15 +135,6 @@ class SidebarMenu {
                 'active_menus' => ['stitching'],
                 'module'       => 'production',
                 'permissions'  => ['stitching'],
-                'icon'         => '',
-            ],
-            [
-                'key'          => 'stitching_wastage',
-                'label'        => 'Stitching Wastage',
-                'url'          => 'allmodules/stitching-wastage',
-                'active_menus' => ['stitching-wastage'],
-                'module'       => 'production',
-                'permissions'  => ['stitching_wastage'],
                 'icon'         => '',
             ],
             [

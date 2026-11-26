@@ -353,10 +353,8 @@ class Role {
             ['variants', 'view', 'View Product Variants', 'variants.view', null],
             ['variants', 'create', 'Create Product Variants', 'variants.create', null],
             ['variants', 'edit', 'Edit Product Variants', 'variants.edit', null],
+            ['variants', 'delete', 'Delete Product Variants', 'variants.delete', null],
 
-            ['qr_generation', 'view', 'View QR Generation Batches', 'qr_generation.view', null],
-            ['qr_generation', 'create', 'Create QR Generation Batches & Labels', 'qr_generation.create', null],
-            ['qr_generation', 'delete', 'Delete QR Generation Batches', 'qr_generation.delete', null],
 
             ['programs', 'view', 'View Cutting Programs & Work Orders', 'programs.view', null],
             ['programs', 'create', 'Create Cutting Programs & Size Breakdowns', 'programs.create', null],
@@ -760,7 +758,6 @@ class Role {
                     'damages'                   => ['name' => 'Damages', 'icon' => 'bi-exclamation-octagon', 'desc' => 'Defective fabric, floor damages, and scrap recovery logs', 'department' => 'PRODUCTION'],
                     'catalog'                   => ['name' => 'Catalog', 'icon' => 'bi-journal-bookmark', 'desc' => 'Design catalogs, style codes, and Bill of Materials (BOM)', 'department' => 'PRODUCTION'],
                     'variants'                  => ['name' => 'Product Variants', 'icon' => 'bi-tags', 'desc' => 'Manage sellable variants and collision-safe Variant IDs', 'department' => 'PRODUCTION'],
-                    'qr_generation'             => ['name' => 'QR Generations', 'icon' => 'bi-qr-code', 'desc' => 'Generate bulk scannable thermal QR label batches', 'department' => 'PRODUCTION'],
                     'programs'                  => ['name' => 'Programs', 'icon' => 'bi-calendar-check', 'desc' => 'Cutting programs, size breakdowns, and work order releases', 'department' => 'PRODUCTION'],
                     'cutting'                   => ['name' => 'Cutting', 'icon' => 'bi-scissors', 'desc' => 'Roll laying, table cuts, cut piece counts, and bundle creation', 'department' => 'PRODUCTION'],
                     'wastage'                   => ['name' => 'Cutting Wastage', 'icon' => 'bi-recycle', 'desc' => 'Fabric scrap selling tickets, scrap weights, and scrap invoices', 'department' => 'PRODUCTION'],

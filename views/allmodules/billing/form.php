@@ -491,7 +491,7 @@ $activeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!
                             </div>
                             <div id="splitBalance" class="small text-muted text-end mb-3"></div>
 
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
                                 <a class="btn btn-outline-secondary px-3 py-2 fw-semibold" href="<?= url('production/billing') ?>">Cancel</a>
                                 <button class="btn btn-primary btn-lg px-4 py-2 fw-bold shadow-sm" id="saveBillButton">
                                     <i class="bi bi-check2-circle me-1"></i><?= $isEdit ? 'Save Changes' : 'Create Bill' ?>

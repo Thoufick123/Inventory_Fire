@@ -200,7 +200,7 @@ class InwardController {
         unset($b);
 
         Response::view('allmodules.inwards.index', [
-            'pageTitle'              => 'Production Inward (GRN)',
+            'pageTitle'              => 'Inward',
             'activeModule'           => 'production',
             'activeMenu'             => 'prod-inwards',
             'batches'                => $batches,
@@ -216,8 +216,8 @@ class InwardController {
             'receivedBatchesCount'   => $receivedBatchesCount,
             'totalReceivedQty'       => $totalReceivedQty,
             'breadcrumb'             => [
-                ['label' => 'Production', 'url' => url('production/dashboard')],
-                ['label' => 'Inward (GRN)'],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Inward'],
             ],
         ]);
     }
@@ -363,8 +363,8 @@ class InwardController {
             'totalDamaged'  => $totalDamaged,
             'totalMissing'  => $totalMissing,
             'breadcrumb'    => [
-                ['label' => 'Production', 'url' => url('production/dashboard')],
-                ['label' => 'Inward (GRN)', 'url' => url('production/inwards')],
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'Inward', 'url' => url('production/inwards')],
                 ['label' => 'Cross-Check Batch #' . $batch['batch_number']],
             ],
         ]);
