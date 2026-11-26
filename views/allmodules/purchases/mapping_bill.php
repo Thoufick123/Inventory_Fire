@@ -950,9 +950,9 @@ tr.table-danger, tr.table-danger > td {
                                         <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" title="View QR in this panel">
                                             <i class="bi bi-eye me-1"></i>View QR
                                         </button>
-                                        <a class="btn btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" title="Print Labels">
+                                        <button type="button" class="btn btn-outline-secondary btn-print-tsc-batch" data-generation-id="<?= (int)$itemVar['qr_generation_id'] ?>" title="Print Labels">
                                             <i class="bi bi-printer"></i>
-                                        </a>
+                                        </button>
                                     </div>
                                 <?php endif; ?>
                             </td>
@@ -1272,9 +1272,9 @@ tr.table-danger, tr.table-danger > td {
                     <?php endif; ?>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="<?= url('production/qr-generations/print/' . (int)$itemVar['qr_generation_id']) ?>" target="_blank" class="btn btn-primary btn-sm">
+                    <button type="button" class="btn btn-primary btn-sm btn-print-tsc-batch" data-generation-id="<?= (int)$itemVar['qr_generation_id'] ?>">
                         <i class="bi bi-printer me-1"></i>Print Labels
-                    </a>
+                    </button>
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -1755,57 +1755,115 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 7. QR Code Canvas Rendering on Modal Open (uses saved TSC TE244 config if present)
-    document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
-        modalEl.addEventListener('shown.bs.modal', function () {
-            let cfg = { widthMm: 40, heightMm: 25, columns: 2, gapMm: 2, col2Shift: 0, qrX: 12, qrY: 35, qrSize: 3, subX: 12, subY: 125, textX: 115, fontSize: 2, titleY: 35, varY: 62, mrpY: 90, spY: 118 };
-            try {
-                const raw = localStorage.getItem('grm_tsc_label_config_v1');
-                if (raw) cfg = Object.assign(cfg, JSON.parse(raw));
-            } catch (e) {}
-            const scale = 0.82;
-            const stickerW = Math.max(180, Math.round(cfg.widthMm * 6.4));
-            const stickerH = Math.max(120, Math.round(cfg.heightMm * 6.4));
-            const qrPx = Math.max(36, Math.min(88, cfg.qrSize * 16));
-            const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
-            const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // 7. QR Code Canvas Rendering & Printing on Modal Open (uses saved TSC TE244 config if present)
+    function getBillTscConfig() {
+        let cfg = { widthMm: 40, heightMm: 25, columns: 2, gapMm: 2, col2Shift: 0, qrX: 12, qrY: 35, qrSize: 3, subX: 12, subY: 125, textX: 115, fontSize: 2, titleY: 35, varY: 62, mrpY: 90, spY: 118 };
+        try {
+            const raw = localStorage.getItem('grm_tsc_label_config_v1');
+            if (raw) cfg = Object.assign(cfg, JSON.parse(raw));
+        } catch (e) {}
+        return cfg;
+    }
 
-            modalEl.querySelectorAll('.bill-qr-label-card').forEach(function(card, idx) {
-                const colWrap = card.closest('[class*="col-"]');
-                if (colWrap) {
-                    colWrap.className = cfg.columns === 2 ? 'col-md-6 d-flex justify-content-center' : 'col-12 d-flex justify-content-center';
-                }
-                const d = card.dataset;
-                const shiftPx = (cfg.columns === 2 && idx % 2 === 1) ? Math.round(cfg.col2Shift * scale) : 0;
-                const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
-                const qrTop = Math.round(cfg.qrY * scale);
-                const subLeft = Math.round(cfg.subX * scale) + shiftPx;
-                const subTop = Math.round(cfg.subY * scale);
-                const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
-                const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
-                card.className = 'bill-qr-label-card';
-                card.innerHTML = `
-                    <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
-                        ${d.vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${esc(d.vid)}</span>` : ''}
-                        <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
-                        <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${esc(d.qrCode)}</div>
-                        <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.productName || '').slice(0, 24))}</div>
-                        <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.attributes || '').slice(0, 24))}</div>
-                        ${d.mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
-                        ${d.sellingPrice ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
-                    </div>
-                `;
-                card.querySelectorAll('.tsc-bill-qr-target').forEach(function(el) {
-                    el.innerHTML = '';
-                    new QRCode(el, {
-                        text: el.dataset.code || '',
-                        width: Math.max(28, qrPx - 4),
-                        height: Math.max(28, qrPx - 4),
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
+    function renderBillQrModal(modalEl) {
+        if (!modalEl) return;
+        const cfg = getBillTscConfig();
+        const scale = 0.82;
+        const stickerW = Math.max(180, Math.round(cfg.widthMm * 6.4));
+        const stickerH = Math.max(120, Math.round(cfg.heightMm * 6.4));
+        const qrPx = Math.max(36, Math.min(88, cfg.qrSize * 16));
+        const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
+        const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        const cards = modalEl.querySelectorAll('.bill-qr-label-card');
+        if (cards.length) {
+            const gridRow = cards[0].closest('.row');
+            if (gridRow) gridRow.className = 'd-flex flex-wrap gap-3 align-items-start';
+        }
+        cards.forEach(function(card, idx) {
+            const colWrap = card.closest('[class*="col-"]');
+            if (colWrap) colWrap.className = 'd-inline-flex';
+            const d = card.dataset;
+            const shiftPx = (cfg.columns === 2 && idx % 2 === 1) ? Math.round(cfg.col2Shift * scale) : 0;
+            const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
+            const qrTop = Math.round(cfg.qrY * scale);
+            const subLeft = Math.round(cfg.subX * scale) + shiftPx;
+            const subTop = Math.round(cfg.subY * scale);
+            const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
+            const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
+            card.className = 'bill-qr-label-card';
+            card.innerHTML = `
+                <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
+                    ${d.vid ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;right:6px;font-size:9px;">${esc(d.vid)}</span>` : ''}
+                    <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
+                    <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${esc(d.qrCode)}</div>
+                    <div class="position-absolute fw-bold text-primary text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.productName || '').slice(0, 24))}</div>
+                    <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.attributes || '').slice(0, 24))}</div>
+                    ${d.mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
+                    ${d.sellingPrice ? `<div class="position-absolute fw-bold text-success" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                </div>
+            `;
+            card.querySelectorAll('.tsc-bill-qr-target').forEach(function(el) {
+                el.innerHTML = '';
+                new QRCode(el, {
+                    text: el.dataset.code || '',
+                    width: Math.max(28, qrPx - 4),
+                    height: Math.max(28, qrPx - 4),
+                    correctLevel: QRCode.CorrectLevel.M
                 });
             });
         });
+    }
+
+    document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function () {
+            renderBillQrModal(modalEl);
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        const printBtn = e.target.closest('.btn-print-tsc-batch');
+        if (!printBtn) return;
+        const genId = printBtn.getAttribute('data-generation-id');
+        const modalEl = document.getElementById('modalQrBatch_' + genId);
+        if (!modalEl) return;
+        renderBillQrModal(modalEl);
+
+        setTimeout(() => {
+            const cfg = getBillTscConfig();
+            const cards = Array.from(modalEl.querySelectorAll('.bill-qr-label-card'));
+            if (!cards.length) return;
+            const pageW = cfg.columns === 2 ? (cfg.widthMm * 2 + cfg.gapMm) : cfg.widthMm;
+            const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const stickersHtml = cards.map((card, idx) => {
+                const d = card.dataset;
+                const qrEl = card.querySelector('.tsc-bill-qr-target canvas, .tsc-bill-qr-target img');
+                const qrSrc = qrEl ? (qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src) : '';
+                const shiftMm = (cfg.columns === 2 && idx % 2 === 1) ? (cfg.col2Shift * 0.125) : 0;
+                const qrMm = Math.max(8, Math.min(18, cfg.qrSize * 3.4));
+                const qrLeftMm = (cfg.qrX * 0.125) + shiftMm;
+                const qrTopMm = cfg.qrY * 0.125;
+                const subLeftMm = (cfg.subX * 0.125) + shiftMm;
+                const subTopMm = cfg.subY * 0.125;
+                const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
+                const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
+                return `
+                    <div class="sticker">
+                        ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
+                        <div style="position:absolute;left:${subLeftMm}mm;top:${subTopMm}mm;font-family:monospace;font-size:6pt;font-weight:700;">${esc(d.qrCode)}</div>
+                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.productName)}</div>
+                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.attributes)}</div>
+                        ${d.mrp ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(d.mrp)}</div>` : ''}
+                        ${d.sellingPrice ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            const win = window.open('', '_blank', 'width=760,height=600');
+            if (!win) return;
+            win.document.write(`<!doctype html><html><head><title>Print QR Labels</title><style>@page{size:${pageW}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;display:flex;flex-wrap:wrap;gap:${cfg.gapMm}mm;width:${pageW}mm}.sticker{position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}@media screen{body{padding:12px;background:#f3f4f6}.sticker{background:#fff;border:1px dashed #cbd5e1}}</style></head><body>${stickersHtml}<script>window.onload=function(){window.print();}<\/script></body></html>`);
+            win.document.close();
+        }, 80);
     });
 
     // In-panel AJAX Add to Inventory for Purchase Bill Mapping

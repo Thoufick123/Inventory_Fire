@@ -486,9 +486,9 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                     <button type="button" class="btn btn-xs btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$item['qr_generation_id'] ?>" title="View QR in this panel">
                                         <i class="bi bi-eye me-1"></i>View QR
                                     </button>
-                                    <a class="btn btn-xs btn-outline-secondary" href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" title="Print Labels">
+                                    <button type="button" class="btn btn-xs btn-outline-secondary btn-print-tsc-batch" data-generation-id="<?= (int)$item['qr_generation_id'] ?>" title="Print Labels">
                                         <i class="bi bi-printer"></i>
-                                    </a>
+                                    </button>
                                 </div>
                                 <?php endif; ?>
                                 <?php if ($bill['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
@@ -1254,27 +1254,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="card bg-light border-0 mb-3">
                     <div class="card-body p-2 px-3">
-                        <div class="row g-2 align-items-center">
-                            <div class="col-sm-6">
+                        <div class="row row-cols-2 row-cols-md-5 g-2 align-items-center">
+                            <div class="col">
                                 <div class="text-muted" style="font-size: 11px;">Product</div>
-                                <div class="fw-bold"><?= e($item['item_name']) ?></div>
+                                <div class="fw-bold text-truncate"><?= e($item['item_name']) ?></div>
                             </div>
-                            <div class="col-sm-6">
+                            <div class="col">
                                 <div class="text-muted" style="font-size: 11px;">Variant</div>
                                 <div class="fw-semibold">
                                     <?= e(trim(($item['color'] ?? '') . ' ' . ($item['size'] ?? ''))) ?>
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
                                 </div>
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col">
                                 <div class="text-muted" style="font-size: 11px;">Total Qty</div>
                                 <div class="fw-bold"><?= number_format((float)$item['quantity'], 3) ?> <?= e($item['unit']) ?></div>
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col">
                                 <div class="text-muted" style="font-size: 11px;">MRP / Selling Price</div>
                                 <div class="fw-bold text-success"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></div>
                             </div>
-                            <div class="col-sm-4">
+                            <div class="col">
                                 <div class="text-muted" style="font-size: 11px;">Inventory Status</div>
                                 <div id="modalStockStatus_<?= (int)$item['qr_generation_id'] ?>">
                                     <?php if (!empty($item['stock_added'])): ?>
@@ -1378,9 +1378,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <?php endif; ?>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="<?= url('production/qr-generations/print/' . (int)$item['qr_generation_id']) ?>" target="_blank" class="btn btn-primary btn-sm">
+                    <button type="button" class="btn btn-primary btn-sm btn-print-tsc-batch" data-generation-id="<?= (int)$item['qr_generation_id'] ?>">
                         <i class="bi bi-printer me-1"></i>Print Labels
-                    </a>
+                    </button>
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -1717,14 +1717,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (labelCards.length) {
             const gridRow = labelCards[0].closest('.row');
             if (gridRow) {
-                gridRow.classList.remove('g-2');
-                gridRow.classList.add('g-3');
+                gridRow.className = 'd-flex flex-wrap gap-3 align-items-start';
             }
         }
         labelCards.forEach((card, idx) => {
             const colWrap = card.closest('[class*="col-"]');
             if (colWrap) {
-                colWrap.className = cfg.columns === 2 ? 'col-md-6 d-flex justify-content-center' : 'col-12 d-flex justify-content-center';
+                colWrap.className = 'd-inline-flex';
             }
             const d = card.dataset;
             card.className = 'qr-label-card';
@@ -1800,7 +1799,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btnTscTestPrint')?.addEventListener('click', function () {
         const cfg = readTscConfigFromInputs();
-        const sampleCard = lastActiveQrBatchModal?.querySelector('.qr-label-card');
+        const sampleCard = (lastActiveQrBatchModal || document.querySelector('[id^="modalQrBatch_"]'))?.querySelector('.qr-label-card');
         const qrImg = document.querySelector('#tscLivePreviewStage .tsc-preview-qr img, #tscLivePreviewStage .tsc-preview-qr canvas');
         const qrSrc = qrImg ? (qrImg.src || (qrImg.toDataURL ? qrImg.toDataURL() : '')) : '';
         const title = sampleCard?.dataset.productName || 'GRM WAREHOUSE';
@@ -1811,6 +1810,55 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!win) return;
         win.document.write(`<!doctype html><html><head><title>Test Print</title><style>@page{size:${cfg.widthMm}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;padding:4px;display:flex;align-items:center;gap:8px;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;box-sizing:border-box}</style></head><body><div style="text-align:center">${qrSrc ? `<img src="${qrSrc}" style="width:48px;height:48px">` : ''}<div style="font-size:8px;font-family:monospace;font-weight:700">${code}</div></div><div style="font-size:9px;line-height:1.25"><div style="font-weight:700">${title}</div><div>${attrs}</div><div style="font-weight:700;color:#15803d">${sp}</div></div><script>window.onload=function(){window.print();}<\/script></body></html>`);
         win.document.close();
+    });
+
+    document.addEventListener('click', function (e) {
+        const printBtn = e.target.closest('.btn-print-tsc-batch');
+        if (!printBtn) return;
+        const genId = printBtn.getAttribute('data-generation-id');
+        const modalEl = document.getElementById('modalQrBatch_' + genId);
+        if (!modalEl) return;
+        applyTscConfigToModal(modalEl);
+
+        setTimeout(() => {
+            const cfg = getSavedTscConfig();
+            const cards = Array.from(modalEl.querySelectorAll('.qr-label-card'));
+            if (!cards.length) {
+                showDraftModernAlert('No QR labels found to print.');
+                return;
+            }
+            const pageW = cfg.columns === 2 ? (cfg.widthMm * 2 + cfg.gapMm) : cfg.widthMm;
+            const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const stickerScale = 0.45; // dots (~203dpi) to mm-friendly print px
+            const stickersHtml = cards.map((card, idx) => {
+                const d = card.dataset;
+                const qrEl = card.querySelector('.tsc-qr-target canvas, .tsc-qr-target img');
+                const qrSrc = qrEl ? (qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src) : '';
+                const shiftMm = (cfg.columns === 2 && idx % 2 === 1) ? (cfg.col2Shift * 0.125) : 0;
+                const qrMm = Math.max(8, Math.min(18, cfg.qrSize * 3.4));
+                const qrLeftMm = (cfg.qrX * 0.125) + shiftMm;
+                const qrTopMm = cfg.qrY * 0.125;
+                const subLeftMm = (cfg.subX * 0.125) + shiftMm;
+                const subTopMm = cfg.subY * 0.125;
+                const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
+                const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
+                return `
+                    <div class="sticker">
+                        ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
+                        <div style="position:absolute;left:${subLeftMm}mm;top:${subTopMm}mm;font-family:monospace;font-size:6pt;font-weight:700;">${esc(d.qrCode)}</div>
+                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.productName)}</div>
+                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.attributes)}</div>
+                        ${d.mrp ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(d.mrp)}</div>` : ''}
+                        ${d.sellingPrice ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            const win = window.open('', '_blank', 'width=760,height=600');
+            if (!win) return;
+            win.document.write(`<!doctype html><html><head><title>Print QR Labels</title><style>@page{size:${pageW}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;display:flex;flex-wrap:wrap;gap:${cfg.gapMm}mm;width:${pageW}mm}.sticker{position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}@media screen{body{padding:12px;background:#f3f4f6}.sticker{background:#fff;border:1px dashed #cbd5e1}}</style></head><body>${stickersHtml}<script>window.onload=function(){window.print();}<\/script></body></html>`);
+            win.document.close();
+        }, 80);
     });
 
     // 2. Auto-open QR modal if 'open_qr' parameter is present in URL
