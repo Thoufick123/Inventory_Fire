@@ -1,10 +1,29 @@
 <?php
 $items = $gen['items'] ?? [];
 $totalLabels = count($items);
-$brandLabel = trim((string)($gen['brand_name'] ?? '')) ?: trim((string)($concern['name'] ?? 'GRM APPARELS'));
+$concernName = trim((string)($concern['name'] ?? ($batch['concern_name'] ?? '')));
+$brandLabel = trim((string)($gen['brand_name'] ?? '')) ?: ($concernName ?: 'GRM APPARELS');
 $productTitle = trim((string)($gen['product_name'] ?? ($batch['product_name'] ?? ($batch['program_name'] ?? ($batch['name'] ?? 'Finished Garment')))));
+$defaultSubSub = trim((string)($batch['sub_subcategory_name'] ?? ''));
 $isPrinted = !empty($gen['labels_printed_at']);
 $printCount = (int)($gen['labels_print_count'] ?? 0);
+
+// Map stitching batch item sub-subcategories per variant_id or Size|Color
+$subSubByVid = [];
+$subSubByAttr = [];
+$srcBatchItems = $batchItems ?? (class_exists('StitchingBatch') && !empty($batch['id']) ? StitchingBatch::getItems((int)$batch['id']) : []);
+foreach ($srcBatchItems as $bi) {
+    $subSub = trim((string)($bi['sub_subcategory_name'] ?? ''));
+    if ($subSub === '') continue;
+    $bVid = (int)($bi['variant_id'] ?? 0);
+    if ($bVid > 0) {
+        $subSubByVid[$bVid] = $subSub;
+    }
+    $bKey = strtoupper(trim((string)($bi['size_name'] ?? '')) . '|' . trim((string)($bi['color_name'] ?? '')));
+    if ($bKey !== '|') {
+        $subSubByAttr[$bKey] = $subSub;
+    }
+}
 
 // Group items by Variant (same variant -> single shared QR card; different variants -> distinct QR cards)
 $variantCards = [];
@@ -12,7 +31,8 @@ foreach ($items as $it) {
     $vid = (int)($it['variant_id'] ?? 0);
     $sizeStr = trim((string)($it['size_name'] ?: 'Standard'));
     $colorStr = trim((string)($it['color_name'] ?: 'Standard'));
-    $groupKey = $vid > 0 ? ('v_' . $vid) : ('a_' . strtoupper($sizeStr . '|' . $colorStr));
+    $attrKey = strtoupper($sizeStr . '|' . $colorStr);
+    $groupKey = $vid > 0 ? ('v_' . $vid) : ('a_' . $attrKey);
 
     if (!isset($variantCards[$groupKey])) {
         $vCode = trim((string)($it['variant_code'] ?? ''));
@@ -23,15 +43,20 @@ foreach ($items as $it) {
             $rawQr = trim((string)($it['qr_code'] ?? ''));
             $vCode = str_contains($rawQr, '-') ? explode('-', $rawQr)[0] : ($rawQr ?: 'V0001');
         }
+        $subSubStr = ($vid > 0 && isset($subSubByVid[$vid]))
+            ? $subSubByVid[$vid]
+            : ($subSubByAttr[$attrKey] ?? $defaultSubSub);
+
         $variantCards[$groupKey] = [
-            'variant_id'   => $vid,
-            'variant_code' => $vCode,
-            'size_name'    => $sizeStr,
-            'color_name'   => $colorStr,
-            'mrp'          => (float)($it['mrp'] ?? 0),
-            'selling_price'=> (float)($it['selling_price'] ?? 0),
-            'qty'          => 0,
-            'sample_qrs'   => [],
+            'variant_id'           => $vid,
+            'variant_code'         => $vCode,
+            'sub_subcategory_name' => $subSubStr,
+            'size_name'            => $sizeStr,
+            'color_name'           => $colorStr,
+            'mrp'                  => (float)($it['mrp'] ?? 0),
+            'selling_price'        => (float)($it['selling_price'] ?? 0),
+            'qty'                  => 0,
+            'sample_qrs'           => [],
         ];
     }
     $variantCards[$groupKey]['qty']++;
@@ -140,13 +165,16 @@ $totalVariants = count($variantCards);
             <?php
                 $vNum = $vIdx + 1;
                 $vCode = $vc['variant_code'];
+                $subSubName = trim((string)($vc['sub_subcategory_name'] ?? ''));
                 $mrpVal = (float)$vc['mrp'];
                 $spVal = (float)$vc['selling_price'];
             ?>
-            <div class="col-md-6 col-xl-4 variant-card-col" id="variant-card-<?= $vNum ?>">
+            <div class="col-12 col-sm-6 col-lg-3 variant-card-col" id="variant-card-<?= $vNum ?>">
                 <div class="card h-100 variant-qr-card"
                      data-qr-code="<?= e($vCode) ?>"
+                     data-concern="<?= e($concernName) ?>"
                      data-brand="<?= e($brandLabel) ?>"
+                     data-sub-subcategory="<?= e($subSubName) ?>"
                      data-product-name="<?= e($productTitle) ?>"
                      data-size="<?= e($vc['size_name']) ?>"
                      data-color="<?= e($vc['color_name']) ?>"
@@ -159,19 +187,29 @@ $totalVariants = count($variantCards);
                             <i class="bi bi-check-circle-fill me-1"></i><?= number_format((int)$vc['qty']) ?> pcs Ready
                         </span>
                     </div>
-                    <div class="card-body p-3">
-                        <div class="d-flex gap-3 align-items-start">
-                            <!-- Left Side: QR + Variant ID Below -->
-                            <div class="d-flex flex-column align-items-center flex-shrink-0">
-                                <div class="variant-qr-box shadow-xs" id="variant_qr_<?= $vNum ?>" data-qr="<?= e($vCode) ?>"></div>
-                                <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11.5px; letter-spacing: 0.4px;"><?= e($vCode) ?></div>
-                            </div>
-                            <!-- Right Side: Brand, Size / Color, MRP, Disc -->
-                            <div class="flex-grow-1 min-w-0 d-flex flex-column justify-content-between">
-                                <div>
-                                    <div class="fw-bolder text-truncate text-uppercase mb-1" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
+                    <div class="card-body p-3 d-flex flex-column justify-content-between">
+                        <div>
+                            <?php if ($concernName !== ''): ?>
+                                <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11.5px; letter-spacing: 0.5px;">
+                                    <?= e($concernName) ?>
+                                </div>
+                            <?php endif; ?>
+                            <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                                <!-- Left Side: QR + Variant ID Below -->
+                                <div class="d-flex flex-column align-items-center flex-shrink-0">
+                                    <div class="variant-qr-box shadow-xs" id="variant_qr_<?= $vNum ?>" data-qr="<?= e($vCode) ?>"></div>
+                                    <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11.5px; letter-spacing: 0.4px;"><?= e($vCode) ?></div>
+                                </div>
+                                <!-- Right Side: Brand, Sub-Subcategory, Size / Color, MRP, Disc -->
+                                <div class="min-w-0 text-start">
+                                    <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
                                         <?= e($brandLabel) ?>
                                     </div>
+                                    <?php if ($subSubName !== ''): ?>
+                                        <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11.5px; letter-spacing: 0.2px;">
+                                            <?= e($subSubName) ?>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="fw-semibold text-dark mb-1" style="font-size: 12.5px;">
                                         <?= e($vc['size_name']) ?> / <?= e($vc['color_name']) ?>
                                     </div>
@@ -186,16 +224,16 @@ $totalVariants = count($variantCards);
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-end gap-1 pt-2 mt-2 border-top no-print">
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyVariantQrCode('<?= e($vCode) ?>', this)" title="Copy Variant QR Code">
-                                            <i class="bi bi-clipboard"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="triggerStitchingLabelPrint(<?= $vNum ?>)" title="Print This Variant Label">
-                                            <i class="bi bi-printer"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-end gap-1 pt-2 mt-2 border-top no-print">
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyVariantQrCode('<?= e($vCode) ?>', this)" title="Copy Variant QR Code">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="triggerStitchingLabelPrint(<?= $vNum ?>)" title="Print This Variant Label">
+                                    <i class="bi bi-printer"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -444,7 +482,9 @@ function renderTscStickerHtml(cfg, data, labelBadge = '') {
     const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
     const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+    const concern = esc((data.concern || '').slice(0, 24));
     const title = esc((data.brand || data.productName || 'GRM APPARELS').slice(0, 24));
+    const subSub = esc((data.subSubcategory || '').slice(0, 24));
     const attrs = esc((data.attributes || '').slice(0, 24));
     const mrp = esc(data.mrp || '');
     const sp = esc(data.sellingPrice || '');
@@ -457,14 +497,21 @@ function renderTscStickerHtml(cfg, data, labelBadge = '') {
     const subTop = Math.round(cfg.subY * scale);
     const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
     const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
+    const concernTop = 4;
+    const titleTop = Math.round(cfg.titleY * scale);
+    const varTop = Math.max(Math.round(cfg.varY * scale), titleTop + (subSub ? 21 : 12));
 
     return `
         <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
-            ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;">${esc(labelBadge)}</span>` : ''}
+            ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;z-index:2;">${esc(labelBadge)}</span>` : ''}
+            ${concern ? `<div class="position-absolute fw-bold text-secondary text-uppercase text-truncate text-center px-2" style="left:0;right:0;top:${concernTop}px;font-size:${Math.max(8, fontPx - 2)}px;">${concern}</div>` : ''}
             <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-qr-target" data-code="${code}" data-qr-px="${qrPx}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
             <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${code}</div>
-            <div class="position-absolute fw-bold text-uppercase text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;color:#881337;max-width:${txtMaxW}px;">${title}</div>
-            <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${attrs}</div>
+            <div class="position-absolute" style="left:${txtLeft}px;top:${titleTop}px;max-width:${txtMaxW}px;line-height:1.12;">
+                <div class="fw-bold text-uppercase text-truncate" style="font-size:${fontPx}px;color:#881337;">${title}</div>
+                ${subSub ? `<div class="fw-semibold text-dark text-truncate" style="font-size:${Math.max(8, fontPx - 1.5)}px;">${subSub}</div>` : ''}
+            </div>
+            <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${varTop}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${attrs}</div>
             ${mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
             ${sp ? `<div class="position-absolute fw-bold" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;color:#15803d;">Disc: ${sp}</div>` : ''}
         </div>
@@ -486,7 +533,9 @@ function renderTscLivePreview(cfg) {
     const c2 = cards[1]?.dataset || c1;
 
     const d1 = {
+        concern: c1.concern || '<?= e($concernName) ?>',
         brand: c1.brand || '<?= e($brandLabel) ?>',
+        subSubcategory: c1.subSubcategory || '<?= e($defaultSubSub) ?>',
         productName: c1.productName || '<?= e($productTitle) ?>',
         attributes: c1.attributes || 'S / LAVENDER',
         mrp: c1.mrp || '',
@@ -495,7 +544,9 @@ function renderTscLivePreview(cfg) {
         colIndex: 1
     };
     const d2 = {
+        concern: c2.concern || d1.concern,
         brand: c2.brand || d1.brand,
+        subSubcategory: c2.subSubcategory || d1.subSubcategory,
         productName: c2.productName || d1.productName,
         attributes: c2.attributes || d1.attributes,
         mrp: c2.mrp || d1.mrp,
@@ -551,38 +602,84 @@ function copyVariantQrCode(code, btn) {
     }
 }
 
-function buildThermalPrintWindow(cardNodes, cfg) {
-    const pageW = cfg.columns === 2 ? (cfg.widthMm * 2 + cfg.gapMm) : cfg.widthMm;
+function printThermalHtmlViaFrame(htmlDoc) {
+    let frame = document.getElementById('stitchingThermalPrintFrame');
+    if (frame) {
+        frame.remove();
+    }
+    frame = document.createElement('iframe');
+    frame.id = 'stitchingThermalPrintFrame';
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    frame.style.visibility = 'hidden';
+    document.body.appendChild(frame);
+
+    let printed = false;
+    const triggerFramePrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch (err) {
+            window.print();
+        }
+    };
+
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(htmlDoc);
+    doc.close();
+
+    setTimeout(triggerFramePrint, 120);
+}
+
+function renderPrintableStickerMarkup(d, qrSrc, cfg, isCol2) {
     const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const shiftMm = isCol2 ? (cfg.col2Shift * 0.125) : 0;
+    const qrMm = Math.max(8, Math.min(cfg.heightMm - 8, cfg.qrSize * 3.4));
+    const qrLeftMm = (cfg.qrX * 0.125) + shiftMm;
+    const qrTopMm = Math.max(4.4, cfg.qrY * 0.125);
+    const subLeftMm = (cfg.subX * 0.125) + shiftMm;
+    const subTopMm = Math.min(cfg.heightMm - 3.2, qrTopMm + qrMm + 0.6);
+    const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
+    const fontPt = Math.max(5.5, 4.2 + cfg.fontSize * 1.0);
+    const concernTxt = d.concern || '';
+    const brandTxt = d.brand || d.productName || '';
+    const subSubTxt = d.subSubcategory || '';
+
+    return `
+        <div class="sticker">
+            ${concernTxt ? `<div style="position:absolute;left:${shiftMm}mm;width:${cfg.widthMm}mm;top:0.8mm;text-align:center;font-size:${Math.max(4.8, fontPt - 1.2)}pt;font-weight:700;color:#475569;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(concernTxt)}</div>` : ''}
+            ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
+            <div style="position:absolute;left:${subLeftMm}mm;width:${qrMm}mm;top:${subTopMm}mm;text-align:center;font-family:monospace;font-size:5.5pt;font-weight:700;line-height:1;">${esc(d.qrCode)}</div>
+            <div style="position:absolute;left:${txtLeftMm}mm;top:${qrTopMm}mm;width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;display:flex;flex-direction:column;gap:0.45mm;line-height:1.15;">
+                <div style="font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(brandTxt)}</div>
+                ${subSubTxt ? `<div style="font-size:${Math.max(4.8, fontPt - 1.0)}pt;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;">${esc(subSubTxt)}</div>` : ''}
+                <div style="font-size:${Math.max(5, fontPt - 0.4)}pt;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;">${esc(d.attributes)}</div>
+                ${d.mrp ? `<div style="font-size:${Math.max(4.8, fontPt - 1.1)}pt;color:#64748b;text-decoration:line-through;white-space:nowrap;">MRP: ${esc(d.mrp)}</div>` : ''}
+                ${d.sellingPrice ? `<div style="font-size:${fontPt}pt;font-weight:700;color:#15803d;white-space:nowrap;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function buildThermalPrintWindow(cardNodes, cfg) {
+    const effectiveCols = (cfg.columns === 2 && cardNodes.length > 1) ? 2 : 1;
+    const pageW = effectiveCols === 2 ? (cfg.widthMm * 2 + cfg.gapMm) : cfg.widthMm;
     const stickersHtml = cardNodes.map((wrap, idx) => {
         const card = wrap.querySelector('.variant-qr-card') || wrap;
-        const d = card.dataset;
         const qrEl = wrap.querySelector('.variant-qr-box canvas, .variant-qr-box img');
         const qrSrc = qrEl ? (qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src) : '';
-        const shiftMm = (cfg.columns === 2 && idx % 2 === 1) ? (cfg.col2Shift * 0.125) : 0;
-        const qrMm = Math.max(8, Math.min(18, cfg.qrSize * 3.4));
-        const qrLeftMm = (cfg.qrX * 0.125) + shiftMm;
-        const qrTopMm = cfg.qrY * 0.125;
-        const subLeftMm = (cfg.subX * 0.125) + shiftMm;
-        const subTopMm = cfg.subY * 0.125;
-        const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
-        const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
-        return `
-            <div class="sticker">
-                ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
-                <div style="position:absolute;left:${subLeftMm}mm;top:${subTopMm}mm;font-family:monospace;font-size:6pt;font-weight:700;">${esc(d.qrCode)}</div>
-                <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.brand || d.productName)}</div>
-                <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.attributes)}</div>
-                ${d.mrp ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(d.mrp)}</div>` : ''}
-                ${d.sellingPrice ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
-            </div>
-        `;
+        return renderPrintableStickerMarkup(card.dataset, qrSrc, cfg, effectiveCols === 2 && idx % 2 === 1);
     }).join('');
 
-    const win = window.open('', '_blank', 'width=760,height=600');
-    if (!win) return false;
-    win.document.write(`<!doctype html><html><head><title>Print QR Labels</title><style>@page{size:${pageW}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;display:flex;flex-wrap:wrap;gap:${cfg.gapMm}mm;width:${pageW}mm}.sticker{position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}@media screen{body{padding:12px;background:#f3f4f6}.sticker{background:#fff;border:1px dashed #cbd5e1}}</style></head><body>${stickersHtml}<script>window.onload=function(){window.print();}<\/script></body></html>`);
-    win.document.close();
+    const htmlDoc = `<!doctype html><html><head><title></title><style>@page{size:${pageW}mm ${cfg.heightMm}mm;margin:0}html,body{margin:0;padding:0;font-family:sans-serif;width:${pageW}mm}body{display:flex;flex-wrap:wrap;gap:${cfg.gapMm}mm}.sticker{position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box;page-break-inside:avoid}</style></head><body>${stickersHtml}</body></html>`;
+    printThermalHtmlViaFrame(htmlDoc);
     return true;
 }
 
@@ -621,8 +718,8 @@ function triggerStitchingLabelPrint(singleCardNum) {
     .catch(() => {})
     .finally(() => {
         const cfg = getSavedTscConfig();
-        const openedThermal = selectedCards.length > 0 && buildThermalPrintWindow(selectedCards, cfg);
-        if (!openedThermal) {
+        const printedThermal = selectedCards.length > 0 && buildThermalPrintWindow(selectedCards, cfg);
+        if (!printedThermal) {
             window.print();
         }
         setTimeout(() => {
@@ -667,18 +764,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const sampleCard = document.querySelector('#variantQrCardsGrid .variant-qr-card');
         const qrEl = document.querySelector('#tscLivePreviewStage .tsc-qr-target canvas, #tscLivePreviewStage .tsc-qr-target img');
         const qrSrc = qrEl ? (qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src) : '';
-        const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const title = sampleCard?.dataset.brand || '<?= e($brandLabel) ?>';
-        const attrs = sampleCard?.dataset.attributes || 'S / LAVENDER';
-        const mrp = sampleCard?.dataset.mrp || '';
-        const sp = sampleCard?.dataset.sellingPrice || '';
-        const code = sampleCard?.dataset.qrCode || 'V0012';
-        const qrMm = Math.max(8, Math.min(18, cfg.qrSize * 3.4));
-        const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
-        const win = window.open('', '_blank', 'width=420,height=320');
-        if (!win) return;
-        win.document.write(`<!doctype html><html><head><title>Test Print</title><style>@page{size:${cfg.widthMm}mm ${cfg.heightMm}mm;margin:0}body{margin:0;font-family:sans-serif;position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box}</style></head><body>${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${cfg.qrX * 0.125}mm;top:${cfg.qrY * 0.125}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}<div style="position:absolute;left:${cfg.subX * 0.125}mm;top:${cfg.subY * 0.125}mm;font-size:6pt;font-family:monospace;font-weight:700;">${esc(code)}</div><div style="position:absolute;left:${cfg.textX * 0.125}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;">${esc(title)}</div><div style="position:absolute;left:${cfg.textX * 0.125}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;">${esc(attrs)}</div>${mrp ? `<div style="position:absolute;left:${cfg.textX * 0.125}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(mrp)}</div>` : ''}${sp ? `<div style="position:absolute;left:${cfg.textX * 0.125}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(sp)}</div>` : ''}<script>window.onload=function(){window.print();}<\/script></body></html>`);
-        win.document.close();
+        const sampleData = {
+            concern: sampleCard?.dataset.concern || '<?= e($concernName) ?>',
+            brand: sampleCard?.dataset.brand || '<?= e($brandLabel) ?>',
+            subSubcategory: sampleCard?.dataset.subSubcategory || '<?= e($defaultSubSub) ?>',
+            attributes: sampleCard?.dataset.attributes || 'S / LAVENDER',
+            mrp: sampleCard?.dataset.mrp || '',
+            sellingPrice: sampleCard?.dataset.sellingPrice || '',
+            qrCode: sampleCard?.dataset.qrCode || 'V0012'
+        };
+        const stickerHtml = renderPrintableStickerMarkup(sampleData, qrSrc, cfg, false);
+        const htmlDoc = `<!doctype html><html><head><title></title><style>@page{size:${cfg.widthMm}mm ${cfg.heightMm}mm;margin:0}html,body{margin:0;padding:0;font-family:sans-serif;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm}.sticker{position:relative;width:${cfg.widthMm}mm;height:${cfg.heightMm}mm;overflow:hidden;box-sizing:border-box}</style></head><body>${stickerHtml}</body></html>`;
+        printThermalHtmlViaFrame(htmlDoc);
     });
 });
 </script>
