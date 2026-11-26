@@ -1412,6 +1412,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 onNormalize: (val) => applyRequestedQty(val)
             });
 
+            quantityInput.addEventListener('input', () => {
+                const rawVal = quantityInput.value.trim();
+                if (rawVal === '') return;
+                const requestedQuantity = parseInt(rawVal, 10);
+                if (isNaN(requestedQuantity) || requestedQuantity < 1) return;
+
+                if (!Array.isArray(item.tags)) item.tags = [];
+                const curQty = item.tags.length;
+                if (requestedQuantity > curQty) {
+                    const availableToAssign = selectableTags(item);
+                    const maxTotal = curQty + availableToAssign.length;
+                    if (requestedQuantity > maxTotal) {
+                        showInventoryLimit(
+                            'Available stock limit reached',
+                            `Only ${availableToAssign.length} more piece(s) are available in stock for ${item.product_name}.`,
+                            quantityInput
+                        );
+                    }
+                    const actualAdd = Math.min(requestedQuantity - curQty, availableToAssign.length);
+                    if (actualAdd > 0) {
+                        item.tags.push(...availableToAssign.slice(0, actualAdd));
+                    }
+                    quantityInput.value = String(item.tags.length);
+                } else if (requestedQuantity < curQty) {
+                    item.tags = item.tags.slice(0, requestedQuantity);
+                }
+
+                hiddenTagsContainer.innerHTML = '';
+                item.tags.forEach(tag => {
+                    const hiddenTag = document.createElement('input');
+                    hiddenTag.type = 'hidden';
+                    hiddenTag.name = `items[${index}][tags][]`;
+                    hiddenTag.value = tag;
+                    hiddenTagsContainer.append(hiddenTag);
+                });
+
+                const stockEl = quantityCell.querySelector(`[data-stock-for="${itemKey}"]`);
+                if (stockEl) {
+                    stockEl.textContent = String(selectableTags(item).length);
+                }
+                updateTotals();
+            });
+
             quantityInput.addEventListener('change', () => {
                 applyRequestedQty(quantityInput.value);
             });
