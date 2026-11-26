@@ -182,84 +182,7 @@ class AllmodulesBillingController
 
     public function moveBillToBatchForm(string $id): void
     {
-        if (!isAdmin() && !hasPermission('batches', 'create') && !hasPermission('production_billing', 'create')) {
-            Response::error(403, 'You do not have permission to move a billed order to production batches.');
-            return;
-        }
-        $bill = $this->findBill((int)$id);
-        if (!$bill) {
-            Response::redirect('production/billing', 'error', 'Bill not found.');
-            return;
-        }
-        if (($bill['payment_status'] ?? '') !== 'PAID') {
-            Response::redirect('production/billing', 'error', 'Only paid bills can move to batch dispatch.');
-            return;
-        }
-        $linkedBatchCount = (int)(Database::fetchOne("SELECT COUNT(*) AS total FROM production_batches WHERE production_bill_id = ?", [(int)$bill['id']])['total'] ?? 0);
-        if ($linkedBatchCount > 0) {
-            Response::redirect('production/billing', 'error', 'This bill has already been moved to a production batch.');
-            return;
-        }
-
-        $items = $this->loadBillItems((int)$bill['id']);
-
-        $sourceConcernId = function_exists('currentConcernId') ? currentConcernId() : null;
-        if (!$sourceConcernId && !empty($bill['production_unit_id'])) {
-            $pu = Database::fetchOne("SELECT concern_id FROM production_units WHERE id = ?", [(int)$bill['production_unit_id']]);
-            if (!empty($pu['concern_id'])) {
-                $sourceConcernId = (int)$pu['concern_id'];
-            }
-        }
-
-        // Auto-provision warehouse records for all active concerns if missing
-        $activeConcerns = Database::fetchAll("SELECT id, name, code, address, phone, gst_number FROM concerns WHERE is_active = 1");
-        foreach ($activeConcerns as $ac) {
-            $existingWh = Database::fetchOne("SELECT id FROM warehouses WHERE concern_id = ?", [(int)$ac['id']]);
-            if (!$existingWh) {
-                $whCode = 'WH-' . $ac['code'];
-                $suffix = 1;
-                while (Database::fetchOne("SELECT id FROM warehouses WHERE code = ?", [$whCode])) {
-                    $whCode = 'WH-' . $ac['code'] . '-' . (++$suffix);
-                }
-                try {
-                    Database::execute(
-                        "INSERT INTO warehouses (concern_id, name, code, address, phone, gst_number, is_active, created_at)
-                         VALUES (?, ?, ?, ?, ?, ?, 1, NOW())",
-                        [(int)$ac['id'], $ac['name'] . ' (Warehouse)', $whCode, $ac['address'] ?: null, $ac['phone'] ?: null, $ac['gst_number'] ?: null]
-                    );
-                } catch (\Throwable $e) {}
-            }
-        }
-
-        $whWhere = "WHERE w.is_active = 1";
-        $whParams = [];
-        if ($sourceConcernId) {
-            // Only show OTHER concerns, never the current / same concern
-            $whWhere .= " AND (w.concern_id != ? OR w.concern_id IS NULL)";
-            $whParams[] = $sourceConcernId;
-        }
-
-        $warehouses = Database::fetchAll("
-            SELECT w.*, c.name as concern_name, c.code as concern_code 
-            FROM warehouses w 
-            LEFT JOIN concerns c ON w.concern_id = c.id 
-            {$whWhere} 
-            ORDER BY COALESCE(c.name, w.name) ASC
-        ", $whParams);
-
-        Response::view('allmodules.billing.move_to_batch', [
-            'pageTitle' => 'Move Bill to Batch',
-            'activeModule' => 'production',
-            'activeMenu' => 'prod-billing',
-            'breadcrumb' => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'Billing / Pos', 'url' => url('production/billing')],
-                ['label' => 'Move Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) . ' to Batch'],
-            ],
-            'bill' => $bill,
-            'billItems' => $items,
-            'warehouses' => $warehouses,
-        ]);
+        Response::redirect('production/outward?bill_id=' . (int)$id);
     }
 
     public function createBillDispatchBatch(string $id): void
@@ -1317,23 +1240,7 @@ class AllmodulesBillingController
         }
 
         $staffUsers = Database::fetchAll("SELECT id, full_name, username, phone, department, staff_role FROM users WHERE is_active = 1 ORDER BY full_name ASC");
-
-        $availablePackingBatches = Database::fetchAll(
-            "SELECT pb.*, 
-                    COALESCE(p.name, pp.name, 'Finished Product') AS product_name,
-                    w.name AS warehouse_name,
-                    w.code AS warehouse_code,
-                    c.name AS concern_name,
-                    c.code AS concern_code
-             FROM production_batches pb
-             JOIN production_programs pp ON pb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
-             LEFT JOIN warehouses w ON pb.destination_warehouse_id = w.id
-             LEFT JOIN concerns c ON pb.concern_id = c.id OR w.concern_id = c.id
-             WHERE pb.production_bill_id IS NULL
-               AND pb.status IN ('PREPARING', 'APPROVED')
-             ORDER BY pb.id DESC"
-        );
+        $availablePackingBatches = [];
 
         $billLabel = $bill ? (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) : '';
 
@@ -2602,13 +2509,12 @@ class AllmodulesBillingController
                 }
             }
 
-            // Link packing batch to this bill if billed from a packing batch
-            $batchIdParam = (int)($_POST['production_batch_id'] ?? 0);
-            if ($batchIdParam > 0) {
-                Database::execute("UPDATE production_batches SET production_bill_id = ? WHERE id = ?", [$billId, $batchIdParam]);
-            }
-
             Database::commit();
+            $moveToOutward = !empty($_POST['move_to_outward']) && $buyerType === 'COMPANY';
+            if ($moveToOutward) {
+                Response::redirect('production/outward?bill_id=' . $billId, 'success', 'Company bill saved. Fill vehicle details to complete outward dispatch.');
+                return;
+            }
             Response::redirect('production/billing/view/' . $billId, 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
         } catch (Throwable $e) {
             Database::rollback();

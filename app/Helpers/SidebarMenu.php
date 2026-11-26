@@ -201,15 +201,6 @@ class SidebarMenu {
                 'icon'         => '',
             ],
             [
-                'key'          => 'batches',
-                'label'        => 'Batches',
-                'url'          => 'allmodules/batches',
-                'active_menus' => ['batches', 'prod-batches'],
-                'module'       => 'warehouse',
-                'permissions'  => ['batches'],
-                'icon'         => '',
-            ],
-            [
                 'key'          => 'outward',
                 'label'        => 'Outward & Dispatch',
                 'url'          => 'allmodules/outward',

@@ -17890,6 +17890,7 @@ class AllmodulesController {
     // =========================================================================
 
     public function outwardList(): void {
+        Database::ensureColumn('production_outwards', 'production_bill_id', 'INT NULL DEFAULT NULL');
         $scopedUnitId = function_exists('currentProductionUnitId') ? currentProductionUnitId() : null;
         $search = $_GET['search'] ?? '';
         $cid = currentConcernId();
@@ -17899,31 +17900,34 @@ class AllmodulesController {
             'concern_id'         => $cid,
         ]);
 
-        $unitClause = $scopedUnitId ? " AND pp.production_unit_id = $scopedUnitId" : "";
-        $concernClause = "";
-        $batchParams = [];
+        $billWhere = ["pb.buyer_type = 'COMPANY'"];
+        $billParams = [];
         if ($cid) {
             if ($cid === 1) {
-                $concernClause = " AND (pb.concern_id = ? OR pb.concern_id IS NULL)";
+                $billWhere[] = "(pb.concern_id = ? OR pb.concern_id IS NULL)";
             } else {
-                $concernClause = " AND pb.concern_id = ?";
+                $billWhere[] = "pb.concern_id = ?";
             }
-            $batchParams[] = $cid;
+            $billParams[] = $cid;
         }
+        $billWhere[] = "pb.id NOT IN (SELECT production_bill_id FROM production_outwards WHERE production_bill_id IS NOT NULL)";
+        $billWhere[] = "pb.id NOT IN (SELECT production_bill_id FROM production_batches WHERE production_bill_id IS NOT NULL)";
+        $billWhereSql = "WHERE " . implode(" AND ", $billWhere);
 
-        $approvedBatches = Database::fetchAll(
-            "SELECT pb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name, w.name as warehouse_name,
-                    c_con.name as concern_name, c_con.code as concern_code
-             FROM production_batches pb
+        $pendingOutwardBills = Database::fetchAll(
+            "SELECT pb.id, pb.bill_number, pb.bill_date, pb.company_name, pb.company_phone, pb.total_amount, pb.payment_status, pb.concern_id,
+                    c_con.name AS concern_name, c_con.code AS concern_code,
+                    COALESCE(SUM(pbi.quantity), 0) AS total_qty,
+                    COUNT(pbi.id) AS line_count,
+                    GROUP_CONCAT(DISTINCT pbi.product_name ORDER BY pbi.id SEPARATOR ', ') AS product_summary
+             FROM production_bills pb
              LEFT JOIN concerns c_con ON c_con.id = COALESCE(pb.concern_id, 1)
-             JOIN production_programs pp ON pb.program_id = pp.id
-             LEFT JOIN products p ON pp.product_id = p.id
-             JOIN warehouses w ON pb.destination_warehouse_id = w.id
-             WHERE pb.status = 'APPROVED'
-               AND pb.id NOT IN (SELECT production_batch_id FROM production_outwards WHERE production_batch_id IS NOT NULL)
-               AND pb.id NOT IN (SELECT production_batch_id FROM production_outward_batches WHERE production_batch_id IS NOT NULL)$unitClause$concernClause
-             ORDER BY pb.created_at DESC",
-            $batchParams
+             LEFT JOIN production_bill_items pbi ON pbi.bill_id = pb.id
+             {$billWhereSql}
+             GROUP BY pb.id
+             HAVING total_qty > 0
+             ORDER BY pb.id DESC",
+            $billParams
         );
 
         $warehouses = Database::fetchAll("
@@ -17943,15 +17947,16 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.outward.index', [
-            'pageTitle'       => 'Production Outward & Dispatch',
-            'activeModule'    => 'production',
-            'activeMenu'      => 'outward',
-            'outwards'        => $outwards,
-            'approvedBatches' => $approvedBatches,
-            'warehouses'      => $warehouses,
-            'search'          => $search,
-            'scopedUnitId'    => $scopedUnitId,
-            'breadcrumb'      => [
+            'pageTitle'           => 'Production Outward & Dispatch',
+            'activeModule'        => 'production',
+            'activeMenu'          => 'outward',
+            'outwards'            => $outwards,
+            'pendingOutwardBills' => $pendingOutwardBills,
+            'preselectBillId'     => (int)($_GET['bill_id'] ?? 0),
+            'warehouses'          => $warehouses,
+            'search'              => $search,
+            'scopedUnitId'        => $scopedUnitId,
+            'breadcrumb'          => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Outward & Dispatch'],
             ],
@@ -17962,59 +17967,48 @@ class AllmodulesController {
         if (!CSRF::validateRequest()) {
             Session::flash('error', 'Invalid security token. Please try again.');
             Response::back();
+            return;
         }
 
-        // Support both single batch and multiple batches selection
-        $batchIds = [];
-        if (!empty($_POST['production_batch_ids']) && is_array($_POST['production_batch_ids'])) {
-            foreach ($_POST['production_batch_ids'] as $bid) {
-                $bid = (int)$bid;
-                if ($bid > 0 && !in_array($bid, $batchIds, true)) {
-                    $batchIds[] = $bid;
-                }
+        $billId = (int)($_POST['production_bill_id'] ?? 0);
+        if ($billId > 0) {
+            $warehouseId = (int)($_POST['destination_warehouse_id'] ?? $_POST['warehouse_id'] ?? 0);
+            $vehicleNumber = trim($_POST['vehicle_number'] ?? '');
+            if ($warehouseId <= 0) {
+                Session::flash('error', 'Please select a Destination Warehouse before dispatching.');
+                Response::back();
+                return;
             }
-        }
-        if (empty($batchIds) && !empty($_POST['production_batch_id'])) {
-            $batchIds[] = (int)$_POST['production_batch_id'];
-        }
-
-        if (empty($batchIds)) {
-            Session::flash('error', 'Please select at least one approved production batch to dispatch.');
-            Response::back();
+            if ($vehicleNumber === '') {
+                Session::flash('error', 'Please enter Vehicle / Transport Number or Courier reference before dispatching.');
+                Response::back();
+                return;
+            }
+            try {
+                $userId = (int)(Session::userId() ?? Auth::id() ?? 0);
+                $outwardId = ProductionService::createOutwardFromBill($billId, [
+                    'concern_id'       => resolveSubmittedConcernId(),
+                    'warehouse_id'     => $warehouseId,
+                    'dispatch_date'    => !empty($_POST['dispatch_date']) ? $_POST['dispatch_date'] : date('Y-m-d H:i:s'),
+                    'vehicle_number'   => $vehicleNumber,
+                    'driver_name'      => trim($_POST['driver_name'] ?? ''),
+                    'driver_contact'   => trim($_POST['driver_contact'] ?? ''),
+                    'transporter_name' => trim($_POST['transporter_name'] ?? ''),
+                    'lr_number'        => trim($_POST['lr_number'] ?? ''),
+                    'total_boxes'      => max(1, (int)($_POST['total_boxes'] ?? 1)),
+                    'notes'            => trim($_POST['notes'] ?? ''),
+                ], $userId);
+                Session::flash('success', "Outward & Dispatch #{$outwardId} created successfully.");
+                Response::redirect(url('production/outward'));
+            } catch (Exception $e) {
+                Session::flash('error', $e->getMessage());
+                Response::back();
+            }
             return;
         }
 
-        $vehicleNumber = trim($_POST['vehicle_number'] ?? '');
-        if (empty($vehicleNumber)) {
-            Session::flash('error', 'Please enter Vehicle / Transport Number or Courier reference before dispatching.');
-            Response::back();
-            return;
-        }
-
-        try {
-            $userId = Session::userId();
-            $outwardId = ProductionService::createOutward([
-                'concern_id'           => resolveSubmittedConcernId(),
-                'production_batch_ids' => $batchIds,
-                'dispatch_date'        => !empty($_POST['dispatch_date']) ? $_POST['dispatch_date'] : date('Y-m-d H:i:s'),
-                'vehicle_number'       => $vehicleNumber,
-                'driver_name'          => trim($_POST['driver_name'] ?? ''),
-                'driver_contact'       => trim($_POST['driver_contact'] ?? ''),
-                'transporter_name'     => trim($_POST['transporter_name'] ?? ''),
-                'lr_number'            => trim($_POST['lr_number'] ?? ''),
-                'notes'                => trim($_POST['notes'] ?? ''),
-            ], $userId);
-
-            $batchCount = count($batchIds);
-            $msg = ($batchCount > 1) 
-                ? "Multiple batches ({$batchCount} batches) combined and dispatched to warehouse successfully under Outward #{$outwardId}."
-                : "Production batch dispatched to warehouse successfully.";
-            Session::flash('success', $msg);
-            Response::redirect(url('production/outward'));
-        } catch (Exception $e) {
-            Session::flash('error', $e->getMessage());
-            Response::back();
-        }
+        Session::flash('error', 'Please select a Company Bill to outward.');
+        Response::back();
     }
 
     public function dispatchOutward(string $id): void {
@@ -18373,20 +18367,24 @@ class AllmodulesController {
                 $bIds[] = (int)$outward['production_batch_id'];
             }
 
-            // Reset batches back to APPROVED and clear outward association
-            if (!empty($bIds)) {
-                $placeholders = implode(',', array_fill(0, count($bIds), '?'));
-                Database::execute("UPDATE production_batches SET status = 'APPROVED', production_outward_id = NULL WHERE id IN ($placeholders)", $bIds);
-            }
-
             // Clean up production_outward_batches
             Database::execute("DELETE FROM production_outward_batches WHERE production_outward_id = ?", [$outwardId]);
 
             // Delete outward record
             Database::execute("DELETE FROM production_outwards WHERE id = ?", [$outwardId]);
 
+            // If batches were internal bill-linked records, remove them so the bill can be re-outwarded
+            if (!empty($bIds)) {
+                $placeholders = implode(',', array_fill(0, count($bIds), '?'));
+                $billLinkedBatches = Database::fetchAll("SELECT id FROM production_batches WHERE id IN ($placeholders) AND production_bill_id IS NOT NULL", $bIds);
+                foreach ($billLinkedBatches as $blb) {
+                    Database::execute("DELETE FROM production_batch_items WHERE production_batch_id = ?", [(int)$blb['id']]);
+                    Database::execute("DELETE FROM production_batches WHERE id = ?", [(int)$blb['id']]);
+                }
+            }
+
             Database::commit();
-            Session::flash('success', 'Outward & Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' deleted successfully. Associated batch(es) returned to Approved status.');
+            Session::flash('success', 'Outward & Dispatch ' . ($outward['outward_number'] ?? ('#' . $outwardId)) . ' deleted successfully.');
         } catch (Exception $e) {
             Database::rollback();
             Session::flash('error', 'Failed to delete outward dispatch: ' . $e->getMessage());
