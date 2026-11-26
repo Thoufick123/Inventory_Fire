@@ -775,11 +775,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="col-lg-4 col-md-6">
                 <div class="border rounded-3 p-3 h-100 bg-light-subtle d-flex flex-column justify-content-between shadow-sm <?= !$isMovedToPurchase ? 'opacity-75' : '' ?>">
                     <div>
-                        <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center justify-content-between mb-2 gap-1 flex-wrap">
                             <h6 class="fw-bold text-info mb-0"><i class="bi bi-qr-code me-1"></i>Option 2: QR Generations</h6>
-                            <span class="badge <?= $isMovedToPurchase ? 'bg-info-subtle text-info border border-info-subtle' : 'bg-secondary-subtle text-secondary border' ?>">
-                                <?= $isMovedToPurchase ? 'Labels &amp; Stock' : 'Locked' ?>
-                            </span>
+                            <div class="d-flex align-items-center gap-1">
+                                <?php if ($isMovedToPurchase): ?>
+                                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#modalTscPrinterConfig" title="Configure QR &amp; Label Formation">
+                                        <i class="bi bi-sliders me-1"></i>QR Config
+                                    </button>
+                                <?php endif; ?>
+                                <span class="badge <?= $isMovedToPurchase ? 'bg-info-subtle text-info border border-info-subtle' : 'bg-secondary-subtle text-secondary border' ?>">
+                                    <?= $isMovedToPurchase ? 'Labels &amp; Stock' : 'Locked' ?>
+                                </span>
+                            </div>
                         </div>
                         <?php if (!$isMovedToPurchase): ?>
                             <p class="small text-muted mb-2"><i class="bi bi-lock me-1"></i>Move this mapping to Purchase first to enable QR generation.</p>
@@ -1664,7 +1671,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (badge) badge.textContent = `${isDual ? 'Dual Roll' : 'Single Roll'} ${cfg.widthMm}mm × ${cfg.heightMm}mm`;
         if (caption) caption.innerHTML = `<i class="bi bi-info-circle me-1"></i>Simulating physical ${cfg.columns}-column TSC thermal sticker roll layout.`;
 
-        const sampleCards = lastActiveQrBatchModal ? lastActiveQrBatchModal.querySelectorAll('.qr-label-card') : [];
+        const sampleContainer = lastActiveQrBatchModal || document.querySelector('[id^="modalQrBatch_"]');
+        const sampleCards = sampleContainer ? sampleContainer.querySelectorAll('.qr-label-card') : [];
         const c1 = sampleCards[0]?.dataset || {};
         const c2 = sampleCards[1]?.dataset || c1;
 
