@@ -346,7 +346,7 @@
 const CONCERN_MODULE_MAPPING = {
     'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward'],
     'production': ['programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations'],
-    'warehouse': ['batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework'],
+    'warehouse': ['batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests'],
     'retail_pos': ['billing', 'direct_billing'],
     'digital_sales': ['billing', 'direct_billing', 'outward'],
     'returns': ['returns'],

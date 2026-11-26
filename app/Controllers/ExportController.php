@@ -163,13 +163,6 @@ class ExportController {
                 'color' => 'info',
                 'category' => 'Logistics & Warehousing'
             ],
-            'warehouse_rework' => [
-                'name' => 'Warehouse Rework & Repairs',
-                'desc' => 'Warehouse repair orders, defect types, repair notes, repaired vs scrapped quantities',
-                'icon' => 'bi bi-wrench-adjustable',
-                'color' => 'warning',
-                'category' => 'Logistics & Warehousing'
-            ],
 
             // SALES & FINANCE
             'billing' => [
@@ -295,7 +288,7 @@ class ExportController {
         $allModules = [
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward',
             'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations',
-            'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests', 'warehouse_rework',
+            'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests',
             'billing', 'direct_billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
         $selectedModules = !empty($_REQUEST['modules']) && is_array($_REQUEST['modules'])
