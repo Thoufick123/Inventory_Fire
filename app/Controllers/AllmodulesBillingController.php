@@ -2434,6 +2434,7 @@ class AllmodulesBillingController
                 'quantity' => count($tags),
                 'unit_price' => round((float)$unitPrice, 2),
                 'is_complementary' => $isComplementary ? 1 : 0,
+                'is_coupon_product' => !empty($submitted['is_coupon_product']) ? 1 : 0,
                 'hsn_code' => $hsnCode,
                 'gst_type' => $gstType,
                 'tax_input_type' => $taxInputType,
@@ -2557,23 +2558,17 @@ class AllmodulesBillingController
             $requiredTotal = max($minRedeem, $cType === 'FIXED' ? $cVal : 0.0);
 
             if ($couponApplyMode === 'PRODUCT_BUY') {
-                // Additional product(s) beyond the first piece must cover the coupon requirement
+                // Only items explicitly marked as New Product (Use Coupon) receive the coupon discount
                 $extraProductAmount = 0.0;
-                foreach ($itemPayload as $idx => $it) {
-                    $lineTotal = (float)$it['amounts']['total_amount'];
-                    if ($idx === 0) {
-                        $qty = (int)$it['quantity'];
-                        if ($qty > 1) {
-                            $extraProductAmount += round((float)$it['unit_price'] * ($qty - 1), 2);
-                        }
-                    } else {
-                        $extraProductAmount += $lineTotal;
+                foreach ($itemPayload as $it) {
+                    if (!empty($it['is_coupon_product'])) {
+                        $extraProductAmount += (float)$it['amounts']['total_amount'];
                     }
                 }
                 $productBuyRequired = $cType === 'FIXED' ? $cVal : 0.0;
                 if ($extraProductAmount <= 0 || ($productBuyRequired > 0 && $extraProductAmount < $productBuyRequired)) {
                     $needAmt = $productBuyRequired > 0 ? number_format($productBuyRequired, 2) : '0.01';
-                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Product Buy coupon '{$appliedCouponCode}' requires adding another product worth at least ₹{$needAmt}.");
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Product Buy coupon '{$appliedCouponCode}' requires selecting/adding a new product worth at least ₹{$needAmt}.");
                     return;
                 }
                 if ($minRedeem > 0 && $totals['total_amount'] < $minRedeem) {

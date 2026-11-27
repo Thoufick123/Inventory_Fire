@@ -1053,7 +1053,11 @@ function getSelectedCouponMode() {
 
 function onCouponModeChange(mode) {
     const el = document.getElementById('couponApplyMode');
-    if (el) el.value = mode === 'PRODUCT_BUY' ? 'PRODUCT_BUY' : 'DIRECT';
+    const isProductBuy = mode === 'PRODUCT_BUY';
+    if (el) el.value = isProductBuy ? 'PRODUCT_BUY' : 'DIRECT';
+    document.querySelectorAll('.coupon-product-check-wrap').forEach(w => {
+        w.classList.toggle('d-none', !isProductBuy);
+    });
     if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 
@@ -1101,9 +1105,8 @@ function toggleCouponCard(code) {
             const shortfall = Math.max(0, reqExtra - lastExtraProductTotal);
             if (statusHelp) {
                 statusHelp.classList.remove('d-none');
-                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must add another product of at least ${formatCurrency(reqExtra)} (add ${formatCurrency(shortfall)} more) to use coupon ${code} in Product Buy mode.</span>`;
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Original bill will not be reduced. Scan or check "New Product (Use Coupon)" on a product of at least ${formatCurrency(reqExtra)} (need ${formatCurrency(shortfall)} more).</span>`;
             }
-            return;
         }
         if (minReq > 0 && lastPreCouponTotal < minReq) {
             const shortfall = Math.max(0, minReq - lastPreCouponTotal);
@@ -1668,6 +1671,25 @@ document.addEventListener('DOMContentLoaded', () => {
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
 
+            const couponItemWrap = document.createElement('div');
+            couponItemWrap.className = `mt-1 coupon-product-check-wrap ${getSelectedCouponMode() === 'PRODUCT_BUY' ? '' : 'd-none'}`;
+            const couponCheckLabel = document.createElement('label');
+            couponCheckLabel.className = 'form-check-label small text-primary fw-semibold d-inline-flex align-items-center gap-1';
+            couponCheckLabel.style.cursor = 'pointer';
+            const couponCheck = document.createElement('input');
+            couponCheck.type = 'checkbox';
+            couponCheck.className = 'form-check-input mt-0 coupon-product-checkbox';
+            couponCheck.name = `items[${index}][is_coupon_product]`;
+            couponCheck.value = '1';
+            couponCheck.checked = Boolean(item.is_coupon_product);
+            couponCheck.addEventListener('change', () => {
+                item.is_coupon_product = couponCheck.checked ? 1 : 0;
+                updateTotals();
+            });
+            couponCheckLabel.append(couponCheck, document.createTextNode('New Product (Use Coupon)'));
+            couponItemWrap.append(couponCheckLabel);
+            productCell.append(couponItemWrap);
+
             const badgeWrap = document.createElement('div');
             badgeWrap.className = 'd-flex flex-wrap align-items-center gap-1 my-1';
             const mainVarCode = resolveVariantCode(item);
@@ -2062,21 +2084,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let grandTotal = 0;
 
         let extraProductTotal = 0;
-        let rowIdx = 0;
         cart.forEach((item, itemKey) => {
             const qty = item.tags.length;
             const price = Number(item.unit_price || 0);
             const mrp = Number(item.mrp || 0);
             const lineGross = mrp * qty;
             const netLine = price * qty;
-            if (rowIdx === 0) {
-                if (qty > 1) {
-                    extraProductTotal += price * (qty - 1);
-                }
-            } else {
+            if (item.is_coupon_product) {
                 extraProductTotal += netLine;
             }
-            rowIdx++;
             const gstRate = Number(item.gst_percentage || 0);
 
             let taxable = netLine;
@@ -2222,6 +2238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const entry = {
                 ...item,
+                is_coupon_product: (getSelectedCouponMode() === 'PRODUCT_BUY' && appliedCouponState) ? 1 : 0,
                 discount_percentage: resolveDiscountPercentage(item),
                 available_tags: [...pool],
                 tags: [chosenTag]
