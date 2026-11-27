@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261125_accounts_v2'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261127_optional_all'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -41,6 +41,10 @@ class PurchaseMappingFulfillmentService {
 
         Database::ensureColumn('production_purchases', 'grn_id', 'INT UNSIGNED DEFAULT NULL AFTER total_amount');
         Database::ensureColumn('production_purchases', 'grn_number', 'VARCHAR(50) DEFAULT NULL AFTER grn_id');
+        try {
+            Database::execute("ALTER TABLE production_purchases MODIFY COLUMN seller_id INT UNSIGNED NULL DEFAULT NULL");
+        } catch (\Throwable $e) {
+        }
 
         Database::ensureColumn('purchase_orders', 'production_purchase_id', 'INT UNSIGNED DEFAULT NULL AFTER id');
         Database::ensureColumn('purchase_inward_items', 'production_purchase_item_id', 'INT UNSIGNED DEFAULT NULL AFTER purchase_inward_id');
@@ -217,10 +221,19 @@ class PurchaseMappingFulfillmentService {
             CONSTRAINT fk_tpmi_bill FOREIGN KEY (mapping_bill_id) REFERENCES third_party_mapping_bills (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         Database::ensureColumn('third_party_mapping_items', 'purchase_item_id', 'INT UNSIGNED DEFAULT NULL AFTER mapping_bill_id');
-        Database::ensureColumn('third_party_mapping_items', 'item_type', "ENUM('THIRD_PARTY','FABRIC_ROLL') NOT NULL DEFAULT 'THIRD_PARTY' AFTER purchase_item_id");
+        Database::ensureColumn('third_party_mapping_items', 'item_type', "ENUM('THIRD_PARTY','FABRIC_ROLL','RAW_MATERIAL') NOT NULL DEFAULT 'THIRD_PARTY' AFTER purchase_item_id");
+        try {
+            Database::execute("ALTER TABLE third_party_mapping_items MODIFY COLUMN item_type ENUM('THIRD_PARTY','FABRIC_ROLL','RAW_MATERIAL') NOT NULL DEFAULT 'THIRD_PARTY'");
+        } catch (\Throwable $e) {
+        }
+        Database::ensureColumn('third_party_mapping_items', 'brand_name', 'VARCHAR(120) DEFAULT NULL AFTER item_name');
         Database::ensureColumn('third_party_mapping_items', 'roll_code', "VARCHAR(100) DEFAULT NULL AFTER product_code");
+        Database::ensureColumn('third_party_mapping_items', 'design_name', 'VARCHAR(120) DEFAULT NULL AFTER color');
+        Database::ensureColumn('third_party_mapping_items', 'gst_mode', "VARCHAR(20) NOT NULL DEFAULT 'EXCLUDED' AFTER gst_rate");
+        Database::ensureColumn('third_party_mapping_items', 'gst_type', "VARCHAR(20) NOT NULL DEFAULT 'BOTH' AFTER gst_mode");
         Database::ensureColumn('third_party_mapping_items', 'weight_kg', "DECIMAL(10,3) DEFAULT NULL AFTER quantity");
         Database::ensureColumn('third_party_mapping_items', 'meters', "DECIMAL(10,3) DEFAULT NULL AFTER weight_kg");
+        Database::ensureColumn('production_purchase_items', 'brand_name', 'VARCHAR(120) DEFAULT NULL AFTER item_name');
 
         // High-Performance Composite Indexes for ERP mapping, purchases, QR and stock ledger
         Database::ensureIndex('production_purchases', 'idx_pp_seller_inv', '`seller_id`, `invoice_number`');
@@ -251,7 +264,7 @@ class PurchaseMappingFulfillmentService {
         // Hard-coded default third-party categories are no longer auto-seeded; only catalog-saved categories are used.
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261125_accounts_v2'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261127_optional_all'] = 1;
         }
         self::$schemaEnsured = true;
     }
@@ -313,15 +326,12 @@ class PurchaseMappingFulfillmentService {
         $mrpValue = $mapping['mrp'] ?? null;
         $sellingPriceValue = $mapping['selling_price'] ?? null;
 
-        if (!is_numeric($mrpValue) || !is_numeric($sellingPriceValue)) {
-            throw new InvalidArgumentException('Enter valid MRP and selling prices.');
+        $mrp = max(0.0, is_numeric($mrpValue) ? (float)$mrpValue : 0.0);
+        $sellingPrice = max(0.0, is_numeric($sellingPriceValue) ? (float)$sellingPriceValue : 0.0);
+        if (!is_finite($mrp) || !is_finite($sellingPrice) || $mrp < 0 || $sellingPrice < 0) {
+            throw new InvalidArgumentException('MRP and selling price must be valid non-negative amounts.');
         }
-        $mrp = (float)$mrpValue;
-        $sellingPrice = (float)$sellingPriceValue;
-        if (!is_finite($mrp) || !is_finite($sellingPrice) || $mrp <= 0 || $sellingPrice <= 0) {
-            throw new InvalidArgumentException('MRP and selling price must be valid positive amounts.');
-        }
-        if ($sellingPrice > $mrp) {
+        if ($mrp > 0 && $sellingPrice > $mrp) {
             throw new InvalidArgumentException('Selling price cannot be greater than MRP.');
         }
 

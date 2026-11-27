@@ -425,9 +425,6 @@
                         <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1.5 fs-6">
                             <i class="bi bi-arrow-repeat me-1"></i>Replaced Count: <strong><?= number_format($totalReplacedRollsCount) ?> Rolls</strong>
                         </span>
-                        <button type="button" class="btn btn-sm btn-success fw-semibold" onclick="exportReplacedRollsCSV()" title="Export Replaced Rolls Data Only">
-                            <i class="bi bi-file-earmark-arrow-down me-1"></i>Export Replaced (CSV)
-                        </button>
                     </div>
                 </div>
 
@@ -695,9 +692,6 @@
                     <div>
                         <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-receipt me-1.5 text-dark"></i>Supplier Purchase Orders</h6>
                     </div>
-                    <a href="<?= url('production/purchases/create?seller_id=' . (int)$seller['id']) ?>" class="btn btn-sm btn-primary">
-                        <i class="bi bi-plus-circle me-1"></i>Create New Purchase
-                    </a>
                 </div>
 
                 <?php if (empty($purchases)): ?>
