@@ -468,6 +468,17 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                         <i class="bi bi-percent fs-6"></i>
                                     </div>
                                 </div>
+                                <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <span class="small fw-semibold text-muted">Coupon Mode:</span>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Coupon Apply Mode">
+                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeDirect" value="DIRECT" <?= ($bill['coupon_apply_mode'] ?? 'DIRECT') !== 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('DIRECT')">
+                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeDirect">Direct Bill Discount</label>
+
+                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeProductBuy" value="PRODUCT_BUY" <?= ($bill['coupon_apply_mode'] ?? '') === 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('PRODUCT_BUY')">
+                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeProductBuy">Buy Product with Coupon</label>
+                                    </div>
+                                    <input type="hidden" name="coupon_apply_mode" id="couponApplyMode" value="<?= $escape($bill['coupon_apply_mode'] ?? 'DIRECT') ?>">
+                                </div>
                                 <div class="px-3 py-2">
                                     <?php if (empty($availableCoupons)): ?>
                                         <div class="small text-muted py-2 text-center">
@@ -652,6 +663,7 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
 <script>
 let lastComputedGrandTotal = 0;
 let lastPreCouponTotal = 0;
+let lastExtraProductTotal = 0;
 let appliedCouponState = <?= !empty($bill['applied_coupon_code']) ? json_encode([
     'coupon_id' => (int)($bill['applied_coupon_id'] ?? 0),
     'coupon_code' => (string)($bill['applied_coupon_code'] ?? ''),
@@ -1034,6 +1046,17 @@ function openCustomerHistoryModal() {
         });
 }
 
+function getSelectedCouponMode() {
+    const el = document.getElementById('couponApplyMode');
+    return (el && el.value === 'PRODUCT_BUY') ? 'PRODUCT_BUY' : 'DIRECT';
+}
+
+function onCouponModeChange(mode) {
+    const el = document.getElementById('couponApplyMode');
+    if (el) el.value = mode === 'PRODUCT_BUY' ? 'PRODUCT_BUY' : 'DIRECT';
+    if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
+}
+
 function toggleAllCouponsList() {
     const extras = document.querySelectorAll('.extra-coupon-item');
     const link = document.getElementById('viewAllCouponsLink');
@@ -1070,20 +1093,42 @@ function toggleCouponCard(code) {
     const dType = String(itemEl.dataset.type || 'FIXED').toUpperCase();
     const dVal = parseFloat(itemEl.dataset.value || '0') || 0;
     const minReq = parseFloat(itemEl.dataset.min || '0') || 0;
-    const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+    const mode = getSelectedCouponMode();
 
-    if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
-        const shortfall = Math.max(0, requiredTotal - lastPreCouponTotal);
-        if (statusHelp) {
-            statusHelp.classList.remove('d-none');
-            statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${formatCurrency(requiredTotal)} (add ${formatCurrency(shortfall)} more) to apply coupon ${code}.</span>`;
+    if (mode === 'PRODUCT_BUY') {
+        const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+        if (lastExtraProductTotal < reqExtra) {
+            const shortfall = Math.max(0, reqExtra - lastExtraProductTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must add another product of at least ${formatCurrency(reqExtra)} (add ${formatCurrency(shortfall)} more) to use coupon ${code} in Product Buy mode.</span>`;
+            }
+            return;
         }
-        return;
+        if (minReq > 0 && lastPreCouponTotal < minReq) {
+            const shortfall = Math.max(0, minReq - lastPreCouponTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${formatCurrency(minReq)} total bill (add ${formatCurrency(shortfall)} more) to apply coupon ${code}.</span>`;
+            }
+            return;
+        }
+    } else {
+        const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+        if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
+            const shortfall = Math.max(0, requiredTotal - lastPreCouponTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${formatCurrency(requiredTotal)} (add ${formatCurrency(shortfall)} more) to apply coupon ${code}.</span>`;
+            }
+            return;
+        }
     }
 
+    const baseForDiscount = mode === 'PRODUCT_BUY' ? lastExtraProductTotal : lastPreCouponTotal;
     const computedDiscount = dType === 'PERCENT'
-        ? Math.round((lastPreCouponTotal * (dVal / 100)) * 100) / 100
-        : Math.min(lastPreCouponTotal, dVal);
+        ? Math.round((baseForDiscount * (dVal / 100)) * 100) / 100
+        : Math.min(baseForDiscount, dVal);
 
     appliedCouponState = {
         coupon_id: parseInt(itemEl.dataset.id || '0', 10),
@@ -2016,12 +2061,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let taxes = 0;
         let grandTotal = 0;
 
+        let extraProductTotal = 0;
+        let rowIdx = 0;
         cart.forEach((item, itemKey) => {
             const qty = item.tags.length;
             const price = Number(item.unit_price || 0);
             const mrp = Number(item.mrp || 0);
             const lineGross = mrp * qty;
             const netLine = price * qty;
+            if (rowIdx === 0) {
+                if (qty > 1) {
+                    extraProductTotal += price * (qty - 1);
+                }
+            } else {
+                extraProductTotal += netLine;
+            }
+            rowIdx++;
             const gstRate = Number(item.gst_percentage || 0);
 
             let taxable = netLine;
@@ -2054,6 +2109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         lastPreCouponTotal = grandTotal;
+        lastExtraProductTotal = Math.round(extraProductTotal * 100) / 100;
         let couponDiscount = 0;
         const couponRow = document.getElementById('couponDiscountRow');
         const couponAmtEl = document.getElementById('couponDiscountAmount');
@@ -2062,21 +2118,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const dType = String(appliedCouponState.discount_type || 'FIXED').toUpperCase();
             const dVal = Number(appliedCouponState.discount_value || 0);
             const minReq = Number(appliedCouponState.min_redemption_amount || 0);
-            const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
-            if (requiredTotal > 0 && grandTotal < requiredTotal) {
-                couponDiscount = 0;
-                const shortfall = Math.max(0, requiredTotal - grandTotal);
-                if (couponStatusEl) {
-                    couponStatusEl.classList.remove('d-none');
-                    couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${money(requiredTotal)} (add ${money(shortfall)} more) to apply coupon ${appliedCouponState.coupon_code}.</span>`;
+            const mode = getSelectedCouponMode();
+            if (mode === 'PRODUCT_BUY') {
+                const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+                if (lastExtraProductTotal < reqExtra) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, reqExtra - lastExtraProductTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must add another product of at least ${money(reqExtra)} (add ${money(shortfall)} more) for Product Buy coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else if (minReq > 0 && grandTotal < minReq) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, minReq - grandTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${money(minReq)} total bill (add ${money(shortfall)} more) for coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else {
+                    couponDiscount = dType === 'PERCENT'
+                        ? Math.round((lastExtraProductTotal * (dVal / 100)) * 100) / 100
+                        : Math.min(lastExtraProductTotal, dVal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Product Buy coupon ${appliedCouponState.coupon_code} applied (-${money(couponDiscount)} on extra product).</span>`;
+                    }
                 }
             } else {
-                couponDiscount = dType === 'PERCENT'
-                    ? Math.round((grandTotal * (dVal / 100)) * 100) / 100
-                    : Math.min(grandTotal, dVal);
-                if (couponStatusEl) {
-                    couponStatusEl.classList.remove('d-none');
-                    couponStatusEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${appliedCouponState.coupon_code} applied (-${money(couponDiscount)}).</span>`;
+                const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+                if (requiredTotal > 0 && grandTotal < requiredTotal) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, requiredTotal - grandTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${money(requiredTotal)} (add ${money(shortfall)} more) to apply coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else {
+                    couponDiscount = dType === 'PERCENT'
+                        ? Math.round((grandTotal * (dVal / 100)) * 100) / 100
+                        : Math.min(grandTotal, dVal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${appliedCouponState.coupon_code} applied (-${money(couponDiscount)}).</span>`;
+                    }
                 }
             }
         }
@@ -2309,11 +2393,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const dType = String(appliedCouponState.discount_type || 'FIXED').toUpperCase();
             const dVal = Number(appliedCouponState.discount_value || 0);
             const minReq = Number(appliedCouponState.min_redemption_amount || 0);
-            const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
-            if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
-                e.preventDefault();
-                alert(`Must reach ${money(requiredTotal)} to apply coupon ${appliedCouponState.coupon_code}, or remove the coupon.`);
-                return;
+            const mode = getSelectedCouponMode();
+            if (mode === 'PRODUCT_BUY') {
+                const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+                if (lastExtraProductTotal < reqExtra) {
+                    e.preventDefault();
+                    alert(`Product Buy coupon ${appliedCouponState.coupon_code} requires adding another product worth at least ${money(reqExtra)}, or remove the coupon.`);
+                    return;
+                }
+                if (minReq > 0 && lastPreCouponTotal < minReq) {
+                    e.preventDefault();
+                    alert(`Must reach ${money(minReq)} total bill to apply coupon ${appliedCouponState.coupon_code}, or remove the coupon.`);
+                    return;
+                }
+            } else {
+                const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+                if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
+                    e.preventDefault();
+                    alert(`Must reach ${money(requiredTotal)} to apply coupon ${appliedCouponState.coupon_code}, or remove the coupon.`);
+                    return;
+                }
             }
         }
 
