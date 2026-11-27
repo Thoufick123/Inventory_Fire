@@ -221,12 +221,13 @@ foreach ($hierarchicalModules as $m) {
                                 <table class="table table-hover align-middle mb-0 permissions-table">
                                     <thead class="table-light">
                                         <tr class="text-uppercase small text-muted" style="font-size: 11px;">
-                                            <th class="ps-3 py-2" style="width: 38%;">Submodule</th>
-                                            <th class="text-center py-2" style="width: 12%;">View</th>
-                                            <th class="text-center py-2" style="width: 12%;">Create</th>
-                                            <th class="text-center py-2" style="width: 12%;">Edit</th>
-                                            <th class="text-center py-2" style="width: 12%;">Delete</th>
-                                            <th class="text-center pe-3 py-2" style="width: 14%;">Row All</th>
+                                            <th class="ps-3 py-2" style="width: 34%;">Submodule</th>
+                                            <th class="text-center py-2" style="width: 10%;">View</th>
+                                            <th class="text-center py-2" style="width: 10%;">Create</th>
+                                            <th class="text-center py-2" style="width: 10%;">Verify</th>
+                                            <th class="text-center py-2" style="width: 10%;">Edit</th>
+                                            <th class="text-center py-2" style="width: 10%;">Delete</th>
+                                            <th class="text-center pe-3 py-2" style="width: 16%;">Row All</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -251,7 +252,7 @@ foreach ($hierarchicalModules as $m) {
                                                     </div>
                                                 </td>
 
-                                                <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
+                                                <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
                                                     <td class="text-center py-2.5">
                                                         <?php $columnPermissions = $crudColumns[$crudAction]; ?>
                                                         <?php if (!empty($columnPermissions)): ?>

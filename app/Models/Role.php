@@ -297,11 +297,6 @@ class Role {
             ['dashboard', 'edit', 'Edit infrastructure facilities and dashboard configurations', 'dashboard.edit', null],
             ['dashboard', 'delete', 'Delete infrastructure facilities and records', 'dashboard.delete', null],
 
-            ['batches', 'view', 'View Packaging Batches', 'batches.view', null],
-            ['batches', 'create', 'Create Packaging Batch & Box Consolidations', 'batches.create', null],
-            ['batches', 'edit', 'Edit Packaging Batches & Box Allocations', 'batches.edit', null],
-            ['batches', 'delete', 'Delete or Cancel Packaging Batches', 'batches.delete', null],
-
             ['allocation_outward', 'view', 'View Warehouse Outward Manifests', 'allocation_outward.view', 'allocation'],
             ['allocation_outward', 'create', 'Create Outward Transport Manifest', 'allocation_outward.create', 'allocation'],
             ['allocation_outward', 'edit', 'Edit Outward Delivery Manifest & Vehicle Notes', 'allocation_outward.edit', 'allocation'],
@@ -776,7 +771,6 @@ class Role {
                     'production_expenses'       => ['name' => 'Expenses', 'icon' => 'bi-currency-rupee', 'desc' => 'Machine maintenance, repair costs, threads, needles, and daily floor expenses', 'department' => 'PRODUCTION'],
                     'production_billing'        => ['name' => 'Billing / Pos', 'icon' => 'bi-receipt-cutoff', 'desc' => 'Production client orders, sales bills, GST invoicing, and payment receipts', 'department' => 'PRODUCTION'],
                     'production_returns'        => ['name' => 'Returns & Exchanges', 'icon' => 'bi-arrow-left-right', 'desc' => 'Production client customer returns, piece exchanges, and credit notes', 'department' => 'PRODUCTION'],
-                    'batches'                   => ['name' => 'Batches', 'icon' => 'bi-box-seam', 'desc' => 'Carton packing, variant bundles, and master box packaging', 'department' => 'PRODUCTION'],
                     'outward'                   => ['name' => 'Outward & Dispatch', 'icon' => 'bi-truck', 'desc' => 'Delivery challans and outward dispatch to Central Warehouses', 'department' => 'PRODUCTION'],
                     'production_stock_requests' => ['name' => 'Stock Request', 'icon' => 'bi-inbox', 'desc' => 'Warehouse stock requisitions and production fulfillment requests', 'department' => 'PRODUCTION'],
                     'production_hsn'            => ['name' => 'HSN Config', 'icon' => 'bi-hash', 'desc' => 'Production HSN codes, tax slabs, GST percentage, and category tax rates', 'department' => 'PRODUCTION'],

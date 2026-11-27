@@ -90,11 +90,12 @@
                     <table class="table table-sm align-middle mb-0">
                         <thead class="table-light">
                             <tr class="text-uppercase small text-muted" style="font-size: 11px;">
-                                <th class="ps-3 py-2" style="width: 44%;">Submodule</th>
-                                <th class="text-center py-2" style="width: 14%;">View</th>
-                                <th class="text-center py-2" style="width: 14%;">Create</th>
-                                <th class="text-center py-2" style="width: 14%;">Edit</th>
-                                <th class="text-center py-2" style="width: 14%;">Delete</th>
+                                <th class="ps-3 py-2" style="width: 35%;">Submodule</th>
+                                <th class="text-center py-2" style="width: 13%;">View</th>
+                                <th class="text-center py-2" style="width: 13%;">Create</th>
+                                <th class="text-center py-2" style="width: 13%;">Verify</th>
+                                <th class="text-center py-2" style="width: 13%;">Edit</th>
+                                <th class="text-center py-2" style="width: 13%;">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -107,7 +108,7 @@
                                             <div class="text-muted small" style="font-size: 11px;"><?= e($sub['desc']) ?></div>
                                         <?php endif; ?>
                                     </td>
-                                    <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
+                                    <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
                                         <td class="text-center py-2">
                                             <?php $colPerms = $crudColumns[$crudAction] ?? []; ?>
                                             <?php if (!empty($colPerms)): ?>

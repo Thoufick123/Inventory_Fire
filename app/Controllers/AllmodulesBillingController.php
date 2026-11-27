@@ -880,6 +880,17 @@ class AllmodulesBillingController
             }
 
             // Direct fallback: check QC items belonging to THIS product & variant across active batches
+            $cidFilterSql = '';
+            $cidFilterParams = [];
+            $activeCid = function_exists('currentConcernId') ? currentConcernId() : null;
+            if ($activeCid) {
+                if ((int)$activeCid === 1) {
+                    $cidFilterSql = ' AND COALESCE(qb.concern_id, pp.concern_id, 1) = 1';
+                } else {
+                    $cidFilterSql = ' AND (qb.concern_id = ? OR (qb.concern_id IS NULL AND pp.concern_id = ?))';
+                    $cidFilterParams = [(int)$activeCid, (int)$activeCid];
+                }
+            }
             $directQcRows = Database::fetchAll("
                 SELECT qi.id as qc_item_id, qi.qc_batch_id, qi.variant_id, qi.size_name, qi.color_name,
                        qi.base_price, qi.discount_price, qi.passed_qty,
@@ -901,16 +912,16 @@ class AllmodulesBillingController
                             AND (? = '' OR UPPER(TRIM(COALESCE(qi.color_name, ''))) = UPPER(TRIM(?)))
                         )
                   )
-                  AND qi.passed_qty > 0
+                  AND qi.passed_qty > 0{$cidFilterSql}
                 ORDER BY qb.id DESC
-            ", [
+            ", array_merge([
                 $varId,
                 $varId,
                 (string)($variantMatch['size_name'] ?? ''),
                 (string)($variantMatch['size_name'] ?? ''),
                 (string)($variantMatch['color_name'] ?? ''),
                 (string)($variantMatch['color_name'] ?? ''),
-            ]);
+            ], $cidFilterParams));
 
             if (!empty($directQcRows)) {
                 $soldFallbackRows = Database::fetchAll(
@@ -985,25 +996,30 @@ class AllmodulesBillingController
                 }
             }
 
-            // Fallback: check available stock balances across facilities
+            // Fallback: check available stock balances scoped to the active concern
+            [$sbConcernSql, $sbConcernParams] = $this->buildStockBalanceConcernFilter('sb');
             $balance = Database::fetchOne(
-                "SELECT COALESCE(SUM(quantity), 0) AS quantity
-                 FROM stock_balances
-                 WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
-                [$varId]
+                "SELECT COALESCE(SUM(sb.quantity), 0) AS quantity
+                 FROM stock_balances sb
+                 WHERE sb.variant_id = ? AND sb.stock_state = 'AVAILABLE'{$sbConcernSql}",
+                array_merge([$varId], $sbConcernParams)
             );
+            $activeCidForBills = function_exists('currentConcernId') ? (int)(currentConcernId() ?: 0) : 0;
+            $billConcernSql = $activeCidForBills > 0 ? ' AND COALESCE(pb.concern_id, 1) = ?' : '';
+            $billConcernParams = $activeCidForBills > 0 ? [$activeCidForBills] : [];
             $untrackedBilledRow = Database::fetchOne(
                 "SELECT COALESCE(SUM(pbi.quantity), 0) AS qty
                  FROM production_bill_items pbi
+                 JOIN production_bills pb ON pb.id = pbi.bill_id
                  WHERE pbi.variant_id = ?
-                   AND (? = 0 OR pbi.bill_id <> ?)
+                   AND (? = 0 OR pbi.bill_id <> ?){$billConcernSql}
                    AND NOT EXISTS (
                        SELECT 1 FROM stock_transactions st
                        WHERE st.reference_type = 'production_bills'
                          AND st.reference_id = pbi.bill_id
                          AND st.variant_id = pbi.variant_id
                    )",
-                [$varId, $billId, $billId]
+                array_merge([$varId, $billId, $billId], $billConcernParams)
             );
             $availableQty = max(0.0, (float)($balance['quantity'] ?? 0) - (float)($untrackedBilledRow['qty'] ?? 0));
 
@@ -1683,6 +1699,29 @@ class AllmodulesBillingController
         return $items;
     }
 
+    /**
+     * Restrict stock_balances queries to locations owned by the active concern.
+     *
+     * @return array{0: string, 1: array<int, int>}
+     */
+    private function buildStockBalanceConcernFilter(string $alias = 'sb'): array
+    {
+        $cid = function_exists('currentConcernId') ? (int)(currentConcernId() ?: 0) : 0;
+        if ($cid <= 0) {
+            return ['', []];
+        }
+        $sql = " AND (
+            ({$alias}.location_type = 'WAREHOUSE' AND EXISTS (
+                SELECT 1 FROM warehouses w_cf WHERE w_cf.id = {$alias}.location_id AND COALESCE(w_cf.concern_id, 1) = ?
+            ))
+            OR ({$alias}.location_type = 'PRODUCTION_UNIT' AND EXISTS (
+                SELECT 1 FROM production_units pu_cf WHERE pu_cf.id = {$alias}.location_id AND COALESCE(pu_cf.concern_id, 1) = ?
+            ))
+            OR ({$alias}.location_type NOT IN ('WAREHOUSE', 'PRODUCTION_UNIT') AND ? = 1)
+        )";
+        return [$sql, [$cid, $cid, $cid]];
+    }
+
     private function getAvailableInventory(int $excludeBillId = 0, int $productionUnitId = 0): array
     {
         Database::ensureColumn('products', 'variants_deferred', 'TINYINT(1) NOT NULL DEFAULT 0');
@@ -1697,8 +1736,12 @@ class AllmodulesBillingController
         $concernFilter = '';
         $params = [];
         if ($cid) {
-            $concernFilter = ' AND (qb.concern_id = ? OR pp.concern_id = ? OR qb.concern_id IS NULL OR pp.concern_id IS NULL OR qb.concern_id = 1 OR pp.concern_id = 1)';
-            $params = [$cid, $cid];
+            if ((int)$cid === 1) {
+                $concernFilter = ' AND COALESCE(qb.concern_id, pp.concern_id, 1) = 1';
+            } else {
+                $concernFilter = ' AND (qb.concern_id = ? OR (qb.concern_id IS NULL AND pp.concern_id = ?))';
+                $params = [(int)$cid, (int)$cid];
+            }
         }
 
         $rows = Database::fetchAll(
@@ -2203,11 +2246,12 @@ class AllmodulesBillingController
                 );
                 $availableVariantQty = (float)($balRow['quantity'] ?? 0);
                 if ($availableVariantQty <= 0) {
+                    [$sbConcernSql, $sbConcernParams] = $this->buildStockBalanceConcernFilter('sb');
                     $anyBalRow = Database::fetchOne(
-                        "SELECT COALESCE(SUM(quantity), 0) AS quantity
-                         FROM stock_balances
-                         WHERE variant_id = ? AND stock_state = 'AVAILABLE'",
-                        [$variantId]
+                        "SELECT COALESCE(SUM(sb.quantity), 0) AS quantity
+                         FROM stock_balances sb
+                         WHERE sb.variant_id = ? AND sb.stock_state = 'AVAILABLE'{$sbConcernSql}",
+                        array_merge([$variantId], $sbConcernParams)
                     );
                     $availableVariantQty = (float)($anyBalRow['quantity'] ?? 0);
                 }
@@ -2790,12 +2834,13 @@ class AllmodulesBillingController
                             }
                         }
                         if ($remainingToDeduct > 0) {
+                            [$sbDeductSql, $sbDeductParams] = $this->buildStockBalanceConcernFilter('sb');
                             $otherBalances = Database::fetchAll(
-                                "SELECT location_type, location_id, quantity
-                                 FROM stock_balances
-                                 WHERE variant_id = ? AND stock_state = 'AVAILABLE' AND quantity > 0
-                                 ORDER BY (location_type = 'WAREHOUSE') DESC, quantity DESC",
-                                [$vId]
+                                "SELECT sb.location_type, sb.location_id, sb.quantity
+                                 FROM stock_balances sb
+                                 WHERE sb.variant_id = ? AND sb.stock_state = 'AVAILABLE' AND sb.quantity > 0{$sbDeductSql}
+                                 ORDER BY (sb.location_type = 'WAREHOUSE') DESC, sb.quantity DESC",
+                                array_merge([$vId], $sbDeductParams)
                             );
                             foreach ($otherBalances as $ob) {
                                 if ($remainingToDeduct <= 0) break;
