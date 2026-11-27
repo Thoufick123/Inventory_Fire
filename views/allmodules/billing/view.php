@@ -19,6 +19,9 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
+        <?php if (!empty($issuedCoupon)): ?>
+            <a class="btn btn-warning fw-semibold" href="<?= url('production/billing/coupon-print/' . (int)$bill['id']) ?>" target="_blank"><i class="bi bi-ticket-perforated me-1"></i>Print Coupon Card (<?= htmlspecialchars($issuedCoupon['coupon_code']) ?>)</a>
+        <?php endif; ?>
         <a class="btn btn-outline-primary" href="<?= url('production/billing/print/' . (int)$bill['id']) ?>" target="_blank"><i class="bi bi-printer me-1"></i>Print Invoice</a>
     </div>
 </div>
@@ -105,6 +108,12 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
                 <div class="d-flex justify-content-between py-1"><span>IGST</span><strong><?= formatCurrency((float)((float)$bill['igst_amount'])) ?></strong></div>
             <?php endif; ?>
             <div class="d-flex justify-content-between py-1"><span>Total Taxes (Incl.)</span><strong><?= formatCurrency((float)((float)$bill['tax_amount'])) ?></strong></div>
+            <?php if ((float)($bill['coupon_discount_amount'] ?? 0) > 0): ?>
+                <div class="d-flex justify-content-between py-1 text-success">
+                    <span>Coupon (<?= htmlspecialchars($bill['applied_coupon_code'] ?? '') ?>)</span>
+                    <strong>-<?= formatCurrency((float)$bill['coupon_discount_amount']) ?></strong>
+                </div>
+            <?php endif; ?>
             <hr>
             <div class="d-flex justify-content-between fs-5"><span class="fw-bold">Total</span><strong><?= formatCurrency((float)((float)$bill['total_amount'])) ?></strong></div>
             <div class="small text-muted mt-2">

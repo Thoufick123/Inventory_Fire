@@ -155,7 +155,7 @@ class SystemController {
             return;
         }
         $group = $_POST['group'] ?? 'inventory';
-        $allowedGroups = ['inventory', 'security', 'theme', 'backup'];
+        $allowedGroups = ['inventory', 'coupons', 'security', 'theme', 'backup'];
         if (!in_array($group, $allowedGroups, true)) {
             Session::setFlash('error', 'That settings section has been removed.');
             Response::redirect(url('system/settings?tab=inventory'));

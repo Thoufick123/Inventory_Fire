@@ -458,6 +458,32 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                 </div>
                             </div>
 
+                            <!-- Coupon Barcode Scan / Apply -->
+                            <div class="mt-3 p-3 bg-light rounded-3 border">
+                                <label class="form-label fw-bold text-dark mb-1" for="couponCodeInput">
+                                    <i class="bi bi-ticket-perforated text-primary me-1"></i>Apply Customer Coupon (Scan Barcode)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-primary"><i class="bi bi-upc-scan"></i></span>
+                                    <input type="text" id="couponCodeInput" class="form-control text-uppercase font-monospace fw-semibold"
+                                           autocomplete="off" placeholder="Scan or enter coupon code (e.g. CPN...)"
+                                           value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
+                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="applyCouponBtn" onclick="applyCouponCode()">Apply</button>
+                                    <button type="button" class="btn btn-outline-danger <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>" id="removeCouponBtn" onclick="removeAppliedCoupon()" title="Remove Coupon">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <input type="hidden" name="applied_coupon_id" id="appliedCouponId" value="<?= (int)($bill['applied_coupon_id'] ?? 0) ?: '' ?>">
+                                <input type="hidden" name="applied_coupon_code" id="appliedCouponCode" value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
+                                <div id="couponStatusHelp" class="small text-muted mt-1">
+                                    <?php if (!empty($bill['applied_coupon_code'])): ?>
+                                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
+                                    <?php else: ?>
+                                        Scan customer's physical coupon barcode card to apply discount.
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
                             <!-- Notes / Terms / Reference (Ref: Image 2) -->
                             <div class="mt-3">
                                 <label class="form-label fw-semibold text-dark mb-1">Notes / Terms / Reference</label>
@@ -482,6 +508,10 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                             <div class="d-flex justify-content-between py-1 text-muted small">
                                 <span>Total GST (Incl.)</span>
                                 <strong id="taxTotal" class="text-info font-monospace">₹0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between py-1 text-success small <?= (float)($bill['coupon_discount_amount'] ?? 0) > 0 ? '' : 'd-none' ?>" id="couponDiscountRow">
+                                <span><i class="bi bi-ticket-perforated me-1"></i>Coupon Discount</span>
+                                <strong id="couponDiscountAmount" class="text-success font-monospace">-₹<?= number_format((float)($bill['coupon_discount_amount'] ?? 0), 2) ?></strong>
                             </div>
                             <hr class="my-2">
                             <div class="d-flex justify-content-between align-items-center py-2">
@@ -569,6 +599,14 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
 
 <script>
 let lastComputedGrandTotal = 0;
+let lastPreCouponTotal = 0;
+let appliedCouponState = <?= !empty($bill['applied_coupon_code']) ? json_encode([
+    'coupon_id' => (int)($bill['applied_coupon_id'] ?? 0),
+    'coupon_code' => (string)($bill['applied_coupon_code'] ?? ''),
+    'discount_type' => 'FIXED',
+    'discount_value' => (float)($bill['coupon_discount_amount'] ?? 0),
+    'min_redemption_amount' => 0,
+]) : 'null' ?>;
 let customerSuggestTimer = null;
 let currentCustomerPhone = '<?= $escape($bill['customer_phone'] ?? '') ?>';
 let historyModalInstance = null;
@@ -942,6 +980,57 @@ function openCustomerHistoryModal() {
         .catch(err => {
             body.innerHTML = `<div class="alert alert-danger mb-0">Error loading customer history: ${err.message}</div>`;
         });
+}
+
+function applyCouponCode() {
+    const input = document.getElementById('couponCodeInput');
+    const statusHelp = document.getElementById('couponStatusHelp');
+    const code = (input?.value || '').trim().toUpperCase();
+    if (!code) {
+        if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Enter or scan a coupon barcode first.</span>';
+        return;
+    }
+    const billIdVal = <?= (int)($bill['id'] ?? 0) ?>;
+    if (statusHelp) statusHelp.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking coupon...</span>';
+    fetch(`<?= url('api/production/billing/coupon-lookup') ?>?code=${encodeURIComponent(code)}&bill_total=${encodeURIComponent(lastPreCouponTotal.toFixed(2))}&bill_id=${billIdVal}`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success || !res.data) {
+                appliedCouponState = null;
+                document.getElementById('appliedCouponId').value = '';
+                document.getElementById('appliedCouponCode').value = '';
+                document.getElementById('removeCouponBtn')?.classList.add('d-none');
+                if (statusHelp) statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>${res?.message || 'Invalid coupon.'}</span>`;
+                if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
+                return;
+            }
+            appliedCouponState = res.data;
+            document.getElementById('appliedCouponId').value = res.data.coupon_id;
+            document.getElementById('appliedCouponCode').value = res.data.coupon_code;
+            input.value = res.data.coupon_code;
+            document.getElementById('removeCouponBtn')?.classList.remove('d-none');
+            if (statusHelp) {
+                statusHelp.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${res.data.coupon_code} applied (-${formatCurrency(res.data.computed_discount)}).</span>`;
+            }
+            if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
+        })
+        .catch(() => {
+            if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Could not verify coupon. Try again.</span>';
+        });
+}
+
+function removeAppliedCoupon() {
+    appliedCouponState = null;
+    const input = document.getElementById('couponCodeInput');
+    if (input) input.value = '';
+    const idEl = document.getElementById('appliedCouponId');
+    if (idEl) idEl.value = '';
+    const codeEl = document.getElementById('appliedCouponCode');
+    if (codeEl) codeEl.value = '';
+    document.getElementById('removeCouponBtn')?.classList.add('d-none');
+    const statusHelp = document.getElementById('couponStatusHelp');
+    if (statusHelp) statusHelp.textContent = "Scan customer's physical coupon barcode card to apply discount.";
+    if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 
 function getSelectedPaymentStatus() {
@@ -1871,6 +1960,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taxCell) taxCell.textContent = money(lineTax);
         });
 
+        lastPreCouponTotal = grandTotal;
+        let couponDiscount = 0;
+        const couponRow = document.getElementById('couponDiscountRow');
+        const couponAmtEl = document.getElementById('couponDiscountAmount');
+        if (appliedCouponState && appliedCouponState.coupon_code) {
+            const minReq = Number(appliedCouponState.min_redemption_amount || 0);
+            if (minReq > 0 && grandTotal < minReq) {
+                couponDiscount = 0;
+            } else if (String(appliedCouponState.discount_type).toUpperCase() === 'PERCENT') {
+                couponDiscount = Math.round((grandTotal * (Number(appliedCouponState.discount_value || 0) / 100)) * 100) / 100;
+            } else {
+                couponDiscount = Math.min(grandTotal, Number(appliedCouponState.discount_value || 0));
+            }
+        }
+        grandTotal = Math.max(0, Math.round((grandTotal - couponDiscount) * 100) / 100);
+        if (couponRow && couponAmtEl) {
+            couponRow.classList.toggle('d-none', couponDiscount <= 0);
+            couponAmtEl.textContent = '-' + money(couponDiscount);
+        }
+
         document.getElementById('grossTotal').textContent = money(gross);
         document.getElementById('discountTotal').textContent = money(discount);
         document.getElementById('subtotal').textContent = money(subtotal);
@@ -2061,6 +2170,17 @@ document.addEventListener('DOMContentLoaded', () => {
             cart.set(getItemKey(entry, tag), entry);
         });
     });
+
+    window.__recalcBillingTotals = updateTotals;
+    const couponInputEl = document.getElementById('couponCodeInput');
+    if (couponInputEl) {
+        couponInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyCouponCode();
+            }
+        });
+    }
 
     updateUnitDetails();
     if (unitSelect) unitSelect.addEventListener('change', updateUnitDetails);
