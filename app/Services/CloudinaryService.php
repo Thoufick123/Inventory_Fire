@@ -199,15 +199,9 @@ class CloudinaryService {
             }
 
             // Reliable local storage fallback
-            $cleanFolder = trim(str_replace('..', '', $folder), '/');
-            $uploadDir = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__, 2)) . '/public/uploads/' . $cleanFolder;
-            if (!is_dir($uploadDir)) {
-                @mkdir($uploadDir, 0777, true);
-            }
-            $uniqueName = time() . '_' . bin2hex(random_bytes(4)) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $uploadName);
-            $destination = $uploadDir . '/' . $uniqueName;
-            if (@copy($uploadPath, $destination)) {
-                return 'uploads/' . $cleanFolder . '/' . $uniqueName;
+            $localPath = self::saveToLocal($uploadPath, $folder, $uploadName);
+            if ($localPath !== null) {
+                return $localPath;
             }
 
             error_log("[CloudinaryService] Upload failed or Cloudinary not configured. File not saved locally.");
@@ -220,18 +214,32 @@ class CloudinaryService {
     }
 
     /**
+     * Save a file to local public/uploads storage as a fallback.
+     */
+    private static function saveToLocal(string $sourcePath, string $folder, string $uploadName): ?string {
+        $cleanFolder = trim(str_replace('..', '', $folder), '/');
+        $uploadDir = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__, 2)) . '/public/uploads/' . $cleanFolder;
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0777, true);
+        }
+        $uniqueName = time() . '_' . bin2hex(random_bytes(4)) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $uploadName);
+        $destination = $uploadDir . '/' . $uniqueName;
+        if (@copy($sourcePath, $destination)) {
+            return 'uploads/' . $cleanFolder . '/' . $uniqueName;
+        }
+        return null;
+    }
+
+    /**
      * Upload several files concurrently and return URLs keyed by the input keys.
      */
     public static function uploadMany(array $files, string $folder = 'grm_inventory', string $resourceType = 'auto'): array {
         $results = array_fill_keys(array_keys($files), null);
-        if (!$files || !self::isConfigured()) {
-            if ($files) {
-                error_log("[CloudinaryService] Batch upload unavailable or Cloudinary not configured.");
-            }
+        if (!$files) {
             return $results;
         }
 
-        if (!function_exists('curl_multi_init')) {
+        if (!self::isConfigured() || !function_exists('curl_multi_init')) {
             foreach ($files as $key => $file) {
                 $results[$key] = self::upload($file, $folder, $resourceType);
             }
@@ -296,12 +304,17 @@ class CloudinaryService {
                     CURLOPT_SSL_VERIFYHOST => 0,
                     CURLOPT_TCP_NODELAY    => 1,
                     CURLOPT_IPRESOLVE      => defined('CURL_IPRESOLVE_V4') ? CURL_IPRESOLVE_V4 : 1,
-                    CURLOPT_CONNECTTIMEOUT => 5,
-                    CURLOPT_TIMEOUT        => 20,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT        => 30,
                 ]);
                 curl_multi_add_handle($multiHandle, $handle);
                 $handleId = is_object($handle) ? spl_object_id($handle) : (int)$handle;
-                $handles[$handleId] = ['key' => $key, 'handle' => $handle];
+                $handles[$handleId] = [
+                    'key' => $key,
+                    'handle' => $handle,
+                    'uploadPath' => $uploadPath,
+                    'uploadName' => $uploadName,
+                ];
             }
 
             $running = null;
@@ -316,12 +329,14 @@ class CloudinaryService {
                 $handle = $entry['handle'];
                 $response = curl_multi_getcontent($handle);
                 $httpCode = curl_getinfo($handle, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($handle);
                 if ($httpCode === 200 && $response) {
                     $result = json_decode($response, true);
                     $results[$entry['key']] = $result['secure_url'] ?? $result['url'] ?? null;
                 }
-                if ($results[$entry['key']] === null && env('APP_DEBUG', false)) {
-                    error_log("[CloudinaryService] Batch upload failed (HTTP {$httpCode}): " . (string)$response);
+                if ($results[$entry['key']] === null) {
+                    error_log("[CloudinaryService] Batch upload failed (HTTP {$httpCode}): " . ($curlErr ?: (string)$response));
+                    $results[$entry['key']] = self::saveToLocal($entry['uploadPath'], $folder, $entry['uploadName']);
                 }
                 curl_multi_remove_handle($multiHandle, $handle);
                 curl_close($handle);
@@ -384,12 +399,13 @@ class CloudinaryService {
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_TCP_NODELAY    => 1,
             CURLOPT_IPRESOLVE      => defined('CURL_IPRESOLVE_V4') ? CURL_IPRESOLVE_V4 : 1,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT        => 6,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 30,
         ]);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
         if ($httpCode === 200 && $response) {
@@ -402,10 +418,8 @@ class CloudinaryService {
             }
         }
 
-        // Log error if debug mode is on
-        if (env('APP_DEBUG', false)) {
-            error_log("[CloudinaryService] Upload failed (HTTP $httpCode): " . $response);
-        }
+        // Log error so failures are visible in PHP error log
+        error_log("[CloudinaryService] Upload failed (HTTP $httpCode): " . ($curlError ?: (string)$response));
 
         return null;
     }
