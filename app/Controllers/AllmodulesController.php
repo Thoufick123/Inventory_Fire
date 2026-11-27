@@ -3702,7 +3702,17 @@ class AllmodulesController {
 
         $sellerId = (int)($_POST['seller_id'] ?? 0);
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
-        if ($sellerId <= 0 || $invoiceNumber === '' || mb_strlen($invoiceNumber) > 100) {
+        $invoiceDate = trim((string)($_POST['invoice_date'] ?? ''));
+        $dtCheck = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate);
+        if (!$dtCheck || $dtCheck->format('Y-m-d') !== $invoiceDate) {
+            Session::flash('error', 'Please select a valid Invoice Date.');
+            Response::back();
+            return;
+        }
+        if ($invoiceNumber === '') {
+            $invoiceNumber = 'INV-' . date('ymdHis');
+        }
+        if ($sellerId <= 0 || mb_strlen($invoiceNumber) > 100) {
             Session::flash('error', 'Select a supplier and enter a valid invoice number.');
             Response::back();
             return;
@@ -3752,10 +3762,16 @@ class AllmodulesController {
         }
         $linkedPurchaseId = null;
 
+        try {
+            if (!Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+            }
+        } catch (\Throwable $e) {}
+
         Database::execute(
-            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, created_by)
-             VALUES (?, ?, ?, ?, ?)",
-            [$cid, $sellerId, $invoiceNumber, $linkedPurchaseId, (int)(Session::get('user_id') ?? 0) ?: null]
+            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            [$cid, $sellerId, $invoiceNumber, $invoiceDate, $linkedPurchaseId, (int)(Session::get('user_id') ?? 0) ?: null]
         );
         $mappingBillId = (int)Database::lastInsertId();
         if ($existingPurchase) {
@@ -3786,10 +3802,12 @@ class AllmodulesController {
         }
         $bill = Database::fetchOne(
             "SELECT mb.*, s.name AS seller_name, s.company AS seller_company,
-                    pp.purchase_number
+                    pp.purchase_number,
+                    con.name AS concern_name, con.code AS concern_code
              FROM third_party_mapping_bills mb
              LEFT JOIN sellers s ON s.id = mb.seller_id
              LEFT JOIN production_purchases pp ON pp.id = mb.purchase_id
+             LEFT JOIN concerns con ON con.id = mb.concern_id
              WHERE mb.id = ? {$scope}",
             $params
         );
@@ -4162,6 +4180,7 @@ class AllmodulesController {
 
         $sellerId = (int)($_POST['seller_id'] ?? 0);
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
+        $invoiceDate = trim((string)($_POST['invoice_date'] ?? ''));
         $targetConcernId = isset($_POST['concern_id']) ? (int)$_POST['concern_id'] : (int)($bill['concern_id'] ?? 1);
 
         if ($sellerId <= 0) {
@@ -4169,10 +4188,14 @@ class AllmodulesController {
             Response::back();
             return;
         }
-        if ($invoiceNumber === '') {
-            Session::flash('error', 'Invoice number cannot be empty.');
+        $dtHeader = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate);
+        if (!$dtHeader || $dtHeader->format('Y-m-d') !== $invoiceDate) {
+            Session::flash('error', 'Please select a valid Invoice Date.');
             Response::back();
             return;
+        }
+        if ($invoiceNumber === '') {
+            $invoiceNumber = (string)($bill['invoice_number'] ?: ('INV-' . date('ymdHis')));
         }
 
         // Check if invoice number is duplicate for this seller
@@ -4186,14 +4209,21 @@ class AllmodulesController {
             return;
         }
 
+        try {
+            if (!Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+            }
+        } catch (\Throwable $e) {}
+
         Database::beginTransaction();
         try {
             $updateFields = [
                 'seller_id = ?',
                 'invoice_number = ?',
+                'invoice_date = ?',
                 'updated_at = NOW()'
             ];
-            $updateParams = [$sellerId, $invoiceNumber];
+            $updateParams = [$sellerId, $invoiceNumber, $invoiceDate];
 
             if ($targetConcernId > 0 && ($cid === null || $cid === 1 || $cid === $targetConcernId)) {
                 $updateFields[] = 'concern_id = ?';
@@ -4206,13 +4236,13 @@ class AllmodulesController {
                 $updateParams
             );
 
-            // Sync with production_purchases if linked
+            // Sync with production_purchases if linked (works for MOVED bills too)
             if (!empty($bill['purchase_id'])) {
                 Database::execute(
                     "UPDATE production_purchases
-                     SET supplier_id = ?, invoice_number = ?, updated_at = NOW()
+                     SET seller_id = ?, invoice_number = ?, purchase_date = ?, updated_at = NOW()
                      WHERE id = ?",
-                    [$sellerId, $invoiceNumber, (int)$bill['purchase_id']]
+                    [$sellerId, $invoiceNumber, $invoiceDate, (int)$bill['purchase_id']]
                 );
             }
 
@@ -4396,6 +4426,9 @@ class AllmodulesController {
         $brandName = mb_strtoupper(trim((string)($_POST['brand_name'] ?? ($item['brand_name'] ?? ''))));
         $color = trim((string)($_POST['color'] ?? ''));
         $size = trim((string)($_POST['size'] ?? ''));
+        $rollCode = trim((string)($_POST['roll_code'] ?? ($item['roll_code'] ?? '')));
+        $designName = trim((string)($_POST['design_name'] ?? ($item['design_name'] ?? '')));
+        $weightKg = isset($_POST['weight_kg']) ? max(0.0, round((float)$_POST['weight_kg'], 3)) : (float)($item['weight_kg'] ?? 0);
         $hsnCode = strtoupper(trim((string)($_POST['hsn_code'] ?? '')));
         $unit = trim((string)($_POST['unit'] ?? ($item['unit'] ?? 'PCS'))) ?: 'PCS';
         $qty = round((float)($_POST['quantity'] ?? 0), 3);
@@ -4405,24 +4438,37 @@ class AllmodulesController {
         $unitPrice = max(0.0, round((float)($_POST['unit_price'] ?? 0), 2));
         $mrp = max(0.0, round((float)($_POST['mrp'] ?? 0), 2));
         $sellingPrice = max(0.0, round((float)($_POST['selling_price'] ?? 0), 2));
+        $gstType = strtoupper(trim((string)($_POST['gst_type'] ?? ($item['gst_type'] ?? 'BOTH'))));
+        if (!in_array($gstType, ['EXEMPTED', 'BOTH', 'SGST', 'CGST', 'IGST'], true)) $gstType = 'BOTH';
+        $gstRate = isset($_POST['gst_rate']) ? max(0.0, round((float)$_POST['gst_rate'], 3)) : (float)($item['gst_rate'] ?? 5.0);
+        if ($gstType === 'EXEMPTED') $gstRate = 0.0;
+        $gstMode = strtoupper(trim((string)($_POST['gst_mode'] ?? ($item['gst_mode'] ?? 'EXCLUDED')))) === 'INCLUDED' ? 'INCLUDED' : 'EXCLUDED';
 
         Database::beginTransaction();
         try {
             Database::execute(
                 "UPDATE third_party_mapping_items
-                 SET item_name = ?, brand_name = ?, color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?
+                 SET item_name = ?, brand_name = ?, color = ?, size = ?, roll_code = ?, design_name = ?, weight_kg = ?,
+                     hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?,
+                     gst_type = ?, gst_rate = ?, gst_mode = ?
                  WHERE id = ?",
                 [
                     $itemName,
                     $brandName !== '' ? $brandName : null,
                     $color !== '' ? $color : null,
                     $size !== '' ? $size : null,
+                    $rollCode !== '' ? $rollCode : null,
+                    $designName !== '' ? $designName : null,
+                    $weightKg,
                     $hsnCode !== '' ? $hsnCode : null,
                     $unit,
                     $qty,
                     $unitPrice,
                     $mrp,
                     $sellingPrice,
+                    $gstType,
+                    $gstRate,
+                    $gstMode,
                     $mappingItemId
                 ]
             );
@@ -4457,16 +4503,24 @@ class AllmodulesController {
             // Sync linked production_purchase_items if present
             if (!empty($item['purchase_item_id'])) {
                 try {
-                    $totalPrice = round($qty * $unitPrice, 2);
+                    $taxAmt = round($qty * $unitPrice * $gstRate / 100, 2);
+                    $totalPrice = round($qty * $unitPrice + $taxAmt, 2);
+                    $taxHalfAmt = round($taxAmt / 2, 2);
+                    $taxHalfRate = round($gstRate / 2, 3);
                     Database::execute(
                         "UPDATE production_purchase_items
-                         SET item_name = ?, brand_name = ?, color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, total_price = ?
+                         SET item_name = ?, brand_name = ?, color = ?, size = ?, roll_number = ?, design_name = ?, weight_kg = ?,
+                             hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, total_price = ?,
+                             gst_type = ?, tax_treatment = ?, sgst_value = ?, cgst_value = ?, sgst_amount = ?, cgst_amount = ?
                          WHERE id = ?",
                         [
                             $itemName,
                             $brandName !== '' ? $brandName : null,
                             $color !== '' ? $color : null,
                             $size !== '' ? $size : null,
+                            $rollCode !== '' ? $rollCode : null,
+                            $designName !== '' ? $designName : null,
+                            $weightKg,
                             $hsnCode !== '' ? $hsnCode : null,
                             $unit,
                             $qty,
@@ -4474,6 +4528,12 @@ class AllmodulesController {
                             $mrp,
                             $sellingPrice,
                             $totalPrice,
+                            $gstType,
+                            $gstMode,
+                            $taxHalfRate,
+                            $taxHalfRate,
+                            $taxHalfAmt,
+                            $taxHalfAmt,
                             (int)$item['purchase_item_id']
                         ]
                     );

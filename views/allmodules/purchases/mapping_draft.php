@@ -1,5 +1,18 @@
 <?php
 $mappingBillId = (int)$bill['id'];
+$billConcernName = trim((string)($bill['concern_name'] ?? ''));
+if ($billConcernName === '' && function_exists('currentConcern')) {
+    $cc = currentConcern();
+    $ccCode = strtoupper(trim((string)($cc['code'] ?? '')));
+    $ccName = strtoupper(trim((string)($cc['name'] ?? '')));
+    if (!empty($cc['name']) && $ccCode !== 'ADMIN' && $ccName !== 'GLOBAL ADMIN') {
+        $billConcernName = trim((string)$cc['name']);
+    }
+}
+if ($billConcernName === '') {
+    $billConcernName = 'GRM APPARELS';
+}
+$billConcernName = strtoupper($billConcernName);
 $pendingQrCount = 0;
 $firstQrId = 0;
 foreach ($items as $savedItem) {
@@ -67,6 +80,11 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
+        <?php if (!$viewOnly): ?>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditDraftHeader">
+                <i class="bi bi-pencil-square me-1"></i>Edit Invoice Details
+            </button>
+        <?php endif; ?>
         <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
     </div>
 </div>
@@ -103,19 +121,15 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
             <h5 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Items to Mapping</h5>
             </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <ul class="nav nav-pills" id="mappingEntryTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active py-1 px-3 fw-semibold" id="tabThirdPartyBtn" data-bs-toggle="pill" data-bs-target="#tabThirdParty" type="button" role="tab">
-                        <i class="bi bi-tag me-1"></i>Third-Party Products &amp; Variants
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link py-1 px-3 fw-semibold border" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
-                        <i class="bi bi-layers-half me-1"></i>Fabric Rolls (Multiple Rolls)
-                    </button>
-                </li>
-            </ul>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAddItemsBox" title="Collapse / Expand Add Items box">
+            <div class="btn-group btn-group-sm" id="mappingEntryTabs" role="tablist">
+                <button class="btn btn-primary fw-semibold active" id="tabThirdPartyBtn" data-bs-toggle="pill" data-bs-target="#tabThirdParty" type="button" role="tab">
+                    <i class="bi bi-tag me-1"></i>Third-Party Products &amp; Raw Materials
+                </button>
+                <button class="btn btn-outline-primary fw-semibold" id="tabFabricRollsBtn" data-bs-toggle="pill" data-bs-target="#tabFabricRolls" type="button" role="tab">
+                    <i class="bi bi-layers-half me-1"></i>Fabric Rolls 
+                </button>
+            </div>
+            <button type="button" class="btn btn-outline-secondary" id="toggleAddItemsBox" title="Collapse / Expand Add Items box">
                 <i class="bi bi-arrows-collapse me-1"></i>Compact
             </button>
         </div>
@@ -142,23 +156,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             </div>
 
                             <!-- Step 1: Compact Product, Category & Attributes Generator -->
-                            <div class="row g-2 align-items-end mb-3 p-2.5 rounded-3 bg-light-subtle border">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
-                                    <input class="form-control form-control-sm tp-product-name-input" name="products[0][product_name]" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. Shirt, Pant..." autocomplete="off">
-                                    <datalist id="tpProductSuggestions">
-                                        <?php foreach (($existingProducts ?? []) as $ep): ?>
-                                            <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
-                                        <?php endforeach; ?>
-                                    </datalist>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">Unit</label>
-                                    <select class="form-select form-select-sm" name="products[0][unit]">
-                                        <option value="PCS">PCS</option><option value="SET">SET</option><option value="BOX">BOX</option><option value="MTR">MTR</option><option value="KGS">KGS</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
+                            <div class="row g-2 align-items-end mb-3">
+                                <div class="col-md-3">
                                     <label class="form-label small fw-semibold mb-1">Category <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm gen-category">
                                         <option value="">-- Category --</option>
@@ -185,27 +184,76 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-
                                 <div class="col-md-3">
-                                    <label class="form-label small fw-semibold mb-1">HSN Code</label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN (e.g. 6109)..." maxlength="20" autocomplete="off">
-                                        <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1">
-                                            <i class="bi bi-chevron-down"></i>
-                                        </button>
-                                    </div>
+                                    <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
+                                    <input class="form-control form-control-sm tp-product-name-input" name="products[0][product_name]" list="tpProductSuggestions" required maxlength="255" placeholder="e.g. Shirt, Pant..." autocomplete="off">
+                                    <datalist id="tpProductSuggestions">
+                                        <?php foreach (($existingProducts ?? []) as $ep): ?>
+                                            <option value="<?= e($ep['name']) ?>"><?= !empty($ep['code']) ? '(' . e($ep['code']) . ')' : '' ?></option>
+                                        <?php endforeach; ?>
+                                    </datalist>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-semibold mb-1">GST %</label>
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm gen-gst" value="5">
+                                    <label class="form-label small fw-semibold mb-1">Brand</label>
+                                    <input type="text" class="form-control form-control-sm text-uppercase" name="products[0][brand_name]" placeholder="e.g. GRM...">
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-semibold mb-1">GST Mode</label>
-                                    <div class="btn-group btn-group-sm w-100 gen-gst-mode-group" role="group">
-                                        <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstInc0" value="INCLUDED" autocomplete="off">
-                                        <label class="btn btn-outline-primary fw-semibold" for="gstInc0">GST Included</label>
-                                        <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstExc0" value="EXCLUDED" autocomplete="off" checked>
-                                        <label class="btn btn-outline-primary fw-semibold" for="gstExc0">GST Excluded</label>
+
+                                <!-- Row 2: Unit, HSN Code, GST Type, GST %, GST Mode, Generate & Save -->
+                                <div class="col-12 mt-2">
+                                    <div class="row g-2 align-items-end flex-md-nowrap">
+                                        <div class="col-6 col-md" style="min-width: 115px;">
+                                            <label class="form-label small fw-semibold mb-1 text-nowrap">Unit</label>
+                                            <select class="form-select form-select-sm gen-unit-select" name="products[0][unit]">
+                                                <option value="Kilograms">Kilograms</option>
+                                                <option value="Pieces" selected>Pieces</option>
+                                                <option value="Metres">Metres</option>
+                                                <option value="Litres">Litres</option>
+                                                <option value="Boxes">Boxes</option>
+                                                <option value="Packs">Packs</option>
+                                                <option value="Pairs">Pairs</option>
+                                                <option value="Sets">Sets</option>
+                                                <option value="Bundles">Bundles</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                            <input type="text" class="form-control form-control-sm mt-1 d-none gen-custom-unit" placeholder="Custom unit...">
+                                        </div>
+                                        <div class="col-6 col-md" style="min-width: 145px;">
+                                            <label class="form-label small fw-semibold mb-1 text-nowrap">HSN Code</label>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN" maxlength="20" autocomplete="off">
+                                                <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1" style="border: 2px solid var(--border); border-left: 0; background: #fff;">
+                                                    <i class="bi bi-chevron-down"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md" style="min-width: 155px;">
+                                            <label class="form-label small fw-semibold mb-1 text-nowrap">GST Type</label>
+                                            <select class="form-select form-select-sm gen-gst-type">
+                                                <option value="EXEMPTED">Exempted</option>
+                                                <option value="BOTH" selected>Both (CGST and SGST)</option>
+                                                <option value="SGST">SGST</option>
+                                                <option value="CGST">CGST</option>
+                                                <option value="IGST">IGST</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6 col-md" style="min-width: 195px;">
+                                            <label class="form-label small fw-semibold mb-1 text-nowrap d-block">GST % <span class="gen-gst-split-preview text-primary fw-normal" style="font-size:0.68rem;">(CGST 2.50% + SGST 2.50%)</span></label>
+                                            <input type="text" inputmode="decimal" class="form-control form-control-sm gen-gst" value="5">
+                                        </div>
+                                        <div class="col-6 col-md-auto" style="min-width: 115px;">
+                                            <label class="form-label small fw-semibold mb-1 text-nowrap">GST Mode</label>
+                                            <div class="btn-group w-100 gen-gst-mode-group" role="group">
+                                                <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstInc0" value="INCLUDED" autocomplete="off">
+                                                <label class="btn btn-outline-primary fw-semibold" for="gstInc0">Incl.</label>
+                                                <input type="radio" class="btn-check gen-gst-mode" name="gen_gst_mode_0" id="gstExc0" value="EXCLUDED" autocomplete="off" checked>
+                                                <label class="btn btn-outline-primary fw-semibold" for="gstExc0">Excl.</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-md-auto ms-md-auto d-flex align-items-end">
+                                            <button type="button" class="btn btn-primary fw-semibold px-3 text-nowrap btn-generate-variants">
+                                                <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -233,7 +281,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>Attribute (Size / Color)</th>
-                                                        <th style="width: 110px;">Qty *</th>
+                                                        <th style="width: 140px;">Qty *</th>
                                                         <th style="width: 140px;">Purchase Rate *</th>
                                                         <th style="width: 140px;">MRP (₹) *</th>
                                                         <th style="width: 140px;">Selling Price (₹) *</th>
@@ -243,12 +291,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             </table>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div class="col-12 d-flex justify-content-end mt-2">
-                                    <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold btn-generate-variants">
-                                        <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
-                                    </button>
                                 </div>
                             </div>
 
@@ -265,85 +307,115 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                 </form>
             </div>
 
-            <!-- PANE 2: Fabric Rolls -->
+            <!-- PANE 2: Fabric Rolls (2-row layout) -->
             <div class="tab-pane fade" id="tabFabricRolls" role="tabpanel">
                 <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/add-product') ?>" id="mappingDraftRollsForm">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="entry_type" value="FABRIC_ROLL">
-                    <div class="border rounded-3 p-3 bg-white mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                    <?php
+                    $existingRollCount = 0;
+                    foreach (($items ?? []) as $it) {
+                        if (($it['item_type'] ?? '') === 'FABRIC_ROLL') {
+                            $existingRollCount++;
+                        }
+                    }
+                    $autoRollCode = sprintf('ROLL-%02d', $existingRollCount + 1);
+                    ?>
+                    <div class="border rounded-3 p-3 bg-white">
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge bg-primary text-white rounded-pill px-2 py-1">Roll Batch</span>
                                 <strong class="text-dark">Fabric / Material Rolls</strong>
                             </div>
-                            <span class="badge bg-primary-subtle text-primary border" style="font-size: 0.72rem;">
-                                <i class="bi bi-plus-circle me-1"></i>New Roll Product Auto-Created
-                            </span>
                         </div>
 
-                        <div class="table-responsive">
-                        <table class="table table-bordered align-middle table-sm mb-2" id="mappingRollsTable" style="min-width: 860px;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="min-width: 210px;">Fabric / Material Name <span class="text-danger">*</span></th>
-                                    <th style="width: 115px;">Roll Code / #</th>
-                                    <th style="min-width: 130px;">Color / Shade <span class="text-danger">*</span></th>
-                                    <th style="width: 145px;">Design / Pattern</th>
-                                    <th style="width: 105px;">Weight (kg) <span class="text-danger">*</span></th>
-                                    <th style="width: 105px;">Rate (₹/kg) <span class="text-danger">*</span></th>
-                                    <th style="width: 70px;">GST %</th>
-                                    <th style="width: 165px;">HSN Code</th>
-                                </tr>
-                            </thead>
-                            <tbody id="mappingRollRows">
-                                <?php
-                                $existingRollCount = 0;
-                                foreach (($items ?? []) as $it) {
-                                    if (($it['item_type'] ?? '') === 'FABRIC_ROLL') {
-                                        $existingRollCount++;
-                                    }
-                                }
-                                $autoRollCode = sprintf('ROLL-%02d', $existingRollCount + 1);
-                                ?>
-                                <tr class="mapping-roll-row">
-                                    <td>
-                                        <input class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
-                                        <datalist id="rollProductSuggestions">
-                                            <?php foreach (($existingRollProducts ?? []) as $rp): ?>
-                                                <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
-                                            <?php endforeach; ?>
-                                            <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
-                                            <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
-                                            <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
-                                            <option value="100% COTTON FRENCH TERRY (240 GSM)">
-                                            <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
-                                            <option value="RAYON / VISCOSE PRINTED FABRIC">
-                                        </datalist>
-                                    </td>
-                                    <td><input class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" value="<?= e($autoRollCode) ?>" placeholder="ROLL-01"></td>
-                                    <td><input class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required></td>
-                                    <td><input class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="Solid, Printed..."></td>
-                                    <td><input class="form-control form-control-sm roll-num-dec roll-weight" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][weight_kg]" placeholder="22.50" required></td>
-                                    <td><input class="form-control form-control-sm roll-num-dec roll-rate" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][rate]" placeholder="150.00" required></td>
-                                    <td><input class="form-control form-control-sm roll-gst-input roll-num-dec" type="text" inputmode="decimal" autocomplete="off" name="rolls[0][gst_rate]" value="5"></td>
-                                    <td>
-                                        <select class="form-select form-select-sm font-monospace roll-hsn-select" name="rolls[0][hsn_code]">
-                                            <?php foreach (($hsnList ?? []) as $hsnItem): ?>
-                                                <option value="<?= e($hsnItem['hsn_code']) ?>" data-gst="<?= (float)($hsnItem['gst_rate'] ?? 0) ?>" <?= $hsnItem['hsn_code'] == '5208' ? 'selected' : '' ?>>
-                                                    <?= e($hsnItem['hsn_code']) ?><?= !empty($hsnItem['description']) ? ' - ' . e(mb_strimwidth($hsnItem['description'], 0, 18, '...')) : '' ?><?= isset($hsnItem['gst_rate']) && $hsnItem['gst_rate'] !== null ? ' (' . (float)$hsnItem['gst_rate'] . '%)' : '' ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-end align-items-center mt-2">
-                        <button class="btn btn-primary btn-sm px-4 fw-semibold" type="submit" id="btnGenerateSaveRolls">
-                            <i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save
-                        </button>
-                    </div>
+                        <!-- Row 1 -->
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Roll Code / #</label>
+                                <input type="text" class="form-control form-control-sm font-monospace" name="rolls[0][roll_code]" value="<?= e($autoRollCode) ?>" placeholder="ROLL-01">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold mb-1">Fabric / Material Name</label>
+                                <input type="text" class="form-control form-control-sm" name="fabric_name" id="fabricNameInput" list="rollProductSuggestions" required maxlength="255" placeholder="e.g. Cotton Single Jersey 180 GSM..." autocomplete="off">
+                                <datalist id="rollProductSuggestions">
+                                    <?php foreach (($existingRollProducts ?? []) as $rp): ?>
+                                        <option value="<?= e($rp['name']) ?>"><?= !empty($rp['code']) ? '(' . e($rp['code']) . ')' : '' ?></option>
+                                    <?php endforeach; ?>
+                                    <option value="100% COMBED COTTON 30S SINGLE JERSEY (160 GSM)">
+                                    <option value="100% COTTON 24S SINGLE JERSEY (180 GSM)">
+                                    <option value="95% COTTON 5% SPANDEX/LYCRA (190 GSM)">
+                                    <option value="100% COTTON FRENCH TERRY (240 GSM)">
+                                    <option value="COTTON-POLYESTER BLEND 60/40 (180 GSM)">
+                                    <option value="RAYON / VISCOSE PRINTED FABRIC">
+                                </datalist>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Brand</label>
+                                <input type="text" class="form-control form-control-sm text-uppercase" name="brand_name" placeholder="e.g. GRM...">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Color / Shade</label>
+                                <input type="text" class="form-control form-control-sm" name="rolls[0][color]" placeholder="Navy Blue" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">Design / Pattern</label>
+                                <input type="text" class="form-control form-control-sm" name="rolls[0][design_name]" placeholder="Solid, Printed...">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small fw-semibold mb-1">Qty</label>
+                                <input type="text" inputmode="numeric" class="form-control form-control-sm roll-num-int" name="rolls[0][quantity]" value="1">
+                            </div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="row g-2 align-items-end mt-1 flex-md-nowrap">
+                            <div class="col-6 col-md-1" style="min-width: 85px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap">Weight (KG)</label>
+                                <input type="text" inputmode="decimal" class="form-control form-control-sm roll-num-dec roll-weight" name="rolls[0][weight_kg]" placeholder="22.50" required autocomplete="off">
+                            </div>
+                            <div class="col-6 col-md" style="min-width: 105px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap">Purchase Rate (₹)</label>
+                                <input type="text" inputmode="decimal" class="form-control form-control-sm roll-num-dec roll-rate" name="rolls[0][rate]" placeholder="150.00" required autocomplete="off">
+                            </div>
+                            <div class="col-6 col-md" style="min-width: 110px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap">HSN Code</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm font-monospace gen-hsn" id="draftRollHsnInput" name="rolls[0][hsn_code]" value="5208" placeholder="HSN..." maxlength="20" autocomplete="off">
+                                    <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1" style="border: 2px solid var(--border); border-left: 0; background: #fff;">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md" style="min-width: 135px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap">GST</label>
+                                <select class="form-select form-select-sm" id="draftRollGstType" name="rolls[0][gst_type]">
+                                    <option value="EXEMPTED">Exempted</option>
+                                    <option value="BOTH" selected>Both (CGST and SGST)</option>
+                                    <option value="SGST">SGST</option>
+                                    <option value="CGST">CGST</option>
+                                    <option value="IGST">IGST</option>
+                                </select>
+                            </div>
+                            <div class="col-6 col-md" style="min-width: 210px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap d-block">GST % <span id="draftRollGstSplitPreview" class="text-primary fw-normal" style="font-size:0.68rem;">(CGST 2.50% + SGST 2.50%)</span></label>
+                                <input type="text" inputmode="decimal" class="form-control form-control-sm roll-gst-input roll-num-dec" id="draftRollGstRate" name="rolls[0][gst_rate]" value="5" autocomplete="off">
+                            </div>
+                            <div class="col-6 col-md-auto" style="min-width: 108px;">
+                                <label class="form-label small fw-semibold mb-1 text-nowrap">GST Mode</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="rolls[0][gst_mode]" id="draftRollGstInc" value="INCLUDED" autocomplete="off">
+                                    <label class="btn btn-outline-primary fw-semibold" for="draftRollGstInc">Incl.</label>
+                                    <input type="radio" class="btn-check" name="rolls[0][gst_mode]" id="draftRollGstExc" value="EXCLUDED" autocomplete="off" checked>
+                                    <label class="btn btn-outline-primary fw-semibold" for="draftRollGstExc">Excl.</label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-auto ms-md-auto d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary fw-semibold px-3 text-nowrap" id="btnGenerateSaveRolls">
+                                    <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -428,20 +500,23 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     <th class="text-center">Sl. No</th>
                     <th>Category</th>
                     <th>Item Name</th>
+                    <th>Brand</th>
                     <th>Color</th>
                     <th>Size</th>
                     <th>HSN</th>
                     <th class="text-end">Qty</th>
                     <th>Uom</th>
                     <th class="text-end">Purchase Rate</th>
-                    <th class="text-end">MRP / Sale</th>
+                    <th class="text-end">MRP</th>
+                    <th class="text-end">Sale</th>
                     <th>QR / Stock</th>
+                    <th>QR Count</th>
                     <th class="text-end">Action</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$items): ?>
-                    <tr><td colspan="12" class="text-center text-muted py-4">No products saved yet.</td></tr>
+                    <tr><td colspan="15" class="text-center text-muted py-4">No products saved yet.</td></tr>
                 <?php else: foreach ($items as $idx => $item): ?>
                     <?php
                         $catParts = array_filter([
@@ -452,6 +527,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                         $catLabel = $catParts ? implode(' / ', $catParts) : '—';
                         $searchText = strtolower(trim(implode(' ', [
                             $item['item_name'] ?? '',
+                            $item['brand_name'] ?? '',
                             'vid ' . (int)$item['variant_id'],
                             $catLabel,
                             $item['color'] ?? '',
@@ -467,17 +543,34 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             <strong class="text-dark"><?= e($item['item_name']) ?></strong>
                             <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1">VID: #<?= (int)$item['variant_id'] ?></span>
                         </td>
+                        <td><?= e($item['brand_name'] ?: '—') ?></td>
                         <td><?= e($item['color'] ?: '—') ?></td>
                         <td><?= e($item['size'] ?: '—') ?></td>
                         <td class="font-monospace"><?= e($item['hsn_code'] ?: '—') ?></td>
                         <td class="text-end font-monospace fw-semibold"><?= number_format((float)$item['quantity'], 2) ?></td>
                         <td><?= e($item['unit'] ?: 'PCS') ?></td>
                         <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['unit_price'])) ?></td>
-                        <td class="text-end font-monospace"><?= formatCurrency((float)((float)$item['mrp'])) ?> / <?= formatCurrency((float)((float)$item['selling_price'])) ?></td>
+                        <td class="text-end font-monospace text-success fw-semibold"><?= formatCurrency((float)((float)$item['mrp'])) ?></td>
+                        <td class="text-end font-monospace text-success fw-semibold"><?= formatCurrency((float)((float)$item['selling_price'])) ?></td>
                         <td>
                             <?php if (!empty($item['qr_generation_id'])): ?>
                                 <span class="qr-status-badge-<?= (int)$item['qr_generation_id'] ?>"><?php if (!empty($item['stock_added'])): ?><span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Stocked</span><?php else: ?><span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Not stocked</span><?php endif; ?></span>
                             <?php else: ?><span class="badge bg-secondary">No QR</span><?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (!empty($item['qr_generation_id'])):
+                                $qrBatchCnt = max(1, count($qrItemMap[(int)$item['qr_generation_id']] ?? []));
+                            ?>
+                                <input type="text"
+                                       inputmode="numeric"
+                                       class="form-control form-control-sm text-center qr-print-count-input"
+                                       data-generation-id="<?= (int)$item['qr_generation_id'] ?>"
+                                       value="<?= $qrBatchCnt ?>"
+                                       style="width: 68px;"
+                                       title="Customize QR label print count">
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
+                            <?php endif; ?>
                         </td>
                         <td class="text-end">
                             <?php if ($viewOnly): ?>
@@ -520,14 +613,18 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                                             title="Edit saved variant"
                                             data-id="<?= (int)$item['id'] ?>"
                                             data-name="<?= e($item['item_name']) ?>"
+                                            data-brand="<?= e($item['brand_name'] ?? '') ?>"
                                             data-color="<?= e($item['color'] ?? '') ?>"
                                             data-size="<?= e($item['size'] ?? '') ?>"
                                             data-hsn="<?= e($item['hsn_code'] ?? '') ?>"
-                                            data-unit="<?= e($item['unit'] ?: 'PCS') ?>"
+                                            data-unit="<?= e($item['unit'] ?: 'Pieces') ?>"
                                             data-qty="<?= e((string)(float)$item['quantity']) ?>"
                                             data-rate="<?= e((string)(float)$item['unit_price']) ?>"
                                             data-mrp="<?= e((string)(float)$item['mrp']) ?>"
-                                            data-selling="<?= e((string)(float)$item['selling_price']) ?>">
+                                            data-selling="<?= e((string)(float)$item['selling_price']) ?>"
+                                            data-gst-type="<?= e($item['gst_type'] ?? 'BOTH') ?>"
+                                            data-gst-rate="<?= e((string)(float)($item['gst_rate'] ?? 5)) ?>"
+                                            data-gst-mode="<?= e($item['gst_mode'] ?? 'EXCLUDED') ?>">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                 <?php endif; ?>
@@ -549,66 +646,105 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 </div>
 <!-- Edit Saved Variant Modal -->
 <div class="modal fade" id="editSavedVariantModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <form method="POST" action="" id="editSavedVariantForm" class="modal-content border-0 shadow-lg rounded-3">
             <?= CSRF::field() ?>
-            <div class="modal-header border-bottom">
+            <div class="modal-header bg-white border-bottom">
                 <h5 class="modal-title fw-bold fs-6"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Saved Variant: <span id="editVarTitle"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="row g-2.5">
-                    <div class="col-md-4">
+            <div class="modal-body p-4">
+                <!-- Row 1 -->
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-semibold mb-1">Brand</label>
+                        <input type="text" name="brand_name" id="editVarBrand" class="form-control form-control-sm text-uppercase" placeholder="e.g. GRM...">
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label small fw-semibold mb-1">Color</label>
                         <input type="text" name="color" id="editVarColor" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label small fw-semibold mb-1">Size</label>
                         <input type="text" name="size" id="editVarSize" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">HSN Code</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" name="hsn_code" id="editVarHsn" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN..." maxlength="20" autocomplete="off">
-                            <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1">
+                    <div class="col-md-1" style="min-width: 90px;">
+                        <label class="form-label small fw-semibold mb-1">Qty <span class="text-danger">*</span></label>
+                        <input type="text" inputmode="decimal" name="quantity" id="editVarQty" class="form-control form-control-sm attr-num-decimal" required>
+                    </div>
+                    <div class="col-md">
+                        <label class="form-label small fw-semibold mb-1">Purchase Rate <span class="text-danger">*</span></label>
+                        <input type="text" inputmode="decimal" name="unit_price" id="editVarRate" class="form-control form-control-sm attr-num-decimal" required>
+                    </div>
+                    <div class="col-md">
+                        <label class="form-label small fw-semibold mb-1">MRP (₹)</label>
+                        <input type="text" inputmode="decimal" name="mrp" id="editVarMrp" class="form-control form-control-sm attr-num-decimal">
+                    </div>
+                    <div class="col-md">
+                        <label class="form-label small fw-semibold mb-1">Selling Price (₹)</label>
+                        <input type="text" inputmode="decimal" name="selling_price" id="editVarSelling" class="form-control form-control-sm attr-num-decimal">
+                    </div>
+                </div>
+
+                <!-- Row 2 (same style as Image 2) -->
+                <div class="row g-2 align-items-end mt-2 flex-md-nowrap">
+                    <div class="col-6 col-md" style="min-width: 115px;">
+                        <label class="form-label small fw-semibold mb-1 text-nowrap">Unit</label>
+                        <select name="unit" id="editVarUnit" class="form-select form-select-sm gen-unit-select">
+                            <option value="Kilograms">Kilograms</option>
+                            <option value="Pieces" selected>Pieces</option>
+                            <option value="Metres">Metres</option>
+                            <option value="Litres">Litres</option>
+                            <option value="Boxes">Boxes</option>
+                            <option value="Packs">Packs</option>
+                            <option value="Pairs">Pairs</option>
+                            <option value="Sets">Sets</option>
+                            <option value="Bundles">Bundles</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input type="text" id="editVarCustomUnit" class="form-control form-control-sm mt-1 d-none gen-custom-unit" placeholder="Custom unit...">
+                    </div>
+                    <div class="col-6 col-md" style="min-width: 145px;">
+                        <label class="form-label small fw-semibold mb-1 text-nowrap">HSN Code</label>
+                        <div class="input-group">
+                            <input type="text" name="hsn_code" id="editVarHsn" class="form-control form-control-sm gen-hsn font-monospace" placeholder="Type or select HSN" maxlength="20" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary btn-hsn-dropdown-toggle" title="Browse all HSN codes" tabindex="-1" style="border: 2px solid var(--border); border-left: 0; background: #fff;">
                                 <i class="bi bi-chevron-down"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">Quantity <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" min="0.01" name="quantity" id="editVarQty" class="form-control form-control-sm" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">UOM</label>
-                        <select name="unit" id="editVarUnit" class="form-select form-select-sm">
-                            <option value="PCS">PCS</option>
-                            <option value="SET">SET</option>
-                            <option value="BOX">BOX</option>
-                            <option value="MTR">MTR</option>
-                            <option value="KGS">KGS</option>
+                    <div class="col-6 col-md" style="min-width: 155px;">
+                        <label class="form-label small fw-semibold mb-1 text-nowrap">GST Type</label>
+                        <select name="gst_type" id="editVarGstType" class="form-select form-select-sm">
+                            <option value="EXEMPTED">Exempted</option>
+                            <option value="BOTH" selected>Both (CGST and SGST)</option>
+                            <option value="SGST">SGST</option>
+                            <option value="CGST">CGST</option>
+                            <option value="IGST">IGST</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">Purchase Rate <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" min="0" name="unit_price" id="editVarRate" class="form-control form-control-sm" required>
+                    <div class="col-6 col-md" style="min-width: 195px;">
+                        <label class="form-label small fw-semibold mb-1 text-nowrap d-block">GST % <span id="editVarGstSplitPreview" class="text-primary fw-normal" style="font-size:0.68rem;">(CGST 2.50% + SGST 2.50%)</span></label>
+                        <input type="text" inputmode="decimal" name="gst_rate" id="editVarGstRate" class="form-control form-control-sm attr-num-decimal" value="5">
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-semibold mb-1">MRP (₹)</label>
-                        <input type="number" step="0.01" min="0" name="mrp" id="editVarMrp" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label small fw-semibold mb-1">Selling Price (₹)</label>
-                        <input type="number" step="0.01" min="0" name="selling_price" id="editVarSelling" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-12 d-none" id="editVarPriceError">
-                        <div class="alert alert-danger py-1.5 px-2.5 small mb-0">MRP cannot be less than Selling Price.</div>
+                    <div class="col-6 col-md-auto" style="min-width: 115px;">
+                        <label class="form-label small fw-semibold mb-1 text-nowrap">GST Mode</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="gst_mode" id="editVarGstInc" value="INCLUDED" autocomplete="off">
+                            <label class="btn btn-outline-primary fw-semibold" for="editVarGstInc">Incl.</label>
+                            <input type="radio" class="btn-check" name="gst_mode" id="editVarGstExc" value="EXCLUDED" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary fw-semibold" for="editVarGstExc">Excl.</label>
+                        </div>
                     </div>
                 </div>
+
+                <div class="col-12 d-none mt-2" id="editVarPriceError">
+                    <div class="alert alert-danger py-1.5 px-2.5 small mb-0">MRP cannot be less than Selling Price.</div>
+                </div>
             </div>
-            <div class="modal-footer border-top">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>
+            <div class="modal-footer bg-white border-top">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary fw-semibold px-4"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>
             </div>
         </form>
     </div>
@@ -640,8 +776,13 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold text-secondary">Supplier Invoice Number <span class="text-danger">*</span></label>
-                        <input type="text" name="invoice_number" class="form-control font-monospace" value="<?= e($bill['invoice_number']) ?>" required placeholder="e.g. INV-2026-001">
+                        <label class="form-label small fw-semibold text-secondary">Supplier Invoice Number</label>
+                        <input type="text" name="invoice_number" class="form-control font-monospace" value="<?= e($bill['invoice_number']) ?>" placeholder="Optional — e.g. INV-2026-001">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">Invoice Date <span class="text-danger">*</span></label>
+                        <input type="date" name="invoice_date" class="form-control" value="<?= e(!empty($bill['invoice_date']) ? $bill['invoice_date'] : date('Y-m-d', strtotime($bill['created_at'] ?? 'now'))) ?>" required>
                     </div>
 
                     <?php if (!empty($concerns) && count($concerns) > 1): ?>
@@ -789,19 +930,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editModalEl = document.getElementById('editSavedVariantModal');
     const editForm = document.getElementById('editSavedVariantForm');
+    const editVarGstTypeEl = document.getElementById('editVarGstType');
+    const editVarGstRateEl = document.getElementById('editVarGstRate');
+    const editVarGstPrevEl = document.getElementById('editVarGstSplitPreview');
+    function updateEditVarGstPreview() {
+        if (!editVarGstTypeEl || !editVarGstRateEl || !editVarGstPrevEl) return;
+        const t = editVarGstTypeEl.value || 'BOTH';
+        if (t === 'EXEMPTED') {
+            editVarGstRateEl.value = '0';
+            editVarGstRateEl.readOnly = true;
+            editVarGstPrevEl.textContent = '(0%)';
+            return;
+        }
+        editVarGstRateEl.readOnly = false;
+        const r = parseFloat(editVarGstRateEl.value || '0') || 0;
+        if (t === 'BOTH') {
+            const half = (r / 2).toFixed(2).replace(/\.00$/, '');
+            editVarGstPrevEl.textContent = `(CGST ${half}% + SGST ${half}%)`;
+        } else {
+            editVarGstPrevEl.textContent = `(${t} ${r}%)`;
+        }
+    }
+    editVarGstTypeEl?.addEventListener('change', updateEditVarGstPreview);
+    editVarGstRateEl?.addEventListener('input', updateEditVarGstPreview);
+
     document.querySelectorAll('.btn-edit-saved-item').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!editForm || !editModalEl) return;
             editForm.action = '<?= url('purchases/mapping/draft/item/') ?>' + btn.dataset.id + '/update';
             document.getElementById('editVarTitle').textContent = btn.dataset.name || '';
+            document.getElementById('editVarBrand').value = btn.dataset.brand || '';
             document.getElementById('editVarColor').value = btn.dataset.color || '';
             document.getElementById('editVarSize').value = btn.dataset.size || '';
             document.getElementById('editVarHsn').value = btn.dataset.hsn || '';
             document.getElementById('editVarQty').value = btn.dataset.qty || '1';
-            document.getElementById('editVarUnit').value = btn.dataset.unit || 'PCS';
+            const unitSel = document.getElementById('editVarUnit');
+            const customUnitEl = document.getElementById('editVarCustomUnit');
+            const rawU = btn.dataset.unit || 'Pieces';
+            const stdOpts = Array.from(unitSel?.options || []).map(o => o.value);
+            if (unitSel && stdOpts.includes(rawU)) {
+                unitSel.value = rawU;
+                customUnitEl?.classList.add('d-none');
+            } else if (unitSel) {
+                unitSel.value = 'Other';
+                if (customUnitEl) {
+                    customUnitEl.value = rawU;
+                    customUnitEl.classList.remove('d-none');
+                }
+            }
             document.getElementById('editVarRate').value = btn.dataset.rate || '0';
             document.getElementById('editVarMrp').value = btn.dataset.mrp || '0';
             document.getElementById('editVarSelling').value = btn.dataset.selling || '0';
+            const gstT = (btn.dataset.gstType || 'BOTH').toUpperCase();
+            if (editVarGstTypeEl) editVarGstTypeEl.value = ['EXEMPTED','BOTH','SGST','CGST','IGST'].includes(gstT) ? gstT : 'BOTH';
+            if (editVarGstRateEl) editVarGstRateEl.value = btn.dataset.gstRate || '5';
+            const gstM = (btn.dataset.gstMode || 'EXCLUDED').toUpperCase();
+            document.getElementById(gstM === 'INCLUDED' ? 'editVarGstInc' : 'editVarGstExc').checked = true;
+            updateEditVarGstPreview();
             document.getElementById('editVarPriceError')?.classList.add('d-none');
             if (typeof bootstrap !== 'undefined') {
                 bootstrap.Modal.getOrCreateInstance(editModalEl).show();
@@ -1424,7 +1609,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between qr-label-card"
                                  data-qr-code="<?= e($q['qr_code']) ?>"
                                  data-vid="VID: #<?= (int)($item['variant_id'] ?? 0) ?>"
-                                 data-brand="<?= e(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM'))) ?>"
+                                 data-concern="<?= e($billConcernName) ?>"
+                                 data-brand="<?= e(strtoupper(trim((string)($item['brand_name'] ?? '')))) ?>"
                                  data-sub-subcategory="<?= e($item['sub_subcategory_name'] ?? '') ?>"
                                  data-product-name="<?= e($item['item_name']) ?>"
                                  data-category="<?= e($catTrail) ?>"
@@ -1737,13 +1923,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
         const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-        const brand = esc((data.brand || 'GRM').slice(0, 20));
-        const title = esc((data.subSubcategory || data.productName || 'PRODUCT').slice(0, 24));
+        const brand = esc((data.brand || '').slice(0, 20));
+        const title = esc((data.productName || data.subSubcategory || 'PRODUCT').slice(0, 24));
         const attrs = esc((data.attributes || '').slice(0, 24));
         const mrp = esc(data.mrp || '');
         const sp = esc(data.sellingPrice || '');
         const code = esc(data.qrCode || '');
-        const concern = esc(data.concern || <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>);
+        const concern = esc(data.concern || <?= json_encode($billConcernName) ?>);
         return `
             <div class="border rounded bg-white shadow-sm p-2 d-flex flex-column justify-content-center position-relative" style="width:${stickerW}px;min-height:${stickerH}px;">
                 ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;z-index:2;">${esc(labelBadge)}</span>` : ''}
@@ -1754,7 +1940,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="font-monospace fw-bold text-dark mt-1" style="font-size:9px;">${code}</div>
                     </div>
                     <div class="text-start" style="min-width:0;max-width:${Math.max(80, stickerW - qrPx - 28)}px;line-height:1.2;">
-                        <div class="fw-bold text-uppercase text-truncate" style="font-size:${fontPx}px;color:#881337;">${brand}</div>
+                        ${brand ? `<div class="fw-bold text-uppercase text-truncate" style="font-size:${fontPx}px;color:#881337;">${brand}</div>` : ''}
                         <div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size:${Math.max(8.5, fontPx - 1)}px;">${title}</div>
                         <div class="fw-semibold text-dark text-truncate" style="font-size:${Math.max(9, fontPx - 0.5)}px;">${attrs}</div>
                         ${mrp ? `<div class="text-muted text-decoration-line-through" style="font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
@@ -1781,6 +1967,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const c2 = sampleCards[1]?.dataset || c1;
 
         const d1 = {
+            concern: c1.concern || <?= json_encode($billConcernName) ?>,
+            brand: c1.brand || '',
+            subSubcategory: c1.subSubcategory || '',
             productName: c1.productName || 'GRM WAREHOUSE',
             attributes: c1.attributes || 'S-BLUE',
             mrp: c1.mrp || '₹1,000',
@@ -1789,6 +1978,9 @@ document.addEventListener('DOMContentLoaded', function() {
             colIndex: 1
         };
         const d2 = {
+            concern: c2.concern || <?= json_encode($billConcernName) ?>,
+            brand: c2.brand || '',
+            subSubcategory: c2.subSubcategory || '',
             productName: c2.productName || 'GRM WAREHOUSE',
             attributes: c2.attributes || 'S-BLUE',
             mrp: c2.mrp || '₹1,000',
@@ -1832,7 +2024,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const d = card.dataset;
             card.className = 'qr-label-card';
             card.innerHTML = renderTscStickerHtml(cfg, {
-                brand: d.brand || 'GRM',
+                concern: d.concern || <?= json_encode($billConcernName) ?>,
+                brand: d.brand || '',
                 subSubcategory: d.subSubcategory || '',
                 productName: d.productName || '',
                 attributes: d.attributes || '',
@@ -1918,6 +2111,18 @@ document.addEventListener('DOMContentLoaded', function() {
         win.document.close();
     });
 
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('qr-print-count-input')) {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        }
+    });
+    document.addEventListener('blur', function (e) {
+        if (e.target.classList.contains('qr-print-count-input')) {
+            const v = parseInt(e.target.value, 10);
+            if (!v || v < 1) e.target.value = '1';
+        }
+    }, true);
+
     document.addEventListener('click', function (e) {
         const printBtn = e.target.closest('.btn-print-tsc-batch');
         if (!printBtn) return;
@@ -1933,10 +2138,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 showDraftModernAlert('No QR labels found to print.');
                 return;
             }
+            const countInput = document.querySelector('.qr-print-count-input[data-generation-id="' + genId + '"]');
+            const requestedCount = countInput ? parseInt(countInput.value, 10) : cards.length;
+            const totalToPrint = (Number.isFinite(requestedCount) && requestedCount > 0) ? requestedCount : cards.length;
+            const printCards = Array.from({ length: totalToPrint }, (_, i) => cards[i % cards.length]);
+
             const pageW = cfg.columns === 2 ? (cfg.widthMm * 2 + cfg.gapMm) : cfg.widthMm;
             const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const stickerScale = 0.45; // dots (~203dpi) to mm-friendly print px
-            const stickersHtml = cards.map((card, idx) => {
+            const stickersHtml = printCards.map((card, idx) => {
                 const d = card.dataset;
                 const qrEl = card.querySelector('.tsc-qr-target canvas, .tsc-qr-target img');
                 const qrSrc = qrEl ? (qrEl.tagName === 'CANVAS' ? qrEl.toDataURL() : qrEl.src) : '';
@@ -1948,9 +2158,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const subTopMm = cfg.subY * 0.125;
                 const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
                 const fontPt = Math.max(5.5, 4.2 + cfg.fontSize * 1.0);
-                const concernTxt = <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>;
-                const brandTxt = d.brand || 'GRM';
-                const titleTxt = d.subSubcategory || d.productName || '';
+                const concernTxt = d.concern || <?= json_encode($billConcernName) ?>;
+                const brandTxt = d.brand || '';
+                const titleTxt = d.productName || d.subSubcategory || '';
                 return `
                     <div class="sticker" style="display:flex;flex-direction:column;justify-content:center;padding:1.2mm 1.5mm;">
                         ${concernTxt ? `<div style="text-align:center;font-size:${Math.max(4.8, fontPt - 1.2)}pt;font-weight:700;color:#475569;text-transform:uppercase;white-space:nowrap;overflow:hidden;border-bottom:0.2mm solid #cbd5e1;padding-bottom:0.5mm;margin-bottom:0.8mm;">${esc(concernTxt)}</div>` : ''}
@@ -1960,7 +2170,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div style="font-family:monospace;font-size:5.5pt;font-weight:700;line-height:1;margin-top:0.5mm;">${esc(d.qrCode)}</div>
                             </div>
                             <div style="min-width:0;max-width:${Math.max(12, cfg.widthMm - qrMm - 6)}mm;display:flex;flex-direction:column;gap:0.45mm;line-height:1.15;text-align:left;">
-                                <div style="font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(brandTxt)}</div>
+                                ${brandTxt ? `<div style="font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(brandTxt)}</div>` : ''}
                                 ${titleTxt ? `<div style="font-size:${Math.max(4.8, fontPt - 1.0)}pt;font-weight:600;color:#0f172a;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(titleTxt)}</div>` : ''}
                                 <div style="font-size:${Math.max(5, fontPt - 0.4)}pt;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;">${esc(d.attributes)}</div>
                                 ${d.mrp ? `<div style="font-size:${Math.max(4.8, fontPt - 1.1)}pt;color:#64748b;text-decoration:line-through;white-space:nowrap;">MRP: ${esc(d.mrp)}</div>` : ''}
@@ -2250,44 +2460,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const rRows = draftRollsForm.querySelectorAll('#mappingRollRows tr');
-            if (rRows.length === 0) {
-                showDraftModernAlert('Validation Error: Please add at least one fabric roll.');
+            const colorInput = draftRollsForm.querySelector('[name$="[color]"]');
+            const weightInput = draftRollsForm.querySelector('[name$="[weight_kg]"]');
+            const rateInput = draftRollsForm.querySelector('[name$="[rate]"]');
+            const gstInput = draftRollsForm.querySelector('[name$="[gst_rate]"]');
+
+            const colorVal = (colorInput?.value || '').trim();
+            const weightVal = parseFloat(weightInput?.value || '0') || 0;
+            const rateVal = parseFloat(rateInput?.value || '0') || 0;
+            const gstVal = parseFloat(gstInput?.value || '0') || 0;
+
+            if (!colorVal) {
+                showDraftModernAlert('Validation Error: Please enter Color / Shade.');
+                colorInput?.focus();
                 return;
             }
-
-            for (let i = 0; i < rRows.length; i++) {
-                const rRow = rRows[i];
-                const colorInput = rRow.querySelector('[name$="[color]"]');
-                const weightInput = rRow.querySelector('[name$="[weight_kg]"]');
-                const rateInput = rRow.querySelector('[name$="[rate]"]');
-                const gstInput = rRow.querySelector('[name$="[gst_rate]"]');
-
-                const colorVal = (colorInput?.value || '').trim();
-                const weightVal = parseFloat(weightInput?.value || '0') || 0;
-                const rateVal = parseFloat(rateInput?.value || '0') || 0;
-                const gstVal = parseFloat(gstInput?.value || '0') || 0;
-
-                if (!colorVal) {
-                    showDraftModernAlert('Validation Error: Please enter Color / Shade for roll #' + (i + 1) + '.');
-                    colorInput?.focus();
-                    return;
-                }
-                if (weightVal <= 0) {
-                    showDraftModernAlert('Validation Error: Please enter a valid Weight (kg) for roll #' + (i + 1) + '.');
-                    weightInput?.focus();
-                    return;
-                }
-                if (rateVal <= 0) {
-                    showDraftModernAlert('Validation Error: Please enter a valid Rate (₹/kg) for roll #' + (i + 1) + '.');
-                    rateInput?.focus();
-                    return;
-                }
-                if (gstVal < 0 || gstVal > 100) {
-                    showDraftModernAlert('Validation Error: GST rate must be between 0 and 100% on roll #' + (i + 1) + '.');
-                    gstInput?.focus();
-                    return;
-                }
+            if (weightVal <= 0) {
+                showDraftModernAlert('Validation Error: Please enter a valid Weight (kg).');
+                weightInput?.focus();
+                return;
+            }
+            if (rateVal <= 0) {
+                showDraftModernAlert('Validation Error: Please enter a valid Purchase Rate.');
+                rateInput?.focus();
+                return;
+            }
+            if (gstVal < 0 || gstVal > 100) {
+                showDraftModernAlert('Validation Error: GST rate must be between 0 and 100%.');
+                gstInput?.focus();
+                return;
             }
 
             const submitBtn = draftRollsForm.querySelector('button[type="submit"]');
@@ -2837,10 +3038,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return `
                 <tr class="gen-attr-rate-row" data-key="${key.replace(/"/g, '&quot;')}" data-size="${combo.size.replace(/"/g, '&quot;')}" data-color="${combo.color.replace(/"/g, '&quot;')}" data-custom-label="${customLabel.replace(/"/g, '&quot;')}">
                     <td class="fw-semibold text-dark">${label}</td>
-                    <td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm attr-qty" value="${String(prev.qty || '1').replace(/"/g, '&quot;')}"></td>
-                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-rate" placeholder="0.00" value="${String(prev.rate || '').replace(/"/g, '&quot;')}"></td>
-                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-mrp" placeholder="0.00" value="${String(prev.mrp || '').replace(/"/g, '&quot;')}"></td>
-                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm attr-sp" placeholder="0.00" value="${String(prev.sp || '').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm attr-qty attr-num-decimal" value="${String(prev.qty || '1').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm attr-rate attr-num-decimal" placeholder="0.00" value="${String(prev.rate || '').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm attr-mrp attr-num-decimal" placeholder="0.00" value="${String(prev.mrp || '').replace(/"/g, '&quot;')}"></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm attr-sp attr-num-decimal" placeholder="0.00" value="${String(prev.sp || '').replace(/"/g, '&quot;')}"></td>
                 </tr>
             `;
         });
@@ -3050,5 +3251,97 @@ document.addEventListener('DOMContentLoaded', function() {
         mrpEl?.classList.toggle('is-invalid', invalid);
         spEl?.classList.toggle('is-invalid', invalid);
     });
+
+    // Sync btn-group tab styling for Third-Party Products & Fabric Rolls
+    const tabTpBtn = document.getElementById('tabThirdPartyBtn');
+    const tabFrBtn = document.getElementById('tabFabricRollsBtn');
+    [tabTpBtn, tabFrBtn].forEach(btn => {
+        btn?.addEventListener('shown.bs.tab', function () {
+            const isTp = (this.id === 'tabThirdPartyBtn');
+            if (tabTpBtn) tabTpBtn.className = isTp ? 'btn btn-primary fw-semibold active' : 'btn btn-outline-primary fw-semibold';
+            if (tabFrBtn) tabFrBtn.className = !isTp ? 'btn btn-primary fw-semibold active' : 'btn btn-outline-primary fw-semibold';
+        });
+    });
+
+    // Unit "Other" toggle + custom value on submit
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('gen-unit-select')) {
+            const wrap = e.target.parentElement;
+            const customInp = wrap?.querySelector('.gen-custom-unit');
+            if (customInp) {
+                const isOther = e.target.value === 'Other';
+                customInp.classList.toggle('d-none', !isOther);
+                if (isOther) customInp.focus();
+            }
+        }
+        if (e.target.classList.contains('gen-gst-type')) {
+            const card = e.target.closest('.tp-product-card');
+            if (card) updateDraftGstPreview(card);
+        }
+    });
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('attr-num-decimal')) {
+            let v = e.target.value.replace(/[^0-9.]/g, '');
+            const parts = v.split('.');
+            if (parts.length > 2) {
+                v = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (e.target.value !== v) e.target.value = v;
+        }
+        if (e.target.classList.contains('gen-gst')) {
+            const card = e.target.closest('.tp-product-card');
+            if (card) updateDraftGstPreview(card);
+        }
+    });
+
+    function updateDraftGstPreview(card) {
+        const typeEl = card.querySelector('.gen-gst-type');
+        const rateEl = card.querySelector('.gen-gst');
+        const prevEl = card.querySelector('.gen-gst-split-preview');
+        if (!typeEl || !rateEl || !prevEl) return;
+        const type = typeEl.value || 'BOTH';
+        if (type === 'EXEMPTED') {
+            rateEl.value = '0';
+            rateEl.readOnly = true;
+            prevEl.textContent = '(0%)';
+            return;
+        }
+        rateEl.readOnly = false;
+        const rate = parseFloat(rateEl.value || '0') || 0;
+        if (type === 'BOTH') {
+            const half = (rate / 2).toFixed(2).replace(/\.00$/, '');
+            prevEl.textContent = `(CGST ${half}% + SGST ${half}%)`;
+        } else {
+            prevEl.textContent = `(${type} ${rate}%)`;
+        }
+    }
+
+    document.querySelectorAll('.tp-product-card').forEach(updateDraftGstPreview);
+
+    const draftRollGstTypeEl = document.getElementById('draftRollGstType');
+    const draftRollGstRateEl = document.getElementById('draftRollGstRate');
+    const draftRollGstPrevEl = document.getElementById('draftRollGstSplitPreview');
+    function updateDraftRollGstPreview() {
+        if (!draftRollGstTypeEl || !draftRollGstRateEl || !draftRollGstPrevEl) return;
+        const t = draftRollGstTypeEl.value || 'BOTH';
+        if (t === 'EXEMPTED') {
+            draftRollGstRateEl.value = '0';
+            draftRollGstRateEl.readOnly = true;
+            draftRollGstPrevEl.textContent = '(0%)';
+            return;
+        }
+        draftRollGstRateEl.readOnly = false;
+        const r = parseFloat(draftRollGstRateEl.value || '0') || 0;
+        if (t === 'BOTH') {
+            const half = (r / 2).toFixed(2).replace(/\.00$/, '');
+            draftRollGstPrevEl.textContent = `(CGST ${half}% + SGST ${half}%)`;
+        } else {
+            draftRollGstPrevEl.textContent = `(${t} ${r}%)`;
+        }
+    }
+    draftRollGstTypeEl?.addEventListener('change', updateDraftRollGstPreview);
+    draftRollGstRateEl?.addEventListener('input', updateDraftRollGstPreview);
+    updateDraftRollGstPreview();
 });
 </script>
