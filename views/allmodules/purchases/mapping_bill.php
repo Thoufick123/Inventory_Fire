@@ -13,6 +13,7 @@ $viewOnly = !empty($viewOnly);
 $activeItemId = (int)($activeItem['id'] ?? 0);
 $purchasedQty = (float)($activeItem['quantity'] ?? 0);
 $unitPrice = (float)($activeItem['unit_price'] ?? 0);
+$baseRate = $unitPrice;
 
 // Accurately compute GST Rate
 $gstRate = (float)($activeItem['cgst_value'] ?? 0) + (float)($activeItem['sgst_value'] ?? 0) + (float)($activeItem['igst_value'] ?? 0);
@@ -695,7 +696,7 @@ tr.table-danger, tr.table-danger > td {
                     <div class="row g-2 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" id="billGenProductName" value="<?= e($activeItem['item_name']) ?>" placeholder="e.g. Shirt, Pant..." readonly>
+                            <input type="text" class="form-control form-control-sm" id="billGenProductName" value="<?= e($activeItem['item_name']) ?>" placeholder="e.g. Shirt, Pant...">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-semibold mb-1">Unit</label>
@@ -2881,13 +2882,23 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     };
 
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
     // =========================================================================
-    // BILL MAPPING VARIANT GENERATOR (Matches mapping_draft UI — no auto-loaded rows)
+    // BILL MAPPING VARIANT GENERATOR (Isolated so earlier handlers cannot block it)
     // =========================================================================
+    const tbodyVariantRows = document.getElementById('tbodyVariantRows');
+    const formMapProductBill = document.getElementById('formMapProductBill');
+    const showBillAlert = (msg) => (typeof window.showModernAlert === 'function' ? window.showModernAlert(msg) : alert(msg));
     const billCategoryAttrMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billAllSubcategories = <?= json_encode(array_values($allSubcategories ?? []), JSON_UNESCAPED_UNICODE) ?>;
+    const billAllSubSubcategories = <?= json_encode(array_values($allSubSubcategories ?? []), JSON_UNESCAPED_UNICODE) ?>;
     const billMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const billMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const billHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billProductNameInput = document.getElementById('billGenProductName');
     const billCatSel = document.getElementById('billGenCategory');
     const billSubSel = document.getElementById('billGenSubcategory');
     const billSsSel = document.getElementById('billGenSubSubcategory');
@@ -2996,37 +3007,57 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function syncBillSubcategoryOptions(preserveSelection = false) {
         if (!billCatSel || !billSubSel) return;
-        const catId = billCatSel.value;
-        const prevSub = preserveSelection ? billSubSel.value : '';
-        Array.from(billSubSel.options).forEach(o => {
-            if (!o.value) return;
-            const match = catId !== '' && o.dataset.parent === catId;
-            o.hidden = !match;
-            o.disabled = !match;
-        });
-        if (preserveSelection && prevSub && Array.from(billSubSel.options).some(o => o.value === prevSub && !o.hidden)) {
-            billSubSel.value = prevSub;
-        } else {
+        const catId = String(billCatSel.value || '');
+        const prevSub = preserveSelection ? String(billSubSel.value || '') : '';
+        billSubSel.innerHTML = '<option value="">-- Sub Category --</option>';
+        if (catId !== '') {
+            billAllSubcategories
+                .filter(sc => String(sc.category_id) === catId)
+                .forEach(sc => {
+                    const opt = document.createElement('option');
+                    opt.value = String(sc.id);
+                    opt.dataset.parent = String(sc.category_id);
+                    opt.textContent = sc.name || '';
+                    if (preserveSelection && prevSub === opt.value) opt.selected = true;
+                    billSubSel.appendChild(opt);
+                });
+        }
+        if (!preserveSelection || !Array.from(billSubSel.options).some(o => o.value === prevSub)) {
             billSubSel.value = '';
         }
     }
 
     function syncBillSubSubcategoryOptions(preserveSelection = false) {
         if (!billSubSel || !billSsSel) return;
-        const subId = billSubSel.value;
-        const prevSs = preserveSelection ? billSsSel.value : '';
-        Array.from(billSsSel.options).forEach(o => {
-            if (!o.value) return;
-            const match = subId !== '' && o.dataset.parent === subId;
-            o.hidden = !match;
-            o.disabled = !match;
-        });
-        if (preserveSelection && prevSs && Array.from(billSsSel.options).some(o => o.value === prevSs && !o.hidden)) {
-            billSsSel.value = prevSs;
-        } else {
+        const subId = String(billSubSel.value || '');
+        const prevSs = preserveSelection ? String(billSsSel.value || '') : '';
+        billSsSel.innerHTML = '<option value="">-- Sub Sub --</option>';
+        if (subId !== '') {
+            billAllSubSubcategories
+                .filter(ssc => String(ssc.subcategory_id) === subId)
+                .forEach(ssc => {
+                    const opt = document.createElement('option');
+                    opt.value = String(ssc.id);
+                    opt.dataset.parent = String(ssc.subcategory_id);
+                    opt.textContent = ssc.name || '';
+                    if (preserveSelection && prevSs === opt.value) opt.selected = true;
+                    billSsSel.appendChild(opt);
+                });
+        }
+        if (!preserveSelection || !Array.from(billSsSel.options).some(o => o.value === prevSs)) {
             billSsSel.value = '';
         }
     }
+
+    function syncBillProductNameToForm() {
+        const val = billProductNameInput ? billProductNameInput.value.trim() : '';
+        if (!val) return;
+        const styleEl = document.getElementById('inputStyleName');
+        if (styleEl) styleEl.value = val;
+        const itemEl = document.querySelector('#formMapProductBill input[name="item_name"]');
+        if (itemEl) itemEl.value = val;
+    }
+    billProductNameInput?.addEventListener('input', syncBillProductNameToForm);
 
     billCatSel?.addEventListener('change', function () {
         syncBillSubcategoryOptions(false);
@@ -3120,14 +3151,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Generate & Save -> populate hidden tbodyVariantRows and submit formMapProductBill
     btnGenSaveBill?.addEventListener('click', function () {
+        if (billProductNameInput && !billProductNameInput.value.trim()) {
+            showBillAlert('Please enter a Product / Style Name first.');
+            billProductNameInput.focus();
+            return;
+        }
+        syncBillProductNameToForm();
         if (!billCatSel?.value) {
-            showModernAlert('Please select a Category first.');
+            showBillAlert('Please select a Category first.');
             billCatSel?.focus();
             return;
         }
         const rateRows = Array.from(billRatesBody?.querySelectorAll('tr') || []);
         if (!rateRows.length) {
-            showModernAlert('Please select at least one Size or Color attribute.');
+            showBillAlert('Please select at least one Size or Color attribute.');
             return;
         }
         const templateRow = tbodyVariantRows?.querySelector('.variant-row')?.cloneNode(true);
@@ -3147,7 +3184,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const mrp = parseFloat(rEl.querySelector('.bill-rate-mrp')?.value || '0');
             const sp = parseFloat(rEl.querySelector('.bill-rate-sp')?.value || '0');
             if (q <= 0 || mrp <= 0 || sp <= 0 || sp > mrp) {
-                showModernAlert('Please check Qty, MRP, and Selling Price (Selling Price cannot exceed MRP).');
+                showBillAlert('Please check Qty, MRP, and Selling Price (Selling Price cannot exceed MRP).');
                 return;
             }
             const effRate = (gstMode === 'INCLUDED' && gstNum > 0 && rawRate > 0) ? (rawRate / (1 + gstNum / 100)).toFixed(2) : rawRate.toFixed(2);
