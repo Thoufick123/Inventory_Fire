@@ -25,6 +25,7 @@ $existingItems = array_map(static function (array $item): array {
     ];
 }, $billItems ?? []);
 $selectedBuyerType = $bill['buyer_type'] ?? 'CUSTOMER';
+$selectedPaymentStatus = (($bill['payment_status'] ?? 'PAID') === 'COD') ? 'COD' : 'PAID';
 $usesUpiPayment = in_array($bill['payment_method'] ?? 'CASH', ['UPI', 'CASH_UPI'], true);
 $usesSplitPayment = ($bill['payment_method'] ?? '') === 'CASH_UPI';
 $concernBrand = function_exists('getConcernBranding') 
@@ -351,6 +352,46 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                             <option value="<?= $value ?>" <?= ($bill['payment_method'] ?? 'CASH') === $value ? 'selected' : '' ?>><?= $label ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                </div>
+                            </div>
+
+                            <!-- Payment Status: Fully Paid or COD -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-dark mb-1"><i class="bi bi-wallet2 text-primary me-1"></i>Payment Status</label>
+                                <div class="btn-group w-100" role="group" aria-label="Payment Status">
+                                    <input type="radio" class="btn-check" name="payment_status" id="paymentStatusPaid" value="PAID" <?= $selectedPaymentStatus === 'PAID' ? 'checked' : '' ?> onchange="onPaymentStatusChange('PAID')">
+                                    <label class="btn btn-outline-success fw-semibold" for="paymentStatusPaid"><i class="bi bi-check-circle-fill me-1"></i>Fully Paid</label>
+
+                                    <input type="radio" class="btn-check" name="payment_status" id="paymentStatusCod" value="COD" <?= $selectedPaymentStatus === 'COD' ? 'checked' : '' ?> onchange="onPaymentStatusChange('COD')">
+                                    <label class="btn btn-outline-warning text-dark fw-semibold" for="paymentStatusCod"><i class="bi bi-truck me-1"></i>COD (Partial / Cash on Delivery)</label>
+                                </div>
+                            </div>
+
+                            <!-- COD Paid & Remaining Auto-Calculation -->
+                            <div id="codPaymentFields" class="p-3 bg-warning-subtle bg-opacity-50 rounded-3 border border-warning-subtle mb-3 <?= $selectedPaymentStatus === 'COD' ? '' : 'd-none' ?>">
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-bold text-dark mb-1" for="paidAmountInput">
+                                            <i class="bi bi-cash-coin text-success me-1"></i>Paid Amount (₹)
+                                        </label>
+                                        <input type="text" inputmode="decimal" autocomplete="off" name="paid_amount" id="paidAmountInput"
+                                               class="form-control form-control-lg text-end fw-bold font-monospace fs-5 border-warning"
+                                               placeholder="0.00" value="<?= $escape(number_format((float)($bill['paid_amount'] ?? 0), 2, '.', '')) ?>"
+                                               oninput="updateCodAmounts()">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-bold text-dark mb-1" for="remainingAmountInput">
+                                            <i class="bi bi-hourglass-split text-danger me-1"></i>Remaining Amount (₹)
+                                        </label>
+                                        <input type="text" inputmode="decimal" name="remaining_amount" id="remainingAmountInput"
+                                               class="form-control form-control-lg text-end fw-bold font-monospace text-danger fs-5 bg-white border-2 border-warning"
+                                               readonly value="<?= $escape(number_format((float)($bill['remaining_amount'] ?? 0), 2, '.', '')) ?>">
+                                    </div>
+                                    <div class="col-12 mt-1">
+                                        <div id="codStatusHelp" class="small text-muted fw-semibold">
+                                            Enter the amount paid now; remaining COD balance is auto-calculated.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -903,6 +944,86 @@ function openCustomerHistoryModal() {
         });
 }
 
+function getSelectedPaymentStatus() {
+    const codRadio = document.getElementById('paymentStatusCod');
+    return (codRadio && codRadio.checked) ? 'COD' : 'PAID';
+}
+
+function getEffectivePayableTarget(total) {
+    if (getSelectedPaymentStatus() === 'COD') {
+        const paidEl = document.getElementById('paidAmountInput');
+        const paidVal = parseFloat(sanitizeNumericValue(paidEl?.value || '0', true)) || 0;
+        return Math.max(0, Math.min(total, paidVal));
+    }
+    return total;
+}
+
+function onPaymentStatusChange(status) {
+    const codFields = document.getElementById('codPaymentFields');
+    const paidInput = document.getElementById('paidAmountInput');
+    const isCod = status === 'COD';
+    if (codFields) {
+        codFields.classList.toggle('d-none', !isCod);
+    }
+    if (isCod && paidInput) {
+        if (paidInput.value.trim() === '') {
+            paidInput.value = '0.00';
+        }
+        updateCodAmounts(lastComputedGrandTotal);
+        setTimeout(() => {
+            paidInput.focus();
+            paidInput.select();
+        }, 50);
+    } else {
+        updateCodAmounts(lastComputedGrandTotal);
+    }
+    updateCashAndChange(lastComputedGrandTotal);
+}
+
+function updateCodAmounts(total) {
+    if (total !== undefined) {
+        lastComputedGrandTotal = total;
+    } else {
+        total = lastComputedGrandTotal;
+    }
+    const paidInput = document.getElementById('paidAmountInput');
+    const remainingInput = document.getElementById('remainingAmountInput');
+    const codStatusHelp = document.getElementById('codStatusHelp');
+    if (!paidInput || !remainingInput) return;
+
+    if (getSelectedPaymentStatus() !== 'COD') {
+        remainingInput.value = '0.00';
+        return;
+    }
+
+    const sanitizedPaid = sanitizeNumericValue(paidInput.value, true);
+    if (paidInput.value !== sanitizedPaid) {
+        paidInput.value = sanitizedPaid;
+    }
+    const paid = parseFloat(sanitizedPaid) || 0;
+    const remaining = total - paid;
+
+    if (paid > total + 0.009) {
+        remainingInput.value = '0.00';
+        remainingInput.className = 'form-control form-control-lg text-end fw-bold font-monospace text-danger fs-5 bg-white border-2 border-danger';
+        if (codStatusHelp) {
+            codStatusHelp.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Paid amount cannot exceed the bill total (${formatCurrency(total)}).</span>`;
+        }
+    } else {
+        const clampedRem = Math.max(0, remaining);
+        remainingInput.value = clampedRem.toFixed(2);
+        remainingInput.className = clampedRem > 0
+            ? 'form-control form-control-lg text-end fw-bold font-monospace text-danger fs-5 bg-white border-2 border-warning'
+            : 'form-control form-control-lg text-end fw-bold font-monospace text-success fs-5 bg-white border-2 border-success';
+        if (codStatusHelp) {
+            codStatusHelp.innerHTML = clampedRem > 0
+                ? `<span class="text-dark"><i class="bi bi-truck text-warning-emphasis me-1"></i> Remaining COD balance to collect: <strong class="text-danger">${formatCurrency(clampedRem)}</strong></span>`
+                : `<span class="text-success fw-bold"><i class="bi bi-check2-circle me-1"></i> Full bill amount covered (₹0.00 remaining).</span>`;
+        }
+    }
+    updateCashAndChange(total);
+}
+
 function updateCashAndChange(total) {
     if (total !== undefined) {
         lastComputedGrandTotal = total;
@@ -927,7 +1048,7 @@ function updateCashAndChange(total) {
         if (changeStatusHelp) {
             changeStatusHelp.innerHTML = paymentMethod === 'CASH_UPI'
                 ? 'Enter the cash tendered to calculate change on the cash portion.'
-                : 'Any cash above the bill total is calculated as change to return.';
+                : 'Any cash above the payable amount is calculated as change to return.';
         }
         return;
     }
@@ -935,7 +1056,7 @@ function updateCashAndChange(total) {
     const cashGiven = parseFloat(cashGivenRaw) || 0;
     const cashTarget = paymentMethod === 'CASH_UPI'
         ? Number(sanitizeNumericValue(document.getElementById('cashAmount')?.value || 0, true) || 0)
-        : total;
+        : getEffectivePayableTarget(total);
     const change = cashGiven - cashTarget;
 
     if (change >= 0) {
@@ -1033,6 +1154,15 @@ document.addEventListener('DOMContentLoaded', () => {
         min: 0,
         allowEmpty: true,
         onNormalize: () => updateCashAndChange()
+    });
+    const paidAmountField = document.getElementById('paidAmountInput');
+    bindNumericInputValidation(paidAmountField, {
+        allowDecimal: true,
+        maxDecimals: 2,
+        min: 0,
+        allowEmpty: false,
+        defaultValue: '0.00',
+        onNormalize: () => updateCodAmounts()
     });
     bindNumericInputValidation(cashAmountInput, {
         allowDecimal: true,
@@ -1497,6 +1627,11 @@ document.addEventListener('DOMContentLoaded', () => {
             mrpCell.className = 'text-end fw-semibold text-muted font-monospace text-nowrap';
             mrpCell.textContent = money(item.mrp);
 
+            const isComp = Number(item.is_complementary || 0) === 1;
+            if (isComp) {
+                item.unit_price = 0;
+            }
+
             // 4. Discount cell
             const discountCell = row.insertCell();
             const discountInput = document.createElement('input');
@@ -1505,10 +1640,14 @@ document.addEventListener('DOMContentLoaded', () => {
             discountInput.autocomplete = 'off';
             discountInput.setAttribute('aria-label', 'Discount percentage');
             discountInput.className = 'form-control form-control-sm text-end font-monospace billing-rate-input';
-            item.discount_percentage = resolveDiscountPercentage(item);
+            item.discount_percentage = isComp ? 100 : resolveDiscountPercentage(item);
             discountInput.value = item.discount_percentage.toFixed(2);
             discountInput.name = `items[${index}][discount_percentage]`;
+            if (isComp) {
+                discountInput.readOnly = true;
+            }
             const applyDiscountValue = (rawDiscount) => {
+                if (isComp) return;
                 const parsed = parseFloat(rawDiscount);
                 const discount = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
                 item.discount_percentage = discount;
@@ -1538,27 +1677,41 @@ document.addEventListener('DOMContentLoaded', () => {
             priceInput.autocomplete = 'off';
             priceInput.setAttribute('aria-label', 'Price per piece');
             priceInput.className = 'form-control form-control-sm text-end font-monospace fw-semibold billing-price-input';
-            priceInput.value = Number(item.unit_price || 0).toFixed(2);
+            priceInput.value = isComp ? '0.00' : Number(item.unit_price || 0).toFixed(2);
             priceInput.name = `items[${index}][unit_price]`;
-            const applyPriceValue = (rawPrice) => {
-                const parsed = parseFloat(rawPrice);
-                item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-                item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
-                discountInput.value = item.discount_percentage.toFixed(2);
-                updateRowTotals(itemKey);
-            };
-            bindNumericInputValidation(priceInput, {
-                allowDecimal: true,
-                maxDecimals: 2,
-                min: 0,
-                allowEmpty: false,
-                defaultValue: '0.00',
-                onNormalize: (val) => applyPriceValue(val)
-            });
-            priceInput.addEventListener('input', () => {
-                applyPriceValue(priceInput.value);
-            });
-            priceCell.append(priceInput);
+            if (isComp) {
+                priceInput.readOnly = true;
+                priceInput.classList.add('bg-light', 'text-info-emphasis');
+                const compBadge = document.createElement('div');
+                compBadge.className = 'small text-info-emphasis fw-semibold text-end mt-1';
+                compBadge.innerHTML = '<i class="bi bi-gift-fill me-1"></i>Complementary';
+                priceCell.append(priceInput, compBadge);
+                const hiddenComp = document.createElement('input');
+                hiddenComp.type = 'hidden';
+                hiddenComp.name = `items[${index}][is_complementary]`;
+                hiddenComp.value = '1';
+                priceCell.append(hiddenComp);
+            } else {
+                const applyPriceValue = (rawPrice) => {
+                    const parsed = parseFloat(rawPrice);
+                    item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                    item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
+                    discountInput.value = item.discount_percentage.toFixed(2);
+                    updateRowTotals(itemKey);
+                };
+                bindNumericInputValidation(priceInput, {
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                    min: 0,
+                    allowEmpty: false,
+                    defaultValue: '0.00',
+                    onNormalize: (val) => applyPriceValue(val)
+                });
+                priceInput.addEventListener('input', () => {
+                    applyPriceValue(priceInput.value);
+                });
+                priceCell.append(priceInput);
+            }
 
             // 6. HSN cell (next to Price / Pc incl. tax)
             const hsnCell = row.insertCell();
@@ -1726,11 +1879,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cash = Number(form.elements.cash_amount?.value || 0);
         const upi = Number(form.elements.upi_amount?.value || 0);
+        const splitTarget = getEffectivePayableTarget(grandTotal);
         document.getElementById('splitBalance').textContent = document.getElementById('paymentMethod').value === 'CASH_UPI'
-            ? `Cash + UPI: ${money(cash + upi)} / ${money(grandTotal)}`
+            ? `Cash + UPI: ${money(cash + upi)} / ${money(splitTarget)}`
             : '';
 
-        // Auto update Cash Tendered & Change Return (Image 2)
+        // Auto update COD Remaining & Cash Tendered / Change Return
+        updateCodAmounts(grandTotal);
         updateCashAndChange(grandTotal);
     }
 
@@ -1919,6 +2074,11 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please add at least one finished-goods piece to this bill.');
             return;
         }
+        if (lastComputedGrandTotal <= 0) {
+            e.preventDefault();
+            alert('Cannot create a POS bill with ₹0.00 total amount. Please add at least one chargeable item.');
+            return;
+        }
 
         const numericChecks = [
             ...Array.from(cartBody.querySelectorAll('.billing-qty-input')).map(el => ({ el, decimal: false, label: 'Qty', min: 1 })),
@@ -1937,6 +2097,9 @@ document.addEventListener('DOMContentLoaded', () => {
             numericChecks.push({ el: cashAmountInput, decimal: true, label: 'Cash amount', min: 0 });
             numericChecks.push({ el: upiAmountInput, decimal: true, label: 'UPI / GPay amount', min: 0 });
         }
+        if (getSelectedPaymentStatus() === 'COD' && paidAmountField) {
+            numericChecks.push({ el: paidAmountField, decimal: true, label: 'Paid Amount', min: 0 });
+        }
 
         for (const check of numericChecks) {
             const rawVal = check.el.value.trim();
@@ -1954,12 +2117,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        if (getSelectedPaymentStatus() === 'COD' && paidAmountField) {
+            const paidAmt = parseFloat(paidAmountField.value || '0') || 0;
+            if (paidAmt > lastComputedGrandTotal + 0.01) {
+                e.preventDefault();
+                paidAmountField.classList.add('is-invalid');
+                paidAmountField.focus();
+                alert('COD Paid Amount cannot exceed the bill total.');
+                return;
+            }
+        }
+
         if (paymentMethodSelect.value === 'CASH_UPI') {
             const cash = Number(cashAmountInput.value || 0);
             const upi = Number(upiAmountInput.value || 0);
-            if (Math.abs(cash + upi - lastComputedGrandTotal) > 0.01) {
+            const splitTarget = getEffectivePayableTarget(lastComputedGrandTotal);
+            if (Math.abs(cash + upi - splitTarget) > 0.01) {
                 e.preventDefault();
-                alert('Cash and UPI / GPay amounts must equal the bill total.');
+                alert(getSelectedPaymentStatus() === 'COD'
+                    ? 'Cash and UPI / GPay amounts must equal the COD Paid Amount.'
+                    : 'Cash and UPI / GPay amounts must equal the bill total.');
             }
         }
     });

@@ -978,10 +978,17 @@ class ConcernController {
     private function handleLogoUpload(?string $existingLogo = null): ?string {
         if (!empty($_POST['remove_logo'])) {
             if ($existingLogo) {
-                $clean = ltrim(str_replace('public/', '', $existingLogo), '/');
-                $target = BASE_PATH . '/public/' . $clean;
-                if (file_exists($target) && is_file($target)) {
-                    @unlink($target);
+                if (str_starts_with($existingLogo, 'http://') || str_starts_with($existingLogo, 'https://')) {
+                    if (!class_exists('CloudinaryService')) {
+                        require_once BASE_PATH . '/app/Services/CloudinaryService.php';
+                    }
+                    CloudinaryService::delete($existingLogo);
+                } else {
+                    $clean = ltrim(str_replace('public/', '', $existingLogo), '/');
+                    $target = BASE_PATH . '/public/' . $clean;
+                    if (file_exists($target) && is_file($target)) {
+                        @unlink($target);
+                    }
                 }
             }
             return null;
@@ -1006,27 +1013,27 @@ class ConcernController {
             throw new Exception('Logo image file exceeds 5MB size limit.');
         }
 
-        $uploadDir = BASE_PATH . '/public/uploads/concerns';
-        if (!is_dir($uploadDir)) {
-            @mkdir($uploadDir, 0777, true);
+        if (!class_exists('CloudinaryService')) {
+            require_once BASE_PATH . '/app/Services/CloudinaryService.php';
         }
-
-        $newFileName = 'concern_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $targetPath = $uploadDir . '/' . $newFileName;
-
-        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        $uploadedPath = CloudinaryService::upload($file, 'grm_inventory/concerns', 'image');
+        if (!$uploadedPath) {
             throw new Exception('Failed to save uploaded concern logo.');
         }
 
         // Clean up previous logo file if replacing
-        if ($existingLogo) {
-            $cleanOld = ltrim(str_replace('public/', '', $existingLogo), '/');
-            $oldPath = BASE_PATH . '/public/' . $cleanOld;
-            if (file_exists($oldPath) && is_file($oldPath)) {
-                @unlink($oldPath);
+        if ($existingLogo && $existingLogo !== $uploadedPath) {
+            if (str_starts_with($existingLogo, 'http://') || str_starts_with($existingLogo, 'https://')) {
+                CloudinaryService::delete($existingLogo);
+            } else {
+                $cleanOld = ltrim(str_replace('public/', '', $existingLogo), '/');
+                $oldPath = BASE_PATH . '/public/' . $cleanOld;
+                if (file_exists($oldPath) && is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
             }
         }
 
-        return 'uploads/concerns/' . $newFileName;
+        return $uploadedPath;
     }
 }

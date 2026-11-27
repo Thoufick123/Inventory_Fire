@@ -473,7 +473,7 @@ if (!empty($billItems[0])) {
         <?php endif; ?>
         <div class="info-row">
             <span class="info-label">Pay Mode :</span>
-            <span class="info-value" style="font-weight: bold;"><?= htmlspecialchars($payMode) ?></span>
+            <span class="info-value" style="font-weight: bold;"><?= htmlspecialchars($payMode) ?> (<?= htmlspecialchars($bill['payment_status'] ?? 'PAID') ?>)</span>
         </div>
     </div>
 
@@ -604,6 +604,19 @@ if (!empty($billItems[0])) {
         <span>NET AMOUNT :</span>
         <span style="font-size: 16px;">₹ <?= number_format($totalAmount, 2) ?></span>
     </div>
+
+    <?php if (($bill['payment_status'] ?? '') === 'COD'): ?>
+    <div class="info-grid" style="margin-top: 4px;">
+        <div class="summary-row">
+            <span class="summary-label">Paid Amount :</span>
+            <span class="summary-val">₹ <?= number_format((float)($bill['paid_amount'] ?? 0), 2) ?></span>
+        </div>
+        <div class="summary-row">
+            <span class="summary-label" style="font-weight: bold;">Balance Due (COD) :</span>
+            <span class="summary-val">₹ <?= number_format((float)($bill['remaining_amount'] ?? 0), 2) ?></span>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
     <div class="info-grid" style="margin-top: 4px;">

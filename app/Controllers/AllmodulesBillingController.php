@@ -12,7 +12,7 @@ class AllmodulesBillingController
         if ($checked) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_billing_schema_checked'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_billing_schema_v2_checked'])) {
             $checked = true;
             return;
         }
@@ -25,13 +25,20 @@ class AllmodulesBillingController
             Database::ensureColumn('production_bills', 'change_returned', 'DECIMAL(12,2) DEFAULT 0.00');
             Database::ensureColumn('production_bills', 'staff_id', 'INT(10) UNSIGNED DEFAULT NULL');
             Database::ensureColumn('production_bills', 'staff_name', 'VARCHAR(150) DEFAULT NULL');
+            Database::ensureColumn('production_bills', 'paid_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+            Database::ensureColumn('production_bills', 'remaining_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+
+            $statusCol = Database::fetchOne("SHOW COLUMNS FROM production_bills LIKE 'payment_status'");
+            if ($statusCol && stripos((string)($statusCol['Type'] ?? ''), "'COD'") === false) {
+                Database::execute("ALTER TABLE production_bills MODIFY COLUMN payment_status ENUM('PENDING','PAID','COD') NOT NULL DEFAULT 'PAID'");
+            }
 
             $idx = Database::fetchOne("SHOW INDEX FROM production_bills WHERE Key_name = 'idx_production_bills_direct'");
             if (!$idx) {
                 Database::execute("ALTER TABLE production_bills ADD INDEX idx_production_bills_direct (is_direct_bill)");
             }
             if (session_status() === PHP_SESSION_ACTIVE) {
-                $_SESSION['_allmodules_billing_schema_checked'] = true;
+                $_SESSION['_allmodules_billing_schema_v2_checked'] = true;
             }
         } catch (\Throwable $e) {}
     }
@@ -105,9 +112,16 @@ class AllmodulesBillingController
         foreach ($bills as $b) {
             $amount = (float)($b['total_amount'] ?? 0);
             $stats['total_revenue'] += $amount;
-            if (($b['payment_status'] ?? '') === 'PAID') {
+            $status = strtoupper((string)($b['payment_status'] ?? 'PAID'));
+            if ($status === 'PAID') {
                 $stats['paid_revenue'] += $amount;
                 $stats['paid_count']++;
+            } elseif ($status === 'COD') {
+                $paidPart = min($amount, max(0.0, (float)($b['paid_amount'] ?? 0)));
+                $remPart = max(0.0, $amount - $paidPart);
+                $stats['paid_revenue'] += $paidPart;
+                $stats['pending_revenue'] += $remPart;
+                $stats['pending_count']++;
             } else {
                 $stats['pending_revenue'] += $amount;
                 $stats['pending_count']++;
@@ -2337,12 +2351,48 @@ class AllmodulesBillingController
         }
         unset($amount);
 
+        if ($totals['total_amount'] <= 0) {
+            Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Cannot create a POS bill with ₹0.00 total amount. Please add at least one chargeable item.');
+            return;
+        }
+
+        $requestedPaymentStatus = strtoupper(trim((string)($_POST['payment_status'] ?? 'PAID')));
+        if (!in_array($requestedPaymentStatus, ['PAID', 'COD'], true)) {
+            $requestedPaymentStatus = 'PAID';
+        }
+
+        if ($requestedPaymentStatus === 'COD') {
+            $paymentStatus = 'COD';
+            $rawPaidAmount = trim((string)($_POST['paid_amount'] ?? '0'));
+            $parsedPaidAmount = filter_var($rawPaidAmount === '' ? '0' : $rawPaidAmount, FILTER_VALIDATE_FLOAT);
+            if ($parsedPaidAmount === false || $parsedPaidAmount < 0) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Enter a valid non-negative COD paid amount.');
+                return;
+            }
+            if ((float)$parsedPaidAmount > $totals['total_amount'] + 0.01) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'COD paid amount cannot exceed the bill total.');
+                return;
+            }
+            $paidAmount = min($totals['total_amount'], round((float)$parsedPaidAmount, 2));
+            $remainingAmount = round(max(0.0, $totals['total_amount'] - $paidAmount), 2);
+        } elseif ($paymentMethod === 'CREDIT') {
+            $paymentStatus = 'PENDING';
+            $paidAmount = 0.0;
+            $remainingAmount = $totals['total_amount'];
+        } else {
+            $paymentStatus = 'PAID';
+            $paidAmount = $totals['total_amount'];
+            $remainingAmount = 0.0;
+        }
+
+        $effectivePayableTarget = $paymentStatus === 'COD' ? $paidAmount : $totals['total_amount'];
+
         $cashAmount = 0.0;
         $upiAmount = 0.0;
         if ($paymentMethod === 'CASH') {
-            $cashAmount = $totals['total_amount'];
+            $cashAmount = $effectivePayableTarget;
         } elseif ($paymentMethod === 'UPI') {
-            $upiAmount = $totals['total_amount'];
+            $upiAmount = $effectivePayableTarget;
         } elseif ($paymentMethod === 'CASH_UPI') {
             $cashInput = filter_var($_POST['cash_amount'] ?? null, FILTER_VALIDATE_FLOAT);
             $upiInput = filter_var($_POST['upi_amount'] ?? null, FILTER_VALIDATE_FLOAT);
@@ -2352,8 +2402,9 @@ class AllmodulesBillingController
             }
             $cashAmount = round((float)$cashInput, 2);
             $upiAmount = round((float)$upiInput, 2);
-            if (abs(($cashAmount + $upiAmount) - $totals['total_amount']) > 0.01) {
-                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Cash and UPI amounts must add up to the bill total.');
+            if (abs(($cashAmount + $upiAmount) - $effectivePayableTarget) > 0.01) {
+                $targetLabel = $paymentStatus === 'COD' ? 'the COD paid amount' : 'the bill total';
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Cash and UPI amounts must add up to {$targetLabel}.");
                 return;
             }
         }
@@ -2405,7 +2456,6 @@ class AllmodulesBillingController
             }
         }
 
-        $paymentStatus = $paymentMethod === 'CREDIT' ? 'PENDING' : 'PAID';
         $isDirectBill = !empty($_POST['is_direct_bill']) ? 1 : 0;
         $destinationConcernId = ($buyerType === 'COMPANY' && !empty($_POST['destination_concern_id'])) ? (int)$_POST['destination_concern_id'] : null;
         Database::ensureColumn('production_bills', 'destination_concern_id', 'INT NULL DEFAULT NULL');
@@ -2427,6 +2477,8 @@ class AllmodulesBillingController
             $paymentMethod,
             $isDirectBill,
             $paymentStatus,
+            $paidAmount,
+            $remainingAmount,
             $taxType,
             $cashAmount,
             $upiAmount,
@@ -2458,11 +2510,11 @@ class AllmodulesBillingController
                     "INSERT INTO production_bills
                      (concern_id, destination_concern_id, bill_number, production_unit_id, buyer_type, company_name, company_address, company_phone, company_email, company_gstin,
                       customer_name, customer_phone, customer_address, customer_city, customer_state, customer_gstin,
-                      bill_date, payment_method, is_direct_bill, payment_status, tax_type, cash_amount, upi_amount, upi_reference,
+                      bill_date, payment_method, is_direct_bill, payment_status, paid_amount, remaining_amount, tax_type, cash_amount, upi_amount, upi_reference,
                       upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
                       total_amount, notes, cash_given, change_returned, staff_id, staff_name, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array_merge([$activeConcernId, $destinationConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
@@ -2471,6 +2523,7 @@ class AllmodulesBillingController
                     "UPDATE production_bills SET destination_concern_id = ?, production_unit_id = ?, buyer_type = ?, company_name = ?, company_address = ?, company_phone = ?, company_email = ?,
                      company_gstin = ?, customer_name = ?, customer_phone = ?, customer_address = ?, customer_city = ?,
                      customer_state = ?, customer_gstin = ?, bill_date = ?, payment_method = ?, is_direct_bill = ?, payment_status = ?,
+                     paid_amount = ?, remaining_amount = ?,
                      tax_type = ?, cash_amount = ?, upi_amount = ?, upi_reference = ?, upi_payment_screenshot_url = ?,
                      gross_amount = ?, discount_amount = ?,
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,

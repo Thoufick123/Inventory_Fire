@@ -107,7 +107,18 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
             <div class="d-flex justify-content-between py-1"><span>Total Taxes (Incl.)</span><strong><?= formatCurrency((float)((float)$bill['tax_amount'])) ?></strong></div>
             <hr>
             <div class="d-flex justify-content-between fs-5"><span class="fw-bold">Total</span><strong><?= formatCurrency((float)((float)$bill['total_amount'])) ?></strong></div>
-            <div class="small text-muted mt-2">Payment: <?= htmlspecialchars($bill['payment_method']) ?> · <?= htmlspecialchars($bill['payment_status']) ?></div>
+            <div class="small text-muted mt-2">
+                Payment: <?= htmlspecialchars($bill['payment_method']) ?> ·
+                <span class="badge <?= ($bill['payment_status'] ?? '') === 'PAID' ? 'bg-success-subtle text-success' : (($bill['payment_status'] ?? '') === 'COD' ? 'bg-info-subtle text-info-emphasis' : 'bg-warning-subtle text-warning-emphasis') ?>">
+                    <?= htmlspecialchars($bill['payment_status']) ?>
+                </span>
+            </div>
+            <?php if (($bill['payment_status'] ?? '') === 'COD'): ?>
+                <div class="small mt-1">
+                    Paid: <strong class="text-success"><?= formatCurrency((float)($bill['paid_amount'] ?? 0)) ?></strong> ·
+                    Remaining (COD): <strong class="text-danger"><?= formatCurrency((float)($bill['remaining_amount'] ?? 0)) ?></strong>
+                </div>
+            <?php endif; ?>
             <?php if (!empty($bill['staff_name'])): ?>
                 <div class="small text-muted"><i class="bi bi-person-badge me-1"></i>Billed By: <strong><?= htmlspecialchars($bill['staff_name']) ?></strong></div>
             <?php endif; ?>
