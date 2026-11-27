@@ -10949,6 +10949,28 @@ class AllmodulesController {
         $sellers = Database::fetchAll("SELECT id, name, company FROM sellers $damSellerWhere ORDER BY name ASC", $damSellerParams);
         $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
+        self::ensureDamageOutwardSchema();
+        $targetConcerns = Database::fetchAll(
+            "SELECT id, name, code FROM concerns WHERE is_active = 1" . ($activeCid ? " AND id != " . (int)$activeCid : "") . " ORDER BY name ASC"
+        );
+        $outwardWhere = '';
+        $outwardParams = [];
+        if ($activeCid) {
+            $outwardWhere = $activeCid === 1 ? "WHERE (do.concern_id = 1 OR do.concern_id IS NULL)" : "WHERE do.concern_id = ?";
+            if ($activeCid !== 1) {
+                $outwardParams[] = (int)$activeCid;
+            }
+        }
+        $damageOutwards = Database::fetchAll(
+            "SELECT do.*, c_dest.name AS destination_concern_name, c_dest.code AS destination_concern_code,
+                    (SELECT GROUP_CONCAT(doi.damage_number SEPARATOR ', ') FROM damage_outward_items doi WHERE doi.damage_outward_id = do.id) AS damage_numbers_csv
+             FROM damage_outwards do
+             LEFT JOIN concerns c_dest ON c_dest.id = do.destination_concern_id
+             {$outwardWhere}
+             ORDER BY do.id DESC LIMIT 30",
+            $outwardParams
+        );
+
         Response::view('allmodules.damages.index', [
             'pageTitle'      => 'Fabric & Roll Damages',
             'activeModule'   => 'production',
@@ -10957,6 +10979,8 @@ class AllmodulesController {
             'stats'          => $stats,
             'sellers'        => $sellers,
             'hsnCodes'       => $hsnCodes,
+            'targetConcerns' => $targetConcerns,
+            'damageOutwards' => $damageOutwards,
             'search'         => $search,
             'sellerId'       => $sellerId,
             'reason'         => $reason,
@@ -10968,6 +10992,193 @@ class AllmodulesController {
                 ['label' => 'Damages'],
             ],
         ]);
+    }
+
+    private static function ensureDamageOutwardSchema(): void {
+        static $checked = false;
+        if ($checked) return;
+        $checked = true;
+        try {
+            Database::ensureColumn('roll_damages', 'damage_outward_id', 'INT(10) UNSIGNED DEFAULT NULL');
+            Database::ensureColumn('roll_damages', 'outward_concern_id', 'INT(10) UNSIGNED DEFAULT NULL');
+            $stCol = Database::fetchOne("SHOW COLUMNS FROM roll_damages LIKE 'status'");
+            if ($stCol && stripos((string)($stCol['Type'] ?? ''), "'OUTWARDED'") === false) {
+                Database::execute("ALTER TABLE roll_damages MODIFY COLUMN status ENUM('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED','OUTWARDED') NOT NULL DEFAULT 'LOGGED'");
+            }
+            Database::execute(
+                "CREATE TABLE IF NOT EXISTS `damage_outwards` (
+                    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                    `outward_number` varchar(50) NOT NULL,
+                    `concern_id` int(10) unsigned DEFAULT NULL,
+                    `destination_concern_id` int(10) unsigned NOT NULL,
+                    `vehicle_number` varchar(60) DEFAULT NULL,
+                    `driver_name` varchar(120) DEFAULT NULL,
+                    `notes` text DEFAULT NULL,
+                    `total_items` int(11) NOT NULL DEFAULT 0,
+                    `outward_date` date NOT NULL,
+                    `created_by` int(10) unsigned DEFAULT NULL,
+                    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uniq_damage_outward_number` (`outward_number`),
+                    KEY `idx_damage_outward_concern` (`concern_id`),
+                    KEY `idx_damage_outward_dest` (`destination_concern_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+            Database::execute(
+                "CREATE TABLE IF NOT EXISTS `damage_outward_items` (
+                    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                    `damage_outward_id` int(10) unsigned NOT NULL,
+                    `roll_damage_id` int(10) unsigned NOT NULL,
+                    `damage_number` varchar(50) NOT NULL,
+                    `qr_code` varchar(100) DEFAULT NULL,
+                    `product_name` varchar(300) DEFAULT NULL,
+                    `damaged_quantity` int(11) NOT NULL DEFAULT 0,
+                    `damaged_weight` decimal(10,2) NOT NULL DEFAULT 0.00,
+                    `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uniq_damage_outward_roll_damage` (`roll_damage_id`),
+                    KEY `idx_damage_outward_items_parent` (`damage_outward_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (\Throwable $e) {
+            error_log('ensureDamageOutwardSchema error: ' . $e->getMessage());
+        }
+    }
+
+    public function ajaxLookupDamageForOutward(): void {
+        self::ensureDamageOutwardSchema();
+        $q = strtoupper(trim((string)($_GET['q'] ?? '')));
+        if ($q === '') {
+            Response::jsonError('Please scan or enter a damaged product QR or Damage #.', 422);
+            return;
+        }
+
+        $activeCid = currentConcernId();
+        $cidSql = '';
+        $cidParams = [];
+        if ($activeCid) {
+            if ($activeCid === 1) {
+                $cidSql = ' AND (rd.concern_id = 1 OR rd.concern_id IS NULL)';
+            } else {
+                $cidSql = ' AND rd.concern_id = ?';
+                $cidParams[] = (int)$activeCid;
+            }
+        }
+
+        $row = Database::fetchOne(
+            "SELECT rd.*, sr.roll_number, sr.qr_code AS roll_qr_code,
+                    COALESCE(NULLIF(rd.product_name, ''), NULLIF(sr.fabric_type, ''), 'Damaged Item') AS display_product,
+                    COALESCE(NULLIF(rd.qr_code, ''), NULLIF(sr.qr_code, ''), sr.roll_number, rd.damage_number) AS display_qr
+             FROM roll_damages rd
+             LEFT JOIN seller_rolls sr ON sr.id = rd.seller_roll_id
+             WHERE (UPPER(TRIM(COALESCE(rd.qr_code, ''))) = ?
+                    OR UPPER(TRIM(COALESCE(rd.damage_number, ''))) = ?
+                    OR UPPER(TRIM(COALESCE(sr.qr_code, ''))) = ?
+                    OR UPPER(TRIM(COALESCE(sr.roll_number, ''))) = ?){$cidSql}
+             ORDER BY rd.id DESC
+             LIMIT 1",
+            array_merge([$q, $q, $q, $q], $cidParams)
+        );
+
+        if (!$row) {
+            Response::jsonError("'{$q}' was not found in Damage records for this concern. Only products scanned/logged in the Damage module can be outwarded.", 404);
+            return;
+        }
+        $st = strtoupper((string)($row['status'] ?? ''));
+        if ($st === 'OUTWARDED' || !empty($row['damage_outward_id'])) {
+            Response::jsonError("Damage item '{$row['damage_number']}' has already been outwarded.", 422);
+            return;
+        }
+        if (in_array($st, ['CANCELLED', 'REJECTED'], true)) {
+            Response::jsonError("Damage item '{$row['damage_number']}' is {$st} and cannot be outwarded.", 422);
+            return;
+        }
+
+        Response::jsonSuccess('Damaged item found', [
+            'roll_damage_id'   => (int)$row['id'],
+            'damage_number'    => $row['damage_number'],
+            'qr_code'          => $row['display_qr'],
+            'product_name'     => $row['display_product'],
+            'damage_reason'    => $row['damage_reason'] ?? '',
+            'damaged_quantity' => (int)($row['damaged_quantity'] ?? 0),
+            'damaged_weight'   => (float)($row['damaged_weight'] ?? 0),
+        ]);
+    }
+
+    public function storeDamageOutward(): void {
+        self::ensureDamageOutwardSchema();
+        if (!CSRF::validateRequest()) {
+            Response::redirect('allmodules/damages', 'error', 'Invalid security token.');
+            return;
+        }
+
+        $destConcernId = (int)($_POST['destination_concern_id'] ?? 0);
+        $activeCid = currentConcernId();
+        $damageIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['damage_ids'] ?? [])), static fn($v) => $v > 0)));
+        $vehicleNumber = trim((string)($_POST['vehicle_number'] ?? ''));
+        $driverName = trim((string)($_POST['driver_name'] ?? ''));
+        $notes = trim((string)($_POST['notes'] ?? ''));
+
+        if ($destConcernId <= 0 || ($activeCid && $destConcernId === (int)$activeCid)) {
+            Response::redirect('allmodules/damages', 'error', 'Select a valid destination concern (different from current concern).');
+            return;
+        }
+        $destConcern = Database::fetchOne("SELECT id, name FROM concerns WHERE id = ? AND is_active = 1", [$destConcernId]);
+        if (!$destConcern) {
+            Response::redirect('allmodules/damages', 'error', 'Destination concern not found or inactive.');
+            return;
+        }
+        if (empty($damageIds)) {
+            Response::redirect('allmodules/damages', 'error', 'Scan at least one damaged product from the Damage module to outward.');
+            return;
+        }
+
+        Database::beginTransaction();
+        try {
+            $outwardNum = 'DMG-OUT-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(2)));
+            Database::execute(
+                "INSERT INTO damage_outwards
+                 (outward_number, concern_id, destination_concern_id, vehicle_number, driver_name, notes, total_items, outward_date, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$outwardNum, $activeCid, $destConcernId, $vehicleNumber ?: null, $driverName ?: null, $notes ?: null, count($damageIds), date('Y-m-d'), (int)(Auth::id() ?? 0) ?: null]
+            );
+            $outwardId = (int)Database::lastInsertId();
+
+            foreach ($damageIds as $dId) {
+                $dmg = Database::fetchOne("SELECT * FROM roll_damages WHERE id = ? FOR UPDATE", [$dId]);
+                if (!$dmg || ($activeCid && (int)($dmg['concern_id'] ?? 1) !== (int)$activeCid)) {
+                    throw new \RuntimeException("Damage record #{$dId} is invalid for this concern.");
+                }
+                if (strtoupper((string)$dmg['status']) === 'OUTWARDED' || !empty($dmg['damage_outward_id'])) {
+                    throw new \RuntimeException("Damage #{$dmg['damage_number']} has already been outwarded.");
+                }
+                Database::execute(
+                    "INSERT INTO damage_outward_items
+                     (damage_outward_id, roll_damage_id, damage_number, qr_code, product_name, damaged_quantity, damaged_weight)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        $outwardId,
+                        $dId,
+                        $dmg['damage_number'],
+                        $dmg['qr_code'] ?: $dmg['damage_number'],
+                        $dmg['product_name'] ?: 'Damaged Item',
+                        (int)($dmg['damaged_quantity'] ?? 0),
+                        (float)($dmg['damaged_weight'] ?? 0),
+                    ]
+                );
+                Database::execute(
+                    "UPDATE roll_damages SET status = 'OUTWARDED', damage_outward_id = ?, outward_concern_id = ? WHERE id = ?",
+                    [$outwardId, $destConcernId, $dId]
+                );
+            }
+
+            Database::commit();
+            AuditService::log('damages', 'outward', 'damage_outwards', $outwardId, null, ['outward_number' => $outwardNum, 'destination_concern_id' => $destConcernId, 'items' => count($damageIds)]);
+            Response::redirect('allmodules/damages', 'success', "Damage Outward {$outwardNum} created for {$destConcern['name']} (" . count($damageIds) . " item(s)).");
+        } catch (\Throwable $e) {
+            Database::rollback();
+            Response::redirect('allmodules/damages', 'error', 'Damage Outward failed: ' . $e->getMessage());
+        }
     }
 
     public function storeDamageReason(): void {

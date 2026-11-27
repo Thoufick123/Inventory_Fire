@@ -465,6 +465,8 @@ class Router {
         $this->post('allmodules/damages/update/{id}', 'AllmodulesController', 'updateDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/resolve/{id}', 'AllmodulesController', 'resolveDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/delete/{id}', 'AllmodulesController', 'deleteDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'delete']]);
+        $this->get('api/allmodules/damages/outward-scan', 'AllmodulesController', 'ajaxLookupDamageForOutward', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
+        $this->post('allmodules/damages/outward/store', 'AllmodulesController', 'storeDamageOutward', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
 
         // Production Catalog
         $this->get('allmodules/catalog', 'AllmodulesController', 'catalogList', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
