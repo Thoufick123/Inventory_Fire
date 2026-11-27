@@ -6290,6 +6290,14 @@ class AllmodulesController {
      * Show all purchase lines together so the bill can be mapped in one pass.
      */
     public function thirdPartyMappingBill(string $id): void {
+        $this->renderThirdPartyMappingBill($id, false);
+    }
+
+    public function viewThirdPartyMappingBillReadOnly(string $id): void {
+        $this->renderThirdPartyMappingBill($id, true);
+    }
+
+    private function renderThirdPartyMappingBill(string $id, bool $viewOnly): void {
         PurchaseMappingFulfillmentService::ensureSchema();
 
         $purchaseId = (int)$id;
@@ -6794,9 +6802,10 @@ class AllmodulesController {
         }
 
         Response::view('allmodules.purchases.mapping_bill', [
-            'pageTitle' => 'QR Generations — ' . ($activeItem['item_name'] ?? 'Item'),
+            'pageTitle' => ($viewOnly ? 'QR Generations — View — ' : 'QR Generations — ') . ($activeItem['item_name'] ?? 'Item'),
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-mapping',
+            'viewOnly' => $viewOnly,
             'purchase' => $purchase,
             'items' => $items,
             'activeItem' => $activeItem,
@@ -6820,8 +6829,8 @@ class AllmodulesController {
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
-                ['label' => $purchase['purchase_number'], 'url' => url('purchases/mapping/bill/' . $purchase['id'])],
-                ['label' => 'QR Generation Finished'],
+                ['label' => $purchase['purchase_number'], 'url' => url('purchases/mapping/bill/' . $purchase['id'] . ($viewOnly ? '/view' : ''))],
+                ['label' => $viewOnly ? 'QR Generations — View' : 'QR Generation Finished'],
             ],
         ]);
     }

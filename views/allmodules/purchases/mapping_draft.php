@@ -67,19 +67,6 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         </div>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        <?php if (!$viewOnly && hasPermission('production_purchase_mapping', 'edit')): ?>
-            <button type="button" class="btn btn-outline-warning text-dark" data-bs-toggle="modal" data-bs-target="#modalEditDraftHeader" title="Edit Invoice Details">
-                <i class="bi bi-pencil me-1"></i>Edit Invoice Info
-            </button>
-        <?php endif; ?>
-        <?php if (!$viewOnly && hasPermission('production_purchase_mapping', 'delete')): ?>
-            <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/delete') ?>" class="d-inline" onsubmit="return confirm('Delete mapping invoice <?= e(addslashes($bill['invoice_number'])) ?> and all its unstocked products? This cannot be undone.');">
-                <?= CSRF::field() ?>
-                <button type="submit" class="btn btn-outline-danger" title="Delete this invoice">
-                    <i class="bi bi-trash me-1"></i>Delete Invoice
-                </button>
-            </form>
-        <?php endif; ?>
         <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
     </div>
 </div>

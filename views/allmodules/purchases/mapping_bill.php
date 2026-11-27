@@ -9,6 +9,7 @@
  */
 
 // Active Item Baseline Metrics
+$viewOnly = !empty($viewOnly);
 $activeItemId = (int)($activeItem['id'] ?? 0);
 $purchasedQty = (float)($activeItem['quantity'] ?? 0);
 $unitPrice = (float)($activeItem['unit_price'] ?? 0);
@@ -210,27 +211,21 @@ tr.table-danger, tr.table-danger > td {
             <ol class="breadcrumb mb-0 small">
                 <li class="breadcrumb-item"><a href="<?= url('purchases') ?>" class="text-decoration-none text-muted">All Modules</a></li>
                 <li class="breadcrumb-item"><a href="<?= url('purchases/mapping') ?>" class="text-decoration-none text-muted">QR Generations</a></li>
-                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id']) ?>" class="text-decoration-none text-muted"><?= e($purchase['purchase_number']) ?></a></li>
-                <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page">QR Generation Finished</li>
+                <li class="breadcrumb-item"><a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . ($viewOnly ? '/view' : '')) ?>" class="text-decoration-none text-muted"><?= e($purchase['purchase_number']) ?></a></li>
+                <li class="breadcrumb-item active text-primary fw-semibold" aria-current="page"><?= $viewOnly ? 'QR Generations — View' : 'QR Generation Finished' ?></li>
             </ol>
         </nav>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <a href="<?= url('purchases/view/' . (int)$purchase['id']) ?>" class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm" title="View Purchase Bill">
-                <i class="bi bi-eye"></i> View Purchase
-            </a>
-            <?php if (!empty($activeItem['is_mapped']) && empty($activeItem['qr_generation_id']) && empty($activeItem['qr_batch_code'])): ?>
+            <?php if ($viewOnly && hasPermission('production_purchase_mapping', 'edit')): ?>
+                <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . '?item_id=' . $activeItemId) ?>" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm" title="Edit Mapping">
+                    <i class="bi bi-pencil-square"></i> Edit Mapping
+                </a>
+            <?php endif; ?>
+            <?php if (!$viewOnly && !empty($activeItem['is_mapped']) && empty($activeItem['qr_generation_id']) && empty($activeItem['qr_batch_code'])): ?>
                 <a href="<?= url('production/qr-generations/create?tab=third_party&purchase_id=' . (int)$purchase['id'] . '&purchase_item_id=' . $activeItemId) ?>"
                    class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
                     <i class="bi bi-qr-code"></i> Generate QR
                 </a>
-            <?php endif; ?>
-            <?php if (!empty($purchase['id']) && hasPermission('production_purchase_mapping', 'delete')): ?>
-                <form method="POST" action="<?= url('purchases/mapping/unmap-bill/' . (int)$purchase['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to reset and unmap all items on this bill?');">
-                    <?= CSRF::field() ?>
-                    <button type="submit" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm text-dark" title="Reset all mappings for this bill">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset Mapping
-                    </button>
-                </form>
             <?php endif; ?>
             <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1.5 shadow-sm">
                 <i class="bi bi-arrow-left"></i> Back to Register
@@ -264,7 +259,7 @@ tr.table-danger, tr.table-danger > td {
                     </div>
                     <div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                            <h4 class="mb-0 fw-bold text-dark">Map Finished Good to Catalog: <span class="text-primary"><?= e($activeItem['item_name']) ?></span></h4>
+                            <h4 class="mb-0 fw-bold text-dark"><?= $viewOnly ? 'QR Generations — View:' : 'Map Finished Good to Catalog:' ?> <span class="text-primary"><?= e($activeItem['item_name']) ?></span></h4>
                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Master Catalog Mapping</span>
                         </div>
                         <p class="text-muted small mb-0">Define 3-tier category hierarchy, attributes (sizes, colors), HSN classification, retail pricing, and variant matrix for purchased product <strong><?= e($activeItem['item_name']) ?></strong>.</p>
@@ -303,7 +298,7 @@ tr.table-danger, tr.table-danger > td {
                             $isLineStocked = !empty($lineItem['has_stock_added']);
                             $isExtraLine = !empty($lineItem['is_extra_purchase_item']);
                         ?>
-                        <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . '?item_id=' . (int)$lineItem['id']) ?>"
+                        <a href="<?= url('purchases/mapping/bill/' . (int)$purchase['id'] . ($viewOnly ? '/view' : '') . '?item_id=' . (int)$lineItem['id']) ?>"
                            class="btn d-inline-flex align-items-center gap-2 rounded-3 shadow-xs transition-all <?= $isThisActive ? 'btn-primary fw-bold shadow-sm' : 'btn-outline-secondary bg-white text-dark border' ?>"
                            style="padding: 8px 16px; margin: 4px 3px; font-size: 0.875rem;">
                             <span class="badge rounded-pill <?= $isThisActive ? 'bg-white text-primary fw-bold' : 'bg-secondary-subtle text-secondary' ?>" style="font-size: 0.75rem; padding: 4px 8px;">
@@ -336,6 +331,7 @@ tr.table-danger, tr.table-danger > td {
     <?php endif; ?>
 
     <!-- Main Mapping Form -->
+    <?php if (!$viewOnly): ?>
     <form method="POST" action="<?= url('purchases/mapping/save') ?>" id="formMapProductBill">
         <?= CSRF::field() ?>
         <input type="hidden" name="csrf_token" value="<?= CSRF::token() ?>">
@@ -839,6 +835,7 @@ tr.table-danger, tr.table-danger > td {
             </div>
         </div>
     </form>
+    <?php endif; ?>
 
     <!-- ========================================================================= -->
     <!-- SECTION 3: SAVED PRODUCT VARIANTS & QR GENERATIONS (IN-PANEL VIEW)       -->
@@ -862,7 +859,7 @@ tr.table-danger, tr.table-danger > td {
                 <h5 class="mb-0 fw-bold text-dark">Saved Product Variants &amp; QR Generations</h5>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <?php if (!empty($unstockedQrIds)): ?>
+                <?php if (!$viewOnly && !empty($unstockedQrIds)): ?>
                     <div class="input-group input-group-sm" style="width: auto; min-width: 240px;">
                         <span class="input-group-text bg-light"><i class="bi bi-building me-1"></i>Concern / WH</span>
                         <select class="form-select" id="bulkInwardWarehouseSelect">
@@ -885,9 +882,11 @@ tr.table-danger, tr.table-danger > td {
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light small text-uppercase text-muted">
                     <tr>
-                        <th style="width: 38px;" class="text-center">
-                            <input type="checkbox" class="form-check-input" id="chkSelectAllQr" title="Select all generated unstocked QRs" <?= empty($unstockedQrIds) ? 'disabled' : '' ?>>
-                        </th>
+                        <?php if (!$viewOnly): ?>
+                            <th style="width: 38px;" class="text-center">
+                                <input type="checkbox" class="form-check-input" id="chkSelectAllQr" title="Select all generated unstocked QRs" <?= empty($unstockedQrIds) ? 'disabled' : '' ?>>
+                            </th>
+                        <?php endif; ?>
                         <th>Product / Variant</th>
                         <th>Category</th>
                         <th>HSN</th>
@@ -901,19 +900,21 @@ tr.table-danger, tr.table-danger > td {
                 <tbody>
                     <?php if (empty($savedVariants)): ?>
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-4">
-                                <i class="bi bi-info-circle me-1"></i>No variants saved yet. Save mapping above to record variants and enable QR generation.
+                            <td colspan="<?= $viewOnly ? '8' : '9' ?>" class="text-center text-muted py-4">
+                                <i class="bi bi-info-circle me-1"></i><?= $viewOnly ? 'No variants saved yet for this product line.' : 'No variants saved yet. Save mapping above to record variants and enable QR generation.' ?>
                             </td>
                         </tr>
                     <?php else: foreach ($savedVariants as $itemVar):
                         $canInwardRow = !empty($itemVar['qr_generation_id']) && empty($itemVar['stock_added']);
                     ?>
                         <tr>
-                            <td class="text-center">
-                                <?php if ($canInwardRow): ?>
-                                    <input type="checkbox" class="form-check-input chk-qr-inward" value="<?= (int)$itemVar['qr_generation_id'] ?>" title="Select to inward to stock">
-                                <?php endif; ?>
-                            </td>
+                            <?php if (!$viewOnly): ?>
+                                <td class="text-center">
+                                    <?php if ($canInwardRow): ?>
+                                        <input type="checkbox" class="form-check-input chk-qr-inward" value="<?= (int)$itemVar['qr_generation_id'] ?>" title="Select to inward to stock">
+                                    <?php endif; ?>
+                                </td>
+                            <?php endif; ?>
                             <td>
                                 <strong><?= e($activeItem['item_name']) ?></strong>
                                 <div class="small text-muted">
@@ -946,12 +947,16 @@ tr.table-danger, tr.table-danger > td {
                             </td>
                             <td class="text-end">
                                 <?php if (empty($itemVar['qr_generation_id'])): ?>
-                                    <form method="POST" action="<?= url('purchases/mapping/bill/' . (!empty($itemVar['id']) ? 'variant/' . (int)$itemVar['id'] : 'item/' . (int)$activeItem['id']) . '/generate-qr') ?>" class="d-inline">
-                                        <?= CSRF::field() ?>
-                                        <button class="btn btn-sm btn-outline-info" type="submit">
-                                            <i class="bi bi-qr-code me-1"></i>Generate QR
-                                        </button>
-                                    </form>
+                                    <?php if (!$viewOnly): ?>
+                                        <form method="POST" action="<?= url('purchases/mapping/bill/' . (!empty($itemVar['id']) ? 'variant/' . (int)$itemVar['id'] : 'item/' . (int)$activeItem['id']) . '/generate-qr') ?>" class="d-inline">
+                                            <?= CSRF::field() ?>
+                                            <button class="btn btn-sm btn-outline-info" type="submit">
+                                                <i class="bi bi-qr-code me-1"></i>Generate QR
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="text-muted small">QR not generated</span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <div class="btn-group btn-group-sm">
                                         <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalQrBatch_<?= (int)$itemVar['qr_generation_id'] ?>" title="View QR in this panel">
@@ -972,7 +977,7 @@ tr.table-danger, tr.table-danger > td {
             <div class="small text-muted">
                 <i class="bi bi-info-circle me-1"></i>Purchase bill <strong><?= e($purchase['purchase_number']) ?></strong> is already entered in Purchases. Generate QR labels and print directly from this panel.
             </div>
-            <?php if (!empty($savedVariants) && $pendingQrCount > 0): ?>
+            <?php if (!$viewOnly && !empty($savedVariants) && $pendingQrCount > 0): ?>
                 <form method="POST" action="<?= url('purchases/mapping/bill/' . (int)$activeItem['id'] . '/generate-all-qr') ?>" id="formGenerateAllVariantQr">
                     <?= CSRF::field() ?>
                     <button class="btn btn-sm btn-outline-info fw-semibold" type="button" id="btnGenerateAllVariantQr">
@@ -2989,27 +2994,54 @@ document.addEventListener('DOMContentLoaded', function () {
         billRatesWrap.classList.remove('d-none');
     }
 
-    billCatSel?.addEventListener('change', function () {
-        const catId = this.value;
-        if (billSubSel) {
-            Array.from(billSubSel.options).forEach(o => { if (o.value) o.hidden = o.dataset.parent !== catId; });
+    function syncBillSubcategoryOptions(preserveSelection = false) {
+        if (!billCatSel || !billSubSel) return;
+        const catId = billCatSel.value;
+        const prevSub = preserveSelection ? billSubSel.value : '';
+        Array.from(billSubSel.options).forEach(o => {
+            if (!o.value) return;
+            const match = catId !== '' && o.dataset.parent === catId;
+            o.hidden = !match;
+            o.disabled = !match;
+        });
+        if (preserveSelection && prevSub && Array.from(billSubSel.options).some(o => o.value === prevSub && !o.hidden)) {
+            billSubSel.value = prevSub;
+        } else {
             billSubSel.value = '';
         }
-        if (billSsSel) {
-            Array.from(billSsSel.options).forEach(o => { if (o.value) o.hidden = true; });
+    }
+
+    function syncBillSubSubcategoryOptions(preserveSelection = false) {
+        if (!billSubSel || !billSsSel) return;
+        const subId = billSubSel.value;
+        const prevSs = preserveSelection ? billSsSel.value : '';
+        Array.from(billSsSel.options).forEach(o => {
+            if (!o.value) return;
+            const match = subId !== '' && o.dataset.parent === subId;
+            o.hidden = !match;
+            o.disabled = !match;
+        });
+        if (preserveSelection && prevSs && Array.from(billSsSel.options).some(o => o.value === prevSs && !o.hidden)) {
+            billSsSel.value = prevSs;
+        } else {
             billSsSel.value = '';
         }
+    }
+
+    billCatSel?.addEventListener('change', function () {
+        syncBillSubcategoryOptions(false);
+        syncBillSubSubcategoryOptions(false);
         renderBillAttributeChips();
     });
     billSubSel?.addEventListener('change', function () {
-        const subId = this.value;
-        if (billSsSel) {
-            Array.from(billSsSel.options).forEach(o => { if (o.value) o.hidden = o.dataset.parent !== subId; });
-            billSsSel.value = '';
-        }
+        syncBillSubSubcategoryOptions(false);
         renderBillAttributeChips();
     });
     billSsSel?.addEventListener('change', renderBillAttributeChips);
+
+    // Initialize dropdown visibility when category/subcategory is pre-selected on page load
+    syncBillSubcategoryOptions(true);
+    syncBillSubSubcategoryOptions(true);
     billSizesInput?.addEventListener('input', () => { renderBillAttributeChips(); renderBillVariantRateTable(); });
     billColorsInput?.addEventListener('input', () => { renderBillAttributeChips(); renderBillVariantRateTable(); });
 

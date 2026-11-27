@@ -1,3 +1,17 @@
+<style>
+.btn-outline-purple {
+    color: #6f42c1;
+    border-color: #6f42c1;
+    background-color: transparent;
+}
+.btn-outline-purple:hover,
+.btn-outline-purple:focus,
+.btn-outline-purple:active {
+    color: #fff;
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+}
+</style>
 <div class="page-header mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>QR Generations</h2>
@@ -269,15 +283,15 @@
                             <td><?= renderConcernBadge($bill) ?></td>
                             <td class="text-center text-nowrap">
                                 <div class="d-inline-flex gap-1 align-items-center">
-                                    <a href="<?= url('purchases/view/' . $bill['purchase_id']) ?>"
+                                    <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id'] . '/view') ?>"
                                        class="btn btn-sm btn-outline-info"
-                                       title="View Purchase Bill">
+                                       title="View QR Generations">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="<?= url('purchases/mapping/bill/' . $bill['purchase_id']) ?>"
-                                       class="btn btn-sm <?= $bill['mapped_count'] === $lineCount ? 'btn-outline-primary' : 'btn-warning text-dark fw-bold' ?>">
-                                        <i class="bi <?= $bill['mapped_count'] === $lineCount ? 'bi-pencil-square' : 'bi-diagram-3-fill' ?> me-1"></i>
-                                        <?= $bill['mapped_count'] === $lineCount ? 'Edit Bill' : 'Map Bill' ?>
+                                       class="btn btn-sm btn-outline-purple"
+                                       title="<?= $bill['mapped_count'] === $lineCount ? 'Edit Bill' : 'Map Bill' ?>">
+                                        <i class="bi bi-diagram-3-fill"></i>
                                     </a>
                                     <?php if ($bill['mapped_count'] > 0): ?>
                                         <button type="button" class="btn btn-sm btn-outline-warning text-dark"
@@ -388,30 +402,32 @@
                                 </td>
                                 <td><?= renderConcernBadge($roll) ?></td>
                                 <td class="text-end text-nowrap">
-                                    <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark me-1" onclick="openEditFabricRollModal(<?= htmlspecialchars(json_encode($roll), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Fabric Roll Details">
-                                            <i class="bi bi-pencil me-1"></i>Edit
-                                        </button>
-                                    <?php endif; ?>
-                                    <?php if (!empty($roll['mapping_bill_id'])): ?>
-                                        <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id'] . '/view' . (!empty($roll['qr_generation_id']) ? '?open_qr=' . (int)$roll['qr_generation_id'] : '')) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll History &amp; QR">
-                                            <i class="bi bi-eye me-1"></i>View
-                                        </a>
-                                        <?php if (empty($roll['qr_generation_id']) || empty($roll['stock_added'])): ?>
-                                            <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id']) ?>" class="btn btn-sm btn-outline-primary" title="Continue QR / Stock">
-                                                <i class="bi bi-qr-code-scan me-1"></i>Continue
+                                    <div class="d-inline-flex gap-1 align-items-center">
+                                        <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="openEditFabricRollModal(<?= htmlspecialchars(json_encode($roll), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Fabric Roll Details">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if (!empty($roll['mapping_bill_id'])): ?>
+                                            <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id'] . '/view' . (!empty($roll['qr_generation_id']) ? '?open_qr=' . (int)$roll['qr_generation_id'] : '')) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll History &amp; QR">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <?php if (empty($roll['qr_generation_id']) || empty($roll['stock_added'])): ?>
+                                                <a href="<?= url('purchases/mapping/draft/' . (int)$roll['mapping_bill_id']) ?>" class="btn btn-sm btn-outline-primary" title="Continue QR / Stock">
+                                                    <i class="bi bi-qr-code-scan"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                        <?php elseif (!empty($roll['purchase_id'])): ?>
+                                            <a href="<?= url('allmodules/purchases/roll-qr/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll QR">
+                                                <i class="bi bi-eye"></i>
                                             </a>
                                         <?php endif; ?>
-                                    <?php elseif (!empty($roll['purchase_id'])): ?>
-                                        <a href="<?= url('purchases/mapping/bill/' . (int)$roll['purchase_id']) ?>" class="btn btn-sm btn-outline-secondary" title="View Roll Mapping">
-                                            <i class="bi bi-eye me-1"></i>View
-                                        </a>
-                                    <?php endif; ?>
-                                    <?php if (hasPermission('production_purchase_mapping', 'delete')): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" onclick="deleteFabricRoll(<?= (int)$roll['id'] ?>, <?= $isDraft ? '1' : '0' ?>, '<?= e(addslashes($roll['item_name'])) ?>', '<?= e(addslashes($roll['roll_number'] ?? '')) ?>')" title="Delete Fabric Roll">
-                                            <i class="bi bi-trash me-1"></i>Delete
-                                        </button>
-                                    <?php endif; ?>
+                                        <?php if (hasPermission('production_purchase_mapping', 'delete')): ?>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteFabricRoll(<?= (int)$roll['id'] ?>, <?= $isDraft ? '1' : '0' ?>, '<?= e(addslashes($roll['item_name'])) ?>', '<?= e(addslashes($roll['roll_number'] ?? '')) ?>')" title="Delete Fabric Roll">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
@@ -452,25 +468,20 @@
                                 <td class="text-end text-nowrap">
                                     <div class="d-inline-flex gap-1 align-items-center">
                                         <a class="btn btn-sm btn-outline-secondary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/view') ?>" title="View Mapping History &amp; Stock">
-                                            <i class="bi bi-eye me-1"></i>View
+                                            <i class="bi bi-eye"></i>
                                         </a>
-                                        <?php if (hasPermission('production_purchase_mapping', 'edit')): ?>
-                                            <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="openEditInvoiceLogModal(<?= htmlspecialchars(json_encode($draft), ENT_QUOTES, 'UTF-8') ?>)" title="Edit Invoice Supplier / Number">
-                                                <i class="bi bi-pencil me-1"></i>Edit
-                                            </button>
-                                        <?php endif; ?>
                                         <?php if ($draft['status'] === 'DRAFT' && hasPermission('production_purchase_mapping', 'edit')): ?>
-                                            <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Products &amp; Variants">
-                                                <i class="bi bi-pencil-square me-1"></i>Edit Items
+                                            <a class="btn btn-sm btn-outline-purple" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Products &amp; Variants">
+                                                <i class="bi bi-diagram-3-fill"></i>
                                             </a>
                                         <?php elseif ($draft['status'] === 'MOVED' && hasPermission('production_purchase_mapping', 'edit')): ?>
                                             <?php if ((int)($draft['pending_qr_or_stock_count'] ?? 0) > 0): ?>
                                                 <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Continue QR Generation &amp; Add Remaining Stock">
-                                                    <i class="bi bi-arrow-right-circle me-1"></i>Continue QR / Stock
+                                                    <i class="bi bi-arrow-right-circle"></i>
                                                 </a>
                                             <?php else: ?>
-                                                <a class="btn btn-sm btn-outline-primary" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Variant Details &amp; Pricing">
-                                                    <i class="bi bi-pencil-square me-1"></i>Edit Items
+                                                <a class="btn btn-sm btn-outline-purple" href="<?= url('purchases/mapping/draft/' . (int)$draft['id']) ?>" title="Edit Variant Details &amp; Pricing">
+                                                    <i class="bi bi-diagram-3-fill"></i>
                                                 </a>
                                             <?php endif; ?>
                                         <?php endif; ?>
@@ -479,7 +490,7 @@
                                                 <?= CSRF::field() ?>
                                                 <input type="hidden" name="return_to" value="logs">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Invoice">
-                                                    <i class="bi bi-trash me-1"></i>Delete
+                                                    <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
                                         <?php endif; ?>
@@ -487,7 +498,7 @@
                                             <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" onsubmit="return confirm('Move mapping invoice <?= e(addslashes($draft['invoice_number'])) ?> to Purchases?')">
                                                 <?= CSRF::field() ?>
                                                 <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
-                                                    <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
+                                                    <i class="bi bi-box-arrow-in-right"></i>
                                                 </button>
                                             </form>
                                         <?php endif; ?>
