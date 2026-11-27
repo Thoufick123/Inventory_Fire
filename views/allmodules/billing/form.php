@@ -458,8 +458,8 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                 </div>
                             </div>
 
-                            <!-- Saved Coupons Card (Reference UI) -->
-                            <div class="mt-3 rounded-4 overflow-hidden border shadow-xs bg-white" id="savedCouponsCard">
+                            <!-- Saved Coupons Card (Reference UI - visible once product is scanned) -->
+                            <div class="mt-3 rounded-4 overflow-hidden border shadow-xs bg-white <?= empty($existingItems) ? 'd-none' : '' ?>" id="savedCouponsCard">
                                 <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #eef4ff 0%, #f7faff 100%); border-bottom: 1px solid #e2e8f0;">
                                     <div class="fw-bold text-primary small lh-sm">
                                         Save extra by applying<br>coupons on every order
@@ -2043,6 +2043,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lineTotalCell) lineTotalCell.textContent = money(lineTotal);
             if (taxCell) taxCell.textContent = money(lineTax);
         });
+
+        const savedCouponsCard = document.getElementById('savedCouponsCard');
+        if (savedCouponsCard) {
+            savedCouponsCard.classList.toggle('d-none', cart.size === 0);
+            if (cart.size === 0 && appliedCouponState) {
+                removeAppliedCoupon();
+                return;
+            }
+        }
 
         lastPreCouponTotal = grandTotal;
         let couponDiscount = 0;
