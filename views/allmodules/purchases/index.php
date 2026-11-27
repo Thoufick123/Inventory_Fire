@@ -132,8 +132,6 @@
                     <a href="<?= url('purchases') ?>" class="btn <?= empty($filterType) ? 'btn-primary' : 'btn-outline-secondary' ?>">All</a>
                     <a href="<?= url('purchases?type=FABRIC_ROLL') ?>" class="btn <?= ($filterType === 'FABRIC_ROLL') ? 'btn-primary' : 'btn-outline-secondary' ?>">Rolls</a>
                     <a href="<?= url('purchases?type=RAW_MATERIAL') ?>" class="btn <?= ($filterType === 'RAW_MATERIAL') ? 'btn-warning text-dark fw-bold' : 'btn-outline-secondary' ?>">Raw Materials</a>
-                    <a href="<?= url('purchases?type=THIRD_PARTY') ?>" class="btn <?= ($filterType === 'THIRD_PARTY') ? 'btn-info text-white' : 'btn-outline-secondary' ?>">3rd-Party</a>
-                    <a href="<?= url('purchases?type=MIXED') ?>" class="btn <?= ($filterType === 'MIXED') ? 'btn-dark text-white' : 'btn-outline-secondary' ?>" title="Invoices containing multiple product types">Combined</a>
                     <a href="<?= url('purchases?type=MAPPING') ?>" class="btn <?= ($filterType === 'MAPPING') ? 'text-white' : 'btn-outline-secondary' ?>" style="<?= ($filterType === 'MAPPING') ? 'background-color:#6f42c1;' : '' ?>" title="Purchases created or linked from Purchase Item Mapping"><i class="bi bi-diagram-3 me-1"></i>From Mapping<?php if (!empty($pendingMappingCount)): ?> <span class="badge bg-warning text-dark ms-1"><?= (int)$pendingMappingCount ?> Pending</span><?php endif; ?></a>
                 </div>
                 <input type="text" id="purchasesSearchInput" class="form-control form-control-sm" placeholder="🔍 Search PO #, supplier, invoice..." style="width: 240px;" oninput="filterPurchasesTable(this.value)">
@@ -146,10 +144,8 @@
                     <tr class="small text-uppercase text-secondary">
                         <th style="width: 45px;" class="text-center">#</th>
                         <th>Purchase / PO #</th>
-                        <th>Type</th>
                         <th>Date</th>
                         <th>Supplier / Vendor</th>
-                        <th>Inward Items &amp; Summary</th>
                         <th>Invoice #</th>
                         <th class="text-end">Total Amount (₹)</th>
                         <th>Concern</th>
@@ -158,59 +154,14 @@
                 </thead>
                 <tbody id="purchasesTableBody">
                 <?php if (empty($purchases)): ?>
-                    <tr><td colspan="10" class="text-center text-muted py-5">No purchases recorded yet.</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-5">No purchases recorded yet.</td></tr>
                 <?php else: foreach ($purchases as $idx => $purchase): 
                     $pType = $purchase['purchase_type'] ?? 'FABRIC_ROLL';
-                    $rollItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'FABRIC_ROLL');
-                    $rawMaterialItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'RAW_MATERIAL');
-                    $thirdPartyItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'THIRD_PARTY');
-                    $ownProductItems = array_filter($purchase['items'] ?? [], fn($it) => ($it['item_type'] ?? '') === 'OWN_PRODUCT');
-                    $rollItemCount = count($rollItems);
-                    $rollQtySum = (int)array_sum(array_map(fn($it) => max(1, (int)($it['quantity'] ?? 1)), $rollItems));
-                    $totalWeight = (float)array_sum(array_column($rollItems, 'weight_kg'));
-                    $rmQtySum = (float)array_sum(array_column($rawMaterialItems, 'quantity'));
-                    $tpQtySum = (float)array_sum(array_column($thirdPartyItems, 'quantity'));
-                    $opQtySum = (float)array_sum(array_column($ownProductItems, 'quantity'));
                 ?>
                     <tr class="purchase-row" data-search="<?= strtolower(e($purchase['purchase_number'] . ' ' . $pType . ' ' . ($purchase['company'] ?? '') . ' ' . ($purchase['seller_name'] ?? '') . ' ' . ($purchase['invoice_number'] ?? '') . ' ' . ($purchase['concern_name'] ?? '') . ' ' . ($purchase['concern_code'] ?? ''))) ?>">
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                         <td>
                             <strong class="font-monospace text-primary"><?= e($purchase['purchase_number']) ?></strong>
-                            <?php if (!empty($purchase['mapping_bill_id']) || str_contains($purchase['notes'] ?? '', 'Mapping')): ?>
-                                <div>
-                                    <a href="<?= !empty($purchase['mapping_bill_id']) ? url('purchases/mapping/draft/' . (int)$purchase['mapping_bill_id']) : url('purchases/mapping') ?>" class="badge text-white text-decoration-none mt-1 shadow-sm" style="background-color: #6f42c1;" title="Originates from Purchase Item Mapping Draft">
-                                        <i class="bi bi-diagram-3 me-1"></i>From Mapping<?= !empty($purchase['mapping_invoice_number']) ? ': ' . e($purchase['mapping_invoice_number']) : '' ?>
-                                    </a>
-                                    <?php if (($purchase['accounts_status'] ?? '') === 'PENDING_ACCOUNTS'): ?>
-                                        <span class="badge bg-warning text-dark mt-1"><i class="bi bi-hourglass-split me-1"></i>Pending Accounts Bill</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle mt-1"><i class="bi bi-shield-check me-1"></i>Accounts Verified</span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($pType === 'MIXED' || ((int)($rollItemCount > 0) + (int)(count($rawMaterialItems) > 0) + (int)(count($thirdPartyItems) > 0) > 1)): ?>
-                                <span class="badge border" style="background-color: #f3e8ff; color: #7e22ce; border-color: #d8b4fe !important;">
-                                    <i class="bi bi-collection me-1"></i>Combined (Mixed)
-                                </span>
-                            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
-                                <span class="badge bg-warning-subtle text-warning-emphasis border">
-                                    <i class="bi bi-boxes me-1"></i>Raw Material
-                                </span>
-                            <?php elseif ($pType === 'THIRD_PARTY'): ?>
-                                <span class="badge bg-info-subtle text-info border">
-                                    <i class="bi bi-box-seam me-1"></i>Third-Party
-                                </span>
-                            <?php elseif ($pType === 'OWN_PRODUCT'): ?>
-                                <span class="badge bg-secondary-subtle text-secondary border">
-                                    <i class="bi bi-building-check me-1"></i>Own Production
-                                </span>
-                            <?php else: ?>
-                                <span class="badge bg-primary-subtle text-primary border">
-                                    <i class="bi bi-layers-half me-1"></i>Fabric Roll
-                                </span>
-                            <?php endif; ?>
                         </td>
                         <td class="text-nowrap small text-dark">
                             <i class="bi bi-calendar3 me-1 text-muted"></i><?= e(formatDate($purchase['purchase_date'])) ?>
@@ -218,91 +169,6 @@
                         <td>
                             <div class="fw-bold text-dark"><?= e($purchase['company'] ?: $purchase['seller_name']) ?></div>
                             <small class="text-muted"><i class="bi bi-person me-1"></i><?= e($purchase['seller_name']) ?></small>
-                        </td>
-                        <td>
-                            <?php if ($pType === 'MIXED' || ((int)($rollItemCount > 0) + (int)(count($rawMaterialItems) > 0) + (int)(count($thirdPartyItems) > 0) > 1)): ?>
-                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
-                                    <?php if ($rollItemCount > 0): ?>
-                                        <span class="badge bg-primary-subtle text-primary border">
-                                            <i class="bi bi-layers-half me-1"></i><?= $rollItemCount ?> Rolls (<?= $rollQtySum ?> RQ, <?= number_format($totalWeight, 1) ?> kg)
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if (count($rawMaterialItems) > 0): ?>
-                                        <span class="badge bg-warning-subtle text-warning-emphasis border">
-                                            <i class="bi bi-boxes me-1"></i><?= count($rawMaterialItems) ?> Raw Material(s) (<?= number_format($rmQtySum) ?> Units)
-                                        </span>
-                                    <?php endif; ?>
-                                    <?php if (count($thirdPartyItems) > 0): ?>
-                                        <span class="badge bg-info-subtle text-info border">
-                                            <i class="bi bi-box-seam me-1"></i><?= count($thirdPartyItems) ?> Product(s) (<?= number_format($tpQtySum) ?> Pcs)
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="small text-muted text-truncate" style="max-width: 340px;">
-                                    <?= e(implode(', ', array_slice(array_column($purchase['items'] ?? [], 'item_name'), 0, 4))) ?>
-                                    <?php if (count($purchase['items'] ?? []) > 4): ?>
-                                        <span class="text-secondary fw-normal">+<?= count($purchase['items']) - 4 ?> more</span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php elseif ($pType === 'RAW_MATERIAL'): ?>
-                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border fw-semibold">
-                                        <i class="bi bi-boxes me-1"></i><?= count($rawMaterialItems) ?> Raw Material(s) (<?= number_format($rmQtySum) ?> Units)
-                                    </span>
-                                </div>
-                                <div class="small text-muted text-truncate" style="max-width: 320px;">
-                                    <?= e(implode(', ', array_slice(array_column($rawMaterialItems, 'item_name'), 0, 3))) ?>
-                                    <?php if (count($rawMaterialItems) > 3): ?>
-                                        <span class="text-secondary fw-normal">+<?= count($rawMaterialItems) - 3 ?> more</span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php elseif ($pType === 'THIRD_PARTY'): ?>
-                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
-                                    <span class="badge bg-info-subtle text-info border fw-semibold">
-                                        <i class="bi bi-box-seam me-1"></i><?= count($thirdPartyItems) ?> Product(s) (<?= number_format($tpQtySum) ?> Units)
-                                    </span>
-                                </div>
-                                <div class="small text-muted text-truncate" style="max-width: 320px;">
-                                    <?= e(implode(', ', array_slice(array_column($thirdPartyItems, 'item_name'), 0, 3))) ?>
-                                    <?php if (count($thirdPartyItems) > 3): ?>
-                                        <span class="text-secondary fw-normal">+<?= count($thirdPartyItems) - 3 ?> more</span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php elseif ($pType === 'OWN_PRODUCT'): ?>
-                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
-                                    <span class="badge bg-secondary-subtle text-secondary border fw-semibold">
-                                        <i class="bi bi-building-check me-1"></i><?= count($ownProductItems) ?> Inward Line(s) (<?= number_format($opQtySum) ?> Units)
-                                    </span>
-                                </div>
-                                <div class="small text-muted text-truncate" style="max-width: 320px;">
-                                    <?= e(implode(', ', array_slice(array_column($ownProductItems, 'item_name'), 0, 3))) ?>
-                                </div>
-                            <?php else: ?>
-                                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
-                                    <?php if ($rollItemCount > 0): ?>
-                                        <span class="badge bg-primary-subtle text-primary border fw-semibold">
-                                            <i class="bi bi-layers me-1"></i><?= $rollItemCount ?> <?= $rollItemCount === 1 ? 'Roll' : 'Rolls' ?><?php if ($rollQtySum > $rollItemCount): ?> (<?= $rollQtySum ?> Qty)<?php endif; ?>
-                                        </span>
-                                        <span class="badge bg-light text-dark border">
-                                            <?= number_format($totalWeight, 2) ?> kg
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if ($rollItemCount > 0): 
-                                    $rollSummaryLabels = array_map(function($r) {
-                                        $name = $r['roll_number'] ?: ('Roll #' . $r['id']);
-                                        $qty = (int)($r['quantity'] ?? 1);
-                                        return $qty > 1 ? "{$name} ({$qty})" : $name;
-                                    }, $rollItems);
-                                ?>
-                                    <div class="small text-muted font-monospace text-truncate" style="max-width: 320px;" title="<?= e(implode(', ', $rollSummaryLabels)) ?>">
-                                        <?= e(implode(', ', array_slice($rollSummaryLabels, 0, 3))) ?>
-                                        <?php if (count($rollItems) > 3): ?>
-                                            <span class="text-secondary fw-normal font-sans">+<?= count($rollItems) - 3 ?> more</span>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endif; ?>
                         </td>
                         <td>
                             <?php if (!empty($purchase['invoice_number'])): ?>

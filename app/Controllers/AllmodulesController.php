@@ -1867,30 +1867,8 @@ class AllmodulesController {
              ORDER BY company, name",
             $sellerParams
         );
-        $masterProducts = Database::fetchAll(
-            "SELECT id, name, code, catalog_code, product_code, brand_id, category_id, subcategory_id
-             FROM products
-             WHERE is_active = 1
-             ORDER BY name ASC"
-        );
-        $masterVariants = Database::fetchAll(
-            "SELECT pv.id, pv.product_id, pv.variant_code, pv.sku, pv.mrp, pv.purchase_price,
-                    pv.production_cost, pv.selling_price, pv.weight,
-                    s.name AS size_name, c.name AS color_name, d.name AS design_name
-             FROM product_variants pv
-             LEFT JOIN sizes s ON pv.size_id = s.id
-             LEFT JOIN colors c ON pv.color_id = c.id
-             LEFT JOIN designs d ON pv.design_id = d.id
-             WHERE pv.is_active = 1
-             ORDER BY pv.id ASC"
-        );
-        $sizes = Database::fetchAll(
-            "SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
-        );
-        $colors = Database::fetchAll(
-            "SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC"
-        );
-        Response::view('allmodules.purchases.edit', [
+        $mappingCtx = $this->getPurchaseMappingContext((int)$purchase['id'], null);
+        Response::view('allmodules.purchases.edit', array_merge($mappingCtx, [
             'pageTitle' => 'Edit Purchase — ' . $purchase['purchase_number'],
             'activeModule' => 'production',
             'activeMenu' => 'prod-purchases',
@@ -1898,17 +1876,12 @@ class AllmodulesController {
             'items' => $items,
             'documents' => $documents,
             'sellers' => $sellers,
-            'masterProducts' => $masterProducts,
-            'masterVariants' => $masterVariants,
-            'sizes' => $sizes,
-            'colors' => $colors,
-            'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => 'Edit Purchase'],
             ],
-        ]);
+        ]));
     }
 
     public function updateProductionPurchase(string $id): void {
@@ -2254,15 +2227,19 @@ class AllmodulesController {
 
             Database::beginTransaction();
 
-            // Delete removed items
-            foreach ($existingItems as $existingItem) {
-                $existingId = (int)$existingItem['id'];
-                if (!isset($seenIds[$existingId])) {
-                    Database::execute("DELETE FROM production_purchase_items WHERE id = ? AND purchase_id = ?", [$existingId, $purchaseId]);
-                    if (!empty($existingItem['seller_roll_id'])) {
-                        $inProgram = Database::fetchOne("SELECT id FROM production_program_rolls WHERE seller_roll_id = ? LIMIT 1", [(int)$existingItem['seller_roll_id']]);
-                        if (!$inProgram) {
-                            Database::execute("DELETE FROM seller_rolls WHERE id = ?", [(int)$existingItem['seller_roll_id']]);
+            $submittedMappingBillId = !empty($_POST['mapping_bill_id']) ? (int)$_POST['mapping_bill_id'] : 0;
+
+            // Delete removed items (only when using legacy items_payload, NOT when using mapping workspace)
+            if ($submittedMappingBillId <= 0) {
+                foreach ($existingItems as $existingItem) {
+                    $existingId = (int)$existingItem['id'];
+                    if (!isset($seenIds[$existingId])) {
+                        Database::execute("DELETE FROM production_purchase_items WHERE id = ? AND purchase_id = ?", [$existingId, $purchaseId]);
+                        if (!empty($existingItem['seller_roll_id'])) {
+                            $inProgram = Database::fetchOne("SELECT id FROM production_program_rolls WHERE seller_roll_id = ? LIMIT 1", [(int)$existingItem['seller_roll_id']]);
+                            if (!$inProgram) {
+                                Database::execute("DELETE FROM seller_rolls WHERE id = ?", [(int)$existingItem['seller_roll_id']]);
+                            }
                         }
                     }
                 }
@@ -2395,7 +2372,9 @@ class AllmodulesController {
                     );
                 }
             }
-            $this->refreshSupplierRollTotals($sellerId);
+            if ($sellerId > 0) {
+                $this->refreshSupplierRollTotals($sellerId);
+            }
             if ($sellerId !== (int)$purchase['seller_id']) {
                 $this->refreshSupplierRollTotals((int)$purchase['seller_id']);
             }
@@ -2448,15 +2427,50 @@ class AllmodulesController {
                  SET seller_id = ?, purchase_type = ?, purchase_date = ?, invoice_number = ?, document_url = ?, document_urls = ?,
                      notes = ?, total_amount = ?, updated_at = NOW()
                  WHERE id = ?",
-                [$sellerId, $newPurchaseType, $purchaseDate, trim((string)($_POST['invoice_number'] ?? '')) ?: null, $newPrimary, $newJson,
+                [$sellerId > 0 ? $sellerId : null, $newPurchaseType, $purchaseDate, trim((string)($_POST['invoice_number'] ?? '')) ?: null, $newPrimary, $newJson,
                     trim((string)($_POST['notes'] ?? '')) ?: null, round($totalAmount, 2), $purchaseId]
             );
+            if ($submittedMappingBillId > 0) {
+                $invNum = trim((string)($_POST['invoice_number'] ?? ''));
+                Database::execute(
+                    "UPDATE third_party_mapping_bills
+                     SET seller_id = ?, invoice_number = COALESCE(NULLIF(?, ''), invoice_number), purchase_id = ?
+                     WHERE id = ?",
+                    [$sellerId > 0 ? $sellerId : 0, $invNum, $purchaseId, $submittedMappingBillId]
+                );
+                // Heal any stale purchase_item_id links whose production_purchase_items row was deleted
+                Database::execute(
+                    "UPDATE third_party_mapping_items tmi
+                     SET tmi.purchase_item_id = NULL
+                     WHERE tmi.mapping_bill_id = ?
+                       AND tmi.purchase_item_id IS NOT NULL
+                       AND NOT EXISTS (SELECT 1 FROM production_purchase_items ppi WHERE ppi.id = tmi.purchase_item_id)",
+                    [$submittedMappingBillId]
+                );
+                $mapCnt = Database::fetchOne(
+                    "SELECT COUNT(*) AS cnt FROM third_party_mapping_items WHERE mapping_bill_id = ?",
+                    [$submittedMappingBillId]
+                );
+                if ((int)($mapCnt['cnt'] ?? 0) > 0) {
+                    $this->linkThirdPartyMappingDraftToPurchase($submittedMappingBillId, $purchaseId);
+                    $savedTotal = Database::fetchOne(
+                        "SELECT COALESCE(SUM(total_price), 0) AS total_amount
+                         FROM production_purchase_items WHERE purchase_id = ?",
+                        [$purchaseId]
+                    );
+                    $totalAmount = (float)($savedTotal['total_amount'] ?? $totalAmount);
+                    Database::execute(
+                        "UPDATE production_purchases SET total_amount = ? WHERE id = ?",
+                        [round($totalAmount, 2), $purchaseId]
+                    );
+                }
+            }
             Database::commit();
             AuditService::log('production', 'UPDATE', 'production_purchases', $purchaseId, $purchase, [
                 'purchase_number' => $purchase['purchase_number'], 'total_amount' => round($totalAmount, 2),
             ]);
             Session::flash('success', 'Purchase updated successfully.');
-            Response::redirect(url('production/purchases'));
+            Response::redirect(url('purchases'));
         } catch (\Throwable $e) {
             if (Database::inTransaction()) {
                 Database::rollback();
@@ -2594,47 +2608,19 @@ class AllmodulesController {
              ORDER BY company, name",
             $sellerParams
         );
-        $masterProducts = Database::fetchAll(
-            "SELECT id, name, code, catalog_code, product_code, brand_id, category_id, subcategory_id
-             FROM products
-             WHERE is_active = 1
-             ORDER BY name ASC"
-        );
-        $masterVariants = Database::fetchAll(
-            "SELECT pv.id, pv.product_id, pv.variant_code, pv.sku, pv.mrp, pv.purchase_price,
-                    pv.production_cost, pv.selling_price, pv.weight,
-                    s.name AS size_name, c.name AS color_name, d.name AS design_name
-             FROM product_variants pv
-             LEFT JOIN sizes s ON pv.size_id = s.id
-             LEFT JOIN colors c ON pv.color_id = c.id
-             LEFT JOIN designs d ON pv.design_id = d.id
-             WHERE pv.is_active = 1
-             ORDER BY pv.id ASC"
-        );
-        $sizes = Database::fetchAll(
-            "SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
-        );
-        $colors = Database::fetchAll(
-            "SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC"
-        );
-        $hsnCodes = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
 
-        Response::view('allmodules.purchases.create', [
+        $mappingCtx = $this->getPurchaseMappingContext(null, !empty($_GET['mapping_bill_id']) ? (int)$_GET['mapping_bill_id'] : null);
+        Response::view('allmodules.purchases.create', array_merge($mappingCtx, [
             'pageTitle' => 'Add Purchase',
             'activeModule' => 'purchases',
             'activeMenu' => 'purchases-create',
             'sellers' => $sellers,
-            'masterProducts' => $masterProducts,
-            'masterVariants' => $masterVariants,
-            'sizes' => $sizes,
-            'colors' => $colors,
-            'hsnCodes' => $hsnCodes,
             'breadcrumb' => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Purchases', 'url' => url('purchases')],
                 ['label' => 'Add Purchase'],
             ],
-        ]);
+        ]));
     }
 
     public function storeProductionPurchase(): void {
@@ -2657,14 +2643,12 @@ class AllmodulesController {
             }
             $sellerParams[] = $activeCid;
         }
-        $seller = Database::fetchOne(
-            "SELECT id, name, company, seller_type FROM sellers $sellerWhere",
-            $sellerParams
-        );
-        if (!$seller) {
-            Session::flash('error', 'Select a valid registered supplier belonging to the active business concern.');
-            Response::back();
-            return;
+        $seller = null;
+        if ($sellerId > 0) {
+            $seller = Database::fetchOne(
+                "SELECT id, name, company, seller_type FROM sellers $sellerWhere",
+                $sellerParams
+            );
         }
 
         $purchaseDate = trim((string)($_POST['purchase_date'] ?? ''));
@@ -3132,7 +3116,36 @@ class AllmodulesController {
 
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
         $useMappingInvoice = !empty($_POST['use_mapping_invoice']);
-        if (!$items && $useMappingInvoice) {
+        $submittedMappingBillId = !empty($_POST['mapping_bill_id']) ? (int)$_POST['mapping_bill_id'] : 0;
+        $hasSubmittedMappingItems = false;
+        if (!$items && $submittedMappingBillId > 0) {
+            PurchaseMappingFulfillmentService::ensureSchema();
+            $mappingCountRow = Database::fetchOne(
+                "SELECT COUNT(*) AS cnt FROM third_party_mapping_items WHERE mapping_bill_id = ?",
+                [$submittedMappingBillId]
+            );
+            if ((int)($mappingCountRow['cnt'] ?? 0) > 0) {
+                $hasSubmittedMappingItems = true;
+                Database::execute(
+                    "UPDATE third_party_mapping_bills
+                     SET seller_id = ?, invoice_number = COALESCE(NULLIF(?, ''), invoice_number), status = 'READY'
+                     WHERE id = ? AND status IN ('DRAFT', 'READY')",
+                    [$sellerId > 0 ? $sellerId : 0, $invoiceNumber, $submittedMappingBillId]
+                );
+                $typeRows = Database::fetchAll(
+                    "SELECT DISTINCT UPPER(item_type) AS item_type FROM third_party_mapping_items WHERE mapping_bill_id = ?",
+                    [$submittedMappingBillId]
+                );
+                $types = array_values(array_filter(array_column($typeRows, 'item_type')));
+                if (count($types) > 1) {
+                    $purchaseType = 'MIXED';
+                } elseif (count($types) === 1 && in_array($types[0], ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'], true)) {
+                    $purchaseType = $types[0];
+                } else {
+                    $purchaseType = 'THIRD_PARTY';
+                }
+            }
+        } elseif (!$items && $useMappingInvoice) {
             PurchaseMappingFulfillmentService::ensureSchema();
             $mappingConcernId = currentConcernId() ?: 1;
             $readyMapping = $invoiceNumber !== ''
@@ -3144,16 +3157,9 @@ class AllmodulesController {
                     [$sellerId, $mappingConcernId, $invoiceNumber]
                 )
                 : null;
-            if (!$readyMapping) {
-                Session::flash('error', 'No ready Mapping entry matches this supplier and invoice. Check the supplier, invoice number, and Move to Purchase status.');
-                Response::back();
-                return;
+            if ($readyMapping) {
+                $purchaseType = 'THIRD_PARTY';
             }
-            $purchaseType = 'THIRD_PARTY';
-        } elseif (!$items) {
-            Session::flash('error', 'Add at least one valid purchase item.');
-            Response::back();
-            return;
         }
 
         if ($items) {
@@ -3238,7 +3244,7 @@ class AllmodulesController {
                 "INSERT INTO production_purchases
                     (concern_id, purchase_number, purchase_type, seller_id, purchase_date, invoice_number, document_url, notes, total_amount, created_by)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$activeConcernId, $temporaryNumber, $purchaseType, $sellerId, $purchaseDate, $invoiceNumber !== '' ? $invoiceNumber : null,
+                [$activeConcernId, $temporaryNumber, $purchaseType, ($sellerId > 0 ? $sellerId : null), $purchaseDate, $invoiceNumber !== '' ? $invoiceNumber : null,
                     $documentUrl, $notes !== '' ? $notes : null, $totalAmount, $userId ?: null]
             );
             $purchaseId = (int)Database::lastInsertId();
@@ -3454,13 +3460,21 @@ class AllmodulesController {
                 }
             }
 
-            $linkedMappingCount = $this->linkReadyThirdPartyMappingBillsForPurchase($purchaseId);
+            if ($submittedMappingBillId > 0 && $hasSubmittedMappingItems) {
+                $linkedMappingCount = $this->linkThirdPartyMappingDraftToPurchase($submittedMappingBillId, $purchaseId);
+            } else {
+                $linkedMappingCount = $this->linkReadyThirdPartyMappingBillsForPurchase($purchaseId);
+            }
             $savedTotal = Database::fetchOne(
                 "SELECT COALESCE(SUM(total_price), 0) AS total_amount
                  FROM production_purchase_items WHERE purchase_id = ?",
                 [$purchaseId]
             );
             $totalAmount = (float)($savedTotal['total_amount'] ?? $totalAmount);
+            Database::execute(
+                "UPDATE production_purchases SET total_amount = ? WHERE id = ?",
+                [round($totalAmount, 2), $purchaseId]
+            );
             Database::commit();
 
             AuditService::log('purchases', 'CREATE', 'production_purchases', $purchaseId, null, [
@@ -3470,7 +3484,9 @@ class AllmodulesController {
                 'total_amount' => $totalAmount,
                 'item_count' => count($items) + $linkedMappingCount,
             ]);
-            $this->refreshSupplierRollTotals($sellerId);
+            if ($sellerId > 0) {
+                $this->refreshSupplierRollTotals($sellerId);
+            }
             $failedAttachmentCount = 0;
             if ($rollPhotoFiles) {
                 try {
@@ -4370,38 +4386,35 @@ class AllmodulesController {
             }
         }
 
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+        $itemName = mb_strtoupper(trim((string)($_POST['item_name'] ?? ($item['item_name'] ?? ''))));
+        if ($itemName === '') {
+            $itemName = (string)($item['item_name'] ?? 'ITEM');
+        }
+        $brandName = mb_strtoupper(trim((string)($_POST['brand_name'] ?? ($item['brand_name'] ?? ''))));
         $color = trim((string)($_POST['color'] ?? ''));
         $size = trim((string)($_POST['size'] ?? ''));
         $hsnCode = strtoupper(trim((string)($_POST['hsn_code'] ?? '')));
-        $unit = strtoupper(trim((string)($_POST['unit'] ?? ($item['unit'] ?? 'PCS')))) ?: 'PCS';
+        $unit = trim((string)($_POST['unit'] ?? ($item['unit'] ?? 'PCS'))) ?: 'PCS';
         $qty = round((float)($_POST['quantity'] ?? 0), 3);
-        $unitPrice = round((float)($_POST['unit_price'] ?? 0), 2);
-        $mrp = round((float)($_POST['mrp'] ?? 0), 2);
-        $sellingPrice = round((float)($_POST['selling_price'] ?? 0), 2);
-
         if ($qty <= 0) {
-            Session::flash('error', 'Quantity must be greater than 0.');
-            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
-            return;
+            $qty = 1.0;
         }
-        if ($unitPrice < 0 || $mrp < 0 || $sellingPrice < 0) {
-            Session::flash('error', 'Rates and prices cannot be negative.');
-            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
-            return;
-        }
-        if ($mrp > 0 && $sellingPrice > $mrp) {
-            Session::flash('error', 'Selling Price cannot exceed MRP.');
-            Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
-            return;
-        }
+        $unitPrice = max(0.0, round((float)($_POST['unit_price'] ?? 0), 2));
+        $mrp = max(0.0, round((float)($_POST['mrp'] ?? 0), 2));
+        $sellingPrice = max(0.0, round((float)($_POST['selling_price'] ?? 0), 2));
 
         Database::beginTransaction();
         try {
             Database::execute(
                 "UPDATE third_party_mapping_items
-                 SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?
+                 SET item_name = ?, brand_name = ?, color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?
                  WHERE id = ?",
                 [
+                    $itemName,
+                    $brandName !== '' ? $brandName : null,
                     $color !== '' ? $color : null,
                     $size !== '' ? $size : null,
                     $hsnCode !== '' ? $hsnCode : null,
@@ -4447,9 +4460,11 @@ class AllmodulesController {
                     $totalPrice = round($qty * $unitPrice, 2);
                     Database::execute(
                         "UPDATE production_purchase_items
-                         SET color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, total_price = ?
+                         SET item_name = ?, brand_name = ?, color = ?, size = ?, hsn_code = ?, unit = ?, quantity = ?, unit_price = ?, mrp = ?, selling_price = ?, total_price = ?
                          WHERE id = ?",
                         [
+                            $itemName,
+                            $brandName !== '' ? $brandName : null,
                             $color !== '' ? $color : null,
                             $size !== '' ? $size : null,
                             $hsnCode !== '' ? $hsnCode : null,
@@ -4475,19 +4490,28 @@ class AllmodulesController {
                 } catch (\Throwable $purEx) {}
             }
 
-            // Recalculate mapping bill total_quantity
             Database::execute(
-                "UPDATE third_party_mapping_bills
-                 SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
-                     updated_at = NOW()
-                 WHERE id = ?",
-                [$mappingBillId, $mappingBillId]
+                "UPDATE third_party_mapping_bills SET updated_at = NOW() WHERE id = ?",
+                [$mappingBillId]
             );
 
             Database::commit();
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => 'Saved variant updated successfully.',
+                    'mapping_bill_id' => $mappingBillId,
+                    'items' => $this->fetchMappingDraftItemsForUi($mappingBillId),
+                ]);
+                return;
+            }
             Session::flash('success', 'Saved variant updated successfully.');
         } catch (Exception $e) {
             Database::rollBack();
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Error updating variant: ' . $e->getMessage()], 422);
+                return;
+            }
             Session::flash('error', 'Error updating variant: ' . $e->getMessage());
         }
 
@@ -4589,13 +4613,9 @@ class AllmodulesController {
                 throw new RuntimeException('The product could not be deleted. Refresh and try again.');
             }
 
-            // Recalculate mapping bill total_quantity
             Database::execute(
-                "UPDATE third_party_mapping_bills
-                 SET total_quantity = (SELECT COALESCE(SUM(quantity), 0) FROM third_party_mapping_items WHERE mapping_bill_id = ?),
-                     updated_at = NOW()
-                 WHERE id = ?",
-                [$mappingBillId, $mappingBillId]
+                "UPDATE third_party_mapping_bills SET updated_at = NOW() WHERE id = ?",
+                [$mappingBillId]
             );
 
             AuditService::log('purchases', 'DELETE', 'third_party_mapping_items', $mappingItemId, null, [
@@ -4659,7 +4679,7 @@ class AllmodulesController {
         );
         $variants = $_POST['variants'] ?? [];
         $productName = mb_strtoupper(trim((string)($_POST['product_name'] ?? '')));
-        if (!$bill || $bill['status'] !== 'DRAFT') {
+        if (!$bill || ($bill['status'] !== 'DRAFT' && empty($bill['purchase_id']))) {
             Session::flash('error', 'Only an open mapping entry can be edited.');
             Response::redirect(url('purchases/mapping'));
             return;
@@ -4683,10 +4703,10 @@ class AllmodulesController {
             }
             Database::beginTransaction();
             try {
-                $product = Database::fetchOne(
-                    "SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id = ? LIMIT 1",
-                    [$fabricName, (int)$bill['seller_id']]
-                );
+                $billSellerId = ((int)($bill['seller_id'] ?? 0) > 0) ? (int)$bill['seller_id'] : null;
+                $product = $billSellerId !== null
+                    ? Database::fetchOne("SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id = ? LIMIT 1", [$fabricName, $billSellerId])
+                    : Database::fetchOne("SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id IS NULL LIMIT 1", [$fabricName]);
                 if (!$product) {
                     $baseCode = 'ROL-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $fabricName)), 0, 8);
                     $fCode = $baseCode ?: 'ROL-FABRIC';
@@ -4697,7 +4717,7 @@ class AllmodulesController {
                     Database::execute(
                         "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
                          VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
-                        [$fabricName, $fCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                        [$fabricName, $fCode, $billSellerId, (int)$bill['concern_id']]
                     );
                     $productId = (int)Database::lastInsertId();
                     $productCode = $fCode;
@@ -4709,6 +4729,11 @@ class AllmodulesController {
                 $rollCategoryId = !empty($_POST['roll_category_id']) ? (int)$_POST['roll_category_id'] : 1;
                 $rollSubcategoryId = !empty($_POST['roll_subcategory_id']) ? (int)$_POST['roll_subcategory_id'] : null;
                 $rollSubSubcategoryId = !empty($_POST['roll_sub_subcategory_id']) ? (int)$_POST['roll_sub_subcategory_id'] : null;
+                $rollBrandName = mb_strtoupper(trim((string)($_POST['brand_name'] ?? '')));
+                $rollBrandId = $this->resolveOrCreateBrandId($rollBrandName);
+                if ($rollBrandId) {
+                    Database::execute("UPDATE products SET brand_id = COALESCE(brand_id, ?) WHERE id = ?", [$rollBrandId, $productId]);
+                }
 
                 $rollCount = 0;
                 foreach ($rolls as $idx => $r) {
@@ -4716,18 +4741,23 @@ class AllmodulesController {
                     $rollCode = trim((string)($r['roll_code'] ?? ''));
                     $color = trim((string)($r['color'] ?? 'Standard'));
                     $designName = trim((string)($r['design_name'] ?? ''));
+                    $itemBrandName = mb_strtoupper(trim((string)($r['brand_name'] ?? $rollBrandName)));
                     $meters = (float)($r['meters'] ?? 0);
                     $weightKg = (float)($r['weight_kg'] ?? 0);
                     $rate = (float)($r['rate'] ?? 0);
                     $gstRate = isset($r['gst_rate']) ? (float)$r['gst_rate'] : 5.0;
+                    $gstMode = strtoupper(trim((string)($r['gst_mode'] ?? ($_POST['gst_mode'] ?? 'EXCLUDED')))) === 'INCLUDED' ? 'INCLUDED' : 'EXCLUDED';
+                    $gstType = strtoupper(trim((string)($r['gst_type'] ?? ($_POST['gst_type'] ?? 'BOTH'))));
+                    if (!in_array($gstType, ['EXEMPTED', 'BOTH', 'SGST', 'CGST', 'IGST'], true)) $gstType = 'BOTH';
+                    if ($gstType === 'EXEMPTED') $gstRate = 0.0;
                     $hsn = trim((string)($r['hsn_code'] ?? '5208')) ?: '5208';
-                    if ($weightKg <= 0 && $meters <= 0) continue;
                     if ($rollCode === '') {
                         $rollCode = 'R-' . date('ymd') . '-' . sprintf('%03d', $idx + 1);
                     }
                     $sizeLabel = ($weightKg > 0) ? ($weightKg . 'kg') : ($meters > 0 ? $meters . 'm' : 'Standard');
-                    $qty = ($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0);
-                    $unit = ($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS');
+                    $submittedQty = isset($r['quantity']) ? (float)$r['quantity'] : 0.0;
+                    $qty = $submittedQty > 0 ? $submittedQty : (($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0));
+                    $unit = $submittedQty > 0 ? 'PCS' : (($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS'));
 
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
                         'color' => $color,
@@ -4742,14 +4772,14 @@ class AllmodulesController {
 
                     Database::execute(
                         "INSERT INTO third_party_mapping_items
-                            (mapping_bill_id, item_type, product_id, variant_id, item_name, product_code, vendor_sku,
-                             roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                            (mapping_bill_id, item_type, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
+                             roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, design_name, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
-                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, $productCode,
+                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, ($itemBrandName !== '' ? $itemBrandName : null), $productCode,
                             $rollCode, ($weightKg > 0 ? $weightKg : null), ($meters > 0 ? $meters : null), $qty, $unit,
-                            $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $hsn, $color,
+                            $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $gstMode, $gstType, $hsn, $color, ($designName !== '' ? $designName : null),
                             $sizeLabel, $rollCategoryId, $rollSubcategoryId, $rollSubSubcategoryId
                         ]
                     );
@@ -4765,11 +4795,113 @@ class AllmodulesController {
                     Response::json([
                         'success' => true,
                         'message' => "Successfully added {$rollCount} fabric roll(s) to mapping draft.",
+                        'mapping_bill_id' => $mappingBillId,
+                        'items' => $this->fetchMappingDraftItemsForUi($mappingBillId),
                         'redirect_url' => url('purchases/mapping/draft/' . $mappingBillId)
                     ]);
                     return;
                 }
                 Session::flash('success', "Added {$rollCount} fabric roll(s) to mapping draft.");
+                Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
+                return;
+            } catch (\Throwable $e) {
+                if (Database::inTransaction()) Database::rollback();
+                if ($isAjax) {
+                    Response::json(['success' => false, 'message' => $e->getMessage()], 422);
+                    return;
+                }
+                Session::flash('error', $e->getMessage());
+                Response::back();
+                return;
+            }
+        }
+
+        if ($entryType === 'RAW_MATERIAL') {
+            $itemName = mb_strtoupper(trim((string)($_POST['item_name'] ?? ($_POST['material_name'] ?? ''))));
+            $brandName = mb_strtoupper(trim((string)($_POST['brand_name'] ?? '')));
+            $color = trim((string)($_POST['color'] ?? ''));
+            $size = trim((string)($_POST['size'] ?? ''));
+            $unit = trim((string)($_POST['unit'] ?? 'PCS')) ?: 'PCS';
+            $qty = (float)($_POST['quantity'] ?? 0);
+            $unitPrice = (float)($_POST['unit_price'] ?? 0);
+            $hsn = trim((string)($_POST['hsn_code'] ?? ''));
+            $gstType = strtoupper(trim((string)($_POST['gst_type'] ?? 'BOTH')));
+            if (!in_array($gstType, ['EXEMPTED', 'BOTH', 'SGST', 'CGST', 'IGST'], true)) $gstType = 'BOTH';
+            $gstRate = isset($_POST['gst_rate']) ? (float)$_POST['gst_rate'] : 5.0;
+            if ($gstType === 'EXEMPTED') $gstRate = 0.0;
+            $gstMode = strtoupper(trim((string)($_POST['gst_mode'] ?? 'EXCLUDED'))) === 'INCLUDED' ? 'INCLUDED' : 'EXCLUDED';
+
+            if ($itemName === '') {
+                $itemName = 'RAW MATERIAL';
+            }
+            if ($qty <= 0) {
+                $qty = 1.0;
+            }
+
+            Database::beginTransaction();
+            try {
+                $billSellerId = ((int)($bill['seller_id'] ?? 0) > 0) ? (int)$bill['seller_id'] : null;
+                $product = $billSellerId !== null
+                    ? Database::fetchOne("SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id = ? LIMIT 1", [$itemName, $billSellerId])
+                    : Database::fetchOne("SELECT id, code FROM products WHERE UPPER(name) = ? AND seller_id IS NULL LIMIT 1", [$itemName]);
+                if (!$product) {
+                    $baseCode = 'RM-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $itemName)), 0, 8);
+                    $rmCode = $baseCode ?: 'RM-ITEM';
+                    $suf = 1;
+                    while (Database::fetchOne("SELECT id FROM products WHERE code = ?", [$rmCode])) {
+                        $rmCode = $baseCode . '-' . $suf++;
+                    }
+                    Database::execute(
+                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$itemName, $rmCode, $billSellerId, (int)$bill['concern_id']]
+                    );
+                    $productId = (int)Database::lastInsertId();
+                    $productCode = $rmCode;
+                } else {
+                    $productId = (int)$product['id'];
+                    $productCode = (string)$product['code'];
+                }
+
+                $rmBrandId = $this->resolveOrCreateBrandId($brandName);
+                if ($rmBrandId) {
+                    Database::execute("UPDATE products SET brand_id = COALESCE(brand_id, ?) WHERE id = ?", [$rmBrandId, $productId]);
+                }
+
+                $productVariant = VariantService::findOrCreateVariantForInward($productId, [
+                    'color' => $color !== '' ? $color : 'Standard',
+                    'size' => $size !== '' ? $size : 'Standard',
+                    'hsn_code' => $hsn !== '' ? $hsn : null,
+                    'gst_rate' => $gstRate,
+                    'mrp' => 0,
+                    'selling_price' => 0,
+                    'unit_price' => $unitPrice,
+                ]);
+
+                Database::execute(
+                    "INSERT INTO third_party_mapping_items
+                        (mapping_bill_id, item_type, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
+                         quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, size,
+                         category_id, subcategory_id, sub_subcategory_id)
+                     VALUES (?, 'RAW_MATERIAL', ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                    [
+                        $mappingBillId, $productId, (int)$productVariant['id'], $itemName, ($brandName !== '' ? $brandName : null), $productCode,
+                        $qty, $unit, $unitPrice, $gstRate, $gstMode, $gstType, $hsn, ($color !== '' ? $color : 'Standard'), ($size !== '' ? $size : 'Standard')
+                    ]
+                );
+                Database::commit();
+
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => 'Successfully added raw material to mapping draft.',
+                        'mapping_bill_id' => $mappingBillId,
+                        'items' => $this->fetchMappingDraftItemsForUi($mappingBillId),
+                        'redirect_url' => url('purchases/mapping/draft/' . $mappingBillId)
+                    ]);
+                    return;
+                }
+                Session::flash('success', 'Added raw material to mapping draft.');
                 Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
                 return;
             } catch (\Throwable $e) {
@@ -4816,6 +4948,8 @@ class AllmodulesController {
             foreach ($productsInput as $pIdx => $pData) {
                 if (!is_array($pData)) continue;
                 $pName = mb_strtoupper(trim((string)($pData['product_name'] ?? '')));
+                $pBrandName = mb_strtoupper(trim((string)($pData['brand_name'] ?? ($_POST['brand_name'] ?? ''))));
+                $pBrandId = $this->resolveOrCreateBrandId($pBrandName);
                 $pUnit = strtoupper(trim((string)($pData['unit'] ?? 'PCS'))) ?: 'PCS';
                 $pVariants = $pData['variants'] ?? [];
 
@@ -4823,13 +4957,22 @@ class AllmodulesController {
                     continue;
                 }
 
-                $product = Database::fetchOne(
-                    "SELECT id, code FROM products
-                     WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
-                       AND seller_id = ?
-                     ORDER BY id ASC LIMIT 1",
-                    [$pName, (int)$bill['seller_id']]
-                );
+                $billSellerId = ((int)($bill['seller_id'] ?? 0) > 0) ? (int)$bill['seller_id'] : null;
+                $product = $billSellerId !== null
+                    ? Database::fetchOne(
+                        "SELECT id, code FROM products
+                         WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
+                           AND seller_id = ?
+                         ORDER BY id ASC LIMIT 1",
+                        [$pName, $billSellerId]
+                    )
+                    : Database::fetchOne(
+                        "SELECT id, code FROM products
+                         WHERE UPPER(name) = ? AND UPPER(COALESCE(source_type, '')) = 'EXTERNAL_PURCHASE'
+                           AND seller_id IS NULL
+                         ORDER BY id ASC LIMIT 1",
+                        [$pName]
+                    );
                 if (!$product) {
                     $base = 'TP-' . substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $pName)), 0, 10);
                     $styleCode = $base ?: 'TP-PRODUCT';
@@ -4838,15 +4981,18 @@ class AllmodulesController {
                         $styleCode = $base . '-' . $suffix++;
                     }
                     Database::execute(
-                        "INSERT INTO products (name, code, source_type, is_active, seller_id, concern_id)
-                         VALUES (?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
-                        [$pName, $styleCode, (int)$bill['seller_id'], (int)$bill['concern_id']]
+                        "INSERT INTO products (name, code, brand_id, source_type, is_active, seller_id, concern_id)
+                         VALUES (?, ?, ?, 'EXTERNAL_PURCHASE', 1, ?, ?)",
+                        [$pName, $styleCode, $pBrandId, $billSellerId, (int)$bill['concern_id']]
                     );
                     $productId = (int)Database::lastInsertId();
                     $productCode = $styleCode;
                 } else {
                     $productId = (int)$product['id'];
                     $productCode = (string)$product['code'];
+                    if ($pBrandId) {
+                        Database::execute("UPDATE products SET brand_id = COALESCE(brand_id, ?) WHERE id = ?", [$pBrandId, $productId]);
+                    }
                 }
 
                 $seenCombinations = [];
@@ -4861,11 +5007,18 @@ class AllmodulesController {
                     }
                     $seenCombinations[$combination] = true;
                     $qty = (float)($variant['quantity'] ?? 0);
-                    $rate = (float)($variant['unit_price'] ?? 0);
-                    $mrp = (float)($variant['mrp'] ?? 0);
-                    $sellingPrice = (float)($variant['selling_price'] ?? 0);
-                    $gstRate = isset($variant['gst_rate']) ? (float)$variant['gst_rate'] : 0.0;
-                    $hsn = trim((string)($variant['hsn_code'] ?? ''));
+                    if ($qty <= 0) {
+                        $qty = 1.0;
+                    }
+                    $rate = max(0.0, (float)($variant['unit_price'] ?? 0));
+                    $mrp = max(0.0, (float)($variant['mrp'] ?? 0));
+                    $sellingPrice = max(0.0, (float)($variant['selling_price'] ?? 0));
+                    $gstRate = isset($variant['gst_rate']) ? max(0.0, min(100.0, (float)$variant['gst_rate'])) : 0.0;
+                    $gstMode = strtoupper(trim((string)($variant['gst_mode'] ?? ($_POST['gst_mode'] ?? 'EXCLUDED')))) === 'INCLUDED' ? 'INCLUDED' : 'EXCLUDED';
+                    $gstType = strtoupper(trim((string)($variant['gst_type'] ?? ($_POST['gst_type'] ?? 'BOTH'))));
+                    if (!in_array($gstType, ['EXEMPTED', 'BOTH', 'SGST', 'CGST', 'IGST'], true)) $gstType = 'BOTH';
+                    if ($gstType === 'EXEMPTED') $gstRate = 0.0;
+                    $hsn = mb_substr(trim((string)($variant['hsn_code'] ?? '')), 0, 20);
                     if ($hsn === '') {
                         $hsn = 'PENDING';
                     }
@@ -4873,12 +5026,11 @@ class AllmodulesController {
                     $subcategoryId = !empty($variant['subcategory_id']) ? (int)$variant['subcategory_id'] : null;
                     $subSubcategoryId = !empty($variant['sub_subcategory_id']) ? (int)$variant['sub_subcategory_id'] : null;
 
-                    if ($qty <= 0 || floor($qty) !== $qty || $rate < 0 || $mrp <= 0 || $sellingPrice <= 0 || $sellingPrice > $mrp
-                        || $gstRate < 0 || $gstRate > 100 || mb_strlen($hsn) > 20) {
-                        throw new InvalidArgumentException("Check quantities, prices, GST and HSN for product '{$pName}'.");
-                    }
-                    if (!PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
-                        throw new InvalidArgumentException("Select a valid category for every variant of '{$pName}'.");
+                    if ($categoryId <= 0 || !PurchaseMappingFulfillmentService::isExternalCatalogHierarchy($categoryId, $subcategoryId, $subSubcategoryId, true)) {
+                        $fallbackCat = Database::fetchOne("SELECT id FROM third_party_categories WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+                        $categoryId = (int)($fallbackCat['id'] ?? 1);
+                        $subcategoryId = null;
+                        $subSubcategoryId = null;
                     }
 
                     $productVariant = VariantService::findOrCreateVariantForInward($productId, [
@@ -4892,12 +5044,12 @@ class AllmodulesController {
                     ]);
                     Database::execute(
                         "INSERT INTO third_party_mapping_items
-                            (mapping_bill_id, product_id, variant_id, item_name, product_code, vendor_sku,
-                             quantity, unit, unit_price, mrp, selling_price, gst_rate, hsn_code, color, size,
+                            (mapping_bill_id, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
+                             quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, $productCode,
-                            $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $hsn, $color ?: null,
+                         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, ($pBrandName !== '' ? $pBrandName : null), $productCode,
+                            $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $gstMode, $gstType, $hsn, $color ?: null,
                             $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
                     );
                     $vCount++;
@@ -4925,6 +5077,8 @@ class AllmodulesController {
                 Response::json([
                     'success' => true,
                     'message' => $successMsg,
+                    'mapping_bill_id' => $mappingBillId,
+                    'items' => $this->fetchMappingDraftItemsForUi($mappingBillId),
                     'total_products' => $totalProducts,
                     'total_variants' => $totalVariants
                 ]);
@@ -4944,6 +5098,234 @@ class AllmodulesController {
             Response::back();
             return;
         }
+    }
+
+    private function resolveOrCreateBrandId(?string $brandName): ?int {
+        $clean = mb_strtoupper(trim((string)$brandName));
+        if ($clean === '') {
+            return null;
+        }
+        $existing = Database::fetchOne("SELECT id FROM brands WHERE UPPER(TRIM(name)) = ? LIMIT 1", [$clean]);
+        if ($existing) {
+            return (int)$existing['id'];
+        }
+        try {
+            $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clean), '-')) ?: ('brand-' . time());
+            $baseSlug = $slug;
+            $idx = 2;
+            while (Database::fetchOne("SELECT id FROM brands WHERE slug = ? LIMIT 1", [$slug])) {
+                $slug = $baseSlug . '-' . $idx++;
+            }
+            Database::execute("INSERT INTO brands (name, slug, is_active) VALUES (?, ?, 1)", [$clean, $slug]);
+            return (int)Database::lastInsertId();
+        } catch (\Throwable $e) {
+            error_log('resolveOrCreateBrandId failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function fetchMappingDraftItemsForUi(int $mappingBillId): array {
+        if ($mappingBillId <= 0) {
+            return [];
+        }
+        return Database::fetchAll(
+            "SELECT mi.*, pv.sku AS variant_sku, pv.variant_code, qg.batch_code,
+                    qg.stock_added, c.name AS category_name, sc.name AS subcategory_name,
+                    ssc.name AS sub_subcategory_name,
+                    COALESCE(NULLIF(mi.brand_name, ''), b.name, '') AS resolved_brand_name
+             FROM third_party_mapping_items mi
+             LEFT JOIN products p ON p.id = mi.product_id
+             LEFT JOIN brands b ON b.id = p.brand_id
+             LEFT JOIN product_variants pv ON pv.id = mi.variant_id
+             LEFT JOIN qr_generations qg ON qg.id = mi.qr_generation_id
+             LEFT JOIN third_party_categories c ON c.id = mi.category_id
+             LEFT JOIN third_party_subcategories sc ON sc.id = mi.subcategory_id
+             LEFT JOIN third_party_sub_subcategories ssc ON ssc.id = mi.sub_subcategory_id
+             WHERE mi.mapping_bill_id = ?
+             ORDER BY mi.id ASC",
+            [$mappingBillId]
+        );
+    }
+
+    private function getPurchaseMappingContext(?int $purchaseId = null, ?int $mappingBillId = null): array {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $this->syncCatalogCategoriesToThirdParty();
+        $cid = currentConcernId();
+
+        if (!$mappingBillId && $purchaseId) {
+            $linkedBill = Database::fetchOne(
+                "SELECT id FROM third_party_mapping_bills WHERE purchase_id = ? ORDER BY id DESC LIMIT 1",
+                [$purchaseId]
+            );
+            if ($linkedBill) {
+                $mappingBillId = (int)$linkedBill['id'];
+            }
+        }
+
+        $categories = Database::fetchAll(
+            "SELECT tpc.id, tpc.name, tpc.code
+             FROM third_party_categories tpc
+             WHERE tpc.is_active = 1
+               AND (
+                   LOWER(TRIM(tpc.name)) NOT IN ('non feeding', 'feeding', 'kids wear', 'women ethnic', 'men casual')
+                   OR EXISTS (SELECT 1 FROM categories c WHERE c.is_active = 1 AND LOWER(TRIM(c.name)) = LOWER(TRIM(tpc.name)))
+               )
+             ORDER BY tpc.sort_order ASC, tpc.name ASC"
+        );
+        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
+        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
+        $brands = Database::fetchAll("SELECT id, name FROM brands WHERE is_active = 1 ORDER BY name ASC");
+        $masterSizes = Database::fetchAll("SELECT id, name, code FROM sizes WHERE is_active = 1 ORDER BY name ASC");
+        $masterColors = Database::fetchAll("SELECT id, name, hex_code FROM colors WHERE is_active = 1 ORDER BY name ASC");
+        $hsnList = Database::fetchAll("SELECT id, hsn_code, description, gst_rate FROM hsn_codes ORDER BY hsn_code ASC");
+
+        $categoryAttributesMap = [];
+        try {
+            $attrRows = Database::fetchAll("
+                SELECT LOWER(TRIM(COALESCE(c.name, ''))) AS cat_name,
+                       LOWER(TRIM(COALESCE(sc.name, ''))) AS sub_name,
+                       LOWER(TRIM(COALESCE(ssc.name, ''))) AS sub_sub_name,
+                       TRIM(COALESCE(sz.name, '')) AS size_name,
+                       TRIM(COALESCE(col.name, '')) AS color_name
+                FROM products p
+                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+                LEFT JOIN sub_subcategories ssc ON ssc.id = p.sub_subcategory_id
+                INNER JOIN product_variants pv ON pv.product_id = p.id AND pv.is_active = 1
+                LEFT JOIN sizes sz ON sz.id = pv.size_id
+                LEFT JOIN colors col ON col.id = pv.color_id
+                WHERE p.is_active = 1
+            ");
+            foreach ($attrRows as $ar) {
+                $cName = $ar['cat_name'] ?? '';
+                if ($cName === '') continue;
+                $keys = [$cName];
+                if (!empty($ar['sub_name'])) $keys[] = $cName . '|' . $ar['sub_name'];
+                if (!empty($ar['sub_name']) && !empty($ar['sub_sub_name'])) $keys[] = $cName . '|' . $ar['sub_name'] . '|' . $ar['sub_sub_name'];
+                foreach ($keys as $k) {
+                    if (!isset($categoryAttributesMap[$k])) {
+                        $categoryAttributesMap[$k] = ['sizes' => [], 'colors' => []];
+                    }
+                    if (!empty($ar['size_name']) && !in_array($ar['size_name'], $categoryAttributesMap[$k]['sizes'], true)) {
+                        $categoryAttributesMap[$k]['sizes'][] = $ar['size_name'];
+                    }
+                    if (!empty($ar['color_name']) && !in_array($ar['color_name'], $categoryAttributesMap[$k]['colors'], true)) {
+                        $categoryAttributesMap[$k]['colors'][] = $ar['color_name'];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        $warehouses = $cid !== null
+            ? Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 AND concern_id = ? ORDER BY name ASC", [$cid])
+            : Database::fetchAll("SELECT id, name, code, concern_id FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
+
+        return [
+            'mappingBillId' => (int)($mappingBillId ?? 0),
+            'mappingItems' => $mappingBillId ? $this->fetchMappingDraftItemsForUi((int)$mappingBillId) : [],
+            'mappingCategories' => $categories,
+            'mappingSubcategories' => $subcategories,
+            'mappingSubSubcategories' => $subSubcategories,
+            'mappingCategoryAttributesMap' => $categoryAttributesMap,
+            'mappingMasterSizes' => $masterSizes,
+            'mappingMasterColors' => $masterColors,
+            'mappingHsnList' => $hsnList,
+            'mappingBrands' => $brands,
+            'mappingWarehouses' => $warehouses,
+        ];
+    }
+
+    public function ajaxEnsurePurchaseMappingDraft(): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 403);
+            return;
+        }
+        $sellerId = max(0, (int)($_POST['seller_id'] ?? 0));
+        $purchaseId = !empty($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
+        $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
+        if ($invoiceNumber === '') {
+            $invoiceNumber = 'PUR-' . date('ymdHis');
+        }
+        $cid = resolveSubmittedConcernId() ?: (currentConcernId() ?: 1);
+        $userId = (int)(Session::get('user_id') ?? 0);
+
+        if ($purchaseId > 0) {
+            $existing = Database::fetchOne(
+                "SELECT id FROM third_party_mapping_bills WHERE purchase_id = ? ORDER BY id DESC LIMIT 1",
+                [$purchaseId]
+            );
+            if ($existing) {
+                Response::json([
+                    'success' => true,
+                    'mapping_bill_id' => (int)$existing['id'],
+                    'items' => $this->fetchMappingDraftItemsForUi((int)$existing['id']),
+                ]);
+                return;
+            }
+        }
+
+        $existingDraft = Database::fetchOne(
+            "SELECT id FROM third_party_mapping_bills
+             WHERE seller_id = ? AND concern_id = ? AND UPPER(TRIM(invoice_number)) = UPPER(TRIM(?)) AND status = 'DRAFT'
+             ORDER BY id DESC LIMIT 1",
+            [$sellerId, $cid, $invoiceNumber]
+        );
+        if ($existingDraft) {
+            $draftId = (int)$existingDraft['id'];
+            Response::json([
+                'success' => true,
+                'mapping_bill_id' => $draftId,
+                'items' => $this->fetchMappingDraftItemsForUi($draftId),
+            ]);
+            return;
+        }
+
+        Database::execute(
+            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, status, created_by)
+             VALUES (?, ?, ?, ?, 'DRAFT', ?)",
+            [$cid, $sellerId, $invoiceNumber, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
+        );
+        $newId = (int)Database::lastInsertId();
+        Response::json([
+            'success' => true,
+            'mapping_bill_id' => $newId,
+            'items' => [],
+        ]);
+    }
+
+    public function ajaxPurchaseMappingDraftItems(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        $mappingBillId = (int)$id;
+        Response::json([
+            'success' => true,
+            'mapping_bill_id' => $mappingBillId,
+            'items' => $this->fetchMappingDraftItemsForUi($mappingBillId),
+        ]);
+    }
+
+    public function ajaxClearPurchaseMappingDraft(string $id): void {
+        PurchaseMappingFulfillmentService::ensureSchema();
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token.'], 403);
+            return;
+        }
+        $mappingBillId = (int)$id;
+        if ($mappingBillId > 0) {
+            Database::execute(
+                "DELETE FROM third_party_mapping_items WHERE mapping_bill_id = ? AND purchase_item_id IS NULL",
+                [$mappingBillId]
+            );
+            Database::execute(
+                "UPDATE third_party_mapping_bills SET updated_at = NOW() WHERE id = ?",
+                [$mappingBillId]
+            );
+        }
+        Response::json([
+            'success' => true,
+            'mapping_bill_id' => $mappingBillId,
+            'items' => $mappingBillId > 0 ? $this->fetchMappingDraftItemsForUi($mappingBillId) : [],
+        ]);
     }
 
     public function generateThirdPartyMappingDraftQr(string $id): void {
@@ -5711,24 +6093,25 @@ class AllmodulesController {
         if (!$bill) {
             throw new InvalidArgumentException('Mapping entry not found.');
         }
-        if ($bill['status'] === 'MOVED') {
-            if ((int)($bill['purchase_id'] ?? 0) === $purchaseId) {
-                return 0;
-            }
+        $isSamePurchase = ((int)($bill['purchase_id'] ?? 0) === $purchaseId);
+        if ($bill['status'] === 'MOVED' && !$isSamePurchase) {
             throw new RuntimeException('This mapping entry is already linked to a different purchase.');
         }
-        if ($bill['status'] !== 'READY') {
+        if ($bill['status'] !== 'READY' && !$isSamePurchase) {
             throw new RuntimeException('Mark this mapping entry ready before linking it to a purchase.');
         }
         $concernCondition = ((int)$bill['concern_id'] === 1)
             ? "(concern_id = ? OR concern_id IS NULL)"
             : "concern_id = ?";
+        $sellerCond = ((int)$bill['seller_id'] > 0)
+            ? "seller_id = " . (int)$bill['seller_id']
+            : "(seller_id IS NULL OR seller_id = 0)";
         $purchase = Database::fetchOne(
-            "SELECT * FROM production_purchases WHERE id = ? AND seller_id = ? AND {$concernCondition}",
-            [$purchaseId, (int)$bill['seller_id'], (int)$bill['concern_id']]
+            "SELECT * FROM production_purchases WHERE id = ? AND {$sellerCond} AND {$concernCondition}",
+            [$purchaseId, (int)$bill['concern_id']]
         );
         if (!$purchase
-            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED', 'FABRIC_ROLL'], true)) {
+            || !in_array(strtoupper((string)$purchase['purchase_type']), ['THIRD_PARTY', 'MIXED', 'FABRIC_ROLL', 'RAW_MATERIAL'], true)) {
             throw new InvalidArgumentException('The selected purchase does not match the mapping supplier or type.');
         }
 
@@ -5746,11 +6129,16 @@ class AllmodulesController {
         }
         $userId = (int)(Session::get('user_id') ?? 0);
         foreach ($items as $item) {
+            if (!empty($item['purchase_item_id'])) {
+                continue;
+            }
             $taxAmount = round((float)$item['quantity'] * (float)$item['unit_price'] * (float)$item['gst_rate'] / 100, 2);
             $lineTotal = round((float)$item['quantity'] * (float)$item['unit_price'] + $taxAmount, 2);
             $taxHalf = round($taxAmount / 2, 2);
             $taxRateHalf = round((float)$item['gst_rate'] / 2, 3);
-            $isRoll = (($item['item_type'] ?? 'THIRD_PARTY') === 'FABRIC_ROLL');
+            $itemType = strtoupper((string)($item['item_type'] ?? 'THIRD_PARTY'));
+            $isRoll = ($itemType === 'FABRIC_ROLL');
+            $isRaw = ($itemType === 'RAW_MATERIAL');
 
             if ($isRoll) {
                 $sellerId = (int)$purchase['seller_id'];
@@ -5765,7 +6153,7 @@ class AllmodulesController {
                 } else {
                     $rollQrCode = 'SR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
                     try {
-                        $rollConcernId = (int)($draft['concern_id'] ?? (currentConcernId() ?: 1));
+                        $rollConcernId = (int)($bill['concern_id'] ?? (currentConcernId() ?: 1));
                         Database::execute(
                             "INSERT INTO seller_rolls
                                 (concern_id, seller_id, roll_number, color, design_name, design_count, quantity, weight, price,
@@ -5798,6 +6186,23 @@ class AllmodulesController {
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
                         $item['color'], $item['size'], $item['hsn_code'], $sellerRollId]
                 );
+            } elseif ($isRaw) {
+                Database::execute(
+                    "INSERT INTO production_purchase_items
+                        (purchase_id, item_type, item_name, brand_name, product_id, variant_id, product_code, vendor_sku,
+                         quantity, unit, unit_price, mrp, selling_price, total_price, gst_type, tax_input_type,
+                         tax_treatment, sgst_value, cgst_value, sgst_amount, cgst_amount, color, size, hsn_code,
+                         is_mapped, created_at)
+                     VALUES (?, 'RAW_MATERIAL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'PERCENT', ?,
+                             ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
+                    [(int)$purchase['id'], $item['item_name'], $item['brand_name'] ?? null, (int)$item['product_id'], (int)$item['variant_id'],
+                        $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'] ?: 'PCS',
+                        $item['unit_price'], $lineTotal,
+                        $taxAmount > 0 ? ($item['gst_type'] ?? 'BOTH') : 'EXEMPTED',
+                        $item['gst_mode'] ?? 'EXCLUDED',
+                        $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
+                        $item['color'], $item['size'], $item['hsn_code']]
+                );
             } else {
                 Database::execute(
                     "INSERT INTO production_purchase_items
@@ -5824,7 +6229,7 @@ class AllmodulesController {
                 'color' => $item['color'],
                 'vendor_sku' => $item['vendor_sku'],
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if (!$isRoll) {
+            if (!$isRoll && !$isRaw) {
                 PurchaseMappingFulfillmentService::fulfill($purchaseItemId, [
                     'category_id' => (int)$item['category_id'],
                     'subcategory_id' => (int)($item['subcategory_id'] ?? 0) ?: null,
@@ -5877,12 +6282,10 @@ class AllmodulesController {
         );
         $typesList = array_column($distinctTypes, 'item_type');
         $resolvedType = 'THIRD_PARTY';
-        if (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) > 1) {
+        if (count($typesList) > 1) {
             $resolvedType = 'MIXED';
-        } elseif (in_array('FABRIC_ROLL', $typesList, true) && count($typesList) === 1) {
-            $resolvedType = 'FABRIC_ROLL';
-        } elseif (count($typesList) > 1) {
-            $resolvedType = 'MIXED';
+        } elseif (count($typesList) === 1 && in_array($typesList[0], ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'], true)) {
+            $resolvedType = $typesList[0];
         }
         Database::execute(
             "UPDATE production_purchases

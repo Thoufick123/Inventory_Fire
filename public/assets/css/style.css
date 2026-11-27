@@ -639,6 +639,16 @@ body {
     border-radius: 8px;
 }
 
+.input-group > .btn:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.input-group > .btn:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
 .action-btns-group {
     display: inline-flex;
     align-items: center;
