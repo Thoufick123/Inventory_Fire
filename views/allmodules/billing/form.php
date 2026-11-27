@@ -1627,6 +1627,11 @@ document.addEventListener('DOMContentLoaded', () => {
             mrpCell.className = 'text-end fw-semibold text-muted font-monospace text-nowrap';
             mrpCell.textContent = money(item.mrp);
 
+            const isComp = Number(item.is_complementary || 0) === 1;
+            if (isComp) {
+                item.unit_price = 0;
+            }
+
             // 4. Discount cell
             const discountCell = row.insertCell();
             const discountInput = document.createElement('input');
@@ -1635,10 +1640,14 @@ document.addEventListener('DOMContentLoaded', () => {
             discountInput.autocomplete = 'off';
             discountInput.setAttribute('aria-label', 'Discount percentage');
             discountInput.className = 'form-control form-control-sm text-end font-monospace billing-rate-input';
-            item.discount_percentage = resolveDiscountPercentage(item);
+            item.discount_percentage = isComp ? 100 : resolveDiscountPercentage(item);
             discountInput.value = item.discount_percentage.toFixed(2);
             discountInput.name = `items[${index}][discount_percentage]`;
+            if (isComp) {
+                discountInput.readOnly = true;
+            }
             const applyDiscountValue = (rawDiscount) => {
+                if (isComp) return;
                 const parsed = parseFloat(rawDiscount);
                 const discount = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
                 item.discount_percentage = discount;
@@ -1668,27 +1677,41 @@ document.addEventListener('DOMContentLoaded', () => {
             priceInput.autocomplete = 'off';
             priceInput.setAttribute('aria-label', 'Price per piece');
             priceInput.className = 'form-control form-control-sm text-end font-monospace fw-semibold billing-price-input';
-            priceInput.value = Number(item.unit_price || 0).toFixed(2);
+            priceInput.value = isComp ? '0.00' : Number(item.unit_price || 0).toFixed(2);
             priceInput.name = `items[${index}][unit_price]`;
-            const applyPriceValue = (rawPrice) => {
-                const parsed = parseFloat(rawPrice);
-                item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-                item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
-                discountInput.value = item.discount_percentage.toFixed(2);
-                updateRowTotals(itemKey);
-            };
-            bindNumericInputValidation(priceInput, {
-                allowDecimal: true,
-                maxDecimals: 2,
-                min: 0,
-                allowEmpty: false,
-                defaultValue: '0.00',
-                onNormalize: (val) => applyPriceValue(val)
-            });
-            priceInput.addEventListener('input', () => {
-                applyPriceValue(priceInput.value);
-            });
-            priceCell.append(priceInput);
+            if (isComp) {
+                priceInput.readOnly = true;
+                priceInput.classList.add('bg-light', 'text-info-emphasis');
+                const compBadge = document.createElement('div');
+                compBadge.className = 'small text-info-emphasis fw-semibold text-end mt-1';
+                compBadge.innerHTML = '<i class="bi bi-gift-fill me-1"></i>Complementary';
+                priceCell.append(priceInput, compBadge);
+                const hiddenComp = document.createElement('input');
+                hiddenComp.type = 'hidden';
+                hiddenComp.name = `items[${index}][is_complementary]`;
+                hiddenComp.value = '1';
+                priceCell.append(hiddenComp);
+            } else {
+                const applyPriceValue = (rawPrice) => {
+                    const parsed = parseFloat(rawPrice);
+                    item.unit_price = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                    item.discount_percentage = Number(item.mrp || 0) > 0 ? Math.max(0, 100 - (item.unit_price / item.mrp) * 100) : 0;
+                    discountInput.value = item.discount_percentage.toFixed(2);
+                    updateRowTotals(itemKey);
+                };
+                bindNumericInputValidation(priceInput, {
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                    min: 0,
+                    allowEmpty: false,
+                    defaultValue: '0.00',
+                    onNormalize: (val) => applyPriceValue(val)
+                });
+                priceInput.addEventListener('input', () => {
+                    applyPriceValue(priceInput.value);
+                });
+                priceCell.append(priceInput);
+            }
 
             // 6. HSN cell (next to Price / Pc incl. tax)
             const hsnCell = row.insertCell();
@@ -2049,6 +2072,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cart.size) {
             e.preventDefault();
             alert('Please add at least one finished-goods piece to this bill.');
+            return;
+        }
+        if (lastComputedGrandTotal <= 0) {
+            e.preventDefault();
+            alert('Cannot create a POS bill with ₹0.00 total amount. Please add at least one chargeable item.');
             return;
         }
 

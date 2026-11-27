@@ -2351,6 +2351,11 @@ class AllmodulesBillingController
         }
         unset($amount);
 
+        if ($totals['total_amount'] <= 0) {
+            Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Cannot create a POS bill with ₹0.00 total amount. Please add at least one chargeable item.');
+            return;
+        }
+
         $requestedPaymentStatus = strtoupper(trim((string)($_POST['payment_status'] ?? 'PAID')));
         if (!in_array($requestedPaymentStatus, ['PAID', 'COD'], true)) {
             $requestedPaymentStatus = 'PAID';

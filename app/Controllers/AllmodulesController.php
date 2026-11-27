@@ -11904,6 +11904,8 @@ class AllmodulesController {
         $minStock = max(0, (int)($_POST['min_stock'] ?? 10));
         $maxStock = max(0, (int)($_POST['max_stock'] ?? 1000));
         $description = trim($_POST['description'] ?? '');
+        $isComplementary = !empty($_POST['is_complementary']) ? 1 : 0;
+        Database::ensureColumn('products', 'is_complementary', 'TINYINT(1) NOT NULL DEFAULT 0');
 
         // Validations
         if ($categoryId <= 0) {
@@ -11964,8 +11966,8 @@ class AllmodulesController {
         }
 
         Database::execute(
-            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, image_url, cloudinary_public_id, is_active, concern_id, attributes, variants_deferred)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1)",
+            "INSERT INTO products (name, code, category_id, subcategory_id, sub_subcategory_id, category_code, subcategory_code, sub_subcategory_code, qr_code_prefix, brand_id, source_type, material, description, hsn_code, gst_percentage, min_stock, max_stock, is_complementary, image_url, cloudinary_public_id, is_active, concern_id, attributes, variants_deferred)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OWN_PRODUCTION', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1)",
             [
                 $name,
                 $code,
@@ -11983,6 +11985,7 @@ class AllmodulesController {
                 $gstPercentage,
                 $minStock,
                 $maxStock,
+                $isComplementary,
                 $imageUrl,
                 $cloudinaryPublicId,
                 $activeConcernId,
@@ -12205,6 +12208,8 @@ class AllmodulesController {
         $minStock = max(0, (int)($_POST['min_stock'] ?? 10));
         $maxStock = max(0, (int)($_POST['max_stock'] ?? 1000));
         $description = trim($_POST['description'] ?? '');
+        $isComplementary = !empty($_POST['is_complementary']) ? 1 : 0;
+        Database::ensureColumn('products', 'is_complementary', 'TINYINT(1) NOT NULL DEFAULT 0');
 
         if ($categoryId <= 0) {
             Session::flash('error', 'Category is required.');
@@ -12275,7 +12280,7 @@ class AllmodulesController {
         }
 
         Database::execute(
-            "UPDATE products SET name = ?, code = ?, category_id = ?, subcategory_id = ?, sub_subcategory_id = ?, category_code = ?, subcategory_code = ?, sub_subcategory_code = ?, qr_code_prefix = ?, brand_id = ?, material = ?, description = ?, hsn_code = ?, gst_percentage = ?, min_stock = ?, max_stock = ?, image_url = ?, cloudinary_public_id = ?, attributes = ?, variants_deferred = ?, updated_at = NOW()
+            "UPDATE products SET name = ?, code = ?, category_id = ?, subcategory_id = ?, sub_subcategory_id = ?, category_code = ?, subcategory_code = ?, sub_subcategory_code = ?, qr_code_prefix = ?, brand_id = ?, material = ?, description = ?, hsn_code = ?, gst_percentage = ?, min_stock = ?, max_stock = ?, is_complementary = ?, image_url = ?, cloudinary_public_id = ?, attributes = ?, variants_deferred = ?, updated_at = NOW()
              WHERE id = ?",
             [
                 $name,
@@ -12294,6 +12299,7 @@ class AllmodulesController {
                 $gstPercentage,
                 $minStock,
                 $maxStock,
+                $isComplementary,
                 $imageUrl,
                 $cloudinaryPublicId,
                 $attributes,

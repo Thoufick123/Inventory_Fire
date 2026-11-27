@@ -275,6 +275,21 @@ if (empty($existingColorIds)) {
                             </div>
                         </div>
                     </div>
+
+                    <!-- Complementary Item Toggle -->
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 rounded-3 bg-info-subtle bg-opacity-50 border border-info-subtle">
+                            <div>
+                                <label class="form-label fw-bold text-dark mb-0" for="is_complementary">
+                                    <i class="bi bi-gift-fill text-info-emphasis me-1"></i> Complementary Category / Product
+                                </label>
+                                <div class="small text-muted">When enabled, this product is treated as a free complementary item (₹0.00) during POS billing.</div>
+                            </div>
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="is_complementary" name="is_complementary" value="1" <?= !empty($product['is_complementary']) ? 'checked' : '' ?> style="width: 3rem; height: 1.5rem; cursor: pointer;">
+                            </div>
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
