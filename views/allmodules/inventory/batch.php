@@ -475,7 +475,13 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
 <script>
 window.inventoryPieceItems = <?= json_encode($pieceItems ?? []) ?>;
 window.inventoryRawItems = <?= json_encode($rawItems ?? []) ?>;
-const COMPANY_TITLE = <?= json_encode($activeWhName) ?>;
+<?php
+    $activeConcernRow = function_exists('currentConcern') ? currentConcern() : null;
+    $activeConcernTitle = strtoupper((string)(!empty($activeConcernRow['name']) && stripos((string)$activeConcernRow['name'], 'Global Admin') === false ? $activeConcernRow['name'] : 'GRM APPARELS'));
+    $activeBrandCode = strtoupper((string)(!empty($activeConcernRow['code']) && strtoupper((string)$activeConcernRow['code']) !== 'ADMIN' ? $activeConcernRow['code'] : 'GRM'));
+?>
+const COMPANY_TITLE = <?= json_encode($activeConcernTitle) ?>;
+const BRAND_CODE = <?= json_encode($activeBrandCode) ?>;
 let currentInventoryPage = 1;
 let inventoryPageSize = 12;
 let matchingPieceElements = [];
@@ -548,6 +554,8 @@ function buildInventoryPieceCards() {
                 variantKey: vKey,
                 variantCode: variantDisplayCode,
                 variantSku: variantDisplayCode,
+                brandName: p.brand_name || '',
+                subSubcategoryName: p.sub_subcategory_name || '',
                 productName: p.product_name || 'Finished Product',
                 categoryName: p.category_name || 'Apparel',
                 sizeName: p.size_name || 'Std',
@@ -583,6 +591,8 @@ function buildInventoryPieceCards() {
                 variantKey: vKey,
                 variantCode: vCode,
                 variantSku: vCode,
+                brandName: it.brand_name || '',
+                subSubcategoryName: it.sub_subcategory_name || '',
                 productName: it.product_name || 'Finished Product',
                 categoryName: it.category_name || 'Apparel',
                 sizeName: it.size_name || 'Std',
@@ -640,10 +650,10 @@ function buildInventoryPieceCards() {
                             </div>
                             <div class="min-w-0 text-start">
                                 <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
-                                    ${escapeHtml(vData.productName)}
+                                    ${escapeHtml(vData.brandName || BRAND_CODE)}
                                 </div>
                                 <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11.5px;">
-                                    ${escapeHtml(vData.categoryName)}
+                                    ${escapeHtml(vData.subSubcategoryName || vData.productName)}
                                 </div>
                                 <div class="fw-semibold text-dark mb-1" style="font-size: 12.5px;">
                                     ${escapeHtml(vData.sizeName)} / ${escapeHtml(vData.colorName)}
@@ -879,7 +889,7 @@ function renderStickersToModal(pieces) {
         const variantDisplayCode = p.variant_code || (p.variant_id ? ('V' + String(p.variant_id).padStart(4, '0')) : (p.tag_code ? p.tag_code.split('-')[0] : 'V0001'));
         const basePrice = parseFloat(p.base_price || 0);
         const discPrice = parseFloat(p.discount_price || p.base_price || 0);
-        const mrpHtml = (basePrice > discPrice && basePrice > 0)
+        const mrpHtml = basePrice > 0
             ? `<div class="text-muted text-decoration-line-through mb-0.5" style="font-size: 11.5px;">MRP: ${formatCurrency(basePrice)}</div>`
             : '';
         const discHtml = discPrice > 0
@@ -899,10 +909,10 @@ function renderStickersToModal(pieces) {
                     </div>
                     <div class="min-w-0 text-start">
                         <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13px; letter-spacing: 0.3px; color: #881337;">
-                            ${escapeHtml(p.product_name || 'PRODUCT')}
+                            ${escapeHtml(p.brand_name || BRAND_CODE)}
                         </div>
                         <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 11px;">
-                            ${escapeHtml(p.category_name || 'Apparel')}
+                            ${escapeHtml(p.sub_subcategory_name || p.product_name || 'PRODUCT')}
                         </div>
                         <div class="fw-semibold text-dark mb-1" style="font-size: 12px;">
                             ${escapeHtml(p.size_name || 'Std')} / ${escapeHtml(p.color_name || 'Std')}

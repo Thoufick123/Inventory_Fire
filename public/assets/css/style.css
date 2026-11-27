@@ -598,8 +598,14 @@ body {
     font-family: var(--font-family);
     font-weight: 500;
     border-radius: 8px;
-    padding: 0.5rem 1rem;
+    border-width: 1px;
+    padding: 0.45rem 0.9rem;
     font-size: 0.875rem;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
     transition: var(--transition);
 }
 
@@ -624,6 +630,13 @@ body {
 .btn-sm {
     padding: 0.3rem 0.65rem;
     font-size: 0.8rem;
+    border-radius: 8px;
+}
+
+.btn-lg {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    border-radius: 8px;
 }
 
 .action-btns-group {

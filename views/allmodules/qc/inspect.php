@@ -309,7 +309,7 @@
                                 data-outwarded="<?= $isOutwarded ? '1' : '0' ?>"
                                 data-size="<?= e($it['display_size']) ?>"
                                 data-color="<?= e($it['display_color']) ?>"
-                                data-sku="<?= e($it['sku']) ?>">
+                                data-sku="<?= e($it['sku'] ?? ($pc['variant_code'] ?? '')) ?>">
                                 <td>
                                     <div class="mb-1">
                                         <span class="badge bg-primary-subtle text-primary border text-wrap text-start" style="font-size: 0.72rem; line-height: 1.2;">
@@ -331,7 +331,9 @@
                                         <?php endif; ?>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <code class="text-muted fs-8"><?= e($it['sku']) ?></code>
+                                        <?php if (!empty($it['sku'])): ?>
+                                            <code class="text-muted fs-8"><?= e($it['sku']) ?></code>
+                                        <?php endif; ?>
                                         <span class="text-muted small">&bull; Garment #<?= $pc['p_num'] ?> of <?= $pc['inspected_qty'] ?></span>
                                     </div>
                                 </td>
