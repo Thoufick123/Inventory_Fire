@@ -135,14 +135,25 @@ class VariantService {
         $gstRate = isset($data['gst_rate']) ? (float)$data['gst_rate'] : (float)($product['gst_percentage'] ?? 5.0);
         $isActive = isset($data['is_active']) ? (int)$data['is_active'] : 1;
 
+        $prodCode = trim((string)($product['code'] ?? ''));
+        $sku = !empty($data['sku']) ? strtoupper(trim((string)$data['sku'])) : (($prodCode !== '' ? $prodCode . '-' : 'SKU-') . $variantCode);
+        if (Database::fetchOne("SELECT id FROM product_variants WHERE sku = ? LIMIT 1", [$sku])) {
+            $sku = ($prodCode !== '' ? $prodCode . '-' : 'SKU-') . $variantCode;
+            $skuSuffix = 2;
+            while (Database::fetchOne("SELECT id FROM product_variants WHERE sku = ? LIMIT 1", [$sku])) {
+                $sku = ($prodCode !== '' ? $prodCode . '-' : 'SKU-') . $variantCode . '-' . $skuSuffix++;
+            }
+        }
+
         Database::beginTransaction();
         try {
             Database::execute(
                 "INSERT INTO product_variants 
-                 (variant_code, product_id, size_id, color_id, design_id, attr_hash, hsn_code, gst_rate, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 (variant_code, sku, product_id, size_id, color_id, design_id, attr_hash, hsn_code, gst_rate, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $variantCode,
+                    $sku,
                     $productId,
                     $sizeId,
                     $colorId,

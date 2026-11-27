@@ -476,7 +476,7 @@ class AdminController {
      * Admin Dashboard.
      */
     public function dashboard(): void {
-        if (!hasPermission('dashboard', 'view')) {
+        if (!hasPermission('dashboard', 'view') && empty(getAvailableUserConcerns())) {
             $dashboardRoutes = [
                 'sellers'                    => ['production/sellers', 'production/sellers/create'],
                 'production_purchases'       => ['production/purchases', 'production/purchases/create'],
@@ -622,7 +622,7 @@ class AdminController {
      * AJAX endpoint: Return concern-filtered KPI cards and revenue charts JSON.
      */
     public function ajaxDashboardRevenue(): void {
-        if (!hasPermission('dashboard', 'view')) {
+        if (!hasPermission('dashboard', 'view') && empty(getAvailableUserConcerns())) {
             Response::jsonError('Access denied: You do not have permission to view dashboard analytics.', [], 403);
         }
 

@@ -1375,10 +1375,11 @@ class AllmodulesService {
         $variantCode = VariantService::generateNextVariantCode();
         $attrHash = $productId . ':' . ($colorId ?: 0) . ':0:' . ($sizeId ?: 0);
 
+        $sku = 'SKU-' . $variantCode;
         Database::execute(
-            "INSERT INTO product_variants (variant_code, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)",
-            [$variantCode, $productId, $sizeId, $colorId, $attrHash, $variantCode]
+            "INSERT INTO product_variants (variant_code, sku, product_id, size_id, color_id, attr_hash, qr_code, mrp, purchase_price, production_cost, selling_price, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 0.00, 1)",
+            [$variantCode, $sku, $productId, $sizeId, $colorId, $attrHash, $variantCode]
         );
 
         return (int)Database::lastInsertId();

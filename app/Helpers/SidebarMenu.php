@@ -251,6 +251,13 @@ class SidebarMenu {
         return $ordered;
     }
 
+    private static function isListArray(array $arr): bool {
+        if (function_exists('array_is_list')) {
+            return array_is_list($arr);
+        }
+        return $arr === [] || array_keys($arr) === range(0, count($arr) - 1);
+    }
+
     /**
      * Sanitize a submitted sidebar order payload (either flat key array or concern-id => key array map).
      *
@@ -265,7 +272,7 @@ class SidebarMenu {
         if (!is_array($input) || empty($input)) {
             return [];
         }
-        if (array_is_list($input)) {
+        if (self::isListArray($input)) {
             return self::sanitizeOrder($input);
         }
         $map = [];
@@ -293,7 +300,7 @@ class SidebarMenu {
             if ($row && !empty($row['sidebar_order'])) {
                 $decoded = json_decode((string)$row['sidebar_order'], true);
                 if (is_array($decoded) && !empty($decoded)) {
-                    if (array_is_list($decoded)) {
+                    if (self::isListArray($decoded)) {
                         return ['_default' => self::sanitizeOrder($decoded)];
                     }
                     $map = [];
@@ -328,7 +335,7 @@ class SidebarMenu {
             if ($row && !empty($row['sidebar_order'])) {
                 $decoded = json_decode((string)$row['sidebar_order'], true);
                 if (is_array($decoded) && !empty($decoded)) {
-                    if (!array_is_list($decoded)) {
+                    if (!self::isListArray($decoded)) {
                         if ($concernId && isset($decoded[(string)$concernId]) && is_array($decoded[(string)$concernId])) {
                             return self::sanitizeOrder($decoded[(string)$concernId]);
                         }

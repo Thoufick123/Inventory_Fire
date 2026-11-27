@@ -649,7 +649,7 @@ function renderPrintableStickerMarkup(d, qrSrc, cfg, isCol2) {
     const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
     const fontPt = Math.max(5.5, 4.2 + cfg.fontSize * 1.0);
     const concernTxt = d.concern || '';
-    const brandTxt = d.brand || d.productName || '';
+    const brandTxt = d.brand || '';
     const subSubTxt = d.subSubcategory || '';
 
     return `

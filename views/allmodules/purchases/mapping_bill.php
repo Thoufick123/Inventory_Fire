@@ -13,6 +13,7 @@ $viewOnly = !empty($viewOnly);
 $activeItemId = (int)($activeItem['id'] ?? 0);
 $purchasedQty = (float)($activeItem['quantity'] ?? 0);
 $unitPrice = (float)($activeItem['unit_price'] ?? 0);
+$baseRate = $unitPrice;
 
 // Accurately compute GST Rate
 $gstRate = (float)($activeItem['cgst_value'] ?? 0) + (float)($activeItem['sgst_value'] ?? 0) + (float)($activeItem['igst_value'] ?? 0);
@@ -695,7 +696,7 @@ tr.table-danger, tr.table-danger > td {
                     <div class="row g-2 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold mb-1">Product / Style Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" id="billGenProductName" value="<?= e($activeItem['item_name']) ?>" placeholder="e.g. Shirt, Pant..." readonly>
+                            <input type="text" class="form-control form-control-sm" id="billGenProductName" value="<?= e($activeItem['item_name']) ?>" placeholder="e.g. Shirt, Pant...">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-semibold mb-1">Unit</label>
@@ -1247,8 +1248,10 @@ tr.table-danger, tr.table-danger > td {
                             <div class="border rounded p-3 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between bill-qr-label-card"
                                  data-qr-code="<?= e($q['qr_code']) ?>"
                                  data-vid="<?= !empty($itemVar['variant_id']) ? 'VID: #' . (int)$itemVar['variant_id'] : '' ?>"
+                                 data-brand="<?= e(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM'))) ?>"
+                                 data-sub-subcategory="<?= e($itemVar['sub_subcategory_name'] ?? '') ?>"
                                  data-product-name="<?= e($activeItem['item_name']) ?>"
-                                 data-attributes="<?= e(trim(implode(' / ', array_filter([$itemVar['color'] ?? '', $itemVar['size'] ?? ''])))) ?>"
+                                 data-attributes="<?= e(trim(implode(' / ', array_filter([$itemVar['size'] ?? '', $itemVar['color'] ?? ''])))) ?>"
                                  data-mrp="<?= e(formatCurrency((float)($itemVar['mrp'] ?? 0))) ?>"
                                  data-selling-price="<?= e(formatCurrency((float)($itemVar['selling_price'] ?? 0))) ?>">
                                 <div class="small fw-bold text-truncate text-dark mb-1"><?= e($activeItem['item_name']) ?></div>
@@ -1809,15 +1812,24 @@ document.addEventListener('DOMContentLoaded', function () {
             const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
             card.className = 'bill-qr-label-card';
             const concern = esc(<?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>);
+            const brand = esc((d.brand || 'GRM').slice(0, 20));
+            const title = esc((d.subSubcategory || d.productName || '').slice(0, 24));
             card.innerHTML = `
-                <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
-                    ${concern ? `<div class="position-absolute fw-bold text-secondary text-uppercase text-truncate text-center px-2" style="left:0;right:0;top:4px;font-size:${Math.max(8, fontPx - 2)}px;">${concern}</div>` : ''}
-                    <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
-                    <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${esc(d.qrCode)}</div>
-                    <div class="position-absolute fw-bold text-uppercase text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;color:#881337;">${esc((d.productName || '').slice(0, 24))}</div>
-                    <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${esc((d.attributes || '').slice(0, 24))}</div>
-                    ${d.mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
-                    ${d.sellingPrice ? `<div class="position-absolute fw-bold" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                <div class="border rounded bg-white shadow-sm p-2 d-flex flex-column justify-content-center" style="width:${stickerW}px;min-height:${stickerH}px;">
+                    ${concern ? `<div class="fw-bold text-secondary text-uppercase text-truncate text-center pb-1 mb-1 border-bottom" style="font-size:${Math.max(8, fontPx - 2)}px;letter-spacing:0.4px;">${concern}</div>` : ''}
+                    <div class="d-flex justify-content-center align-items-center gap-2 py-1">
+                        <div class="d-flex flex-column align-items-center flex-shrink-0">
+                            <div class="border rounded d-flex align-items-center justify-content-center bg-white tsc-bill-qr-target" data-code="${esc(d.qrCode)}" style="width:${qrPx}px;height:${qrPx}px;"></div>
+                            <div class="font-monospace fw-bold text-dark mt-1" style="font-size:9px;">${esc(d.qrCode)}</div>
+                        </div>
+                        <div class="text-start" style="min-width:0;max-width:${Math.max(80, stickerW - qrPx - 28)}px;line-height:1.2;">
+                            <div class="fw-bold text-uppercase text-truncate" style="font-size:${fontPx}px;color:#881337;">${brand}</div>
+                            ${title ? `<div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size:${Math.max(8.5, fontPx - 1)}px;">${title}</div>` : ''}
+                            <div class="fw-semibold text-dark text-truncate" style="font-size:${Math.max(9, fontPx - 0.5)}px;">${esc((d.attributes || '').slice(0, 24))}</div>
+                            ${d.mrp ? `<div class="text-muted text-decoration-line-through" style="font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${esc(d.mrp)}</div>` : ''}
+                            ${d.sellingPrice ? `<div class="fw-bold" style="font-size:${fontPx}px;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                        </div>
+                    </div>
                 </div>
             `;
             card.querySelectorAll('.tsc-bill-qr-target').forEach(function(el) {
@@ -1863,15 +1875,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 const subLeftMm = (cfg.subX * 0.125) + shiftMm;
                 const subTopMm = cfg.subY * 0.125;
                 const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
-                const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
+                const fontPt = Math.max(5.5, 4.2 + cfg.fontSize * 1.0);
+                const concernTxt = <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>;
+                const brandTxt = d.brand || 'GRM';
+                const titleTxt = d.subSubcategory || d.productName || '';
                 return `
-                    <div class="sticker">
-                        ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
-                        <div style="position:absolute;left:${subLeftMm}mm;top:${subTopMm}mm;font-family:monospace;font-size:6pt;font-weight:700;">${esc(d.qrCode)}</div>
-                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.productName)}</div>
-                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.attributes)}</div>
-                        ${d.mrp ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(d.mrp)}</div>` : ''}
-                        ${d.sellingPrice ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    <div class="sticker" style="display:flex;flex-direction:column;justify-content:center;padding:1.2mm 1.5mm;">
+                        ${concernTxt ? `<div style="text-align:center;font-size:${Math.max(4.8, fontPt - 1.2)}pt;font-weight:700;color:#475569;text-transform:uppercase;white-space:nowrap;overflow:hidden;border-bottom:0.2mm solid #cbd5e1;padding-bottom:0.5mm;margin-bottom:0.8mm;">${esc(concernTxt)}</div>` : ''}
+                        <div style="display:flex;justify-content:center;align-items:center;gap:1.8mm;flex:1;">
+                            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+                                ${qrSrc ? `<img src="${qrSrc}" style="width:${qrMm}mm;height:${qrMm}mm;">` : ''}
+                                <div style="font-family:monospace;font-size:5.5pt;font-weight:700;line-height:1;margin-top:0.5mm;">${esc(d.qrCode)}</div>
+                            </div>
+                            <div style="min-width:0;max-width:${Math.max(12, cfg.widthMm - qrMm - 6)}mm;display:flex;flex-direction:column;gap:0.45mm;line-height:1.15;text-align:left;">
+                                <div style="font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(brandTxt)}</div>
+                                ${titleTxt ? `<div style="font-size:${Math.max(4.8, fontPt - 1.0)}pt;font-weight:600;color:#0f172a;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(titleTxt)}</div>` : ''}
+                                <div style="font-size:${Math.max(5, fontPt - 0.4)}pt;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;">${esc(d.attributes)}</div>
+                                ${d.mrp ? `<div style="font-size:${Math.max(4.8, fontPt - 1.1)}pt;color:#64748b;text-decoration:line-through;white-space:nowrap;">MRP: ${esc(d.mrp)}</div>` : ''}
+                                ${d.sellingPrice ? `<div style="font-size:${fontPt}pt;font-weight:700;color:#15803d;white-space:nowrap;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                            </div>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -2881,13 +2904,23 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     };
 
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
     // =========================================================================
-    // BILL MAPPING VARIANT GENERATOR (Matches mapping_draft UI — no auto-loaded rows)
+    // BILL MAPPING VARIANT GENERATOR (Isolated so earlier handlers cannot block it)
     // =========================================================================
+    const tbodyVariantRows = document.getElementById('tbodyVariantRows');
+    const formMapProductBill = document.getElementById('formMapProductBill');
+    const showBillAlert = (msg) => (typeof window.showModernAlert === 'function' ? window.showModernAlert(msg) : alert(msg));
     const billCategoryAttrMap = <?= json_encode($categoryAttributesMap ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billAllSubcategories = <?= json_encode(array_values($allSubcategories ?? []), JSON_UNESCAPED_UNICODE) ?>;
+    const billAllSubSubcategories = <?= json_encode(array_values($allSubSubcategories ?? []), JSON_UNESCAPED_UNICODE) ?>;
     const billMasterSizes = <?= json_encode(array_values(array_filter(array_map(static fn($s) => trim((string)($s['name'] ?? '')), $masterSizes ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const billMasterColors = <?= json_encode(array_values(array_filter(array_map(static fn($c) => trim((string)($c['name'] ?? '')), $masterColors ?? []))), JSON_UNESCAPED_UNICODE) ?>;
     const billHsnList = <?= json_encode($hsnList ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const billProductNameInput = document.getElementById('billGenProductName');
     const billCatSel = document.getElementById('billGenCategory');
     const billSubSel = document.getElementById('billGenSubcategory');
     const billSsSel = document.getElementById('billGenSubSubcategory');
@@ -2996,37 +3029,57 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function syncBillSubcategoryOptions(preserveSelection = false) {
         if (!billCatSel || !billSubSel) return;
-        const catId = billCatSel.value;
-        const prevSub = preserveSelection ? billSubSel.value : '';
-        Array.from(billSubSel.options).forEach(o => {
-            if (!o.value) return;
-            const match = catId !== '' && o.dataset.parent === catId;
-            o.hidden = !match;
-            o.disabled = !match;
-        });
-        if (preserveSelection && prevSub && Array.from(billSubSel.options).some(o => o.value === prevSub && !o.hidden)) {
-            billSubSel.value = prevSub;
-        } else {
+        const catId = String(billCatSel.value || '');
+        const prevSub = preserveSelection ? String(billSubSel.value || '') : '';
+        billSubSel.innerHTML = '<option value="">-- Sub Category --</option>';
+        if (catId !== '') {
+            billAllSubcategories
+                .filter(sc => String(sc.category_id) === catId)
+                .forEach(sc => {
+                    const opt = document.createElement('option');
+                    opt.value = String(sc.id);
+                    opt.dataset.parent = String(sc.category_id);
+                    opt.textContent = sc.name || '';
+                    if (preserveSelection && prevSub === opt.value) opt.selected = true;
+                    billSubSel.appendChild(opt);
+                });
+        }
+        if (!preserveSelection || !Array.from(billSubSel.options).some(o => o.value === prevSub)) {
             billSubSel.value = '';
         }
     }
 
     function syncBillSubSubcategoryOptions(preserveSelection = false) {
         if (!billSubSel || !billSsSel) return;
-        const subId = billSubSel.value;
-        const prevSs = preserveSelection ? billSsSel.value : '';
-        Array.from(billSsSel.options).forEach(o => {
-            if (!o.value) return;
-            const match = subId !== '' && o.dataset.parent === subId;
-            o.hidden = !match;
-            o.disabled = !match;
-        });
-        if (preserveSelection && prevSs && Array.from(billSsSel.options).some(o => o.value === prevSs && !o.hidden)) {
-            billSsSel.value = prevSs;
-        } else {
+        const subId = String(billSubSel.value || '');
+        const prevSs = preserveSelection ? String(billSsSel.value || '') : '';
+        billSsSel.innerHTML = '<option value="">-- Sub Sub --</option>';
+        if (subId !== '') {
+            billAllSubSubcategories
+                .filter(ssc => String(ssc.subcategory_id) === subId)
+                .forEach(ssc => {
+                    const opt = document.createElement('option');
+                    opt.value = String(ssc.id);
+                    opt.dataset.parent = String(ssc.subcategory_id);
+                    opt.textContent = ssc.name || '';
+                    if (preserveSelection && prevSs === opt.value) opt.selected = true;
+                    billSsSel.appendChild(opt);
+                });
+        }
+        if (!preserveSelection || !Array.from(billSsSel.options).some(o => o.value === prevSs)) {
             billSsSel.value = '';
         }
     }
+
+    function syncBillProductNameToForm() {
+        const val = billProductNameInput ? billProductNameInput.value.trim() : '';
+        if (!val) return;
+        const styleEl = document.getElementById('inputStyleName');
+        if (styleEl) styleEl.value = val;
+        const itemEl = document.querySelector('#formMapProductBill input[name="item_name"]');
+        if (itemEl) itemEl.value = val;
+    }
+    billProductNameInput?.addEventListener('input', syncBillProductNameToForm);
 
     billCatSel?.addEventListener('change', function () {
         syncBillSubcategoryOptions(false);
@@ -3120,14 +3173,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Generate & Save -> populate hidden tbodyVariantRows and submit formMapProductBill
     btnGenSaveBill?.addEventListener('click', function () {
+        if (billProductNameInput && !billProductNameInput.value.trim()) {
+            showBillAlert('Please enter a Product / Style Name first.');
+            billProductNameInput.focus();
+            return;
+        }
+        syncBillProductNameToForm();
         if (!billCatSel?.value) {
-            showModernAlert('Please select a Category first.');
+            showBillAlert('Please select a Category first.');
             billCatSel?.focus();
             return;
         }
         const rateRows = Array.from(billRatesBody?.querySelectorAll('tr') || []);
         if (!rateRows.length) {
-            showModernAlert('Please select at least one Size or Color attribute.');
+            showBillAlert('Please select at least one Size or Color attribute.');
             return;
         }
         const templateRow = tbodyVariantRows?.querySelector('.variant-row')?.cloneNode(true);
@@ -3147,7 +3206,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const mrp = parseFloat(rEl.querySelector('.bill-rate-mrp')?.value || '0');
             const sp = parseFloat(rEl.querySelector('.bill-rate-sp')?.value || '0');
             if (q <= 0 || mrp <= 0 || sp <= 0 || sp > mrp) {
-                showModernAlert('Please check Qty, MRP, and Selling Price (Selling Price cannot exceed MRP).');
+                showBillAlert('Please check Qty, MRP, and Selling Price (Selling Price cannot exceed MRP).');
                 return;
             }
             const effRate = (gstMode === 'INCLUDED' && gstNum > 0 && rawRate > 0) ? (rawRate / (1 + gstNum / 100)).toFixed(2) : rawRate.toFixed(2);

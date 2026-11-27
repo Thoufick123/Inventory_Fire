@@ -108,8 +108,9 @@
 
         <?php
             $concernName = strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'));
-            $brandCode = strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM'));
-            $vCode = $variant['variant_code'] ?: $variant['qr_code'];
+            $brandCode = strtoupper((string)(!empty($variant['brand_name']) ? $variant['brand_name'] : (function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM')));
+            $displayTitle = strtoupper((string)(!empty($variant['sub_subcategory_name']) ? $variant['sub_subcategory_name'] : ($variant['product_name'] ?? '')));
+            $vCode = $variant['qr_code'] ?: $variant['variant_code'];
             $mrpVal = (float)($variant['mrp'] ?? 0);
             $spVal = (float)($variant['selling_price'] ?? 0);
             $attrLine = trim(($variant['size_name'] ?? '') . ' / ' . ($variant['color_name'] ?? ''), ' /');
@@ -118,14 +119,14 @@
             <div class="text-center fw-bold text-secondary text-uppercase pb-1 mb-2 border-bottom" style="font-size: 10px; letter-spacing: 0.5px;">
                 <?= e($concernName) ?>
             </div>
-            <div class="qr-section" style="align-items: center; gap: 10px;">
+            <div class="qr-section" style="justify-content: center; align-items: center; gap: 12px;">
                 <div class="d-flex flex-column align-items-center flex-shrink-0">
                     <div id="qrCanvas" class="qr-box"></div>
                     <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 9.5px; letter-spacing: 0.4px;"><?= e($vCode) ?></div>
                 </div>
-                <div class="meta-list flex-grow-1" style="min-width: 0;">
+                <div class="meta-list text-start" style="min-width: 0; max-width: 58%;">
                     <div class="fw-bolder text-uppercase text-truncate" style="font-size: 11px; color: #881337;"><?= e($brandCode) ?></div>
-                    <div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size: 9.5px;"><?= e($variant['product_name']) ?></div>
+                    <div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size: 9.5px;"><?= e($displayTitle) ?></div>
                     <?php if ($attrLine !== ''): ?>
                         <div class="fw-semibold text-dark text-truncate" style="font-size: 10px;"><?= e($attrLine) ?></div>
                     <?php endif; ?>

@@ -1424,6 +1424,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between qr-label-card"
                                  data-qr-code="<?= e($q['qr_code']) ?>"
                                  data-vid="VID: #<?= (int)($item['variant_id'] ?? 0) ?>"
+                                 data-brand="<?= e(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['code'] ?? 'GRM') : 'GRM'))) ?>"
+                                 data-sub-subcategory="<?= e($item['sub_subcategory_name'] ?? '') ?>"
                                  data-product-name="<?= e($item['item_name']) ?>"
                                  data-category="<?= e($catTrail) ?>"
                                  data-attributes="<?= e($attrText) ?>"
@@ -1735,32 +1737,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const fontPx = Math.max(10, 7.5 + cfg.fontSize * 1.6);
         const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-        const title = esc((data.productName || 'PRODUCT').slice(0, 24));
+        const brand = esc((data.brand || 'GRM').slice(0, 20));
+        const title = esc((data.subSubcategory || data.productName || 'PRODUCT').slice(0, 24));
         const attrs = esc((data.attributes || '').slice(0, 24));
         const mrp = esc(data.mrp || '');
         const sp = esc(data.sellingPrice || '');
         const code = esc(data.qrCode || '');
-        const vid = esc(data.vid || '');
-        const isCol2 = data.colIndex === 2;
-        const shiftPx = isCol2 ? Math.round(cfg.col2Shift * scale) : 0;
-        const qrLeft = Math.round(cfg.qrX * scale) + shiftPx;
-        const qrTop = Math.round(cfg.qrY * scale);
-        const subLeft = Math.round(cfg.subX * scale) + shiftPx;
-        const subTop = Math.round(cfg.subY * scale);
-        const txtLeft = Math.round(cfg.textX * scale) + shiftPx;
-        const txtMaxW = Math.max(70, stickerW - txtLeft - 8);
-
         const concern = esc(data.concern || <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>);
         return `
-            <div class="border rounded bg-white position-relative overflow-hidden shadow-sm" style="width:${stickerW}px;height:${stickerH}px;">
+            <div class="border rounded bg-white shadow-sm p-2 d-flex flex-column justify-content-center position-relative" style="width:${stickerW}px;min-height:${stickerH}px;">
                 ${labelBadge ? `<span class="badge bg-light text-secondary border position-absolute" style="top:4px;left:6px;font-size:9px;z-index:2;">${esc(labelBadge)}</span>` : ''}
-                ${concern ? `<div class="position-absolute fw-bold text-secondary text-uppercase text-truncate text-center px-2" style="left:0;right:0;top:4px;font-size:${Math.max(8, fontPx - 2)}px;">${concern}</div>` : ''}
-                <div class="position-absolute border rounded d-flex align-items-center justify-content-center bg-white tsc-qr-target" data-code="${code}" data-qr-px="${qrPx}" style="left:${qrLeft}px;top:${qrTop}px;width:${qrPx}px;height:${qrPx}px;"></div>
-                <div class="position-absolute font-monospace fw-bold text-dark" style="left:${subLeft}px;top:${subTop}px;font-size:9.5px;">${code}</div>
-                <div class="position-absolute fw-bold text-uppercase text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.titleY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;color:#881337;">${title}</div>
-                <div class="position-absolute fw-semibold text-dark text-truncate" style="left:${txtLeft}px;top:${Math.round(cfg.varY * scale)}px;font-size:${fontPx}px;max-width:${txtMaxW}px;">${attrs}</div>
-                ${mrp ? `<div class="position-absolute text-muted text-decoration-line-through" style="left:${txtLeft}px;top:${Math.round(cfg.mrpY * scale)}px;font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
-                ${sp ? `<div class="position-absolute fw-bold" style="left:${txtLeft}px;top:${Math.round(cfg.spY * scale)}px;font-size:${fontPx}px;color:#15803d;">Disc: ${sp}</div>` : ''}
+                ${concern ? `<div class="fw-bold text-secondary text-uppercase text-truncate text-center pb-1 mb-1 border-bottom" style="font-size:${Math.max(8, fontPx - 2)}px;letter-spacing:0.4px;">${concern}</div>` : ''}
+                <div class="d-flex justify-content-center align-items-center gap-2 py-1">
+                    <div class="d-flex flex-column align-items-center flex-shrink-0">
+                        <div class="border rounded d-flex align-items-center justify-content-center bg-white tsc-qr-target" data-code="${code}" data-qr-px="${qrPx}" style="width:${qrPx}px;height:${qrPx}px;"></div>
+                        <div class="font-monospace fw-bold text-dark mt-1" style="font-size:9px;">${code}</div>
+                    </div>
+                    <div class="text-start" style="min-width:0;max-width:${Math.max(80, stickerW - qrPx - 28)}px;line-height:1.2;">
+                        <div class="fw-bold text-uppercase text-truncate" style="font-size:${fontPx}px;color:#881337;">${brand}</div>
+                        <div class="fw-semibold text-dark text-uppercase text-truncate" style="font-size:${Math.max(8.5, fontPx - 1)}px;">${title}</div>
+                        <div class="fw-semibold text-dark text-truncate" style="font-size:${Math.max(9, fontPx - 0.5)}px;">${attrs}</div>
+                        ${mrp ? `<div class="text-muted text-decoration-line-through" style="font-size:${Math.max(8.5, fontPx - 1.5)}px;">MRP: ${mrp}</div>` : ''}
+                        ${sp ? `<div class="fw-bold" style="font-size:${fontPx}px;color:#15803d;">Disc: ${sp}</div>` : ''}
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -1832,6 +1832,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const d = card.dataset;
             card.className = 'qr-label-card';
             card.innerHTML = renderTscStickerHtml(cfg, {
+                brand: d.brand || 'GRM',
+                subSubcategory: d.subSubcategory || '',
                 productName: d.productName || '',
                 attributes: d.attributes || '',
                 mrp: d.mrp || '',
@@ -1945,15 +1947,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 const subLeftMm = (cfg.subX * 0.125) + shiftMm;
                 const subTopMm = cfg.subY * 0.125;
                 const txtLeftMm = (cfg.textX * 0.125) + shiftMm;
-                const fontPt = Math.max(6, 4.5 + cfg.fontSize * 1.2);
+                const fontPt = Math.max(5.5, 4.2 + cfg.fontSize * 1.0);
+                const concernTxt = <?= json_encode(strtoupper((string)(function_exists('currentConcern') ? (currentConcern()['name'] ?? 'GRM APPARELS') : 'GRM APPARELS'))) ?>;
+                const brandTxt = d.brand || 'GRM';
+                const titleTxt = d.subSubcategory || d.productName || '';
                 return `
-                    <div class="sticker">
-                        ${qrSrc ? `<img src="${qrSrc}" style="position:absolute;left:${qrLeftMm}mm;top:${qrTopMm}mm;width:${qrMm}mm;height:${qrMm}mm;">` : ''}
-                        <div style="position:absolute;left:${subLeftMm}mm;top:${subTopMm}mm;font-family:monospace;font-size:6pt;font-weight:700;">${esc(d.qrCode)}</div>
-                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.titleY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.productName)}</div>
-                        <div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.varY * 0.125}mm;font-size:${fontPt}pt;font-weight:600;white-space:nowrap;overflow:hidden;max-width:${Math.max(12, cfg.widthMm - txtLeftMm - 1)}mm;">${esc(d.attributes)}</div>
-                        ${d.mrp ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.mrpY * 0.125}mm;font-size:${Math.max(5.5, fontPt - 1)}pt;color:#666;text-decoration:line-through;">MRP: ${esc(d.mrp)}</div>` : ''}
-                        ${d.sellingPrice ? `<div style="position:absolute;left:${txtLeftMm}mm;top:${cfg.spY * 0.125}mm;font-size:${fontPt}pt;font-weight:700;color:#15803d;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                    <div class="sticker" style="display:flex;flex-direction:column;justify-content:center;padding:1.2mm 1.5mm;">
+                        ${concernTxt ? `<div style="text-align:center;font-size:${Math.max(4.8, fontPt - 1.2)}pt;font-weight:700;color:#475569;text-transform:uppercase;white-space:nowrap;overflow:hidden;border-bottom:0.2mm solid #cbd5e1;padding-bottom:0.5mm;margin-bottom:0.8mm;">${esc(concernTxt)}</div>` : ''}
+                        <div style="display:flex;justify-content:center;align-items:center;gap:1.8mm;flex:1;">
+                            <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+                                ${qrSrc ? `<img src="${qrSrc}" style="width:${qrMm}mm;height:${qrMm}mm;">` : ''}
+                                <div style="font-family:monospace;font-size:5.5pt;font-weight:700;line-height:1;margin-top:0.5mm;">${esc(d.qrCode)}</div>
+                            </div>
+                            <div style="min-width:0;max-width:${Math.max(12, cfg.widthMm - qrMm - 6)}mm;display:flex;flex-direction:column;gap:0.45mm;line-height:1.15;text-align:left;">
+                                <div style="font-size:${fontPt}pt;font-weight:700;color:#881337;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(brandTxt)}</div>
+                                ${titleTxt ? `<div style="font-size:${Math.max(4.8, fontPt - 1.0)}pt;font-weight:600;color:#0f172a;text-transform:uppercase;white-space:nowrap;overflow:hidden;">${esc(titleTxt)}</div>` : ''}
+                                <div style="font-size:${Math.max(5, fontPt - 0.4)}pt;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;">${esc(d.attributes)}</div>
+                                ${d.mrp ? `<div style="font-size:${Math.max(4.8, fontPt - 1.1)}pt;color:#64748b;text-decoration:line-through;white-space:nowrap;">MRP: ${esc(d.mrp)}</div>` : ''}
+                                ${d.sellingPrice ? `<div style="font-size:${fontPt}pt;font-weight:700;color:#15803d;white-space:nowrap;">Disc: ${esc(d.sellingPrice)}</div>` : ''}
+                            </div>
+                        </div>
                     </div>
                 `;
             }).join('');
