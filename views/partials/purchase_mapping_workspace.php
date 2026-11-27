@@ -266,66 +266,177 @@ $pmPurchaseId = (int)($purchase['id'] ?? 0);
 
 <!-- Edit Saved Variant Modal -->
 <div class="modal fade" id="pmEditItemModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Saved Variant</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body bg-light p-3">
                 <input type="hidden" id="pmEditItemId" value="0">
-                <div class="row g-2">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">Item Name</label>
-                        <input type="text" class="form-control form-control-sm" id="pmEditItemName">
+                <input type="hidden" id="pmEditItemType" value="RAW_MATERIAL">
+
+                <!-- Edit Fabric / Material Rolls (2-row layout) -->
+                <div id="pmEditFabricRollPane" class="border rounded-3 p-3 bg-white d-none">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                        <span class="badge bg-primary text-white rounded-pill px-2 py-1">Roll Batch</span>
+                        <strong class="text-dark">Fabric / Material Rolls</strong>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">Brand</label>
-                        <input type="text" class="form-control form-control-sm text-uppercase" id="pmEditBrandName" list="pmBrandDatalist">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Roll Code / #</label>
+                            <input type="text" class="form-control form-control-sm font-monospace" id="pmEditRollCode" placeholder="ROLL-01">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold mb-1">Fabric / Material Name</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditRollFabricName">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Brand</label>
+                            <input type="text" class="form-control form-control-sm text-uppercase" id="pmEditRollBrandName" list="pmBrandDatalist">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Color / Shade</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditRollColor">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Design / Pattern</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditRollDesign">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small fw-semibold mb-1">Qty</label>
+                            <input type="text" inputmode="numeric" class="form-control form-control-sm pm-num-int" id="pmEditRollQty" value="1">
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-semibold mb-1">Color</label>
-                        <input type="text" class="form-control form-control-sm" id="pmEditColor">
+                    <div class="row g-2 align-items-end mt-1 flex-md-nowrap">
+                        <div class="col-6 col-md-1" style="min-width: 85px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap">Weight (KG)</label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRollWeight">
+                        </div>
+                        <div class="col-6 col-md" style="min-width: 105px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap">Purchase Rate (₹)</label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRollRate">
+                        </div>
+                        <div class="col-6 col-md" style="min-width: 110px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap">HSN Code</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-sm font-monospace" id="pmEditRollHsn" maxlength="20" autocomplete="off">
+                                <button type="button" class="btn btn-outline-secondary" id="pmBtnEditRollHsnDropdown" title="Browse HSN codes" tabindex="-1" style="border: 2px solid var(--border); border-left: 0; background: #fff;">
+                                    <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md" style="min-width: 135px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap">GST</label>
+                            <select class="form-select form-select-sm" id="pmEditRollGstType">
+                                <option value="EXEMPTED">Exempted</option>
+                                <option value="BOTH">Both (CGST and SGST)</option>
+                                <option value="SGST">SGST</option>
+                                <option value="CGST">CGST</option>
+                                <option value="IGST">IGST</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md" style="min-width: 210px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap d-block">GST % <span id="pmEditRollGstSplitPreview" class="text-primary fw-normal" style="font-size:0.68rem;"></span></label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRollGst" value="5">
+                        </div>
+                        <div class="col-6 col-md-auto" style="min-width: 115px;">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap">GST Mode</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check pm-edit-roll-gst-mode" name="pm_edit_roll_gst_mode" id="pmEditRollGstInc" value="INCLUDED" autocomplete="off">
+                                <label class="btn btn-outline-primary fw-semibold" for="pmEditRollGstInc">Incl.</label>
+                                <input type="radio" class="btn-check pm-edit-roll-gst-mode" name="pm_edit_roll_gst_mode" id="pmEditRollGstExc" value="EXCLUDED" autocomplete="off" checked>
+                                <label class="btn btn-outline-primary fw-semibold" for="pmEditRollGstExc">Excl.</label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-semibold mb-1">Size</label>
-                        <input type="text" class="form-control form-control-sm" id="pmEditSize">
+                </div>
+
+                <!-- Edit Raw Materials (2-row layout) -->
+                <div id="pmEditRawMaterialPane" class="border rounded-3 p-3 bg-white d-none">
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                        <span class="badge bg-primary text-white rounded-pill px-2 py-1">Raw Material</span>
+                        <strong class="text-dark">Raw Materials</strong>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-semibold mb-1">HSN</label>
-                        <input type="text" class="form-control form-control-sm font-monospace" id="pmEditHsn">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-semibold mb-1">Qty</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditQty">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-semibold mb-1">UOM</label>
-                        <input type="text" class="form-control form-control-sm" id="pmEditUnit" list="pmEditUnitList">
-                        <datalist id="pmEditUnitList">
-                            <option value="Pieces">
-                            <option value="Kilograms">
-                            <option value="Metres">
-                            <option value="Litres">
-                            <option value="Boxes">
-                            <option value="Packs">
-                            <option value="Pairs">
-                            <option value="Sets">
-                            <option value="Bundles">
-                            <option value="PCS">
-                            <option value="KGS">
-                            <option value="MTR">
-                        </datalist>
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label small fw-semibold mb-1">Purchase Rate (₹)</label>
-                        <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRate">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold mb-1">Material / Item Name</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditItemName">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Brand</label>
+                            <input type="text" class="form-control form-control-sm text-uppercase" id="pmEditBrandName" list="pmBrandDatalist">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Color / Shade</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditColor">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Count / Size</label>
+                            <input type="text" class="form-control form-control-sm" id="pmEditSize">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold mb-1">Unit</label>
+                            <select class="form-select form-select-sm" id="pmEditUnit">
+                                <option value="Kilograms">Kilograms</option>
+                                <option value="Pieces">Pieces</option>
+                                <option value="Metres">Metres</option>
+                                <option value="Litres">Litres</option>
+                                <option value="Boxes">Boxes</option>
+                                <option value="Packs">Packs</option>
+                                <option value="Pairs">Pairs</option>
+                                <option value="Sets">Sets</option>
+                                <option value="Bundles">Bundles</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <input type="text" class="form-control form-control-sm mt-1 d-none" id="pmEditCustomUnit" placeholder="Custom unit...">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small fw-semibold mb-1">Qty</label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditQty">
+                        </div>
+                        <div class="col-md-2 mt-2">
+                            <label class="form-label small fw-semibold mb-1">Purchase Rate (₹)</label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRate">
+                        </div>
+                        <div class="col-md-2 mt-2">
+                            <label class="form-label small fw-semibold mb-1">HSN Code</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-sm font-monospace" id="pmEditHsn" maxlength="20" autocomplete="off">
+                                <button type="button" class="btn btn-outline-secondary" id="pmBtnEditRawHsnDropdown" title="Browse HSN codes" tabindex="-1" style="border: 2px solid var(--border); border-left: 0; background: #fff;">
+                                    <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2 mt-2">
+                            <label class="form-label small fw-semibold mb-1">GST Type</label>
+                            <select class="form-select form-select-sm" id="pmEditRawGstType">
+                                <option value="EXEMPTED">Exempted</option>
+                                <option value="BOTH">Both (CGST and SGST)</option>
+                                <option value="SGST">SGST</option>
+                                <option value="CGST">CGST</option>
+                                <option value="IGST">IGST</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mt-2">
+                            <label class="form-label small fw-semibold mb-1 text-nowrap d-block">GST % <span id="pmEditRawGstSplitPreview" class="text-primary fw-normal" style="font-size:0.66rem;"></span></label>
+                            <input type="text" inputmode="decimal" class="form-control form-control-sm pm-num-decimal" id="pmEditRawGst" value="5">
+                        </div>
+                        <div class="col-md-3 mt-2">
+                            <label class="form-label small fw-semibold mb-1">GST Mode</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check pm-edit-raw-gst-mode" name="pm_edit_raw_gst_mode" id="pmEditRawGstInc" value="INCLUDED" autocomplete="off">
+                                <label class="btn btn-outline-primary fw-semibold" for="pmEditRawGstInc">Incl.</label>
+                                <input type="radio" class="btn-check pm-edit-raw-gst-mode" name="pm_edit_raw_gst_mode" id="pmEditRawGstExc" value="EXCLUDED" autocomplete="off" checked>
+                                <label class="btn btn-outline-primary fw-semibold" for="pmEditRawGstExc">Excl.</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer bg-white">
-                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm px-4" id="pmBtnSaveEditItem">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold px-4" id="pmBtnSaveEditItem">
                     <i class="bi bi-check-circle me-1"></i>Update
                 </button>
             </div>
@@ -702,18 +813,90 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    const editRollGstTypeSel = document.getElementById('pmEditRollGstType');
+    const editRollGstInput = document.getElementById('pmEditRollGst');
+    const editRollGstSplitEl = document.getElementById('pmEditRollGstSplitPreview');
+    const editRawGstTypeSel = document.getElementById('pmEditRawGstType');
+    const editRawGstInput = document.getElementById('pmEditRawGst');
+    const editRawGstSplitEl = document.getElementById('pmEditRawGstSplitPreview');
+    const editUnitSel = document.getElementById('pmEditUnit');
+    const editCustomUnitInput = document.getElementById('pmEditCustomUnit');
+
+    editRollGstTypeSel?.addEventListener('change', () => updatePmGstSplitPreview(editRollGstTypeSel, editRollGstInput, editRollGstSplitEl));
+    editRollGstInput?.addEventListener('input', () => updatePmGstSplitPreview(editRollGstTypeSel, editRollGstInput, editRollGstSplitEl));
+    editRawGstTypeSel?.addEventListener('change', () => updatePmGstSplitPreview(editRawGstTypeSel, editRawGstInput, editRawGstSplitEl));
+    editRawGstInput?.addEventListener('input', () => updatePmGstSplitPreview(editRawGstTypeSel, editRawGstInput, editRawGstSplitEl));
+    editUnitSel?.addEventListener('change', function () {
+        if (!editCustomUnitInput) return;
+        const isOther = this.value === 'Other';
+        editCustomUnitInput.classList.toggle('d-none', !isOther);
+        if (isOther) editCustomUnitInput.focus();
+    });
+
+    const editRollHsnInput = document.getElementById('pmEditRollHsn');
+    const editRollHsnBtn = document.getElementById('pmBtnEditRollHsnDropdown');
+    const editRawHsnInput = document.getElementById('pmEditHsn');
+    const editRawHsnBtn = document.getElementById('pmBtnEditRawHsnDropdown');
+    editRollHsnInput?.addEventListener('input', () => showPmHsnDropdown(editRollHsnInput, editRollGstInput, false));
+    editRollHsnInput?.addEventListener('focus', () => showPmHsnDropdown(editRollHsnInput, editRollGstInput, editRollHsnInput.value.trim() === ''));
+    editRollHsnBtn?.addEventListener('click', (e) => { e.preventDefault(); editRollHsnInput?.focus(); showPmHsnDropdown(editRollHsnInput, editRollGstInput, true); });
+    editRawHsnInput?.addEventListener('input', () => showPmHsnDropdown(editRawHsnInput, editRawGstInput, false));
+    editRawHsnInput?.addEventListener('focus', () => showPmHsnDropdown(editRawHsnInput, editRawGstInput, editRawHsnInput.value.trim() === ''));
+    editRawHsnBtn?.addEventListener('click', (e) => { e.preventDefault(); editRawHsnInput?.focus(); showPmHsnDropdown(editRawHsnInput, editRawGstInput, true); });
+
     window.editPmDraftItem = function (itemId) {
         const it = pmCurrentItems.find(row => Number(row.id) === Number(itemId));
         if (!it) return;
+        const isRoll = (String(it.item_type || '').toUpperCase() === 'FABRIC_ROLL');
         document.getElementById('pmEditItemId').value = String(it.id);
-        document.getElementById('pmEditItemName').value = it.item_name || '';
-        document.getElementById('pmEditBrandName').value = it.resolved_brand_name || it.brand_name || '';
-        document.getElementById('pmEditColor').value = it.color || '';
-        document.getElementById('pmEditSize').value = it.size || '';
-        document.getElementById('pmEditHsn').value = it.hsn_code || '';
-        document.getElementById('pmEditQty').value = String(it.quantity ?? '1');
-        document.getElementById('pmEditUnit').value = it.unit || 'Pieces';
-        document.getElementById('pmEditRate').value = String(it.unit_price ?? '0');
+        document.getElementById('pmEditItemType').value = it.item_type || 'RAW_MATERIAL';
+        document.getElementById('pmEditFabricRollPane')?.classList.toggle('d-none', !isRoll);
+        document.getElementById('pmEditRawMaterialPane')?.classList.toggle('d-none', isRoll);
+
+        const gstTypeVal = String(it.gst_type || 'BOTH').toUpperCase();
+        const gstRateVal = String(it.gst_rate ?? '5');
+        const gstModeVal = String(it.gst_mode || 'EXCLUDED').toUpperCase();
+
+        if (isRoll) {
+            document.getElementById('pmEditRollCode').value = it.roll_code || '';
+            document.getElementById('pmEditRollFabricName').value = it.item_name || '';
+            document.getElementById('pmEditRollBrandName').value = it.resolved_brand_name || it.brand_name || '';
+            document.getElementById('pmEditRollColor').value = it.color || '';
+            document.getElementById('pmEditRollDesign').value = it.design_name || '';
+            document.getElementById('pmEditRollQty').value = String(parseInt(it.quantity ?? '1', 10) || 1);
+            document.getElementById('pmEditRollWeight').value = String(it.weight_kg ?? '0');
+            document.getElementById('pmEditRollRate').value = String(it.unit_price ?? '0');
+            document.getElementById('pmEditRollHsn').value = it.hsn_code || '5208';
+            if (editRollGstTypeSel) editRollGstTypeSel.value = ['EXEMPTED','BOTH','SGST','CGST','IGST'].includes(gstTypeVal) ? gstTypeVal : 'BOTH';
+            if (editRollGstInput) editRollGstInput.value = gstRateVal;
+            document.getElementById(gstModeVal === 'INCLUDED' ? 'pmEditRollGstInc' : 'pmEditRollGstExc').checked = true;
+            updatePmGstSplitPreview(editRollGstTypeSel, editRollGstInput, editRollGstSplitEl);
+        } else {
+            document.getElementById('pmEditItemName').value = it.item_name || '';
+            document.getElementById('pmEditBrandName').value = it.resolved_brand_name || it.brand_name || '';
+            document.getElementById('pmEditColor').value = it.color || '';
+            document.getElementById('pmEditSize').value = it.size || '';
+            const rawUnitVal = it.unit || 'Pieces';
+            const stdUnits = Array.from(editUnitSel?.options || []).map(o => o.value);
+            if (editUnitSel && stdUnits.includes(rawUnitVal)) {
+                editUnitSel.value = rawUnitVal;
+                editCustomUnitInput?.classList.add('d-none');
+            } else if (editUnitSel) {
+                editUnitSel.value = 'Other';
+                if (editCustomUnitInput) {
+                    editCustomUnitInput.value = rawUnitVal;
+                    editCustomUnitInput.classList.remove('d-none');
+                }
+            }
+            document.getElementById('pmEditQty').value = String(it.quantity ?? '1');
+            document.getElementById('pmEditRate').value = String(it.unit_price ?? '0');
+            document.getElementById('pmEditHsn').value = it.hsn_code || '';
+            if (editRawGstTypeSel) editRawGstTypeSel.value = ['EXEMPTED','BOTH','SGST','CGST','IGST'].includes(gstTypeVal) ? gstTypeVal : 'BOTH';
+            if (editRawGstInput) editRawGstInput.value = gstRateVal;
+            document.getElementById(gstModeVal === 'INCLUDED' ? 'pmEditRawGstInc' : 'pmEditRawGstExc').checked = true;
+            updatePmGstSplitPreview(editRawGstTypeSel, editRawGstInput, editRawGstSplitEl);
+        }
+
         const modalEl = document.getElementById('pmEditItemModal');
         if (modalEl && window.bootstrap) {
             bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -723,18 +906,47 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('pmBtnSaveEditItem')?.addEventListener('click', async function () {
         const itemId = document.getElementById('pmEditItemId')?.value || '0';
         if (!itemId || itemId === '0') return;
+        const isRoll = (String(document.getElementById('pmEditItemType')?.value || '').toUpperCase() === 'FABRIC_ROLL');
         const fd = new FormData();
         fd.append('csrf_token', pmCsrfToken);
-        fd.append('item_name', document.getElementById('pmEditItemName')?.value.trim() || '');
-        fd.append('brand_name', document.getElementById('pmEditBrandName')?.value.trim() || '');
-        fd.append('color', document.getElementById('pmEditColor')?.value.trim() || '');
-        fd.append('size', document.getElementById('pmEditSize')?.value.trim() || '');
-        fd.append('hsn_code', document.getElementById('pmEditHsn')?.value.trim() || '');
-        fd.append('quantity', document.getElementById('pmEditQty')?.value.trim() || '1');
-        fd.append('unit', document.getElementById('pmEditUnit')?.value.trim() || 'Pieces');
-        fd.append('unit_price', document.getElementById('pmEditRate')?.value.trim() || '0');
         fd.append('mrp', '0');
         fd.append('selling_price', '0');
+
+        if (isRoll) {
+            const gstType = editRollGstTypeSel?.value || 'BOTH';
+            const gstRate = gstType === 'EXEMPTED' ? '0' : (editRollGstInput?.value.trim() || '5');
+            const gstMode = document.querySelector('.pm-edit-roll-gst-mode:checked')?.value || 'EXCLUDED';
+            fd.append('roll_code', document.getElementById('pmEditRollCode')?.value.trim() || '');
+            fd.append('item_name', document.getElementById('pmEditRollFabricName')?.value.trim() || 'FABRIC ROLL');
+            fd.append('brand_name', document.getElementById('pmEditRollBrandName')?.value.trim() || '');
+            fd.append('color', document.getElementById('pmEditRollColor')?.value.trim() || '');
+            fd.append('design_name', document.getElementById('pmEditRollDesign')?.value.trim() || '');
+            fd.append('quantity', document.getElementById('pmEditRollQty')?.value.trim() || '1');
+            fd.append('weight_kg', document.getElementById('pmEditRollWeight')?.value.trim() || '0');
+            fd.append('unit', 'KGS');
+            fd.append('unit_price', document.getElementById('pmEditRollRate')?.value.trim() || '0');
+            fd.append('hsn_code', document.getElementById('pmEditRollHsn')?.value.trim() || '');
+            fd.append('gst_type', gstType);
+            fd.append('gst_rate', gstRate);
+            fd.append('gst_mode', gstMode);
+        } else {
+            let unitVal = editUnitSel?.value || 'Pieces';
+            if (unitVal === 'Other') unitVal = editCustomUnitInput?.value.trim() || 'Pieces';
+            const gstType = editRawGstTypeSel?.value || 'BOTH';
+            const gstRate = gstType === 'EXEMPTED' ? '0' : (editRawGstInput?.value.trim() || '5');
+            const gstMode = document.querySelector('.pm-edit-raw-gst-mode:checked')?.value || 'EXCLUDED';
+            fd.append('item_name', document.getElementById('pmEditItemName')?.value.trim() || 'RAW MATERIAL');
+            fd.append('brand_name', document.getElementById('pmEditBrandName')?.value.trim() || '');
+            fd.append('color', document.getElementById('pmEditColor')?.value.trim() || '');
+            fd.append('size', document.getElementById('pmEditSize')?.value.trim() || '');
+            fd.append('unit', unitVal);
+            fd.append('quantity', document.getElementById('pmEditQty')?.value.trim() || '1');
+            fd.append('unit_price', document.getElementById('pmEditRate')?.value.trim() || '0');
+            fd.append('hsn_code', document.getElementById('pmEditHsn')?.value.trim() || '');
+            fd.append('gst_type', gstType);
+            fd.append('gst_rate', gstRate);
+            fd.append('gst_mode', gstMode);
+        }
 
         this.disabled = true;
         try {

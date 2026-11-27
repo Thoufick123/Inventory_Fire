@@ -16,7 +16,7 @@
             <?= CSRF::field() ?>
             <div class="row g-3">
                 <?php $concernSelectColClass = 'col-12'; include BASE_PATH . '/views/partials/admin_concern_select.php'; ?>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="d-flex justify-content-between align-items-center gap-2">
                         <label class="form-label fw-semibold mb-2">Supplier / Person <span class="text-danger">*</span></label>
                         <?php if (hasPermission('sellers', 'create')): ?>
@@ -32,15 +32,19 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Supplier Invoice Number <span class="text-danger">*</span></label>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Supplier Invoice Number</label>
                     <div class="input-group">
-                        <input type="text" name="invoice_number" id="mappingInvoiceNumber" class="form-control font-monospace" maxlength="100" required value="<?= e($invoiceNumber ?? '') ?>" autocomplete="off">
+                        <input type="text" name="invoice_number" id="mappingInvoiceNumber" class="form-control font-monospace" maxlength="100" placeholder="Optional — auto-generated if blank" value="<?= e($invoiceNumber ?? '') ?>" autocomplete="off">
                         <a href="#" id="btnUseExistingMappingInvoice" class="btn btn-warning fw-semibold d-none">
                             <i class="bi bi-box-arrow-up-right me-1"></i>Use Existing Invoice
                         </a>
                     </div>
                     <div id="mappingInvoiceError" class="invalid-feedback d-none fw-semibold"></div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold" for="mappingInvoiceDate">Invoice Date <span class="text-danger">*</span></label>
+                    <input type="date" name="invoice_date" id="mappingInvoiceDate" class="form-control" required value="<?= e($_GET['invoice_date'] ?? date('Y-m-d')) ?>">
                 </div>
 
                 <!-- Existing Invoice All Data Preview Card -->
