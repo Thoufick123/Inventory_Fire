@@ -332,7 +332,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 30px;">S.NO</th>
-                                    <th style="min-width: 210px;">Product &amp; SKU</th>
+                                    <th style="min-width: 210px;">Product</th>
                                     <th style="min-width: 155px;">QR Range &amp; Next Tag</th>
                                     <th style="min-width: 120px;">Size &amp; Color</th>
                                     <th class="text-end" style="width: 95px;">Outward Exp</th>
@@ -397,7 +397,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                         ? implode(', ', $outwardPieceTags)
                                         : (($tagStart !== $tagEnd) ? ($tagStart . ' - ' . $tagEnd) : $tagStart);
                                     ?>
-                                    <tr id="row-<?= $vid ?>" data-variant-id="<?= $vid ?>" data-sku="<?= e($item['sku']) ?>" data-qr="<?= e($tagStart) ?>" data-expected="<?= $expected ?>">
+                                    <tr id="row-<?= $vid ?>" data-variant-id="<?= $vid ?>" data-sku="<?= e($item['sku'] ?? $item['variant_code'] ?? '') ?>" data-qr="<?= e($tagStart) ?>" data-expected="<?= $expected ?>">
                                         <td class="text-muted small fw-semibold"><?= $idx + 1 ?></td>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
@@ -417,7 +417,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                         <?= e($item['product_name'] ?? 'Finished Garment') ?>
                                                     </div>
                                                     <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
-                                                        <span class="badge bg-dark font-monospace text-white" style="font-size: 0.72rem;"><?= e($item['sku']) ?></span>
                                                         <?php if (!empty($item['category_name'])): ?>
                                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.70rem;"><?= e($item['category_name']) ?></span>
                                                         <?php endif; ?>
@@ -677,7 +676,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                             <span class="badge bg-primary-subtle text-primary border" id="modalProductCategory">-</span>
                         </div>
                         <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
-                            <span class="badge bg-dark font-monospace text-white px-2 py-1" id="modalProductSku">-</span>
+                            <span class="badge bg-dark font-monospace text-white px-2 py-1 d-none" id="modalProductSku">-</span>
                             <span class="badge bg-light text-dark border px-2 py-1">Size: <strong id="modalProductSize">-</strong></span>
                             <span class="badge bg-light text-dark border px-2 py-1">Color: <strong id="modalProductColor">-</strong></span>
                         </div>
@@ -2430,7 +2429,6 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                             <div>
                                 <div class="fw-bold text-dark small">${escapeHtml(item.product_name)}</div>
                                 <div class="d-flex align-items-center gap-1 mt-1">
-                                    <span class="badge bg-dark font-monospace text-white" style="font-size: 0.72rem;">${escapeHtml(item.sku)}</span>
                                     ${item.category_name ? `<span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.72rem;">${escapeHtml(item.category_name)}</span>` : ''}
                                 </div>
                             </div>
@@ -3701,7 +3699,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>Txn #</th>
-                                                        <th>Variant SKU</th>
+                                                        <th>Variant</th>
                                                         <th>Stock State</th>
                                                         <th>Warehouse</th>
                                                         <th class="text-end">Qty Added</th>
@@ -3714,7 +3712,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                                     ${txns.map(t => `
                                                         <tr>
                                                             <td>TXN-${t.id}</td>
-                                                            <td class="fw-bold text-primary">${escapeHtml(t.sku || t.variant_sku || 'Item')}</td>
+                                                            <td class="fw-bold text-primary">${escapeHtml(t.variant_code || t.product_name || t.sku || t.variant_sku || 'Item')}</td>
                                                             <td><span class="badge ${t.stock_state === 'DAMAGED' ? 'bg-danger' : 'bg-success'}">${escapeHtml(t.stock_state || 'AVAILABLE')}</span></td>
                                                             <td>${escapeHtml(t.warehouse_name || '')}</td>
                                                             <td class="text-end ${parseFloat(t.quantity) >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}">${parseFloat(t.quantity) > 0 ? '+' : ''}${parseFloat(t.quantity)} pcs</td>

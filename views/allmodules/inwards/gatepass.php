@@ -97,7 +97,7 @@
         <thead class="table-secondary">
             <tr>
                 <th style="width: 5%;">#</th>
-                <th style="width: 35%;">SKU & Barcode</th>
+                <th style="width: 35%;">Product &amp; Barcode</th>
                 <th style="width: 20%;">Size & Color</th>
                 <th style="width: 20%;" class="text-end">Selling Price</th>
                 <th style="width: 20%;" class="text-end">Dispatched Qty</th>
@@ -110,8 +110,8 @@
                 <tr>
                     <td class="text-center"><?= $i + 1 ?></td>
                     <td>
-                        <div class="fw-bold font-monospace"><?= e($item['sku']) ?></div>
-                        <small class="text-muted font-monospace"><?= e($item['qr_code'] ?? $item['sku']) ?></small>
+                        <div class="fw-bold"><?= e($item['product_name'] ?? 'Product') ?></div>
+                        <small class="text-muted font-monospace"><?= e($item['qr_code'] ?? $item['variant_code'] ?? '') ?></small>
                     </td>
                     <td>
                         <div class="d-flex align-items-center gap-2">

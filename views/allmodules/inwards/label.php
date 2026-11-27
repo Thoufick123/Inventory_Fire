@@ -176,7 +176,7 @@
                 <tr>
                     <th style="width: 70px;">Fabric</th>
                     <th style="width: 120px;">Color &amp; Design</th>
-                    <th>SKU Code</th>
+                    <th>Variant / Product</th>
                     <th style="width: 60px;">Size</th>
                     <th style="width: 90px;">Qty (Pcs)</th>
                 </tr>
@@ -218,7 +218,7 @@
                                 </td>
                             <?php endif; ?>
                             <td class="font-monospace fw-semibold text-start ps-2">
-                                <?= e($it['sku']) ?>
+                                <?= e($it['variant_code'] ?? $it['product_name'] ?? '—') ?>
                             </td>
                             <td><span class="fw-bold"><?= e($it['size_name']) ?></span></td>
                             <td class="fw-bold text-success fs-6"><?= number_format($it['quantity']) ?></td>

@@ -1262,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <div class="table-responsive">
                                             <table class="table table-sm table-bordered mb-0 small">
                                                 <thead class="table-light">
-                                                    <tr><th>SKU</th><th>Size / Color</th><th>Quantity</th><th>Rejected</th><th>Rework</th><th>Unit Price</th></tr>
+                                                    <tr><th>Variant</th><th>Size / Color</th><th>Quantity</th><th>Rejected</th><th>Rework</th><th>Unit Price</th></tr>
                                                 </thead>
                                                 <tbody>
                                                     ${items.map(it => {
@@ -1270,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                         const pText = p > 0 ? '₹' + p.toFixed(2) : '₹—';
                                                         return `
                                                             <tr>
-                                                                <td class="font-monospace fw-bold">${escapeHtml(it.sku || '')}</td>
+                                                                <td class="font-monospace fw-bold">${escapeHtml(it.variant_code || it.product_name || 'Item')}</td>
                                                                 <td>${escapeHtml(it.size_name || 'Std')} / ${escapeHtml(it.color_name || 'Std')}</td>
                                                                 <td class="fw-bold font-monospace text-success">${it.quantity || 0} pcs</td>
                                                                 <td class="text-danger fw-bold">${it.qc_rejected_qty || 0}</td>
@@ -1451,7 +1451,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>Txn #</th>
-                                                        <th>Variant SKU</th>
+                                                        <th>Variant</th>
                                                         <th>Stock State</th>
                                                         <th>Warehouse</th>
                                                         <th class="text-end">Qty Added</th>
@@ -1464,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                     ${txns.map(t => `
                                                         <tr>
                                                             <td>TXN-${t.id}</td>
-                                                            <td class="fw-bold text-primary">${escapeHtml(t.sku || t.variant_sku || 'Item')}</td>
+                                                            <td class="fw-bold text-primary">${escapeHtml(t.variant_code || t.product_name || t.sku || t.variant_sku || 'Item')}</td>
                                                             <td><span class="badge ${t.stock_state === 'DAMAGED' ? 'bg-danger' : 'bg-success'}">${escapeHtml(t.stock_state || 'AVAILABLE')}</span></td>
                                                             <td>${escapeHtml(t.warehouse_name || '')}</td>
                                                             <td class="text-end ${parseFloat(t.quantity) >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}">${parseFloat(t.quantity) > 0 ? '+' : ''}${parseFloat(t.quantity)} pcs</td>
