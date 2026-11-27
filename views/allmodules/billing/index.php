@@ -200,9 +200,22 @@
                             <td class="text-center"><?= (int)$bill['line_count'] ?></td>
                             <td class="text-end fw-semibold"><?= formatCurrency((float)((float)$bill['total_amount'])) ?></td>
                             <td>
-                                <span class="badge <?= $bill['payment_status'] === 'PAID' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' ?>">
-                                    <?= htmlspecialchars($bill['payment_status']) ?>
+                                <?php
+                                $st = strtoupper((string)($bill['payment_status'] ?? 'PAID'));
+                                $stBadge = $st === 'PAID'
+                                    ? 'bg-success-subtle text-success'
+                                    : ($st === 'COD' ? 'bg-info-subtle text-info-emphasis border border-info-subtle' : 'bg-warning-subtle text-warning-emphasis');
+                                ?>
+                                <span class="badge <?= $stBadge ?>">
+                                    <?= htmlspecialchars($st) ?>
                                 </span>
+                                <?php if ($st === 'COD'): ?>
+                                    <div class="small text-muted mt-1" style="font-size: 11px;">
+                                        Paid: <span class="text-success fw-semibold"><?= formatCurrency((float)($bill['paid_amount'] ?? 0)) ?></span>
+                                        &middot;
+                                        Rem: <span class="text-danger fw-semibold"><?= formatCurrency((float)($bill['remaining_amount'] ?? 0)) ?></span>
+                                    </div>
+                                <?php endif; ?>
                                 <?php if ((int)($bill['linked_batch_count'] ?? 0) > 0): ?>
                                     <?php if ((int)($bill['received_batch_count'] ?? 0) === (int)$bill['linked_batch_count']): ?>
                                         <span class="badge bg-success-subtle text-success">Received</span>
