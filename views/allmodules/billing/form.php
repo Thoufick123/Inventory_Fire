@@ -458,50 +458,92 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                 </div>
                             </div>
 
-                            <!-- Saved Coupons Selector (No QR/Barcode) -->
-                            <div class="mt-3 p-3 bg-light rounded-3 border">
-                                <label class="form-label fw-bold text-dark mb-1" for="savedCouponSelect">
-                                    <i class="bi bi-ticket-perforated text-primary me-1"></i>Apply Saved Coupon
-                                </label>
-                                <div class="input-group">
-                                    <select id="savedCouponSelect" class="form-select fw-semibold">
-                                        <option value="">-- Select a saved coupon --</option>
-                                        <?php foreach ($availableCoupons ?? [] as $cp): ?>
-                                            <?php
-                                            $cpType = strtoupper((string)($cp['discount_type'] ?? 'FIXED'));
-                                            $cpVal = (float)($cp['discount_value'] ?? 0);
-                                            $cpMin = (float)($cp['min_redemption_amount'] ?? 0);
-                                            $cpLabel = $cp['coupon_code']
-                                                . (!empty($cp['title']) ? ' (' . $cp['title'] . ')' : '')
-                                                . ' — ' . ($cpType === 'PERCENT' ? rtrim(rtrim(number_format($cpVal, 2), '0'), '.') . '% OFF' : '₹' . number_format($cpVal, 2) . ' OFF')
-                                                . ($cpMin > 0 ? ' [Min ₹' . number_format($cpMin, 2) . ']' : '');
-                                            ?>
-                                            <option value="<?= e($cp['coupon_code']) ?>"
-                                                    data-id="<?= (int)$cp['id'] ?>"
-                                                    data-code="<?= e($cp['coupon_code']) ?>"
-                                                    data-type="<?= e($cpType) ?>"
-                                                    data-value="<?= number_format($cpVal, 2, '.', '') ?>"
-                                                    data-min="<?= number_format($cpMin, 2, '.', '') ?>"
-                                                    <?= ($bill['applied_coupon_code'] ?? '') === $cp['coupon_code'] ? 'selected' : '' ?>>
-                                                <?= e($cpLabel) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="applyCouponBtn" onclick="applySavedCoupon()">Apply</button>
-                                    <button type="button" class="btn btn-outline-danger <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>" id="removeCouponBtn" onclick="removeAppliedCoupon()" title="Remove Coupon">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
+                            <!-- Saved Coupons Card (Reference UI - visible once product is scanned) -->
+                            <div class="mt-3 rounded-4 overflow-hidden border shadow-xs bg-white <?= empty($existingItems) ? 'd-none' : '' ?>" id="savedCouponsCard">
+                                <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #eef4ff 0%, #f7faff 100%); border-bottom: 1px solid #e2e8f0;">
+                                    <div class="fw-bold text-primary small lh-sm">
+                                        Save extra by applying<br>coupons on every order
+                                    </div>
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center shadow-xs" style="width: 34px; height: 34px; flex-shrink: 0;">
+                                        <i class="bi bi-percent fs-6"></i>
+                                    </div>
                                 </div>
-                                <input type="hidden" name="applied_coupon_id" id="appliedCouponId" value="<?= (int)($bill['applied_coupon_id'] ?? 0) ?: '' ?>">
-                                <input type="hidden" name="applied_coupon_code" id="appliedCouponCode" value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
-                                <div id="couponStatusHelp" class="small text-muted mt-1">
-                                    <?php if (!empty($bill['applied_coupon_code'])): ?>
-                                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
-                                    <?php elseif (empty($availableCoupons)): ?>
-                                        No active coupons available. Create one in All Modules &rarr; Coupons.
+                                <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <span class="small fw-semibold text-muted">Coupon Mode:</span>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Coupon Apply Mode">
+                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeDirect" value="DIRECT" <?= ($bill['coupon_apply_mode'] ?? 'DIRECT') !== 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('DIRECT')">
+                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeDirect">Direct Bill Discount</label>
+
+                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeProductBuy" value="PRODUCT_BUY" <?= ($bill['coupon_apply_mode'] ?? '') === 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('PRODUCT_BUY')">
+                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeProductBuy">Buy Product with Coupon</label>
+                                    </div>
+                                    <input type="hidden" name="coupon_apply_mode" id="couponApplyMode" value="<?= $escape($bill['coupon_apply_mode'] ?? 'DIRECT') ?>">
+                                </div>
+                                <div class="px-3 py-2">
+                                    <?php if (empty($availableCoupons)): ?>
+                                        <div class="small text-muted py-2 text-center">
+                                            No active coupons available. Create one in <strong>All Modules &rarr; Coupons</strong>.
+                                        </div>
                                     <?php else: ?>
-                                        Choose a saved coupon above and click Apply.
+                                        <div id="couponCardList">
+                                            <?php foreach ($availableCoupons as $cIdx => $cp): ?>
+                                                <?php
+                                                $cpType = strtoupper((string)($cp['discount_type'] ?? 'FIXED'));
+                                                $cpVal = (float)($cp['discount_value'] ?? 0);
+                                                $cpMin = (float)($cp['min_redemption_amount'] ?? 0);
+                                                $cpRequired = max($cpMin, $cpType === 'FIXED' ? $cpVal : 0);
+                                                $cpSaveText = $cpType === 'PERCENT'
+                                                    ? 'Save ' . rtrim(rtrim(number_format($cpVal, 2), '0'), '.') . "% with '" . $cp['coupon_code'] . "'"
+                                                    : 'Save ₹' . number_format($cpVal, 0) . " with '" . $cp['coupon_code'] . "'";
+                                                $isCurrentlyApplied = ($bill['applied_coupon_code'] ?? '') === $cp['coupon_code'];
+                                                ?>
+                                                <div class="coupon-offer-item py-2 <?= $cIdx > 0 ? 'border-top border-dashed' : '' ?> <?= $cIdx >= 2 ? 'd-none extra-coupon-item' : '' ?>"
+                                                     data-id="<?= (int)$cp['id'] ?>"
+                                                     data-code="<?= e($cp['coupon_code']) ?>"
+                                                     data-type="<?= e($cpType) ?>"
+                                                     data-value="<?= number_format($cpVal, 2, '.', '') ?>"
+                                                     data-min="<?= number_format($cpMin, 2, '.', '') ?>"
+                                                     data-required="<?= number_format($cpRequired, 2, '.', '') ?>">
+                                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                                        <div class="d-flex align-items-start gap-2 min-w-0">
+                                                            <i class="bi bi-patch-check text-secondary mt-1 flex-shrink-0"></i>
+                                                            <div class="min-w-0">
+                                                                <div class="fw-bold text-dark small text-truncate"><?= e($cpSaveText) ?></div>
+                                                                <div class="text-muted" style="font-size: 11px;">
+                                                                    <?php if (!empty($cp['title'])): ?>
+                                                                        <span><?= e($cp['title']) ?></span>
+                                                                    <?php endif; ?>
+                                                                    <?php if ($cpRequired > 0): ?>
+                                                                        <span><?= !empty($cp['title']) ? ' &bull; ' : '' ?>Min bill ₹<?= number_format($cpRequired, 2) ?></span>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button"
+                                                                class="btn btn-sm <?= $isCurrentlyApplied ? 'btn-success' : 'btn-outline-danger' ?> fw-bold px-3 rounded-3 coupon-apply-btn flex-shrink-0"
+                                                                onclick="toggleCouponCard('<?= e($cp['coupon_code']) ?>')">
+                                                            <?= $isCurrentlyApplied ? 'REMOVE' : 'APPLY' ?>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <?php if (count($availableCoupons) > 2): ?>
+                                            <div class="pt-1 pb-1 border-top mt-1">
+                                                <a href="javascript:void(0)" id="viewAllCouponsLink" class="small fw-semibold text-secondary text-decoration-none" onclick="toggleAllCouponsList()">
+                                                    View all coupons (<?= count($availableCoupons) ?>) <i class="bi bi-caret-right-fill"></i>
+                                                </a>
+                                            </div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
+
+                                    <input type="hidden" name="applied_coupon_id" id="appliedCouponId" value="<?= (int)($bill['applied_coupon_id'] ?? 0) ?: '' ?>">
+                                    <input type="hidden" name="applied_coupon_code" id="appliedCouponCode" value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
+                                    <div id="couponStatusHelp" class="small mt-1 <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>">
+                                        <?php if (!empty($bill['applied_coupon_code'])): ?>
+                                            <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
 
@@ -621,6 +663,7 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
 <script>
 let lastComputedGrandTotal = 0;
 let lastPreCouponTotal = 0;
+let lastExtraProductTotal = 0;
 let appliedCouponState = <?= !empty($bill['applied_coupon_code']) ? json_encode([
     'coupon_id' => (int)($bill['applied_coupon_id'] ?? 0),
     'coupon_code' => (string)($bill['applied_coupon_code'] ?? ''),
@@ -1003,52 +1046,122 @@ function openCustomerHistoryModal() {
         });
 }
 
-function applySavedCoupon() {
-    const sel = document.getElementById('savedCouponSelect');
+function getSelectedCouponMode() {
+    const el = document.getElementById('couponApplyMode');
+    return (el && el.value === 'PRODUCT_BUY') ? 'PRODUCT_BUY' : 'DIRECT';
+}
+
+function onCouponModeChange(mode) {
+    const el = document.getElementById('couponApplyMode');
+    const isProductBuy = mode === 'PRODUCT_BUY';
+    if (el) el.value = isProductBuy ? 'PRODUCT_BUY' : 'DIRECT';
+    document.querySelectorAll('.coupon-product-check-wrap').forEach(w => {
+        w.classList.toggle('d-none', !isProductBuy);
+    });
+    if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
+}
+
+function toggleAllCouponsList() {
+    const extras = document.querySelectorAll('.extra-coupon-item');
+    const link = document.getElementById('viewAllCouponsLink');
+    if (!extras.length || !link) return;
+    const isHidden = extras[0].classList.contains('d-none');
+    extras.forEach(el => el.classList.toggle('d-none', !isHidden));
+    link.innerHTML = isHidden
+        ? 'Show fewer coupons <i class="bi bi-caret-up-fill"></i>'
+        : `View all coupons (${document.querySelectorAll('.coupon-offer-item').length}) <i class="bi bi-caret-right-fill"></i>`;
+}
+
+function refreshCouponButtonsUI() {
+    const activeCode = appliedCouponState ? appliedCouponState.coupon_code : '';
+    document.querySelectorAll('.coupon-offer-item').forEach(itemEl => {
+        const btn = itemEl.querySelector('.coupon-apply-btn');
+        if (!btn) return;
+        const isThis = activeCode !== '' && itemEl.dataset.code === activeCode;
+        btn.textContent = isThis ? 'REMOVE' : 'APPLY';
+        btn.className = isThis
+            ? 'btn btn-sm btn-success fw-bold px-3 rounded-3 coupon-apply-btn flex-shrink-0'
+            : 'btn btn-sm btn-outline-danger fw-bold px-3 rounded-3 coupon-apply-btn flex-shrink-0';
+    });
+}
+
+function toggleCouponCard(code) {
+    if (appliedCouponState && appliedCouponState.coupon_code === code) {
+        removeAppliedCoupon();
+        return;
+    }
+    const itemEl = document.querySelector(`.coupon-offer-item[data-code="${CSS.escape(code)}"]`);
     const statusHelp = document.getElementById('couponStatusHelp');
-    const opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
-    if (!opt || !opt.value) {
-        if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Please select a saved coupon first.</span>';
-        return;
+    if (!itemEl) return;
+
+    const dType = String(itemEl.dataset.type || 'FIXED').toUpperCase();
+    const dVal = parseFloat(itemEl.dataset.value || '0') || 0;
+    const minReq = parseFloat(itemEl.dataset.min || '0') || 0;
+    const mode = getSelectedCouponMode();
+
+    if (mode === 'PRODUCT_BUY') {
+        const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+        if (lastExtraProductTotal < reqExtra) {
+            const shortfall = Math.max(0, reqExtra - lastExtraProductTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Original bill will not be reduced. Scan or check "New Product (Use Coupon)" on a product of at least ${formatCurrency(reqExtra)} (need ${formatCurrency(shortfall)} more).</span>`;
+            }
+        }
+        if (minReq > 0 && lastPreCouponTotal < minReq) {
+            const shortfall = Math.max(0, minReq - lastPreCouponTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${formatCurrency(minReq)} total bill (add ${formatCurrency(shortfall)} more) to apply coupon ${code}.</span>`;
+            }
+            return;
+        }
+    } else {
+        const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+        if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
+            const shortfall = Math.max(0, requiredTotal - lastPreCouponTotal);
+            if (statusHelp) {
+                statusHelp.classList.remove('d-none');
+                statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${formatCurrency(requiredTotal)} (add ${formatCurrency(shortfall)} more) to apply coupon ${code}.</span>`;
+            }
+            return;
+        }
     }
-    const minReq = parseFloat(opt.dataset.min || '0') || 0;
-    if (minReq > 0 && lastPreCouponTotal < minReq) {
-        if (statusHelp) statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Minimum bill amount of ${formatCurrency(minReq)} required for coupon ${opt.dataset.code}.</span>`;
-        return;
-    }
-    const dType = String(opt.dataset.type || 'FIXED').toUpperCase();
-    const dVal = parseFloat(opt.dataset.value || '0') || 0;
+
+    const baseForDiscount = mode === 'PRODUCT_BUY' ? lastExtraProductTotal : lastPreCouponTotal;
     const computedDiscount = dType === 'PERCENT'
-        ? Math.round((lastPreCouponTotal * (dVal / 100)) * 100) / 100
-        : Math.min(lastPreCouponTotal, dVal);
+        ? Math.round((baseForDiscount * (dVal / 100)) * 100) / 100
+        : Math.min(baseForDiscount, dVal);
 
     appliedCouponState = {
-        coupon_id: parseInt(opt.dataset.id || '0', 10),
-        coupon_code: opt.dataset.code,
+        coupon_id: parseInt(itemEl.dataset.id || '0', 10),
+        coupon_code: code,
         discount_type: dType,
         discount_value: dVal,
         min_redemption_amount: minReq,
     };
     document.getElementById('appliedCouponId').value = appliedCouponState.coupon_id;
-    document.getElementById('appliedCouponCode').value = appliedCouponState.coupon_code;
-    document.getElementById('removeCouponBtn')?.classList.remove('d-none');
+    document.getElementById('appliedCouponCode').value = code;
+    refreshCouponButtonsUI();
     if (statusHelp) {
-        statusHelp.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${appliedCouponState.coupon_code} applied (-${formatCurrency(computedDiscount)}).</span>`;
+        statusHelp.classList.remove('d-none');
+        statusHelp.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${code} applied (-${formatCurrency(computedDiscount)}).</span>`;
     }
     if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 
 function removeAppliedCoupon() {
     appliedCouponState = null;
-    const sel = document.getElementById('savedCouponSelect');
-    if (sel) sel.value = '';
     const idEl = document.getElementById('appliedCouponId');
     if (idEl) idEl.value = '';
     const codeEl = document.getElementById('appliedCouponCode');
     if (codeEl) codeEl.value = '';
-    document.getElementById('removeCouponBtn')?.classList.add('d-none');
+    refreshCouponButtonsUI();
     const statusHelp = document.getElementById('couponStatusHelp');
-    if (statusHelp) statusHelp.textContent = 'Choose a saved coupon above and click Apply.';
+    if (statusHelp) {
+        statusHelp.classList.add('d-none');
+        statusHelp.innerHTML = '';
+    }
     if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 
@@ -1558,6 +1671,25 @@ document.addEventListener('DOMContentLoaded', () => {
             productTitle.textContent = item.product_name;
             productCell.append(productTitle);
 
+            const couponItemWrap = document.createElement('div');
+            couponItemWrap.className = `mt-1 coupon-product-check-wrap ${getSelectedCouponMode() === 'PRODUCT_BUY' ? '' : 'd-none'}`;
+            const couponCheckLabel = document.createElement('label');
+            couponCheckLabel.className = 'form-check-label small text-primary fw-semibold d-inline-flex align-items-center gap-1';
+            couponCheckLabel.style.cursor = 'pointer';
+            const couponCheck = document.createElement('input');
+            couponCheck.type = 'checkbox';
+            couponCheck.className = 'form-check-input mt-0 coupon-product-checkbox';
+            couponCheck.name = `items[${index}][is_coupon_product]`;
+            couponCheck.value = '1';
+            couponCheck.checked = Boolean(item.is_coupon_product);
+            couponCheck.addEventListener('change', () => {
+                item.is_coupon_product = couponCheck.checked ? 1 : 0;
+                updateTotals();
+            });
+            couponCheckLabel.append(couponCheck, document.createTextNode('New Product (Use Coupon)'));
+            couponItemWrap.append(couponCheckLabel);
+            productCell.append(couponItemWrap);
+
             const badgeWrap = document.createElement('div');
             badgeWrap.className = 'd-flex flex-wrap align-items-center gap-1 my-1';
             const mainVarCode = resolveVariantCode(item);
@@ -1951,12 +2083,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let taxes = 0;
         let grandTotal = 0;
 
+        let extraProductTotal = 0;
         cart.forEach((item, itemKey) => {
             const qty = item.tags.length;
             const price = Number(item.unit_price || 0);
             const mrp = Number(item.mrp || 0);
             const lineGross = mrp * qty;
             const netLine = price * qty;
+            if (item.is_coupon_product) {
+                extraProductTotal += netLine;
+            }
             const gstRate = Number(item.gst_percentage || 0);
 
             let taxable = netLine;
@@ -1979,18 +2115,69 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taxCell) taxCell.textContent = money(lineTax);
         });
 
+        const savedCouponsCard = document.getElementById('savedCouponsCard');
+        if (savedCouponsCard) {
+            savedCouponsCard.classList.toggle('d-none', cart.size === 0);
+            if (cart.size === 0 && appliedCouponState) {
+                removeAppliedCoupon();
+                return;
+            }
+        }
+
         lastPreCouponTotal = grandTotal;
+        lastExtraProductTotal = Math.round(extraProductTotal * 100) / 100;
         let couponDiscount = 0;
         const couponRow = document.getElementById('couponDiscountRow');
         const couponAmtEl = document.getElementById('couponDiscountAmount');
+        const couponStatusEl = document.getElementById('couponStatusHelp');
         if (appliedCouponState && appliedCouponState.coupon_code) {
+            const dType = String(appliedCouponState.discount_type || 'FIXED').toUpperCase();
+            const dVal = Number(appliedCouponState.discount_value || 0);
             const minReq = Number(appliedCouponState.min_redemption_amount || 0);
-            if (minReq > 0 && grandTotal < minReq) {
-                couponDiscount = 0;
-            } else if (String(appliedCouponState.discount_type).toUpperCase() === 'PERCENT') {
-                couponDiscount = Math.round((grandTotal * (Number(appliedCouponState.discount_value || 0) / 100)) * 100) / 100;
+            const mode = getSelectedCouponMode();
+            if (mode === 'PRODUCT_BUY') {
+                const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+                if (lastExtraProductTotal < reqExtra) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, reqExtra - lastExtraProductTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must add another product of at least ${money(reqExtra)} (add ${money(shortfall)} more) for Product Buy coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else if (minReq > 0 && grandTotal < minReq) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, minReq - grandTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${money(minReq)} total bill (add ${money(shortfall)} more) for coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else {
+                    couponDiscount = dType === 'PERCENT'
+                        ? Math.round((lastExtraProductTotal * (dVal / 100)) * 100) / 100
+                        : Math.min(lastExtraProductTotal, dVal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Product Buy coupon ${appliedCouponState.coupon_code} applied (-${money(couponDiscount)} on extra product).</span>`;
+                    }
+                }
             } else {
-                couponDiscount = Math.min(grandTotal, Number(appliedCouponState.discount_value || 0));
+                const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+                if (requiredTotal > 0 && grandTotal < requiredTotal) {
+                    couponDiscount = 0;
+                    const shortfall = Math.max(0, requiredTotal - grandTotal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Must reach ${money(requiredTotal)} (add ${money(shortfall)} more) to apply coupon ${appliedCouponState.coupon_code}.</span>`;
+                    }
+                } else {
+                    couponDiscount = dType === 'PERCENT'
+                        ? Math.round((grandTotal * (dVal / 100)) * 100) / 100
+                        : Math.min(grandTotal, dVal);
+                    if (couponStatusEl) {
+                        couponStatusEl.classList.remove('d-none');
+                        couponStatusEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${appliedCouponState.coupon_code} applied (-${money(couponDiscount)}).</span>`;
+                    }
+                }
             }
         }
         grandTotal = Math.max(0, Math.round((grandTotal - couponDiscount) * 100) / 100);
@@ -2051,6 +2238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const entry = {
                 ...item,
+                is_coupon_product: (getSelectedCouponMode() === 'PRODUCT_BUY' && appliedCouponState) ? 1 : 0,
                 discount_percentage: resolveDiscountPercentage(item),
                 available_tags: [...pool],
                 tags: [chosenTag]
@@ -2217,6 +2405,32 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             alert('Cannot create a POS bill with ₹0.00 total amount. Please add at least one chargeable item.');
             return;
+        }
+        if (appliedCouponState && appliedCouponState.coupon_code) {
+            const dType = String(appliedCouponState.discount_type || 'FIXED').toUpperCase();
+            const dVal = Number(appliedCouponState.discount_value || 0);
+            const minReq = Number(appliedCouponState.min_redemption_amount || 0);
+            const mode = getSelectedCouponMode();
+            if (mode === 'PRODUCT_BUY') {
+                const reqExtra = dType === 'FIXED' ? dVal : 0.01;
+                if (lastExtraProductTotal < reqExtra) {
+                    e.preventDefault();
+                    alert(`Product Buy coupon ${appliedCouponState.coupon_code} requires adding another product worth at least ${money(reqExtra)}, or remove the coupon.`);
+                    return;
+                }
+                if (minReq > 0 && lastPreCouponTotal < minReq) {
+                    e.preventDefault();
+                    alert(`Must reach ${money(minReq)} total bill to apply coupon ${appliedCouponState.coupon_code}, or remove the coupon.`);
+                    return;
+                }
+            } else {
+                const requiredTotal = Math.max(minReq, dType === 'FIXED' ? dVal : 0);
+                if (requiredTotal > 0 && lastPreCouponTotal < requiredTotal) {
+                    e.preventDefault();
+                    alert(`Must reach ${money(requiredTotal)} to apply coupon ${appliedCouponState.coupon_code}, or remove the coupon.`);
+                    return;
+                }
+            }
         }
 
         const numericChecks = [

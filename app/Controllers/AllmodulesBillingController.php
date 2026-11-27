@@ -12,7 +12,7 @@ class AllmodulesBillingController
         if ($checked) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_billing_schema_v3_checked'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_allmodules_billing_schema_v4_checked'])) {
             $checked = true;
             return;
         }
@@ -30,6 +30,7 @@ class AllmodulesBillingController
             Database::ensureColumn('production_bills', 'applied_coupon_id', 'INT(10) UNSIGNED DEFAULT NULL');
             Database::ensureColumn('production_bills', 'applied_coupon_code', 'VARCHAR(40) DEFAULT NULL');
             Database::ensureColumn('production_bills', 'coupon_discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+            Database::ensureColumn('production_bills', 'coupon_apply_mode', "VARCHAR(20) NOT NULL DEFAULT 'DIRECT'");
 
             $statusCol = Database::fetchOne("SHOW COLUMNS FROM production_bills LIKE 'payment_status'");
             if ($statusCol && stripos((string)($statusCol['Type'] ?? ''), "'COD'") === false) {
@@ -65,7 +66,7 @@ class AllmodulesBillingController
                 Database::execute("ALTER TABLE production_bills ADD INDEX idx_production_bills_direct (is_direct_bill)");
             }
             if (session_status() === PHP_SESSION_ACTIVE) {
-                $_SESSION['_allmodules_billing_schema_v3_checked'] = true;
+                $_SESSION['_allmodules_billing_schema_v4_checked'] = true;
             }
         } catch (\Throwable $e) {}
     }
@@ -2433,6 +2434,7 @@ class AllmodulesBillingController
                 'quantity' => count($tags),
                 'unit_price' => round((float)$unitPrice, 2),
                 'is_complementary' => $isComplementary ? 1 : 0,
+                'is_coupon_product' => !empty($submitted['is_coupon_product']) ? 1 : 0,
                 'hsn_code' => $hsnCode,
                 'gst_type' => $gstType,
                 'tax_input_type' => $taxInputType,
@@ -2520,6 +2522,10 @@ class AllmodulesBillingController
 
         // Coupon validation & discount application
         $appliedCouponCode = strtoupper(trim((string)($_POST['applied_coupon_code'] ?? '')));
+        $couponApplyMode = strtoupper(trim((string)($_POST['coupon_apply_mode'] ?? 'DIRECT')));
+        if (!in_array($couponApplyMode, ['DIRECT', 'PRODUCT_BUY'], true)) {
+            $couponApplyMode = 'DIRECT';
+        }
         $appliedCouponId = null;
         $couponDiscountAmount = 0.0;
         if ($appliedCouponCode !== '') {
@@ -2546,17 +2552,44 @@ class AllmodulesBillingController
                 Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Coupon '{$appliedCouponCode}' has expired.");
                 return;
             }
+            $cVal = (float)($couponRow['discount_value'] ?? 0);
+            $cType = strtoupper((string)$couponRow['discount_type']);
             $minRedeem = (float)($couponRow['min_redemption_amount'] ?? 0);
-            if ($minRedeem > 0 && $totals['total_amount'] < $minRedeem) {
-                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Bill total does not meet the minimum purchase amount of ₹' . number_format($minRedeem, 2) . ' for this coupon.');
-                return;
+            $requiredTotal = max($minRedeem, $cType === 'FIXED' ? $cVal : 0.0);
+
+            if ($couponApplyMode === 'PRODUCT_BUY') {
+                // Only items explicitly marked as New Product (Use Coupon) receive the coupon discount
+                $extraProductAmount = 0.0;
+                foreach ($itemPayload as $it) {
+                    if (!empty($it['is_coupon_product'])) {
+                        $extraProductAmount += (float)$it['amounts']['total_amount'];
+                    }
+                }
+                $productBuyRequired = $cType === 'FIXED' ? $cVal : 0.0;
+                if ($extraProductAmount <= 0 || ($productBuyRequired > 0 && $extraProductAmount < $productBuyRequired)) {
+                    $needAmt = $productBuyRequired > 0 ? number_format($productBuyRequired, 2) : '0.01';
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Product Buy coupon '{$appliedCouponCode}' requires selecting/adding a new product worth at least ₹{$needAmt}.");
+                    return;
+                }
+                if ($minRedeem > 0 && $totals['total_amount'] < $minRedeem) {
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Bill total must reach ₹' . number_format($minRedeem, 2) . ' to apply this coupon.');
+                    return;
+                }
+                $couponDiscountAmount = $cType === 'PERCENT'
+                    ? round($extraProductAmount * ($cVal / 100), 2)
+                    : round(min($extraProductAmount, $cVal), 2);
+            } else {
+                if ($requiredTotal > 0 && $totals['total_amount'] < $requiredTotal) {
+                    Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Bill total must reach ₹' . number_format($requiredTotal, 2) . ' to apply this coupon.');
+                    return;
+                }
+                $couponDiscountAmount = $cType === 'PERCENT'
+                    ? round($totals['total_amount'] * ($cVal / 100), 2)
+                    : round(min($totals['total_amount'], $cVal), 2);
             }
+
             $appliedCouponId = (int)$couponRow['id'];
             $appliedCouponCode = (string)$couponRow['coupon_code'];
-            $cVal = (float)($couponRow['discount_value'] ?? 0);
-            $couponDiscountAmount = strtoupper((string)$couponRow['discount_type']) === 'PERCENT'
-                ? round($totals['total_amount'] * ($cVal / 100), 2)
-                : round(min($totals['total_amount'], $cVal), 2);
             $totals['total_amount'] = round(max(0.0, $totals['total_amount'] - $couponDiscountAmount), 2);
         }
 
@@ -2709,6 +2742,7 @@ class AllmodulesBillingController
             $appliedCouponId,
             $appliedCouponCode !== '' ? $appliedCouponCode : null,
             $couponDiscountAmount,
+            $couponApplyMode,
         ];
 
         Database::beginTransaction();
@@ -2725,8 +2759,8 @@ class AllmodulesBillingController
                       bill_date, payment_method, is_direct_bill, payment_status, paid_amount, remaining_amount, tax_type, cash_amount, upi_amount, upi_reference,
                       upi_payment_screenshot_url,
                       gross_amount, discount_amount, subtotal, cgst_amount, sgst_amount, igst_amount, tax_amount,
-                      total_amount, notes, cash_given, change_returned, staff_id, staff_name, applied_coupon_id, applied_coupon_code, coupon_discount_amount, created_by)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      total_amount, notes, cash_given, change_returned, staff_id, staff_name, applied_coupon_id, applied_coupon_code, coupon_discount_amount, coupon_apply_mode, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     array_merge([$activeConcernId, $destinationConcernId, $billNumber], $header, [(int)(Auth::id() ?? 0) ?: null])
                 );
                 $billId = (int)Database::lastInsertId();
@@ -2748,7 +2782,7 @@ class AllmodulesBillingController
                      gross_amount = ?, discount_amount = ?,
                      subtotal = ?, cgst_amount = ?, sgst_amount = ?, igst_amount = ?, tax_amount = ?, total_amount = ?, notes = ?,
                      cash_given = ?, change_returned = ?, staff_id = ?, staff_name = ?,
-                     applied_coupon_id = ?, applied_coupon_code = ?, coupon_discount_amount = ?
+                     applied_coupon_id = ?, applied_coupon_code = ?, coupon_discount_amount = ?, coupon_apply_mode = ?
                      WHERE id = ?",
                     array_merge([$destinationConcernId], $header, [$billId])
                 );
