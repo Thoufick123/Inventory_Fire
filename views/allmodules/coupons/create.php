@@ -6,7 +6,7 @@
     <a class="btn btn-outline-secondary" href="<?= url('allmodules/coupons') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
 </div>
 
-<form method="POST" action="<?= url('allmodules/coupons/store') ?>">
+<form method="POST" action="<?= url('allmodules/coupons/store') ?>" id="couponCreateForm">
     <?= CSRF::input() ?>
     <?php $concernSelectWrapCard = true; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectWrapCard); ?>
 
@@ -32,18 +32,18 @@
 
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Discount Type <span class="text-danger">*</span></label>
-                    <select name="discount_type" class="form-select" required>
+                    <select name="discount_type" id="discountTypeSelect" class="form-select" required>
                         <option value="FIXED">Fixed Amount (₹)</option>
                         <option value="PERCENT">Percentage (%)</option>
                     </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Discount Amount / Value <span class="text-danger">*</span></label>
-                    <input type="number" step="0.01" min="0.01" name="discount_value" class="form-control font-monospace fw-bold" required placeholder="e.g. 200.00">
+                    <input type="text" inputmode="decimal" autocomplete="off" name="discount_value" id="discountValueInput" class="form-control font-monospace fw-bold" required placeholder="e.g. 200.00">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Minimum Bill Amount to Use (₹)</label>
-                    <input type="number" step="0.01" min="0" name="min_redemption_amount" class="form-control font-monospace" value="0.00" placeholder="0.00">
+                    <input type="text" inputmode="decimal" autocomplete="off" name="min_redemption_amount" id="minRedemptionInput" class="form-control font-monospace" value="0.00" placeholder="0.00">
                     <div class="form-text">0.00 means no minimum bill amount required.</div>
                 </div>
 
@@ -65,3 +65,71 @@
         </div>
     </div>
 </form>
+
+<script>
+(function () {
+    function sanitizeDecimal(raw) {
+        let val = String(raw || '').replace(/[^0-9.]/g, '');
+        const dotIdx = val.indexOf('.');
+        if (dotIdx !== -1) {
+            val = val.slice(0, dotIdx + 1) + val.slice(dotIdx + 1).replace(/\./g, '');
+            const parts = val.split('.');
+            if (parts[1].length > 2) {
+                val = parts[0] + '.' + parts[1].slice(0, 2);
+            }
+        }
+        return val;
+    }
+
+    const discountInput = document.getElementById('discountValueInput');
+    const minInput = document.getElementById('minRedemptionInput');
+    const typeSelect = document.getElementById('discountTypeSelect');
+    const form = document.getElementById('couponCreateForm');
+
+    [discountInput, minInput].forEach(el => {
+        if (!el) return;
+        el.addEventListener('input', () => {
+            const clean = sanitizeDecimal(el.value);
+            if (el.value !== clean) el.value = clean;
+            el.classList.remove('is-invalid');
+        });
+        el.addEventListener('blur', () => {
+            const clean = sanitizeDecimal(el.value).trim();
+            if (clean === '' || clean === '.') {
+                el.value = el === minInput ? '0.00' : '';
+                return;
+            }
+            const num = parseFloat(clean);
+            el.value = Number.isFinite(num) ? num.toFixed(2) : (el === minInput ? '0.00' : '');
+        });
+    });
+
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            const dVal = parseFloat(discountInput?.value || '');
+            if (!Number.isFinite(dVal) || dVal <= 0) {
+                e.preventDefault();
+                discountInput?.classList.add('is-invalid');
+                discountInput?.focus();
+                alert('Please enter a valid numeric Discount Amount / Value greater than 0.');
+                return;
+            }
+            if (typeSelect?.value === 'PERCENT' && dVal > 100) {
+                e.preventDefault();
+                discountInput?.classList.add('is-invalid');
+                discountInput?.focus();
+                alert('Percentage discount cannot exceed 100%.');
+                return;
+            }
+            const mRaw = (minInput?.value || '').trim();
+            const mVal = mRaw === '' ? 0 : parseFloat(mRaw);
+            if (!Number.isFinite(mVal) || mVal < 0) {
+                e.preventDefault();
+                minInput?.classList.add('is-invalid');
+                minInput?.focus();
+                alert('Please enter a valid non-negative Minimum Bill Amount.');
+            }
+        });
+    }
+})();
+</script>
