@@ -152,10 +152,10 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
 }
 
 /* Piece QR Sticker Card Styling */
-.inventory-piece-card {
+.inventory-piece-card .card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.inventory-piece-card:hover {
+.inventory-piece-card:hover .card {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0,0,0,0.08) !important;
 }
@@ -310,7 +310,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
         </div>
 
         <!-- Cards Container (Default Grid matching Image 8) -->
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4" id="pieceCardsContainer" style="display: flex;"></div>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 mb-4" id="pieceCardsContainer" style="display: flex;"></div>
 
         <!-- List Container -->
         <div class="list-group list-group-flush gap-2 mb-4" id="pieceListContainer" style="display: none;"></div>
@@ -460,7 +460,7 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom no-print">
                     <span class="text-muted small">Ready to print <strong id="printModalCount">0</strong> sticker label(s)</span>
                 </div>
-                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" id="qrStickersGrid"></div>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3" id="qrStickersGrid"></div>
             </div>
             <div class="modal-footer bg-light border-top no-print py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
