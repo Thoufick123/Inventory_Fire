@@ -190,9 +190,14 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
         <div class="card border-0 shadow-sm mb-4 inward-meta-card">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h6 class="card-title mb-0 fw-bold"><i class="bi bi-info-circle me-2 text-primary"></i>Outward & Dispatch Details</h6>
-                <button type="button" class="btn btn-xs btn-outline-info py-1 px-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#batchHistoryModal">
-                    <i class="bi bi-clock-history me-1"></i> Traceability
-                </button>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-xs btn-outline-secondary py-1 px-2 shadow-sm" id="btnToggleOutwardDetails" onclick="toggleOutwardDetails()">
+                        <i class="bi bi-arrows-expand me-1"></i>Expand
+                    </button>
+                    <button type="button" class="btn btn-xs btn-outline-info py-1 px-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#batchHistoryModal">
+                        <i class="bi bi-clock-history me-1"></i> Traceability
+                    </button>
+                </div>
             </div>
             <div class="card-body p-3">
                 <ul class="list-group list-group-flush inward-meta-list">
@@ -200,19 +205,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                         <span class="text-muted small">Outward Gate Pass:</span>
                         <span class="fw-bold text-primary font-monospace"><?= e($outward['outward_number'] ?? 'N/A') ?></span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span class="text-muted small">Production Batch:</span>
-                        <span class="fw-bold font-monospace text-dark"><?= e($batch['batch_number']) ?></span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span class="text-muted small">Program #:</span>
-                        <span class="fw-semibold font-monospace"><?= e($batch['program_number']) ?></span>
-                    </li>
-                    <li class="list-group-item">
-                        <div class="text-muted small mb-1">Product / Style:</div>
-                        <div class="fw-bold text-dark text-truncate" title="<?= e($batch['product_name']) ?>"><?= e($batch['product_name']) ?></div>
-                    </li>
-                    <li class="list-group-item bg-warning bg-opacity-10 rounded p-2 my-2 border border-warning border-opacity-25">
+                    <li class="list-group-item bg-warning bg-opacity-10 rounded p-2 my-2 border border-warning border-opacity-25 outward-detail-extra d-none">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="text-dark fw-bold small"><i class="bi bi-gear-wide-connected me-1 text-warning"></i>Origin Unit:</span>
                             <span class="badge bg-warning text-dark font-monospace border border-warning"><?= e($batch['production_unit_code'] ?? 'PU1') ?></span>
@@ -222,28 +215,28 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                             <small class="text-muted d-block mt-1"><?= e($batch['production_unit_manager'] ?? '') ?> <?= !empty($batch['production_unit_phone']) ? '(' . e($batch['production_unit_phone']) . ')' : '' ?></small>
                         <?php endif; ?>
                     </li>
-                    <li class="list-group-item bg-primary bg-opacity-10 rounded p-2 my-2 border border-primary border-opacity-25">
+                    <li class="list-group-item bg-primary bg-opacity-10 rounded p-2 my-2 border border-primary border-opacity-25 outward-detail-extra d-none">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="text-primary fw-bold small"><i class="bi bi-building me-1 text-primary"></i>Receiving Warehouse:</span>
                             <span class="badge bg-primary font-monospace"><?= e($batch['warehouse_code'] ?? 'WH') ?></span>
                         </div>
                         <div class="fw-bold text-primary small badge-unit-origin"><?= e($batch['warehouse_name']) ?></div>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <li class="list-group-item d-flex justify-content-between align-items-center outward-detail-extra d-none">
                         <span class="text-muted small">Carton Box Count:</span>
                         <span class="badge bg-light text-dark border font-monospace"><?= number_format($batch['box_count'] ?? 1) ?> Boxes</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <li class="list-group-item d-flex justify-content-between align-items-center outward-detail-extra d-none">
                         <span class="text-muted small">Vehicle / Carrier:</span>
                         <span class="fw-semibold small font-monospace"><?= e($outward['vehicle_number'] ?? 'Internal Transfer') ?></span>
                     </li>
                     <?php if (!empty($outward['driver_name']) || !empty($outward['driver_phone'])): ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center small text-muted">
+                    <li class="list-group-item d-flex justify-content-between align-items-center small text-muted outward-detail-extra d-none">
                         <span>Driver:</span>
                         <span><?= e($outward['driver_name'] ?? 'Driver') ?> <?= !empty($outward['driver_phone']) ? '(' . e($outward['driver_phone']) . ')' : '' ?></span>
                     </li>
                     <?php endif; ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <li class="list-group-item d-flex justify-content-between align-items-center outward-detail-extra d-none">
                         <span class="text-muted small">Dispatch Date:</span>
                         <span class="small"><?= !empty($outward['dispatch_date']) ? date('d M Y, h:i A', strtotime($outward['dispatch_date'])) : 'N/A' ?></span>
                     </li>
@@ -262,6 +255,18 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                 </ul>
             </div>
         </div>
+        <script>
+        function toggleOutwardDetails() {
+            const extras = document.querySelectorAll('.outward-detail-extra');
+            const btn = document.getElementById('btnToggleOutwardDetails');
+            if (!extras.length || !btn) return;
+            const isHidden = extras[0].classList.contains('d-none');
+            extras.forEach(el => el.classList.toggle('d-none', !isHidden));
+            btn.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-collapse me-1"></i>Compact'
+                : '<i class="bi bi-arrows-expand me-1"></i>Expand';
+        }
+        </script>
     </div>
 
     <!-- RIGHT COLUMN: Scanner Engine & Cross-Check Matrix (Responsive 8-col on XL) -->
@@ -333,7 +338,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                 <tr>
                                     <th style="width: 30px;">S.NO</th>
                                     <th style="min-width: 210px;">Product</th>
-                                    <th style="min-width: 155px;">QR Range &amp; Next Tag</th>
+                                    <th style="min-width: 155px;">Variant ID</th>
                                     <th style="min-width: 120px;">Size &amp; Color</th>
                                     <th class="text-end" style="width: 95px;">Outward Exp</th>
                                     <th class="text-center" style="min-width: 170px;" title="Verified intact goods and isolated damaged pieces">Verified &amp; Damaged</th>
@@ -425,13 +430,11 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                             </div>
                                         </td>
                                         <td>
+                                            <?php $displayVariantId = !empty($item['variant_code']) ? $item['variant_code'] : sprintf('V%04d', (int)$vid); ?>
                                             <div>
-                                                <span class="badge bg-dark text-white font-monospace d-block mb-1 text-truncate" style="font-size: 0.72rem; max-width: 155px;" title="<?= e($tagRange) ?>">
-                                                    <i class="bi bi-qr-code me-1 text-warning"></i><?= e($tagRange) ?>
+                                                <span class="badge bg-dark text-white font-monospace" style="font-size: 0.78rem;">
+                                                    <i class="bi bi-qr-code me-1 text-warning"></i><?= e($displayVariantId) ?>
                                                 </span>
-                                                <small class="text-muted d-block font-monospace" style="font-size: 0.70rem;" id="next-tag-container-<?= $vid ?>">
-                                                    Next: <strong class="text-danger" id="next-tag-val-<?= $vid ?>"><?= e($tagStart) ?></strong>
-                                                </small>
                                             </div>
                                         </td>
                                         <td>
@@ -547,7 +550,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                            
                             <div>
                                 <button type="button" class="btn btn-success px-4 py-2 fw-bold shadow-sm fs-6" id="btnCreditScannedOnly" onclick="creditScannedOnly();">
-                                    <i class="bi bi-box-arrow-in-down me-2"></i> <?= ($batch['status'] === 'RECEIVED' && $displayMis > 0) ? 'Update / Credit Inward Stock (<span id="btnCreditScannedCount">+0</span> pcs)' : 'Credit Scanned Qty (<span id="btnCreditScannedCount">0</span> pcs)' ?> to <?= e($batch['warehouse_name']) ?> Inventory
+                                    <i class="bi bi-box-arrow-in-down me-2"></i> Add to Stock<span id="btnCreditScannedCount" class="d-none">0</span>
                                 </button>
                             </div>
                         </div>
@@ -711,50 +714,15 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                     </div>
                 </div>
 
-                <!-- QR Display & Action Box -->
+                <!-- QR Display -->
                 <div class="row g-4 align-items-center mb-4">
-                    <div class="col-md-5 text-center">
+                    <div class="col-12 text-center">
                         <div class="p-3 bg-white rounded-3 border shadow-sm d-inline-block position-relative">
                             <div id="modalQrCanvas" class="d-flex justify-content-center"></div>
                             <div class="text-center" id="modalQrTypeLabel">
                                 <div class="font-monospace fw-bold text-primary fs-5 mt-2" style="letter-spacing: 0.5px;">-</div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-7">
-                        <?php if ($canVerify): ?>
-                            <label class="small fw-bold text-dark d-block mb-2"><i class="bi bi-sliders me-1 text-primary"></i>Scanner Mode (Click to Switch):</label>
-                            <div class="mb-3">
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <input type="radio" class="btn-check" name="modalScanModeToggle" id="modalModeGood" value="good" checked autocomplete="off" onchange="setScanMode('good')">
-                                    <label class="btn btn-outline-success fw-bold py-2 fs-6 flex-grow-1" for="modalModeGood" id="modalLabelModeGood">
-                                        <i class="bi bi-check-circle-fill me-1"></i> 🟢 Good / Intact Mode
-                                    </label>
-
-                                    <input type="radio" class="btn-check" name="modalScanModeToggle" id="modalModeDamage" value="damage" autocomplete="off" onchange="setScanMode('damage')">
-                                    <label class="btn btn-outline-danger fw-bold py-2 fs-6 flex-grow-1" for="modalModeDamage" id="modalLabelModeDamage">
-                                        <i class="bi bi-slash-circle-fill me-1"></i> 🔴 Damaged / Inactivate Mode
-                                    </label>
-                                </div>
-                               
-                            </div>
-
-                           
-                            <div class="d-flex flex-column gap-2">
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <button type="button" class="btn btn-success fw-bold py-2 flex-grow-1 shadow-sm" id="btnModalProcessNext">
-                                        <i class="bi bi-check-circle-fill me-1" id="btnModalProcessIcon"></i> <span id="btnModalProcessText">Inward Next Piece (Good Product)</span>
-                                    </button>
-                                </div>
-                                
-                            </div>
-                        <?php else: ?>
-                            <div class="alert alert-secondary border-0 text-center py-4 rounded-3">
-                                <i class="bi bi-shield-lock-fill fs-3 text-muted d-block mb-2"></i>
-                                <h6 class="fw-bold mb-1">View Only Mode</h6>
-                                <p class="text-muted small mb-0">Your staff account is permitted for viewing inward records only. Verification and stock placement actions are disabled.</p>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -2435,10 +2403,9 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                         </div>
                     </td>
                     <td>
-                        <span class="badge bg-dark text-white font-monospace d-block mb-1" style="font-size: 0.72rem;">
-                            <i class="bi bi-qr-code me-1 text-warning"></i>${escapeHtml(tagRangeDisplay)}
+                        <span class="badge bg-dark text-white font-monospace" style="font-size: 0.78rem;">
+                            <i class="bi bi-qr-code me-1 text-warning"></i>${escapeHtml(getDisplayVariantCode(item.sku || ('V' + String(item.variant_id || '').padStart(4, '0'))))}
                         </span>
-                        <small class="text-muted d-block font-monospace" style="font-size: 0.72rem;">Next: <strong class="text-danger">${escapeHtml(nextPendingTag)}</strong></small>
                     </td>
                     <td>
                         <span class="badge bg-light text-dark border">${escapeHtml(item.size_name)}</span>
