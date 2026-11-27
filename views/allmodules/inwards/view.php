@@ -477,16 +477,16 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                                         <td class="text-center">
                                             <?php if ($canScanOrEdit): ?>
                                                 <div class="d-flex align-items-center justify-content-center gap-2 flex-nowrap">
-                                                    <!-- Verified Intact Units (Non-editable / Updated only via scanning) -->
-                                                    <div class="text-center" title="Verified Good / Intact Quantity (Updated via scanning)">
+                                                    <!-- Verified Intact Units (Editable) -->
+                                                    <div class="text-center" title="Verified Good / Intact Quantity">
                                                         <small class="text-success fw-bold d-block" style="font-size: 0.68rem; line-height: 1.1;">VERIFIED</small>
-                                                        <input type="text" name="items[<?= $vid ?>][received_qty]" 
+                                                        <input type="text" inputmode="numeric" name="items[<?= $vid ?>][received_qty]" 
                                                                class="form-control form-control-sm text-center fw-bold text-success item-received-input input-qty-box mx-auto" 
                                                                id="input-recv-<?= $vid ?>" 
                                                                value="<?= $initReceived ?>" data-variant-id="<?= $vid ?>"
-                                                               readonly tabindex="-1" onkeydown="return false;" onfocus="this.blur();"
-                                                               style="width: 58px; padding: 2px 4px; pointer-events: none; cursor: not-allowed; user-select: none; background-color: #f8fafc;"
-                                                               title="Verified quantity is non-editable and updates only via barcode/QR scanning">
+                                                               oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                               style="width: 58px; padding: 2px 4px; background-color: #ffffff;"
+                                                               title="Enter or scan Verified Good / Intact Quantity">
                                                     </div>
 
                                                     <!-- Damaged / Quarantined Units (Non-editable / Toggle icon button removed) -->
@@ -583,10 +583,7 @@ $canScanOrEdit = $canVerify && ($batch['status'] === 'DISPATCHED' || !$isFullyRe
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 border mb-3">
-                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-3">
-                        <i class="bi bi-building fs-4"></i>
-                    </div>
+                <div class="p-3 bg-light rounded-3 border mb-3">
                     <div>
                         <div class="small text-muted">Destination warehouse</div>
                         <div class="fw-bold text-dark" id="creditConfirmWarehouse"></div>
