@@ -252,7 +252,7 @@ foreach ($hierarchicalModules as $m) {
                         <div class="alert alert-info border-0 d-flex align-items-center gap-2 mb-0 py-2 w-100">
                             <i class="bi bi-info-circle fs-5 text-info flex-shrink-0"></i>
                             <div class="small">
-                                Staff members will only be able to view documents, batches, and switch between entities that are checked above. The first checked concern will be active upon login.
+                                Staff members will only be able to view documents, records, and switch between entities that are checked above. The first checked concern will be active upon login.
                             </div>
                         </div>
                     </div>
@@ -344,12 +344,13 @@ foreach ($hierarchicalModules as $m) {
                                         <table class="table table-hover align-middle mb-0 permissions-table">
                                             <thead class="table-light">
                                                 <tr class="text-uppercase small text-muted" style="font-size: 11px;">
-                                                    <th class="ps-3 py-2" style="width: 38%;">Submodule</th>
-                                                    <th class="text-center py-2" style="width: 12%;">View</th>
-                                                    <th class="text-center py-2" style="width: 12%;">Create</th>
-                                                    <th class="text-center py-2" style="width: 12%;">Edit</th>
-                                                    <th class="text-center py-2" style="width: 12%;">Delete</th>
-                                                    <th class="text-center pe-3 py-2" style="width: 14%;">Row All</th>
+                                                    <th class="ps-3 py-2" style="width: 34%;">Submodule</th>
+                                                    <th class="text-center py-2" style="width: 10%;">View</th>
+                                                    <th class="text-center py-2" style="width: 10%;">Create</th>
+                                                    <th class="text-center py-2" style="width: 10%;">Verify</th>
+                                                    <th class="text-center py-2" style="width: 10%;">Edit</th>
+                                                    <th class="text-center py-2" style="width: 10%;">Delete</th>
+                                                    <th class="text-center pe-3 py-2" style="width: 16%;">Row All</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -376,7 +377,7 @@ foreach ($hierarchicalModules as $m) {
                                                             </div>
                                                         </td>
 
-                                                        <?php foreach (['view', 'create', 'edit', 'delete'] as $crudAction): ?>
+                                                        <?php foreach (['view', 'create', 'verify', 'edit', 'delete'] as $crudAction): ?>
                                                             <td class="text-center">
                                                                 <?php $columnPermissions = $crudColumns[$crudAction]; ?>
                                                                 <?php if (!empty($columnPermissions)): ?>

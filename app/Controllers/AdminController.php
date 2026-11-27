@@ -497,7 +497,6 @@ class AdminController {
                 'production_expenses'        => ['production/expenses', null],
                 'production_billing'         => ['production/billing', 'production/billing/create'],
                 'production_returns'         => ['production/returns', 'production/returns/create'],
-                'batches'                    => ['production/batches', 'production/batches/create'],
                 'outward'                    => ['production/outward', null],
                 'production_stock_requests'  => ['production/stock-requests', 'production/stock-requests/create'],
                 'production_hsn'             => ['production/hsn-config', 'production/hsn-config/create'],
