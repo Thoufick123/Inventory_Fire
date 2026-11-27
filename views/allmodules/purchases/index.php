@@ -264,14 +264,44 @@
     </div>
 </div>
 
+<?php
+$paginationPrefix = 'purchases';
+$paginationItemName = 'purchases';
+$paginationTotal = count($purchases ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+
 <script>
+let purchasesPagination = null;
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        purchasesPagination = window.initClientPagination({
+            container: '#purchasesTableBody',
+            itemSelector: '.purchase-row',
+            footer: '#purchasesPaginationFooter',
+            infoEl: '#purchasesPageInfo',
+            paginationList: '#purchasesPaginationList',
+            pageSizeSelect: '#purchasesPageSizeSelect',
+            pageSize: 10,
+            itemName: 'purchases'
+        });
+    }
+});
+
 function filterPurchasesTable(query) {
     const q = query.toLowerCase().trim();
-    const rows = document.querySelectorAll('#purchasesTableBody .purchase-row');
-    rows.forEach(r => {
+    const matchFn = (r) => {
         const text = (r.getAttribute('data-search') || '') + ' ' + (r.textContent || '').toLowerCase();
-        r.style.display = (!q || text.includes(q)) ? '' : 'none';
-    });
+        return !q || text.includes(q);
+    };
+    if (purchasesPagination) {
+        purchasesPagination.filter(matchFn);
+    } else {
+        document.querySelectorAll('#purchasesTableBody .purchase-row').forEach(r => {
+            r.style.display = matchFn(r) ? '' : 'none';
+        });
+    }
 }
 
 function confirmVerifyAccounts(btn, purchaseNumber) {

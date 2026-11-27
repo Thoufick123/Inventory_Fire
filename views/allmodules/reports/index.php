@@ -101,7 +101,7 @@
                         <th>Completion %</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="reportsTableBody">
                     <?php if (empty($unitStats)): ?>
                         <tr><td colspan="5" class="text-center py-4 text-muted">No unit metrics recorded.</td></tr>
                     <?php else: ?>
@@ -109,7 +109,7 @@
                             <?php 
                                 $uPct = $u['total_planned'] > 0 ? round(($u['total_completed'] / $u['total_planned']) * 100) : 0;
                             ?>
-                            <tr>
+                            <tr class="report-unit-row">
                                 <td class="fw-bold"><?= e($u['unit_name']) ?></td>
                                 <td><?= number_format($u['program_count']) ?></td>
                                 <td><?= number_format($u['total_planned']) ?> pcs</td>
@@ -130,6 +130,30 @@
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'reportsUnit';
+$paginationItemName = 'units';
+$paginationTotal = count($unitStats ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#reportsTableBody',
+            itemSelector: '.report-unit-row',
+            footer: '#reportsUnitPaginationFooter',
+            infoEl: '#reportsUnitPageInfo',
+            paginationList: '#reportsUnitPaginationList',
+            pageSizeSelect: '#reportsUnitPageSizeSelect',
+            pageSize: 10,
+            itemName: 'units'
+        });
+    }
+});
+</script>
 
 <!-- Manufacturing Pipeline Queue Status -->
 <div class="card">

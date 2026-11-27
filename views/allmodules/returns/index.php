@@ -249,13 +249,43 @@
     </div>
 </div>
 
+<?php
+$paginationPrefix = 'returns';
+$paginationItemName = 'returns';
+$paginationTotal = count($returns ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+
 <script>
+let returnsPagination = null;
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        returnsPagination = window.initClientPagination({
+            container: '#returnsTableBody',
+            itemSelector: '.return-row',
+            footer: '#returnsPaginationFooter',
+            infoEl: '#returnsPageInfo',
+            paginationList: '#returnsPaginationList',
+            pageSizeSelect: '#returnsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'returns'
+        });
+    }
+});
+
 function filterReturnsLive(query) {
     const q = (query || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('#returnsTableBody .return-row');
-    rows.forEach(r => {
+    const matchFn = (r) => {
         const text = (r.textContent || '').toLowerCase();
-        r.style.display = (!q || text.includes(q)) ? '' : 'none';
-    });
+        return !q || text.includes(q);
+    };
+    if (returnsPagination) {
+        returnsPagination.filter(matchFn);
+    } else {
+        document.querySelectorAll('#returnsTableBody .return-row').forEach(r => {
+            r.style.display = matchFn(r) ? '' : 'none';
+        });
+    }
 }
 </script>

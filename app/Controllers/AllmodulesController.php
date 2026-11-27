@@ -6329,7 +6329,7 @@ class AllmodulesController {
     public function thirdPartyMappingList(): void {
         PurchaseMappingFulfillmentService::ensureSchema();
 
-        $status = isset($_GET['status']) ? trim((string)$_GET['status']) : 'unmapped';
+        $status = isset($_GET['status']) ? trim((string)$_GET['status']) : 'mapped';
         $search = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
         $categoryId = !empty($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
         $cid = currentConcernId();

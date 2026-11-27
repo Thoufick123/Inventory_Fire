@@ -111,7 +111,7 @@
                         <th class="text-end" style="min-width: 200px;">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="concernsTableBody">
                 <?php if (empty($concerns)): ?>
                     <tr><td colspan="8" class="text-center text-muted py-5">No business concerns found matching your criteria.</td></tr>
                 <?php else: foreach ($concerns as $idx => $c): 
@@ -128,7 +128,7 @@
                         }
                     }
                 ?>
-                    <tr class="<?= $isActiveSession ? 'table-primary-subtle' : '' ?>">
+                    <tr class="concern-row <?= $isActiveSession ? 'table-primary-subtle' : '' ?>">
                         <td class="text-center text-muted small fw-semibold"><?= $idx + 1 ?></td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
@@ -229,6 +229,30 @@
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'concerns';
+$paginationItemName = 'concerns';
+$paginationTotal = count($concerns ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#concernsTableBody',
+            itemSelector: '.concern-row',
+            footer: '#concernsPaginationFooter',
+            infoEl: '#concernsPageInfo',
+            paginationList: '#concernsPaginationList',
+            pageSizeSelect: '#concernsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'concerns'
+        });
+    }
+});
+</script>
 
 <!-- ========================================================================= -->
 <!-- QUICK MANAGE STAFF MODALS FOR EACH CONCERN -->

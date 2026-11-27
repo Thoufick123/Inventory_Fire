@@ -187,7 +187,7 @@
                         <th class="text-end pe-3">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="variantsTableBody">
                     <?php if (empty($variants)): ?>
                     <tr>
                         <td colspan="9" class="text-center py-5 text-muted">
@@ -204,7 +204,7 @@
                     </tr>
                     <?php else: ?>
                     <?php foreach ($variants as $v): ?>
-                    <tr>
+                    <tr class="variant-row">
                         <!-- Variant ID -->
                         <td class="ps-3">
                             <span class="badge bg-dark-subtle text-dark border font-monospace px-2 py-1 fs-6 fw-bold">
@@ -339,6 +339,30 @@
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'variants';
+$paginationItemName = 'variants';
+$paginationTotal = count($variants ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#variantsTableBody',
+            itemSelector: '.variant-row',
+            footer: '#variantsPaginationFooter',
+            infoEl: '#variantsPageInfo',
+            paginationList: '#variantsPaginationList',
+            pageSizeSelect: '#variantsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'variants'
+        });
+    }
+});
+</script>
 
 <!-- Modal: View Scannable QR Identity -->
 <div class="modal fade" id="modalVariantQr" tabindex="-1" aria-hidden="true">

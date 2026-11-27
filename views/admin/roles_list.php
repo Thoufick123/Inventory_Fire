@@ -38,9 +38,9 @@
                         <th class="text-end pe-4" style="min-width:270px;">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="rolesTableBody">
                     <?php foreach ($roles as $r): ?>
-                        <tr>
+                        <tr class="role-row">
                             <td class="ps-4">
                                 <div class="fw-semibold text-dark"><?= e($r['name']) ?></div>
                             </td>
@@ -94,6 +94,29 @@
             </table>
         </div>
     </div>
+    <?php
+    $paginationPrefix = 'roles';
+    $paginationItemName = 'roles';
+    $paginationTotal = count($roles ?? []);
+    $paginationDefaultSize = 10;
+    include BASE_PATH . '/views/partials/pagination_bar.php';
+    ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof window.initClientPagination === 'function') {
+            window.initClientPagination({
+                container: '#rolesTableBody',
+                itemSelector: '.role-row',
+                footer: '#rolesPaginationFooter',
+                infoEl: '#rolesPageInfo',
+                paginationList: '#rolesPaginationList',
+                pageSizeSelect: '#rolesPageSizeSelect',
+                pageSize: 10,
+                itemName: 'roles'
+            });
+        }
+    });
+    </script>
     <?php else: ?>
     <div class="card border-0 shadow-sm">
         <div class="card-body text-center py-5">

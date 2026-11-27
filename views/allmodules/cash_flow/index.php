@@ -236,7 +236,7 @@ declare(strict_types=1);
                                 <th>Handled By</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="ledgerTableBody">
                             <?php if (empty($transactions)): ?>
                                 <tr><td colspan="10" class="text-center text-muted py-5">No cash transactions logged yet.</td></tr>
                             <?php else: foreach ($transactions as $tx): 
@@ -281,6 +281,13 @@ declare(strict_types=1);
                         </tbody>
                     </table>
                 </div>
+                <?php
+                $paginationPrefix = 'cashLedger';
+                $paginationItemName = 'transactions';
+                $paginationTotal = count($transactions ?? []);
+                $paginationDefaultSize = 10;
+                include BASE_PATH . '/views/partials/pagination_bar.php';
+                ?>
             </div>
 
             <!-- TAB 2: Shift Logs -->
@@ -724,13 +731,36 @@ declare(strict_types=1);
 </div>
 
 <script>
+let cashLedgerPagination = null;
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        cashLedgerPagination = window.initClientPagination({
+            container: '#ledgerTableBody',
+            itemSelector: '.ledger-row',
+            footer: '#cashLedgerPaginationFooter',
+            infoEl: '#cashLedgerPageInfo',
+            paginationList: '#cashLedgerPaginationList',
+            pageSizeSelect: '#cashLedgerPageSizeSelect',
+            pageSize: 10,
+            itemName: 'transactions'
+        });
+    }
+});
+
 // Filter Ledger Table
 function filterLedgerTable(query) {
     const term = query.toLowerCase().trim();
-    document.querySelectorAll('#ledgerTable .ledger-row').forEach(function(row) {
+    const matchFn = function(row) {
         const text = row.getAttribute('data-search') || '';
-        row.style.display = (term === '' || text.includes(term)) ? '' : 'none';
-    });
+        return term === '' || text.includes(term);
+    };
+    if (cashLedgerPagination) {
+        cashLedgerPagination.filter(matchFn);
+    } else {
+        document.querySelectorAll('#ledgerTable .ledger-row').forEach(function(row) {
+            row.style.display = matchFn(row) ? '' : 'none';
+        });
+    }
 }
 
 // Denomination calculation for End Shift Modal

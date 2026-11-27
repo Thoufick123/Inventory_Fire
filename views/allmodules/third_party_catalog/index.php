@@ -126,7 +126,7 @@
                     <th class="text-center" style="min-width: 100px;">Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="tpCatalogTableBody">
                 <?php if (empty($products)): ?>
                     <tr>
                         <td colspan="9" class="text-center py-5 text-muted">
@@ -141,7 +141,7 @@
                     </tr>
                 <?php else: ?>
                     <?php $idx = 1; foreach ($products as $p): ?>
-                        <tr>
+                        <tr class="tp-catalog-row">
                             <td class="text-muted"><?= $idx++ ?></td>
                             <td>
                                 <div class="fw-bold text-dark"><?= e($p['name']) ?></div>
@@ -188,3 +188,27 @@
         </table>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'tpCatalog';
+$paginationItemName = 'styles';
+$paginationTotal = count($products ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#tpCatalogTableBody',
+            itemSelector: '.tp-catalog-row',
+            footer: '#tpCatalogPaginationFooter',
+            infoEl: '#tpCatalogPageInfo',
+            paginationList: '#tpCatalogPaginationList',
+            pageSizeSelect: '#tpCatalogPageSizeSelect',
+            pageSize: 10,
+            itemName: 'styles'
+        });
+    }
+});
+</script>

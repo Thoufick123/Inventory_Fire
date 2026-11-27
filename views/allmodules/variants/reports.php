@@ -84,12 +84,12 @@
                         <th class="text-end pe-3">Stock Valuation</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="variantStockReportBody">
                     <?php if (empty($variantStock)): ?>
                     <tr><td colspan="6" class="text-center py-4 text-muted">No stock data available.</td></tr>
                     <?php else: ?>
                     <?php foreach ($variantStock as $r): ?>
-                    <tr>
+                    <tr class="variant-stock-row">
                         <td class="ps-3"><span class="badge bg-dark-subtle text-dark font-monospace"><?= e($r['variant_code']) ?></span></td>
                         <td>
                             <div class="fw-bold text-dark"><?= e($r['product_name']) ?></div>
@@ -114,6 +114,29 @@
         </div>
     </div>
 </div>
+<?php
+$paginationPrefix = 'variantStock';
+$paginationItemName = 'variants';
+$paginationTotal = count($variantStock ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#variantStockReportBody',
+            itemSelector: '.variant-stock-row',
+            footer: '#variantStockPaginationFooter',
+            infoEl: '#variantStockPageInfo',
+            paginationList: '#variantStockPaginationList',
+            pageSizeSelect: '#variantStockPageSizeSelect',
+            pageSize: 10,
+            itemName: 'variants'
+        });
+    }
+});
+</script>
 <?php endif; ?>
 
 <!-- Tab 2: Category-wise Stock -->

@@ -142,7 +142,7 @@
                             <th class="text-end pe-3">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="assetsTableBody">
                         <?php if (empty($assets)): ?>
                         <tr>
                             <td colspan="10" class="text-center py-5 text-muted">
@@ -155,7 +155,7 @@
                         </tr>
                         <?php else: ?>
                         <?php foreach ($assets as $ast): ?>
-                        <tr>
+                        <tr class="asset-row">
                             <td class="ps-3 fw-bold text-primary font-monospace">
                                 <a href="<?= url('assets/view/' . $ast['id']) ?>" class="text-decoration-none">
                                     <?= e($ast['asset_code']) ?>
@@ -223,3 +223,27 @@
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'assets';
+$paginationItemName = 'assets';
+$paginationTotal = count($assets ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#assetsTableBody',
+            itemSelector: '.asset-row',
+            footer: '#assetsPaginationFooter',
+            infoEl: '#assetsPageInfo',
+            paginationList: '#assetsPaginationList',
+            pageSizeSelect: '#assetsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'assets'
+        });
+    }
+});
+</script>

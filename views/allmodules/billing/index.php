@@ -261,13 +261,43 @@
     </div>
 </div>
 
+<?php
+$paginationPrefix = 'billing';
+$paginationItemName = 'bills';
+$paginationTotal = count($bills ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+
 <script>
+let billingPagination = null;
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        billingPagination = window.initClientPagination({
+            container: '#billingTableBody',
+            itemSelector: '.billing-row',
+            footer: '#billingPaginationFooter',
+            infoEl: '#billingPageInfo',
+            paginationList: '#billingPaginationList',
+            pageSizeSelect: '#billingPageSizeSelect',
+            pageSize: 10,
+            itemName: 'bills'
+        });
+    }
+});
+
 function filterBillingLive(query) {
     const q = (query || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('#billingTableBody .billing-row');
-    rows.forEach(r => {
+    const matchFn = (r) => {
         const text = (r.textContent || '').toLowerCase();
-        r.style.display = (!q || text.includes(q)) ? '' : 'none';
-    });
+        return !q || text.includes(q);
+    };
+    if (billingPagination) {
+        billingPagination.filter(matchFn);
+    } else {
+        document.querySelectorAll('#billingTableBody .billing-row').forEach(r => {
+            r.style.display = matchFn(r) ? '' : 'none';
+        });
+    }
 }
 </script>

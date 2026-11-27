@@ -31,7 +31,7 @@ $unreadTotal = (int)($unreadCount ?? 0);
                         <th class="text-end pe-3">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="notificationsTableBody">
                     <?php if (empty($notifications)): ?>
                         <tr>
                             <td colspan="6" class="text-center py-5 text-muted">
@@ -41,7 +41,7 @@ $unreadTotal = (int)($unreadCount ?? 0);
                         </tr>
                     <?php else: ?>
                         <?php foreach ($notifications as $n): ?>
-                            <tr class="<?= empty($n['is_read']) ? 'bg-light' : '' ?>">
+                            <tr class="notification-row <?= empty($n['is_read']) ? 'bg-light' : '' ?>">
                                 <td class="ps-3">
                                     <?php if (empty($n['is_read'])): ?>
                                         <span class="badge bg-danger">Unread</span>
@@ -79,3 +79,27 @@ $unreadTotal = (int)($unreadCount ?? 0);
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'notifications';
+$paginationItemName = 'notifications';
+$paginationTotal = count($notifications ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#notificationsTableBody',
+            itemSelector: '.notification-row',
+            footer: '#notificationsPaginationFooter',
+            infoEl: '#notificationsPageInfo',
+            paginationList: '#notificationsPaginationList',
+            pageSizeSelect: '#notificationsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'notifications'
+        });
+    }
+});
+</script>

@@ -140,7 +140,7 @@
                     </tr>
                 <?php else: ?>
                     <?php $idx = 1; foreach ($stockItems as $item): ?>
-                        <tr id="stock-row-<?= (int)$item['generation_id'] ?>" 
+                        <tr id="stock-row-<?= (int)$item['generation_id'] ?>" class="purchased-stock-row" 
                             data-generation-id="<?= (int)$item['generation_id'] ?>" 
                             data-batch-code="<?= e($item['batch_code']) ?>"
                             data-item-type="<?= e($item['item_type']) ?>" 
@@ -241,6 +241,30 @@
         </table>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'purchasedStock';
+$paginationItemName = 'stock batches';
+$paginationTotal = count($stockItems ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#stockTableBody',
+            itemSelector: '.purchased-stock-row',
+            footer: '#purchasedStockPaginationFooter',
+            infoEl: '#purchasedStockPageInfo',
+            paginationList: '#purchasedStockPaginationList',
+            pageSizeSelect: '#purchasedStockPageSizeSelect',
+            pageSize: 10,
+            itemName: 'stock batches'
+        });
+    }
+});
+</script>
 
 <!-- ========================================== -->
 <!-- DYNAMIC DELETE CONFIRMATION MODAL -->

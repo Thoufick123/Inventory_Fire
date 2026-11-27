@@ -494,6 +494,14 @@ $unitPrice = (float)($supplyItem['unit_price'] ?? 0);
             <p class="small mb-0">No supply piece in this batch matches the scanned or searched QR code.</p>
         </div>
 
+        <?php
+        $paginationPrefix = 'supplyBatch';
+        $paginationItemName = 'pieces';
+        $paginationTotal = count($pieceItems ?? []);
+        $paginationDefaultSize = 10;
+        include BASE_PATH . '/views/partials/pagination_bar.php';
+        ?>
+
     </div>
 </div>
 
@@ -699,6 +707,20 @@ function renderPiecesView() {
                 </td>
             </tr>
         `).join('');
+    }
+    if (typeof window.initClientPagination === 'function') {
+        const containerSel = currentViewMode === 'card' ? '#pieceCardsContainer' : (currentViewMode === 'list' ? '#pieceListContainer' : '#pieceTableBody');
+        const itemSel = currentViewMode === 'table' ? 'tr' : '> div';
+        window.initClientPagination({
+            container: containerSel,
+            itemSelector: itemSel,
+            footer: '#supplyBatchPaginationFooter',
+            infoEl: '#supplyBatchPageInfo',
+            paginationList: '#supplyBatchPaginationList',
+            pageSizeSelect: '#supplyBatchPageSizeSelect',
+            pageSize: 10,
+            itemName: 'pieces'
+        });
     }
 }
 

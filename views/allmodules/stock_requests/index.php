@@ -294,7 +294,7 @@ $isSentTab = ($activeTab === 'sent');
                             <th class="text-end pe-3" style="width: 10%;">Action</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="stockRequestsTableBody">
                         <?php if (empty($requests)): ?>
                             <tr>
                                 <td colspan="8" class="text-center py-5 text-muted">
@@ -315,7 +315,7 @@ $isSentTab = ($activeTab === 'sent');
                             </tr>
                         <?php else: ?>
                             <?php foreach ($requests as $r): ?>
-                                <tr>
+                                <tr class="stock-request-row">
                                     <td class="ps-3">
                                         <a href="<?= url('production/stock-requests/view/' . $r['id']) ?>" class="fw-bold text-primary text-decoration-none font-monospace">
                                             <?= e($r['request_number']) ?>
@@ -418,3 +418,27 @@ $isSentTab = ($activeTab === 'sent');
         </div>
     </div>
 </div>
+
+<?php
+$paginationPrefix = 'stockRequests';
+$paginationItemName = 'requests';
+$paginationTotal = count($requests ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        window.initClientPagination({
+            container: '#stockRequestsTableBody',
+            itemSelector: '.stock-request-row',
+            footer: '#stockRequestsPaginationFooter',
+            infoEl: '#stockRequestsPageInfo',
+            paginationList: '#stockRequestsPaginationList',
+            pageSizeSelect: '#stockRequestsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'requests'
+        });
+    }
+});
+</script>

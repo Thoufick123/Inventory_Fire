@@ -113,11 +113,40 @@
     </div>
 </div>
 
+<?php
+$paginationPrefix = 'coupons';
+$paginationItemName = 'coupons';
+$paginationTotal = count($coupons ?? []);
+$paginationDefaultSize = 10;
+include BASE_PATH . '/views/partials/pagination_bar.php';
+?>
+
 <script>
+let couponsPagination = null;
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof window.initClientPagination === 'function') {
+        couponsPagination = window.initClientPagination({
+            container: '#couponsTableBody',
+            itemSelector: '.coupon-row',
+            footer: '#couponsPaginationFooter',
+            infoEl: '#couponsPageInfo',
+            paginationList: '#couponsPaginationList',
+            pageSizeSelect: '#couponsPageSizeSelect',
+            pageSize: 10,
+            itemName: 'coupons'
+        });
+    }
+});
+
 function filterCouponsLive(query) {
     const q = (query || '').toLowerCase().trim();
-    document.querySelectorAll('#couponsTableBody .coupon-row').forEach(r => {
-        r.style.display = (!q || (r.textContent || '').toLowerCase().includes(q)) ? '' : 'none';
-    });
+    const matchFn = (r) => !q || (r.textContent || '').toLowerCase().includes(q);
+    if (couponsPagination) {
+        couponsPagination.filter(matchFn);
+    } else {
+        document.querySelectorAll('#couponsTableBody .coupon-row').forEach(r => {
+            r.style.display = matchFn(r) ? '' : 'none';
+        });
+    }
 }
 </script>
