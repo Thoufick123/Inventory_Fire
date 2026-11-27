@@ -218,6 +218,15 @@ class SidebarMenu {
                 'permissions'  => ['production_hsn', 'hsn_config'],
                 'icon'         => '',
             ],
+            [
+                'key'          => 'coupons',
+                'label'        => 'Coupons',
+                'url'          => 'allmodules/coupons',
+                'active_menus' => ['prod-coupons'],
+                'module'       => 'retail_pos',
+                'permissions'  => ['coupons'],
+                'icon'         => '',
+            ],
         ];
     }
 

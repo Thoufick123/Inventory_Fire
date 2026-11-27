@@ -496,6 +496,7 @@ class AdminController {
                 'inward'                     => ['production/inwards', 'production/inwards/create'],
                 'production_expenses'        => ['production/expenses', null],
                 'production_billing'         => ['production/billing', 'production/billing/create'],
+                'coupons'                    => ['allmodules/coupons', 'allmodules/coupons/create'],
                 'production_returns'         => ['production/returns', 'production/returns/create'],
                 'outward'                    => ['production/outward', null],
                 'production_stock_requests'  => ['production/stock-requests', 'production/stock-requests/create'],

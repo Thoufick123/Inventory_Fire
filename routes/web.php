@@ -373,9 +373,17 @@ class Router {
         $this->post('allmodules/billing/update/{id}', 'AllmodulesBillingController', 'updateBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
         $this->post('allmodules/billing/delete/{id}', 'AllmodulesBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
         $this->get('allmodules/billing/print/{id}', 'AllmodulesBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
-        $this->get('allmodules/billing/coupon-print/{id}', 'AllmodulesBillingController', 'printCoupon', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/search', 'AllmodulesBillingController', 'searchInventory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/coupon-lookup', 'AllmodulesBillingController', 'lookupCoupon', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+
+        // Production / POS Coupons (Full CRUD with Staff Restrictions)
+        $this->get('allmodules/coupons', 'AllmodulesCouponController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'view']]);
+        $this->get('allmodules/coupons/create', 'AllmodulesCouponController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'create']]);
+        $this->post('allmodules/coupons/store', 'AllmodulesCouponController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'create']]);
+        $this->get('allmodules/coupons/edit/{id}', 'AllmodulesCouponController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'edit']]);
+        $this->post('allmodules/coupons/update/{id}', 'AllmodulesCouponController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'edit']]);
+        $this->post('allmodules/coupons/toggle/{id}', 'AllmodulesCouponController', 'toggleStatus', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'edit']]);
+        $this->post('allmodules/coupons/delete/{id}', 'AllmodulesCouponController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'coupons', 'delete']]);
         $this->get('api/allmodules/billing/batch-items', 'AllmodulesBillingController', 'getBatchItemsJson', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/customer-search', 'AllmodulesBillingController', 'searchCustomer', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/customer-history', 'AllmodulesBillingController', 'customerHistory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);

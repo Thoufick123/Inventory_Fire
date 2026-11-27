@@ -458,17 +458,36 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                 </div>
                             </div>
 
-                            <!-- Coupon Barcode Scan / Apply -->
+                            <!-- Saved Coupons Selector (No QR/Barcode) -->
                             <div class="mt-3 p-3 bg-light rounded-3 border">
-                                <label class="form-label fw-bold text-dark mb-1" for="couponCodeInput">
-                                    <i class="bi bi-ticket-perforated text-primary me-1"></i>Apply Customer Coupon (Scan Barcode)
+                                <label class="form-label fw-bold text-dark mb-1" for="savedCouponSelect">
+                                    <i class="bi bi-ticket-perforated text-primary me-1"></i>Apply Saved Coupon
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-white text-primary"><i class="bi bi-upc-scan"></i></span>
-                                    <input type="text" id="couponCodeInput" class="form-control text-uppercase font-monospace fw-semibold"
-                                           autocomplete="off" placeholder="Scan or enter coupon code (e.g. CPN...)"
-                                           value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
-                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="applyCouponBtn" onclick="applyCouponCode()">Apply</button>
+                                    <select id="savedCouponSelect" class="form-select fw-semibold">
+                                        <option value="">-- Select a saved coupon --</option>
+                                        <?php foreach ($availableCoupons ?? [] as $cp): ?>
+                                            <?php
+                                            $cpType = strtoupper((string)($cp['discount_type'] ?? 'FIXED'));
+                                            $cpVal = (float)($cp['discount_value'] ?? 0);
+                                            $cpMin = (float)($cp['min_redemption_amount'] ?? 0);
+                                            $cpLabel = $cp['coupon_code']
+                                                . (!empty($cp['title']) ? ' (' . $cp['title'] . ')' : '')
+                                                . ' — ' . ($cpType === 'PERCENT' ? rtrim(rtrim(number_format($cpVal, 2), '0'), '.') . '% OFF' : '₹' . number_format($cpVal, 2) . ' OFF')
+                                                . ($cpMin > 0 ? ' [Min ₹' . number_format($cpMin, 2) . ']' : '');
+                                            ?>
+                                            <option value="<?= e($cp['coupon_code']) ?>"
+                                                    data-id="<?= (int)$cp['id'] ?>"
+                                                    data-code="<?= e($cp['coupon_code']) ?>"
+                                                    data-type="<?= e($cpType) ?>"
+                                                    data-value="<?= number_format($cpVal, 2, '.', '') ?>"
+                                                    data-min="<?= number_format($cpMin, 2, '.', '') ?>"
+                                                    <?= ($bill['applied_coupon_code'] ?? '') === $cp['coupon_code'] ? 'selected' : '' ?>>
+                                                <?= e($cpLabel) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary fw-semibold" id="applyCouponBtn" onclick="applySavedCoupon()">Apply</button>
                                     <button type="button" class="btn btn-outline-danger <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>" id="removeCouponBtn" onclick="removeAppliedCoupon()" title="Remove Coupon">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
@@ -478,8 +497,10 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                 <div id="couponStatusHelp" class="small text-muted mt-1">
                                     <?php if (!empty($bill['applied_coupon_code'])): ?>
                                         <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
+                                    <?php elseif (empty($availableCoupons)): ?>
+                                        No active coupons available. Create one in All Modules &rarr; Coupons.
                                     <?php else: ?>
-                                        Scan customer's physical coupon barcode card to apply discount.
+                                        Choose a saved coupon above and click Apply.
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -982,54 +1003,52 @@ function openCustomerHistoryModal() {
         });
 }
 
-function applyCouponCode() {
-    const input = document.getElementById('couponCodeInput');
+function applySavedCoupon() {
+    const sel = document.getElementById('savedCouponSelect');
     const statusHelp = document.getElementById('couponStatusHelp');
-    const code = (input?.value || '').trim().toUpperCase();
-    if (!code) {
-        if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Enter or scan a coupon barcode first.</span>';
+    const opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
+    if (!opt || !opt.value) {
+        if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Please select a saved coupon first.</span>';
         return;
     }
-    const billIdVal = <?= (int)($bill['id'] ?? 0) ?>;
-    if (statusHelp) statusHelp.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking coupon...</span>';
-    fetch(`<?= url('api/production/billing/coupon-lookup') ?>?code=${encodeURIComponent(code)}&bill_total=${encodeURIComponent(lastPreCouponTotal.toFixed(2))}&bill_id=${billIdVal}`)
-        .then(r => r.json())
-        .then(res => {
-            if (!res || !res.success || !res.data) {
-                appliedCouponState = null;
-                document.getElementById('appliedCouponId').value = '';
-                document.getElementById('appliedCouponCode').value = '';
-                document.getElementById('removeCouponBtn')?.classList.add('d-none');
-                if (statusHelp) statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>${res?.message || 'Invalid coupon.'}</span>`;
-                if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
-                return;
-            }
-            appliedCouponState = res.data;
-            document.getElementById('appliedCouponId').value = res.data.coupon_id;
-            document.getElementById('appliedCouponCode').value = res.data.coupon_code;
-            input.value = res.data.coupon_code;
-            document.getElementById('removeCouponBtn')?.classList.remove('d-none');
-            if (statusHelp) {
-                statusHelp.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${res.data.coupon_code} applied (-${formatCurrency(res.data.computed_discount)}).</span>`;
-            }
-            if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
-        })
-        .catch(() => {
-            if (statusHelp) statusHelp.innerHTML = '<span class="text-danger">Could not verify coupon. Try again.</span>';
-        });
+    const minReq = parseFloat(opt.dataset.min || '0') || 0;
+    if (minReq > 0 && lastPreCouponTotal < minReq) {
+        if (statusHelp) statusHelp.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Minimum bill amount of ${formatCurrency(minReq)} required for coupon ${opt.dataset.code}.</span>`;
+        return;
+    }
+    const dType = String(opt.dataset.type || 'FIXED').toUpperCase();
+    const dVal = parseFloat(opt.dataset.value || '0') || 0;
+    const computedDiscount = dType === 'PERCENT'
+        ? Math.round((lastPreCouponTotal * (dVal / 100)) * 100) / 100
+        : Math.min(lastPreCouponTotal, dVal);
+
+    appliedCouponState = {
+        coupon_id: parseInt(opt.dataset.id || '0', 10),
+        coupon_code: opt.dataset.code,
+        discount_type: dType,
+        discount_value: dVal,
+        min_redemption_amount: minReq,
+    };
+    document.getElementById('appliedCouponId').value = appliedCouponState.coupon_id;
+    document.getElementById('appliedCouponCode').value = appliedCouponState.coupon_code;
+    document.getElementById('removeCouponBtn')?.classList.remove('d-none');
+    if (statusHelp) {
+        statusHelp.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon ${appliedCouponState.coupon_code} applied (-${formatCurrency(computedDiscount)}).</span>`;
+    }
+    if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 
 function removeAppliedCoupon() {
     appliedCouponState = null;
-    const input = document.getElementById('couponCodeInput');
-    if (input) input.value = '';
+    const sel = document.getElementById('savedCouponSelect');
+    if (sel) sel.value = '';
     const idEl = document.getElementById('appliedCouponId');
     if (idEl) idEl.value = '';
     const codeEl = document.getElementById('appliedCouponCode');
     if (codeEl) codeEl.value = '';
     document.getElementById('removeCouponBtn')?.classList.add('d-none');
     const statusHelp = document.getElementById('couponStatusHelp');
-    if (statusHelp) statusHelp.textContent = "Scan customer's physical coupon barcode card to apply discount.";
+    if (statusHelp) statusHelp.textContent = 'Choose a saved coupon above and click Apply.';
     if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
 

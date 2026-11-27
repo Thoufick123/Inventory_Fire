@@ -267,6 +267,11 @@ class Role {
             ['production_billing', 'edit', 'Edit Production Invoices & Pricing', 'production_billing.edit', 'production'],
             ['production_billing', 'delete', 'Delete Production Invoices & Cancel Bills', 'production_billing.delete', 'production'],
 
+            ['coupons', 'view', 'View POS Coupons & Discount Rules', 'coupons.view', 'production'],
+            ['coupons', 'create', 'Create POS Coupons & Discount Offers', 'coupons.create', 'production'],
+            ['coupons', 'edit', 'Edit POS Coupons & Usage Limits', 'coupons.edit', 'production'],
+            ['coupons', 'delete', 'Delete POS Coupons', 'coupons.delete', 'production'],
+
             ['production_returns', 'view', 'View Production Customer Returns & Exchanges', 'production_returns.view', 'production'],
             ['production_returns', 'create', 'Process Return Items & Credit Notes', 'production_returns.create', 'production'],
             ['production_returns', 'edit', 'Edit Return Status & Restock Orders', 'production_returns.edit', 'production'],
@@ -770,6 +775,7 @@ class Role {
                     'inward'                    => ['name' => 'Inward (GRN)', 'icon' => 'bi-box-arrow-in-down', 'desc' => 'Inward finished goods from production units and suppliers', 'department' => 'PRODUCTION'],
                     'production_expenses'       => ['name' => 'Expenses', 'icon' => 'bi-currency-rupee', 'desc' => 'Machine maintenance, repair costs, threads, needles, and daily floor expenses', 'department' => 'PRODUCTION'],
                     'production_billing'        => ['name' => 'Billing / Pos', 'icon' => 'bi-receipt-cutoff', 'desc' => 'Production client orders, sales bills, GST invoicing, and payment receipts', 'department' => 'PRODUCTION'],
+                    'coupons'                   => ['name' => 'Coupons', 'icon' => 'bi-ticket-perforated', 'desc' => 'Create and manage POS discount coupons and usage rules', 'department' => 'PRODUCTION'],
                     'production_returns'        => ['name' => 'Returns & Exchanges', 'icon' => 'bi-arrow-left-right', 'desc' => 'Production client customer returns, piece exchanges, and credit notes', 'department' => 'PRODUCTION'],
                     'outward'                   => ['name' => 'Outward & Dispatch', 'icon' => 'bi-truck', 'desc' => 'Delivery challans and outward dispatch to Central Warehouses', 'department' => 'PRODUCTION'],
                     'production_stock_requests' => ['name' => 'Stock Request', 'icon' => 'bi-inbox', 'desc' => 'Warehouse stock requisitions and production fulfillment requests', 'department' => 'PRODUCTION'],

@@ -245,9 +245,6 @@
                                     <?php if (hasPermission('production_billing', 'print')): ?>
                                         <a class="btn btn-outline-success btn-action-icon" title="Print" target="_blank" href="<?= url('production/billing/print/' . (int)$bill['id']) ?>"><i class="bi bi-printer"></i></a>
                                     <?php endif; ?>
-                                    <?php if (!empty($bill['issued_coupon_id'])): ?>
-                                        <a class="btn btn-outline-warning btn-action-icon" title="Print Coupon Card (<?= htmlspecialchars($bill['issued_coupon_code'] ?? '') ?>)" target="_blank" href="<?= url('production/billing/coupon-print/' . (int)$bill['id']) ?>"><i class="bi bi-ticket-perforated"></i></a>
-                                    <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'delete') && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
                                         <form class="d-inline" method="POST" action="<?= url('production/billing/delete/' . (int)$bill['id']) ?>" onsubmit="return confirm('Delete this bill? Its billed QR pieces will become available again.')">
                                             <?= CSRF::input() ?>

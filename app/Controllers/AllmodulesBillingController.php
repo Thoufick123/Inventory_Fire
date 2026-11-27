@@ -94,8 +94,6 @@ class AllmodulesBillingController
 
         $bills = Database::fetchAll(
             "SELECT pb.*, c_con.name AS concern_name, c_con.code AS concern_code,
-                    (SELECT pc.id FROM pos_coupons pc WHERE pc.issued_bill_id = pb.id AND pc.status != 'CANCELLED' ORDER BY pc.id DESC LIMIT 1) AS issued_coupon_id,
-                    (SELECT pc.coupon_code FROM pos_coupons pc WHERE pc.issued_bill_id = pb.id AND pc.status != 'CANCELLED' ORDER BY pc.id DESC LIMIT 1) AS issued_coupon_code,
                     (SELECT COUNT(*) FROM production_bill_items pbi WHERE pbi.bill_id = pb.id) AS line_count,
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id) AS linked_batch_count,
                     (SELECT COUNT(*) FROM production_batches pbat WHERE pbat.production_bill_id = pb.id AND pbat.status = 'PREPARING') AS preparing_batch_count,
@@ -395,11 +393,6 @@ class AllmodulesBillingController
             return;
         }
 
-        $issuedCoupon = Database::fetchOne(
-            "SELECT * FROM pos_coupons WHERE issued_bill_id = ? AND status != 'CANCELLED' ORDER BY id DESC LIMIT 1",
-            [(int)$bill['id']]
-        );
-
         Response::view('allmodules.billing.view', [
             'pageTitle' => 'Production Bill ' . $bill['bill_number'],
             'activeModule' => 'production',
@@ -411,7 +404,6 @@ class AllmodulesBillingController
             ],
             'bill' => $bill,
             'billItems' => $this->loadBillItems((int)$bill['id']),
-            'issuedCoupon' => $issuedCoupon,
             'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
         ]);
     }
@@ -427,32 +419,6 @@ class AllmodulesBillingController
         Response::viewOnly('allmodules.billing.print', [
             'bill' => $bill,
             'billItems' => $this->loadBillItems((int)$bill['id']),
-            'sellerCompany' => SettingsService::getGroup('company'),
-            'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
-        ]);
-    }
-
-    public function printCoupon(string $id): void
-    {
-        self::ensureSchema();
-        $billId = (int)$id;
-        $bill = $this->loadBill($billId);
-        if (!$bill) {
-            Response::redirect('production/billing', 'error', 'Bill not found.');
-            return;
-        }
-        $coupon = Database::fetchOne(
-            "SELECT * FROM pos_coupons WHERE issued_bill_id = ? AND status != 'CANCELLED' ORDER BY id DESC LIMIT 1",
-            [$billId]
-        );
-        if (!$coupon) {
-            Response::redirect('production/billing/view/' . $billId, 'error', 'No coupon was issued for this bill.');
-            return;
-        }
-
-        Response::viewOnly('allmodules.billing.coupon_print', [
-            'bill' => $bill,
-            'coupon' => $coupon,
             'sellerCompany' => SettingsService::getGroup('company'),
             'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
         ]);
@@ -1366,14 +1332,15 @@ class AllmodulesBillingController
             }
             if (!empty($billRow['applied_coupon_id'])) {
                 Database::execute(
-                    "UPDATE pos_coupons SET status = 'ACTIVE', redeemed_bill_id = NULL, redeemed_at = NULL WHERE id = ? AND redeemed_bill_id = ?",
-                    [(int)$billRow['applied_coupon_id'], $billId]
+                    "UPDATE pos_coupons
+                     SET used_count = GREATEST(0, used_count - 1),
+                         status = CASE WHEN status = 'REDEEMED' THEN 'ACTIVE' ELSE status END,
+                         redeemed_bill_id = CASE WHEN redeemed_bill_id = ? THEN NULL ELSE redeemed_bill_id END,
+                         redeemed_at = CASE WHEN redeemed_bill_id = ? THEN NULL ELSE redeemed_at END
+                     WHERE id = ?",
+                    [$billId, $billId, (int)$billRow['applied_coupon_id']]
                 );
             }
-            Database::execute(
-                "UPDATE pos_coupons SET status = 'CANCELLED' WHERE issued_bill_id = ? AND status = 'ACTIVE'",
-                [$billId]
-            );
             Database::execute("DELETE FROM production_bills WHERE id = ?", [$billId]);
             Response::redirect('production/billing', 'success', 'Production bill deleted and inventory stock restored.');
         } catch (Throwable $e) {
@@ -1450,6 +1417,26 @@ class AllmodulesBillingController
         $targetConcerns = Database::fetchAll("SELECT id, name, legal_name, code, address, phone, email, gst_number FROM concerns WHERE is_active = 1 ORDER BY name ASC");
         $availablePackingBatches = [];
 
+        $couponWhere = ["(pc.status = 'ACTIVE' AND (pc.expires_at IS NULL OR pc.expires_at >= CURDATE()) AND (pc.max_uses = 0 OR pc.used_count < pc.max_uses))"];
+        $couponParams = [];
+        if (!empty($bill['applied_coupon_id'])) {
+            $couponWhere[] = "pc.id = ?";
+            $couponParams[] = (int)$bill['applied_coupon_id'];
+        }
+        $couponScopeSql = '';
+        if ($cid) {
+            if ((int)$cid === 1) {
+                $couponScopeSql = " AND (pc.concern_id = 1 OR pc.concern_id IS NULL)";
+            } else {
+                $couponScopeSql = " AND pc.concern_id = ?";
+                $couponParams[] = (int)$cid;
+            }
+        }
+        $availableCoupons = Database::fetchAll(
+            "SELECT pc.* FROM pos_coupons pc WHERE (" . implode(' OR ', $couponWhere) . "){$couponScopeSql} ORDER BY pc.id DESC",
+            $couponParams
+        );
+
         $billLabel = $bill ? (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id']) : '';
 
         Response::view('allmodules.billing.form', [
@@ -1469,6 +1456,7 @@ class AllmodulesBillingController
             'targetConcerns'          => $targetConcerns,
             'staffUsers'              => $staffUsers,
             'availablePackingBatches' => $availablePackingBatches,
+            'availableCoupons'        => $availableCoupons,
             'currentUserId'           => Auth::id(),
         ]);
     }
@@ -2548,6 +2536,12 @@ class AllmodulesBillingController
                 Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Coupon '{$appliedCouponCode}' is {$couponRow['status']} and cannot be applied.");
                 return;
             }
+            $cMaxUses = (int)($couponRow['max_uses'] ?? 0);
+            $cUsedCount = (int)($couponRow['used_count'] ?? 0);
+            if (!$isSameBillRedeem && $cMaxUses > 0 && $cUsedCount >= $cMaxUses) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Coupon '{$appliedCouponCode}' has reached its maximum usage limit.");
+                return;
+            }
             if (!empty($couponRow['expires_at']) && $couponRow['expires_at'] < date('Y-m-d')) {
                 Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Coupon '{$appliedCouponCode}' has expired.");
                 return;
@@ -2895,39 +2889,21 @@ class AllmodulesBillingController
                 }
             }
 
-            // Mark redeemed coupon atomically
+            // Mark coupon usage atomically
             if ($appliedCouponId !== null) {
-                $lockedCoupon = Database::fetchOne("SELECT id, status, redeemed_bill_id FROM pos_coupons WHERE id = ? FOR UPDATE", [$appliedCouponId]);
-                if (!$lockedCoupon || ($lockedCoupon['status'] !== 'ACTIVE' && (int)($lockedCoupon['redeemed_bill_id'] ?? 0) !== $billId)) {
-                    throw new RuntimeException('This coupon was already redeemed in another transaction.');
+                $lockedCoupon = Database::fetchOne("SELECT id, status, max_uses, used_count, redeemed_bill_id FROM pos_coupons WHERE id = ? FOR UPDATE", [$appliedCouponId]);
+                $cMax = (int)($lockedCoupon['max_uses'] ?? 0);
+                $cUsed = (int)($lockedCoupon['used_count'] ?? 0);
+                $alreadyAppliedHere = (!$isNewBill && (int)($lockedCoupon['redeemed_bill_id'] ?? 0) === $billId);
+                if (!$lockedCoupon || (!$alreadyAppliedHere && ($lockedCoupon['status'] !== 'ACTIVE' || ($cMax > 0 && $cUsed >= $cMax)))) {
+                    throw new RuntimeException('This coupon is no longer available or has reached its usage limit.');
                 }
-                Database::execute(
-                    "UPDATE pos_coupons SET status = 'REDEEMED', redeemed_bill_id = ?, redeemed_at = NOW() WHERE id = ?",
-                    [$billId, $appliedCouponId]
-                );
-            }
-
-            // Auto-issue a new coupon card on qualifying new customer bills
-            $issuedCouponCode = null;
-            if ($isNewBill && $buyerType === 'CUSTOMER') {
-                $couponCfg = SettingsService::getGroup('coupons');
-                $couponEnabled = ($couponCfg['pos_coupon_enabled'] ?? 'true') === 'true';
-                $minQualifyAmt = (float)($couponCfg['pos_coupon_min_bill_amount'] ?? 2000);
-                if ($couponEnabled && $minQualifyAmt > 0 && $paidAmount >= $minQualifyAmt) {
-                    $cType = strtoupper((string)($couponCfg['pos_coupon_discount_type'] ?? 'FIXED'));
-                    if (!in_array($cType, ['FIXED', 'PERCENT'], true)) $cType = 'FIXED';
-                    $cVal = max(0.0, (float)($couponCfg['pos_coupon_discount_value'] ?? 200));
-                    $cMinRedeem = max(0.0, (float)($couponCfg['pos_coupon_min_redemption_amount'] ?? 1000));
-                    $cDays = max(1, (int)($couponCfg['pos_coupon_validity_days'] ?? 30));
-                    $expiresAt = date('Y-m-d', strtotime("+{$cDays} days"));
-                    $issuedCouponCode = 'CPN' . date('ymd') . strtoupper(bin2hex(random_bytes(3)));
-                    $billConcernId = resolveSubmittedConcernId();
-
+                if (!$alreadyAppliedHere) {
+                    $newUsed = $cUsed + 1;
+                    $nextSt = ($cMax > 0 && $newUsed >= $cMax) ? 'REDEEMED' : 'ACTIVE';
                     Database::execute(
-                        "INSERT INTO pos_coupons
-                         (concern_id, coupon_code, issued_bill_id, customer_phone, customer_name, discount_type, discount_value, min_redemption_amount, status, expires_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?)",
-                        [$billConcernId, $issuedCouponCode, $billId, $customerPhone, $customerName, $cType, $cVal, $cMinRedeem, $expiresAt]
+                        "UPDATE pos_coupons SET used_count = ?, status = ?, redeemed_bill_id = ?, redeemed_at = NOW() WHERE id = ?",
+                        [$newUsed, $nextSt, $billId, $appliedCouponId]
                     );
                 }
             }
@@ -2938,11 +2914,7 @@ class AllmodulesBillingController
                 Response::redirect('production/outward?bill_id=' . $billId, 'success', 'Company bill saved. Fill vehicle details to complete outward dispatch.');
                 return;
             }
-            $successMsg = $isNewBill ? 'Production bill created.' : 'Production bill saved.';
-            if ($issuedCouponCode !== null) {
-                $successMsg .= " Customer earned Coupon Card {$issuedCouponCode}! Use 'Print Coupon Card' to print.";
-            }
-            Response::redirect('production/billing/view/' . $billId, 'success', $successMsg);
+            Response::redirect('production/billing/view/' . $billId, 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
         } catch (Throwable $e) {
             Database::rollback();
             error_log('ProductionBillingController::persistBill failed: ' . $e->getMessage());

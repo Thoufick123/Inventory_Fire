@@ -423,6 +423,7 @@ function concernModuleForPermission(string $module): ?string {
         'production_stock_requests' => 'warehouse',
         'retail_pos' => 'retail_pos',
         'production_billing' => 'retail_pos',
+        'coupons' => 'retail_pos',
         'returns' => 'returns',
         'production_returns' => 'returns',
         'expenses' => 'expenses',

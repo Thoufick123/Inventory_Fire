@@ -19,9 +19,6 @@ $displayLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-outline-secondary" href="<?= url('production/billing') ?>"><i class="bi bi-arrow-left me-1"></i>Back</a>
-        <?php if (!empty($issuedCoupon)): ?>
-            <a class="btn btn-warning fw-semibold" href="<?= url('production/billing/coupon-print/' . (int)$bill['id']) ?>" target="_blank"><i class="bi bi-ticket-perforated me-1"></i>Print Coupon Card (<?= htmlspecialchars($issuedCoupon['coupon_code']) ?>)</a>
-        <?php endif; ?>
         <a class="btn btn-outline-primary" href="<?= url('production/billing/print/' . (int)$bill['id']) ?>" target="_blank"><i class="bi bi-printer me-1"></i>Print Invoice</a>
     </div>
 </div>
