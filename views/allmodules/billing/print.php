@@ -600,6 +600,14 @@ if (!empty($billItems[0])) {
     <div class="dashed-line"></div>
 
     <!-- 7. Net Amount -->
+    <?php if ((float)($bill['coupon_discount_amount'] ?? 0) > 0): ?>
+    <div class="info-grid" style="margin-bottom: 4px;">
+        <div class="summary-row">
+            <span class="summary-label">Coupon (<?= htmlspecialchars($bill['applied_coupon_code'] ?? '') ?>) :</span>
+            <span class="summary-val discount-highlight">-₹ <?= number_format((float)$bill['coupon_discount_amount'], 2) ?></span>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="net-amount-row">
         <span>NET AMOUNT :</span>
         <span style="font-size: 16px;">₹ <?= number_format($totalAmount, 2) ?></span>

@@ -155,6 +155,14 @@ class SettingsService {
                 'default_warehouse_id'  => '1',
                 'audit_stock_movement' => 'true',
             ],
+            'coupons' => [
+                'pos_coupon_enabled'                => 'true',
+                'pos_coupon_min_bill_amount'        => '2000.00',
+                'pos_coupon_discount_type'          => 'FIXED',
+                'pos_coupon_discount_value'         => '200.00',
+                'pos_coupon_min_redemption_amount'  => '1000.00',
+                'pos_coupon_validity_days'          => '30',
+            ],
             'security' => [
                 'session_timeout_mins'  => '60',
                 'max_login_attempts'   => '5',

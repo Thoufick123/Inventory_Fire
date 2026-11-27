@@ -33,6 +33,11 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                     </button>
                 </li>
                 <li class="nav-item">
+                    <button class="nav-link fw-semibold py-3 border-0 <?= $activeTab === 'coupons' ? 'active text-primary border-bottom border-primary border-3' : 'text-muted' ?>" id="coupons-tab" data-bs-toggle="tab" data-bs-target="#coupons-pane">
+                        <i class="bi bi-ticket-perforated me-2"></i>POS Coupons
+                    </button>
+                </li>
+                <li class="nav-item">
                     <button class="nav-link fw-semibold py-3 border-0 <?= $activeTab === 'security' ? 'active text-primary border-bottom border-primary border-3' : 'text-muted' ?>" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-pane">
                         <i class="bi bi-shield-lock me-2"></i>Security Policies
                     </button>
@@ -74,6 +79,59 @@ $canEditSettings = hasPermission('settings', 'edit') || hasPermission('settings'
                         <div class="mt-4 pt-3 border-top text-end">
                             <?php if ($canEditSettings): ?>
                                 <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check-circle me-1"></i> Save Inventory Rules</button>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-outline-secondary px-4" disabled><i class="bi bi-lock me-1"></i> Edit Restricted (View Only)</button>
+                            <?php endif; ?>
+                        </div>
+                        </fieldset>
+                    </form>
+                </div>
+
+                <!-- TAB: POS COUPONS -->
+                <div class="tab-pane fade <?= $activeTab === 'coupons' ? 'show active' : '' ?>" id="coupons-pane">
+                    <form method="POST" action="<?= url('system/settings/update') ?>">
+                        <?= CSRF::field() ?>
+                        <input type="hidden" name="group" value="coupons">
+                        <fieldset <?= !$canEditSettings ? 'disabled' : '' ?>>
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-ticket-perforated me-2 text-primary"></i>POS Customer Coupon Rules</h5>
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input type="hidden" name="settings[pos_coupon_enabled]" value="false">
+                                    <input class="form-check-input" type="checkbox" name="settings[pos_coupon_enabled]" value="true" id="posCouponEnabledCheck" <?= ($settings['coupons']['pos_coupon_enabled'] ?? 'true') === 'true' ? 'checked' : '' ?>>
+                                    <label class="form-check-label fw-semibold" for="posCouponEnabledCheck">Enable Auto-Coupon Issuance on Qualifying POS Bills</label>
+                                    <div class="form-text">When enabled, customers who pay above the minimum bill amount automatically receive a printable barcode coupon card.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Minimum Bill Amount to Earn Coupon (₹)</label>
+                                <input type="number" step="0.01" min="0" name="settings[pos_coupon_min_bill_amount]" class="form-control" value="<?= e($settings['coupons']['pos_coupon_min_bill_amount'] ?? '2000.00') ?>">
+                                <div class="form-text">Customer must pay at least this amount in a single POS bill to receive a coupon.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Coupon Validity (Days)</label>
+                                <input type="number" min="1" max="3650" name="settings[pos_coupon_validity_days]" class="form-control" value="<?= e($settings['coupons']['pos_coupon_validity_days'] ?? '30') ?>">
+                                <div class="form-text">Number of days before an issued coupon expires.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Discount Type</label>
+                                <select name="settings[pos_coupon_discount_type]" class="form-select">
+                                    <option value="FIXED" <?= ($settings['coupons']['pos_coupon_discount_type'] ?? 'FIXED') === 'FIXED' ? 'selected' : '' ?>>Fixed Amount (₹)</option>
+                                    <option value="PERCENT" <?= ($settings['coupons']['pos_coupon_discount_type'] ?? '') === 'PERCENT' ? 'selected' : '' ?>>Percentage (%)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Discount Value (₹ or %)</label>
+                                <input type="number" step="0.01" min="0" name="settings[pos_coupon_discount_value]" class="form-control" value="<?= e($settings['coupons']['pos_coupon_discount_value'] ?? '200.00') ?>">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Min Next Purchase to Redeem (₹)</label>
+                                <input type="number" step="0.01" min="0" name="settings[pos_coupon_min_redemption_amount]" class="form-control" value="<?= e($settings['coupons']['pos_coupon_min_redemption_amount'] ?? '1000.00') ?>">
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-top text-end">
+                            <?php if ($canEditSettings): ?>
+                                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-check-circle me-1"></i> Save Coupon Rules</button>
                             <?php else: ?>
                                 <button type="button" class="btn btn-outline-secondary px-4" disabled><i class="bi bi-lock me-1"></i> Edit Restricted (View Only)</button>
                             <?php endif; ?>

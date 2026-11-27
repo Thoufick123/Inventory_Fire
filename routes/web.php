@@ -373,7 +373,9 @@ class Router {
         $this->post('allmodules/billing/update/{id}', 'AllmodulesBillingController', 'updateBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'edit']]);
         $this->post('allmodules/billing/delete/{id}', 'AllmodulesBillingController', 'deleteBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'delete']]);
         $this->get('allmodules/billing/print/{id}', 'AllmodulesBillingController', 'printBill', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('allmodules/billing/coupon-print/{id}', 'AllmodulesBillingController', 'printCoupon', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/search', 'AllmodulesBillingController', 'searchInventory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
+        $this->get('api/allmodules/billing/coupon-lookup', 'AllmodulesBillingController', 'lookupCoupon', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/batch-items', 'AllmodulesBillingController', 'getBatchItemsJson', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/customer-search', 'AllmodulesBillingController', 'searchCustomer', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
         $this->get('api/allmodules/billing/customer-history', 'AllmodulesBillingController', 'customerHistory', ['AuthMiddleware', ['PermissionMiddleware', 'production_billing', 'view']]);
