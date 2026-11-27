@@ -2546,15 +2546,17 @@ class AllmodulesBillingController
                 Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', "Coupon '{$appliedCouponCode}' has expired.");
                 return;
             }
+            $cVal = (float)($couponRow['discount_value'] ?? 0);
+            $cType = strtoupper((string)$couponRow['discount_type']);
             $minRedeem = (float)($couponRow['min_redemption_amount'] ?? 0);
-            if ($minRedeem > 0 && $totals['total_amount'] < $minRedeem) {
-                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Bill total does not meet the minimum purchase amount of ₹' . number_format($minRedeem, 2) . ' for this coupon.');
+            $requiredTotal = max($minRedeem, $cType === 'FIXED' ? $cVal : 0.0);
+            if ($requiredTotal > 0 && $totals['total_amount'] < $requiredTotal) {
+                Response::redirect($billId ? 'production/billing/edit/' . $billId : 'production/billing/create', 'error', 'Bill total must reach ₹' . number_format($requiredTotal, 2) . ' to apply this coupon.');
                 return;
             }
             $appliedCouponId = (int)$couponRow['id'];
             $appliedCouponCode = (string)$couponRow['coupon_code'];
-            $cVal = (float)($couponRow['discount_value'] ?? 0);
-            $couponDiscountAmount = strtoupper((string)$couponRow['discount_type']) === 'PERCENT'
+            $couponDiscountAmount = $cType === 'PERCENT'
                 ? round($totals['total_amount'] * ($cVal / 100), 2)
                 : round(min($totals['total_amount'], $cVal), 2);
             $totals['total_amount'] = round(max(0.0, $totals['total_amount'] - $couponDiscountAmount), 2);
