@@ -754,7 +754,7 @@ class Role {
             'production' => [
                 'title'      => 'Production',
                 'icon'       => 'bi-gear-wide-connected',
-                'badge'      => 'bg-indigo-subtle text-indigo border-indigo',
+                'badge'      => 'bg-primary-subtle text-primary border-primary-subtle',
                 'department' => 'PRODUCTION',
                 'submodules' => [
                     'production'                => ['name' => 'Dashboard', 'icon' => 'bi-speedometer', 'desc' => 'Plant overview, line throughput, and live tracking', 'department' => 'PRODUCTION'],

@@ -17,6 +17,35 @@ foreach ($hierarchicalModules as $m) {
     }
 }
 ?>
+<style>
+.permissions-table .form-check-input:not(.row-switch),
+.role-concern-card .role-concern-checkbox {
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 2px solid #64748b !important;
+    background-color: #ffffff;
+    cursor: pointer;
+}
+.permissions-table .form-check-input:not(.row-switch):hover,
+.role-concern-card .role-concern-checkbox:hover {
+    border-color: #0d6efd !important;
+}
+.permissions-table .form-check-input:not(.row-switch):checked,
+.role-concern-card .role-concern-checkbox:checked {
+    border-color: #0d6efd !important;
+    background-color: #0d6efd !important;
+}
+.permissions-table .row-switch,
+.module-switch {
+    border: 2px solid #64748b !important;
+    cursor: pointer;
+}
+.permissions-table .row-switch:checked,
+.module-switch:checked {
+    border-color: #0d6efd !important;
+    background-color: #0d6efd !important;
+}
+</style>
 <div class="container-fluid py-4 px-3 px-md-4">
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -248,14 +277,14 @@ foreach ($hierarchicalModules as $m) {
                                     </span>
                                 </div>
                                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                                    <label class="form-check-label small text-muted cursor-pointer" for="form_mod_toggle_<?= e($modKey) ?>">
-                                        Toggle Module
-                                    </label>
-                                    <input class="form-check-input module-switch cursor-pointer" 
+                                    <input class="form-check-input module-switch cursor-pointer ms-0" 
                                            type="checkbox" 
                                            id="form_mod_toggle_<?= e($modKey) ?>" 
                                            data-module="<?= e($modKey) ?>"
                                            title="Select / Deselect all in <?= e($modTitle) ?>">
+                                    <label class="form-check-label small text-dark fw-semibold cursor-pointer mb-0" for="form_mod_toggle_<?= e($modKey) ?>">
+                                        Toggle Module
+                                    </label>
                                 </div>
                             </div>
 
