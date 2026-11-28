@@ -426,6 +426,8 @@ class Router {
         $this->post('allmodules/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('allmodules/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->post('allmodules/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->post('allmodules/inwards/cutting-outward/receive/{id}', 'InwardController', 'receiveCuttingOutward', ['AuthMiddleware', ['PermissionMiddleware', [['inward', 'verify'], ['inward', 'create'], ['inward', 'edit']]]]);
+        $this->post('allmodules/inwards/damage-outward/receive/{id}', 'InwardController', 'receiveDamageOutward', ['AuthMiddleware', ['PermissionMiddleware', [['inward', 'verify'], ['inward', 'create'], ['inward', 'edit']]]]);
         $this->get('allmodules/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('allmodules/inwards/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
@@ -465,6 +467,8 @@ class Router {
         $this->post('allmodules/damages/update/{id}', 'AllmodulesController', 'updateDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/resolve/{id}', 'AllmodulesController', 'resolveDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/delete/{id}', 'AllmodulesController', 'deleteDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'delete']]);
+        $this->get('api/allmodules/damages/outward-scan', 'AllmodulesController', 'ajaxLookupDamageForOutward', ['AuthMiddleware', ['PermissionMiddleware', [['damages', 'view'], ['damages', 'create']]]]);
+        $this->post('allmodules/damages/outward/store', 'AllmodulesController', 'storeDamageOutward', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
 
         // Production Catalog
         $this->get('allmodules/catalog', 'AllmodulesController', 'catalogList', ['AuthMiddleware', ['PermissionMiddleware', 'catalog', 'view']]);
@@ -518,6 +522,8 @@ class Router {
         $this->get('allmodules/cutting/edit/{id}', 'AllmodulesController', 'editCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
         $this->post('allmodules/cutting/update/{id}', 'AllmodulesController', 'updateCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
         $this->post('allmodules/cutting/delete/{id}', 'AllmodulesController', 'deleteCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'delete']]);
+        $this->get('api/allmodules/cutting/outward-scan', 'AllmodulesController', 'ajaxLookupCuttingForOutward', ['AuthMiddleware', ['PermissionMiddleware', [['cutting', 'view'], ['cutting', 'create']]]]);
+        $this->post('allmodules/cutting/outward/store', 'AllmodulesController', 'storeCuttingOutward', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
         $this->get('api/programs/{id}/details', 'AllmodulesController', 'ajaxProgramDetails', ['AuthMiddleware']);
 
         // Wastage Selling
@@ -628,6 +634,7 @@ class Router {
         $this->get('export/quick-csv', 'ExportController', 'quickCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
         $this->get('export/direct-bills-csv', 'ExportController', 'directBillsCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
         $this->get('export/normal-bills-csv', 'ExportController', 'normalBillsCsv', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
+        $this->get('api/export/concern-summary', 'ExportController', 'ajaxConcernSummary', ['AuthMiddleware', ['PermissionMiddleware', 'reports', 'view']]);
 
         // ==========================================
         // ASSETS MANAGEMENT

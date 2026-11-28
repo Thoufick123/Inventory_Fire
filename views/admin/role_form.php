@@ -17,6 +17,35 @@ foreach ($hierarchicalModules as $m) {
     }
 }
 ?>
+<style>
+.permissions-table .form-check-input:not(.row-switch),
+.role-concern-card .role-concern-checkbox {
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 2px solid #64748b !important;
+    background-color: #ffffff;
+    cursor: pointer;
+}
+.permissions-table .form-check-input:not(.row-switch):hover,
+.role-concern-card .role-concern-checkbox:hover {
+    border-color: #0d6efd !important;
+}
+.permissions-table .form-check-input:not(.row-switch):checked,
+.role-concern-card .role-concern-checkbox:checked {
+    border-color: #0d6efd !important;
+    background-color: #0d6efd !important;
+}
+.permissions-table .row-switch,
+.module-switch {
+    border: 2px solid #64748b !important;
+    cursor: pointer;
+}
+.permissions-table .row-switch:checked,
+.module-switch:checked {
+    border-color: #0d6efd !important;
+    background-color: #0d6efd !important;
+}
+</style>
 <div class="container-fluid py-4 px-3 px-md-4">
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -128,23 +157,66 @@ foreach ($hierarchicalModules as $m) {
                             </div>
                         </div>
 
-                        <div id="specificConcernsContainer" class="mt-3 p-3 border rounded-3 bg-white <?= $curScope === 'SPECIFIC' ? '' : 'd-none' ?>">
-                            <label class="form-label fw-semibold small text-uppercase text-secondary mb-2">Select Permitted Business Entities:</label>
-                            <div class="row g-2">
+                        <div id="specificConcernsContainer" class="mt-3 p-3 p-md-4 border rounded-4 bg-light bg-opacity-50 <?= $curScope === 'SPECIFIC' ? '' : 'd-none' ?>">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                <div>
+                                    <label class="form-label fw-bold small text-uppercase text-dark mb-0 d-flex align-items-center gap-1.5">
+                                        <i class="bi bi-buildings-fill text-primary"></i>
+                                        <span>Select Permitted Business Entities</span>
+                                    </label>
+                                    <div class="text-muted small">Click a concern card to grant or revoke role availability for that entity.</div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onclick="toggleAllRoleConcerns(true)">Select All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold" onclick="toggleAllRoleConcerns(false)">Clear</button>
+                                </div>
+                            </div>
+                            <div class="row g-3">
                                 <?php foreach (($concerns ?? []) as $c): 
                                     $cid = (int)$c['id'];
                                     $checked = in_array($cid, $applicableCids, true);
                                 ?>
-                                    <div class="col-12 col-md-6">
-                                        <label class="card h-100 border p-2.5 d-flex flex-row align-items-center gap-2 cursor-pointer mb-0">
-                                            <input class="form-check-input mt-0" type="checkbox" name="applicable_concerns[]" value="<?= $cid ?>" <?= $checked ? 'checked' : '' ?>>
-                                            <span class="badge bg-secondary-subtle text-primary border font-monospace"><?= e($c['code']) ?></span>
-                                            <span class="fw-semibold text-dark small flex-grow-1"><?= e($c['name']) ?></span>
+                                    <div class="col-12 col-md-6 col-xl-4">
+                                        <label class="card h-100 rounded-3 p-3 cursor-pointer mb-0 role-concern-card transition-all <?= $checked ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'border bg-white' ?>" style="transition: all 0.15s ease;">
+                                            <div class="d-flex align-items-start gap-2.5">
+                                                <input class="form-check-input role-concern-checkbox mt-1 flex-shrink-0" type="checkbox" name="applicable_concerns[]" value="<?= $cid ?>" <?= $checked ? 'checked' : '' ?> onchange="syncRoleConcernCard(this)">
+                                                <div class="flex-grow-1" style="min-width: 0;">
+                                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace fw-bold"><?= e($c['code']) ?></span>
+                                                        <?php if (!empty($c['legal_name'])): ?>
+                                                            <small class="text-muted text-truncate" style="max-width: 150px;" title="<?= e($c['legal_name']) ?>"><?= e($c['legal_name']) ?></small>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div class="fw-bold text-dark text-truncate"><?= e($c['name']) ?></div>
+                                                    <?php if (!empty($c['gst_number'])): ?>
+                                                        <small class="text-muted d-block font-monospace mt-0.5" style="font-size: 11px;">GSTIN: <?= e($c['gst_number']) ?></small>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
                         </div>
+                        <script>
+                        function syncRoleConcernCard(cb) {
+                            const card = cb.closest('.role-concern-card');
+                            if (!card) return;
+                            if (cb.checked) {
+                                card.classList.remove('border', 'bg-white');
+                                card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10', 'shadow-sm');
+                            } else {
+                                card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10', 'shadow-sm');
+                                card.classList.add('border', 'bg-white');
+                            }
+                        }
+                        function toggleAllRoleConcerns(selectAll) {
+                            document.querySelectorAll('.role-concern-checkbox').forEach(cb => {
+                                cb.checked = selectAll;
+                                syncRoleConcernCard(cb);
+                            });
+                        }
+                        </script>
                     </div>
                 </div>
             </div>
@@ -205,14 +277,14 @@ foreach ($hierarchicalModules as $m) {
                                     </span>
                                 </div>
                                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                                    <label class="form-check-label small text-muted cursor-pointer" for="form_mod_toggle_<?= e($modKey) ?>">
-                                        Toggle Module
-                                    </label>
-                                    <input class="form-check-input module-switch cursor-pointer" 
+                                    <input class="form-check-input module-switch cursor-pointer ms-0" 
                                            type="checkbox" 
                                            id="form_mod_toggle_<?= e($modKey) ?>" 
                                            data-module="<?= e($modKey) ?>"
                                            title="Select / Deselect all in <?= e($modTitle) ?>">
+                                    <label class="form-check-label small text-dark fw-semibold cursor-pointer mb-0" for="form_mod_toggle_<?= e($modKey) ?>">
+                                        Toggle Module
+                                    </label>
                                 </div>
                             </div>
 

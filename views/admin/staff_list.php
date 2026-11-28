@@ -22,25 +22,6 @@ if (empty($currentDept)) $currentDept = 'all';
         </div>
     </div>
 
-    <!-- Department Navigation Tabs -->
-    <ul class="nav nav-pills mb-4 gap-2 bg-white p-2 rounded-3 shadow-sm border" id="deptTabs">
-        <li class="nav-item">
-            <a href="<?= url('admin/staff?department=all') ?>" class="nav-link <?= $currentDept === 'all' ? 'active' : 'text-dark' ?> fw-semibold px-3">
-                <i class="bi bi-people-fill me-1"></i> Total Staffs
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= url('admin/staff?department=production') ?>" class="nav-link <?= $currentDept === 'production' ? 'active' : 'text-dark' ?> fw-semibold px-3">
-                <i class="bi bi-gear-wide-connected me-1 text-primary"></i> Production
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?= url('admin/staff?department=general') ?>" class="nav-link <?= $currentDept === 'general' ? 'active' : 'text-dark' ?> fw-semibold px-3">
-                <i class="bi bi-shield-lock me-1 text-dark"></i> Administration
-            </a>
-        </li>
-    </ul>
-
     <!-- KPI Summary Cards Container -->
     <div id="staffKpiContainer">
         <div class="row g-3 mb-4">

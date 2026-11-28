@@ -62,12 +62,14 @@ class ExportService
                 $hasConcerns ? $concernIds : []
             );
             $data['purchases'] = Database::fetchAll(
-                "SELECT pp.id, pp.purchase_number, pp.purchase_date, pp.invoice_number,
+                "SELECT pp.id, pp.purchase_number, pp.purchase_type, pp.purchase_date, pp.invoice_number,
+                        pp.grn_number, pp.is_inwarded, pp.accounts_status,
                         s.name AS supplier_name, s.company AS supplier_company,
                         c.code AS concern_code, c.name AS concern_name,
                         pp.total_amount, pp.notes, pp.created_at,
                         COALESCE(items_stat.total_items, 0) AS total_items,
                         COALESCE(items_stat.total_rolls, 0) AS total_rolls,
+                        COALESCE(items_stat.total_qty, 0) AS total_qty,
                         COALESCE(items_stat.total_weight, 0) AS total_weight
                  FROM production_purchases pp
                  LEFT JOIN sellers s ON s.id = pp.seller_id
@@ -76,6 +78,7 @@ class ExportService
                      SELECT ppi.purchase_id,
                             COUNT(*) AS total_items,
                             SUM(CASE WHEN ppi.item_type = 'FABRIC_ROLL' THEN 1 ELSE 0 END) AS total_rolls,
+                            SUM(COALESCE(ppi.quantity, 0)) AS total_qty,
                             SUM(COALESCE(ppi.weight_kg, 0)) AS total_weight
                      FROM production_purchase_items ppi
                      JOIN production_purchases pp_sub ON pp_sub.id = ppi.purchase_id
@@ -616,12 +619,19 @@ class ExportService
         // 19. QR Code Generations
         if (in_array('qr_generations', $selectedModules, true)) {
             $data['qr_generations'] = Database::fetchAll(
-                "SELECT qg.id, qg.batch_code, qg.generation_type, qg.brand_name,
+                "SELECT qg.id, qg.batch_code, qg.generation_type, qg.qr_source, qg.brand_name,
+                        pp.purchase_number AS source_purchase_number,
+                        sb.batch_number AS stitching_batch_number,
+                        qb.qc_number AS qc_number,
                         c.code AS concern_code, c.name AS concern_name,
-                        qg.category_name, qg.subcategory_name, qg.color_name, qg.size_name,
+                        qg.category_name, qg.subcategory_name, qg.sub_subcategory_name,
+                        qg.color_name, qg.size_name, qg.design_name,
                         qg.quantity, qg.mrp, qg.selling_price, qg.qr_prefix, qg.stock_added,
                         qg.created_at, u.full_name AS created_by_name
                  FROM qr_generations qg
+                 LEFT JOIN production_purchases pp ON pp.id = qg.source_purchase_id
+                 LEFT JOIN stitching_batches sb ON sb.id = qg.stitching_batch_id
+                 LEFT JOIN qc_batches qb ON qb.id = qg.qc_batch_id
                  LEFT JOIN concerns c ON c.id = qg.concern_id
                  LEFT JOIN users u ON u.id = qg.created_by
                  WHERE qg.created_at >= ? AND qg.created_at <= ?
@@ -629,6 +639,82 @@ class ExportService
                  ORDER BY qg.id DESC",
                 $cParams([$startDateTime, $endDateTime])
             );
+        }
+
+        // 19b. Cutting Outwards
+        if (in_array('cutting_outwards', $selectedModules, true)) {
+            try {
+                $data['cutting_outwards'] = Database::fetchAll(
+                    "SELECT co.id, co.outward_number, co.outward_date, co.total_batches, co.total_cut_qty,
+                            co.vehicle_number, co.driver_name, co.notes, co.inward_status, co.inwarded_at,
+                            c_src.code AS concern_code, c_src.name AS concern_name,
+                            c_dest.code AS dest_concern_code, c_dest.name AS dest_concern_name,
+                            (SELECT GROUP_CONCAT(coi.batch_number SEPARATOR ', ') FROM cutting_outward_items coi WHERE coi.cutting_outward_id = co.id) AS batch_numbers_csv,
+                            u.full_name AS created_by_name
+                     FROM cutting_outwards co
+                     LEFT JOIN concerns c_src ON c_src.id = COALESCE(co.concern_id, 1)
+                     LEFT JOIN concerns c_dest ON c_dest.id = co.destination_concern_id
+                     LEFT JOIN users u ON u.id = co.created_by
+                     WHERE co.outward_date >= ? AND co.outward_date <= ?
+                     " . $cWhere('co.concern_id') . "
+                     ORDER BY co.id DESC",
+                    $cParams([$startDateOnly, $endDateOnly])
+                );
+            } catch (\Throwable $e) {
+                $data['cutting_outwards'] = [];
+            }
+        }
+
+        // 19c. Damage Outwards
+        if (in_array('damage_outwards', $selectedModules, true)) {
+            try {
+                $data['damage_outwards'] = Database::fetchAll(
+                    "SELECT do.id, do.outward_number, do.outward_date, do.total_items,
+                            do.vehicle_number, do.driver_name, do.notes, do.inward_status, do.inwarded_at,
+                            c_src.code AS concern_code, c_src.name AS concern_name,
+                            c_dest.code AS dest_concern_code, c_dest.name AS dest_concern_name,
+                            (SELECT GROUP_CONCAT(doi.damage_number SEPARATOR ', ') FROM damage_outward_items doi WHERE doi.damage_outward_id = do.id) AS damage_numbers_csv,
+                            (SELECT COALESCE(SUM(doi.damaged_quantity), 0) FROM damage_outward_items doi WHERE doi.damage_outward_id = do.id) AS total_damaged_qty,
+                            (SELECT COALESCE(SUM(doi.damaged_weight), 0) FROM damage_outward_items doi WHERE doi.damage_outward_id = do.id) AS total_damaged_weight,
+                            u.full_name AS created_by_name
+                     FROM damage_outwards do
+                     LEFT JOIN concerns c_src ON c_src.id = COALESCE(do.concern_id, 1)
+                     LEFT JOIN concerns c_dest ON c_dest.id = do.destination_concern_id
+                     LEFT JOIN users u ON u.id = do.created_by
+                     WHERE do.outward_date >= ? AND do.outward_date <= ?
+                     " . $cWhere('do.concern_id') . "
+                     ORDER BY do.id DESC",
+                    $cParams([$startDateOnly, $endDateOnly])
+                );
+            } catch (\Throwable $e) {
+                $data['damage_outwards'] = [];
+            }
+        }
+
+        // 19d. POS Coupons
+        if (in_array('coupons', $selectedModules, true)) {
+            try {
+                $data['coupons'] = Database::fetchAll(
+                    "SELECT pc.id, pc.coupon_code, pc.title, pc.customer_name, pc.customer_phone,
+                            pc.discount_type, pc.discount_value, pc.min_redemption_amount,
+                            pc.max_uses, pc.used_count, pc.status, pc.expires_at, pc.created_at,
+                            c.code AS concern_code, c.name AS concern_name,
+                            pb_iss.bill_number AS issued_bill_number,
+                            pb_red.bill_number AS redeemed_bill_number,
+                            u.full_name AS created_by_name
+                     FROM pos_coupons pc
+                     LEFT JOIN concerns c ON c.id = COALESCE(pc.concern_id, 1)
+                     LEFT JOIN production_bills pb_iss ON pb_iss.id = pc.issued_bill_id
+                     LEFT JOIN production_bills pb_red ON pb_red.id = pc.redeemed_bill_id
+                     LEFT JOIN users u ON u.id = pc.created_by
+                     WHERE pc.created_at >= ? AND pc.created_at <= ?
+                     " . $cWhere('pc.concern_id') . "
+                     ORDER BY pc.id DESC",
+                    $cParams([$startDateTime, $endDateTime])
+                );
+            } catch (\Throwable $e) {
+                $data['coupons'] = [];
+            }
         }
 
         // 20. Inventory (On-Hand Balances)
@@ -1032,15 +1118,20 @@ class ExportService
         // 1. Purchases
         if (!empty($data['purchases'])) {
             fputcsv($out, ['=== 1. FABRIC & MATERIAL PURCHASES (PO ORDERS) ===']);
-            fputcsv($out, ['Purchase / PO #', 'Purchase Date', 'Supplier', 'Invoice #', 'Total Items', 'Fabric Rolls Count', 'Total Weight (kg)', 'Total Value (INR)', 'Notes', 'Concern']);
+            fputcsv($out, ['Purchase / PO #', 'Purchase Type', 'Purchase Date', 'Supplier', 'Invoice #', 'GRN #', 'Inward Status', 'Accounts Status', 'Total Items', 'Fabric Rolls Count', 'Total Qty (pcs)', 'Total Weight (kg)', 'Total Value (INR)', 'Notes', 'Concern']);
             foreach ($data['purchases'] as $pur) {
                 fputcsv($out, [
                     $pur['purchase_number'],
+                    $pur['purchase_type'] ?? 'FABRIC_ROLL',
                     date('d M Y', strtotime($pur['purchase_date'])),
                     $pur['supplier_company'] ?: ($pur['supplier_name'] ?? 'Direct Supplier'),
                     $pur['invoice_number'] ?: '-',
+                    $pur['grn_number'] ?: '-',
+                    !empty($pur['is_inwarded']) ? 'INWARDED' : 'PENDING',
+                    $pur['accounts_status'] ?? 'VERIFIED',
                     (int)$pur['total_items'],
                     (int)$pur['total_rolls'],
+                    (int)($pur['total_qty'] ?? 0),
                     number_format((float)$pur['total_weight'], 2, '.', ''),
                     number_format((float)$pur['total_amount'], 2, '.', ''),
                     $pur['notes'] ?? '',
@@ -1611,16 +1702,21 @@ class ExportService
         // 20. QR Code Generation Batches
         if (!empty($data['qr_generations'])) {
             fputcsv($out, ['=== 20. QR CODE GENERATION BATCHES ===']);
-            fputcsv($out, ['Batch Code', 'Generation Type', 'Brand', 'Category', 'Subcategory', 'Color', 'Size', 'Generated Quantity', 'MRP (INR)', 'Selling Price (INR)', 'QR Prefix', 'Stock Added Status', 'Created By', 'Created Date', 'Concern']);
+            fputcsv($out, ['Batch Code', 'QR Source', 'Generation Type', 'Source PO / Batch', 'Brand', 'Category', 'Subcategory', 'Sub-Subcategory', 'Color', 'Size', 'Design', 'Generated Quantity', 'MRP (INR)', 'Selling Price (INR)', 'QR Prefix', 'Stock Added Status', 'Created By', 'Created Date', 'Concern']);
             foreach ($data['qr_generations'] as $qr) {
+                $srcRef = $qr['source_purchase_number'] ?: ($qr['stitching_batch_number'] ?: ($qr['qc_number'] ?: '-'));
                 fputcsv($out, [
                     $qr['batch_code'],
+                    $qr['qr_source'] ?? 'THIRD_PARTY',
                     $qr['generation_type'] ?? 'STANDARD',
+                    $srcRef,
                     $qr['brand_name'] ?: '-',
                     $qr['category_name'] ?: '-',
                     $qr['subcategory_name'] ?: '-',
+                    $qr['sub_subcategory_name'] ?: '-',
                     $qr['color_name'] ?: '-',
                     $qr['size_name'] ?: '-',
+                    $qr['design_name'] ?: '-',
                     (int)($qr['quantity'] ?? 0),
                     number_format((float)($qr['mrp'] ?? 0), 2, '.', ''),
                     number_format((float)($qr['selling_price'] ?? 0), 2, '.', ''),
@@ -1629,6 +1725,78 @@ class ExportService
                     $qr['created_by_name'] ?: '-',
                     !empty($qr['created_at']) ? date('d M Y', strtotime($qr['created_at'])) : '-',
                     $qr['concern_code'] ?? '-',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
+        // 20b. Cutting Outwards
+        if (!empty($data['cutting_outwards'])) {
+            fputcsv($out, ['=== CUTTING OUTWARDS TO OTHER CONCERNS ===']);
+            fputcsv($out, ['Outward #', 'Outward Date', 'From Concern', 'Destination Concern', 'Cutting Batches', 'Total Batches', 'Total Cut Qty (pcs)', 'Vehicle #', 'Driver', 'Inward Status', 'Inwarded At', 'Notes']);
+            foreach ($data['cutting_outwards'] as $co) {
+                fputcsv($out, [
+                    $co['outward_number'],
+                    !empty($co['outward_date']) ? date('d M Y', strtotime($co['outward_date'])) : '-',
+                    $co['concern_code'] ?: ($co['concern_name'] ?? '-'),
+                    $co['dest_concern_code'] ?: ($co['dest_concern_name'] ?? '-'),
+                    $co['batch_numbers_csv'] ?: '-',
+                    (int)($co['total_batches'] ?? 0),
+                    (int)($co['total_cut_qty'] ?? 0),
+                    $co['vehicle_number'] ?: '-',
+                    $co['driver_name'] ?: '-',
+                    $co['inward_status'] ?? 'PENDING',
+                    !empty($co['inwarded_at']) ? date('d M Y H:i', strtotime($co['inwarded_at'])) : '-',
+                    $co['notes'] ?? '',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
+        // 20c. Damage Outwards
+        if (!empty($data['damage_outwards'])) {
+            fputcsv($out, ['=== DAMAGE OUTWARDS TO OTHER CONCERNS ===']);
+            fputcsv($out, ['Outward #', 'Outward Date', 'From Concern', 'Destination Concern', 'Damage Numbers', 'Total Items', 'Total Damaged Qty (pcs)', 'Total Damaged Weight (kg)', 'Vehicle #', 'Driver', 'Inward Status', 'Inwarded At', 'Notes']);
+            foreach ($data['damage_outwards'] as $do) {
+                fputcsv($out, [
+                    $do['outward_number'],
+                    !empty($do['outward_date']) ? date('d M Y', strtotime($do['outward_date'])) : '-',
+                    $do['concern_code'] ?: ($do['concern_name'] ?? '-'),
+                    $do['dest_concern_code'] ?: ($do['dest_concern_name'] ?? '-'),
+                    $do['damage_numbers_csv'] ?: '-',
+                    (int)($do['total_items'] ?? 0),
+                    (int)($do['total_damaged_qty'] ?? 0),
+                    number_format((float)($do['total_damaged_weight'] ?? 0), 2, '.', ''),
+                    $do['vehicle_number'] ?: '-',
+                    $do['driver_name'] ?: '-',
+                    $do['inward_status'] ?? 'PENDING',
+                    !empty($do['inwarded_at']) ? date('d M Y H:i', strtotime($do['inwarded_at'])) : '-',
+                    $do['notes'] ?? '',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
+        // 20d. POS Coupons
+        if (!empty($data['coupons'])) {
+            fputcsv($out, ['=== POS COUPONS & DISCOUNT OFFERS ===']);
+            fputcsv($out, ['Coupon Code', 'Title', 'Discount Type', 'Discount Value', 'Min Bill (INR)', 'Max Uses', 'Used Count', 'Status', 'Expires At', 'Issued Bill #', 'Redeemed Bill #', 'Customer', 'Created Date', 'Concern']);
+            foreach ($data['coupons'] as $cp) {
+                fputcsv($out, [
+                    $cp['coupon_code'],
+                    $cp['title'] ?: '-',
+                    $cp['discount_type'],
+                    number_format((float)($cp['discount_value'] ?? 0), 2, '.', ''),
+                    number_format((float)($cp['min_redemption_amount'] ?? 0), 2, '.', ''),
+                    (int)($cp['max_uses'] ?? 0),
+                    (int)($cp['used_count'] ?? 0),
+                    $cp['status'] ?? 'ACTIVE',
+                    !empty($cp['expires_at']) ? date('d M Y', strtotime($cp['expires_at'])) : 'No Expiry',
+                    $cp['issued_bill_number'] ?: '-',
+                    $cp['redeemed_bill_number'] ?: '-',
+                    trim(($cp['customer_name'] ?? '') . ' ' . ($cp['customer_phone'] ?? '')) ?: '-',
+                    !empty($cp['created_at']) ? date('d M Y', strtotime($cp['created_at'])) : '-',
+                    $cp['concern_code'] ?? '-',
                 ]);
             }
             fputcsv($out, []);
@@ -1739,5 +1907,62 @@ class ExportService
 
         fclose($out);
         exit;
+    }
+
+    /**
+     * Lightweight record count per export module for dynamic concern-based UI filtering.
+     */
+    public static function getModuleCounts(string $startDate, string $endDate, array $concernIds = []): array
+    {
+        $concernIds = array_values(array_unique(array_filter(array_map('intval', $concernIds), static fn(int $id): bool => $id > 0)));
+        $hasConcerns = !empty($concernIds);
+        $ph = $hasConcerns ? implode(',', array_fill(0, count($concernIds), '?')) : '';
+        $cWhere = static fn(string $col): string => $hasConcerns ? " AND {$col} IN ({$ph})" : '';
+        $cParams = static fn(array $base): array => $hasConcerns ? array_merge($base, $concernIds) : $base;
+
+        $startDT = $startDate . ' 00:00:00';
+        $endDT   = $endDate . ' 23:59:59';
+
+        $queries = [
+            'purchases'            => ["SELECT COUNT(*) AS c FROM production_purchases pp WHERE pp.purchase_date >= ? AND pp.purchase_date <= ?" . $cWhere('pp.concern_id'), $cParams([$startDate, $endDate])],
+            'rolls'                => ["SELECT COUNT(*) AS c FROM seller_rolls sr WHERE sr.created_at >= ? AND sr.created_at <= ?" . $cWhere('sr.concern_id'), $cParams([$startDT, $endDT])],
+            'raw_materials'        => ["SELECT COUNT(*) AS c FROM production_purchase_items ppi JOIN production_purchases pp ON pp.id = ppi.purchase_id WHERE ppi.item_type = 'RAW_MATERIAL' AND pp.purchase_date >= ? AND pp.purchase_date <= ?" . $cWhere('pp.concern_id'), $cParams([$startDate, $endDate])],
+            'third_party_products' => ["SELECT COUNT(*) AS c FROM third_party_products tpp WHERE tpp.created_at >= ? AND tpp.created_at <= ?" . $cWhere('tpp.concern_id'), $cParams([$startDT, $endDT])],
+            'qr_generations'       => ["SELECT COUNT(*) AS c FROM qr_generations qg WHERE qg.created_at >= ? AND qg.created_at <= ?" . $cWhere('qg.concern_id'), $cParams([$startDT, $endDT])],
+            'suppliers'            => ["SELECT COUNT(*) AS c FROM sellers s WHERE (s.is_active IS NULL OR s.is_active = 1)" . $cWhere('s.concern_id'), $hasConcerns ? $concernIds : []],
+            'goods_inward'         => ["SELECT COUNT(*) AS c FROM production_batches pb WHERE pb.status IN ('DISPATCHED','RECEIVED') AND pb.created_at >= ? AND pb.created_at <= ?" . $cWhere('pb.concern_id'), $cParams([$startDT, $endDT])],
+            'programs'             => ["SELECT COUNT(*) AS c FROM production_programs pp WHERE pp.created_at >= ? AND pp.created_at <= ?" . $cWhere('pp.concern_id'), $cParams([$startDT, $endDT])],
+            'cuttings'             => ["SELECT COUNT(*) AS c FROM cutting_batches cb WHERE cb.created_at >= ? AND cb.created_at <= ?" . $cWhere('cb.concern_id'), $cParams([$startDT, $endDT])],
+            'cutting_outwards'     => ["SELECT COUNT(*) AS c FROM cutting_outwards co WHERE co.outward_date >= ? AND co.outward_date <= ?" . $cWhere('co.concern_id'), $cParams([$startDate, $endDate])],
+            'stitching'            => ["SELECT COUNT(*) AS c FROM stitching_batches sb WHERE sb.created_at >= ? AND sb.created_at <= ?" . $cWhere('sb.concern_id'), $cParams([$startDT, $endDT])],
+            'qc'                   => ["SELECT COUNT(*) AS c FROM qc_batches qb WHERE qb.created_at >= ? AND qb.created_at <= ?" . $cWhere('qb.concern_id'), $cParams([$startDT, $endDT])],
+            'damages'              => ["SELECT COUNT(*) AS c FROM roll_damages rd WHERE rd.created_at >= ? AND rd.created_at <= ?" . $cWhere('rd.concern_id'), $cParams([$startDT, $endDT])],
+            'damage_outwards'      => ["SELECT COUNT(*) AS c FROM damage_outwards do WHERE do.outward_date >= ? AND do.outward_date <= ?" . $cWhere('do.concern_id'), $cParams([$startDate, $endDate])],
+            'catalog'              => ["SELECT COUNT(*) AS c FROM products p WHERE p.is_active = 1" . $cWhere('p.concern_id'), $hasConcerns ? $concernIds : []],
+            'variants'             => ["SELECT COUNT(*) AS c FROM product_variants pv JOIN products p ON p.id = pv.product_id WHERE pv.is_active = 1" . $cWhere('p.concern_id'), $hasConcerns ? $concernIds : []],
+            'outward'              => ["SELECT COUNT(*) AS c FROM production_outwards po WHERE po.created_at >= ? AND po.created_at <= ?" . $cWhere('po.concern_id'), $cParams([$startDT, $endDT])],
+            'inventory'            => ["SELECT COUNT(*) AS c FROM stock_balances sb WHERE sb.quantity > 0" . $cWhere('sb.concern_id'), $hasConcerns ? $concernIds : []],
+            'stock_ledger'         => ["SELECT COUNT(*) AS c FROM stock_transactions st WHERE st.created_at >= ? AND st.created_at <= ?" . $cWhere('st.concern_id'), $cParams([$startDT, $endDT])],
+            'stock_requests'       => ["SELECT COUNT(*) AS c FROM production_stock_requests sr WHERE sr.created_at >= ? AND sr.created_at <= ?" . $cWhere('sr.concern_id'), $cParams([$startDT, $endDT])],
+            'billing'              => ["SELECT COUNT(*) AS c FROM production_bills pb WHERE COALESCE(pb.is_direct_bill, 0) = 0 AND pb.bill_date >= ? AND pb.bill_date <= ?" . $cWhere('pb.concern_id'), $cParams([$startDate, $endDate])],
+            'direct_billing'       => ["SELECT COUNT(*) AS c FROM production_bills pb WHERE pb.is_direct_bill = 1 AND pb.bill_date >= ? AND pb.bill_date <= ?" . $cWhere('pb.concern_id'), $cParams([$startDate, $endDate])],
+            'coupons'              => ["SELECT COUNT(*) AS c FROM pos_coupons pc WHERE pc.created_at >= ? AND pc.created_at <= ?" . $cWhere('pc.concern_id'), $cParams([$startDT, $endDT])],
+            'returns'              => ["SELECT COUNT(*) AS c FROM production_returns pr WHERE pr.created_at >= ? AND pr.created_at <= ?" . $cWhere('pr.concern_id'), $cParams([$startDT, $endDT])],
+            'wastage'              => ["SELECT COUNT(*) AS c FROM wastage_sales ws WHERE ws.sale_date >= ? AND ws.sale_date <= ?" . $cWhere('ws.concern_id'), $cParams([$startDate, $endDate])],
+            'expenses'             => ["SELECT COUNT(*) AS c FROM production_expenses pe WHERE pe.expense_date >= ? AND pe.expense_date <= ?" . $cWhere('pe.concern_id'), $cParams([$startDate, $endDate])],
+            'assets'               => ["SELECT COUNT(*) AS c FROM assets a WHERE (a.is_active IS NULL OR a.is_active = 1)" . $cWhere('a.concern_id'), $hasConcerns ? $concernIds : []],
+            'asset_maintenance'    => ["SELECT COUNT(*) AS c FROM asset_maintenance_logs am WHERE am.service_date >= ? AND am.service_date <= ?" . $cWhere('am.concern_id'), $cParams([$startDate, $endDate])],
+        ];
+
+        $counts = [];
+        foreach ($queries as $key => [$sql, $params]) {
+            try {
+                $row = Database::fetchOne($sql, $params);
+                $counts[$key] = (int)($row['c'] ?? 0);
+            } catch (\Throwable $e) {
+                $counts[$key] = 0;
+            }
+        }
+        return $counts;
     }
 }

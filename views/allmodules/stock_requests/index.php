@@ -16,9 +16,6 @@ $isSentTab = ($activeTab === 'sent');
             <a href="<?= url('production/stock-requests/create') ?>" class="btn btn-primary btn-sm fw-semibold shadow-sm px-3">
                 <i class="bi bi-plus-circle me-1"></i> New Stock Requirement
             </a>
-            <a href="<?= url('production/inventory') ?>" class="btn btn-outline-success btn-sm fw-semibold shadow-sm">
-                <i class="bi bi-box-seam me-1"></i> Inventory
-            </a>
         </div>
     </div>
 
@@ -270,11 +267,6 @@ $isSentTab = ($activeTab === 'sent');
                 </span>
             </div>
             <div>
-                <?php if ($isSentTab): ?>
-                    <a href="<?= url('production/stock-requests/create') ?>" class="btn btn-sm btn-outline-primary fw-semibold">
-                        <i class="bi bi-plus-circle me-1"></i> Create New Requisition
-                    </a>
-                <?php endif; ?>
             </div>
         </div>
         <div class="card-body p-0">

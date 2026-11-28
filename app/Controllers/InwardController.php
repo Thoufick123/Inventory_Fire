@@ -29,6 +29,7 @@ class InwardController {
 
         $scopedWarehouseId = function_exists('currentWarehouseId') ? currentWarehouseId() : null;
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
 
         // If the user's scoped warehouse does not belong to the active concern, do not force it
         if ($scopedWarehouseId && $cid) {
@@ -201,27 +202,196 @@ class InwardController {
         }
         unset($b);
 
+        $incomingCuttingOutwards = [];
+        $incomingDamageOutwards = [];
+        $pendingCuttingOutwardsCount = 0;
+        $pendingDamageOutwardsCount = 0;
+
+        try {
+            $coWhere = $cid !== null ? "WHERE co.destination_concern_id = ?" : "WHERE 1=1";
+            $coParams = $cid !== null ? [(int)$cid] : [];
+            $incomingCuttingOutwards = Database::fetchAll(
+                "SELECT co.*,
+                        COALESCE(c_src.name, 'Main Concern') AS source_concern_name,
+                        COALESCE(c_src.code, '') AS source_concern_code,
+                        c_dest.name AS destination_concern_name,
+                        u_rec.full_name AS inwarded_by_name
+                 FROM cutting_outwards co
+                 LEFT JOIN concerns c_src ON c_src.id = COALESCE(co.concern_id, 1)
+                 LEFT JOIN concerns c_dest ON c_dest.id = co.destination_concern_id
+                 LEFT JOIN users u_rec ON u_rec.id = co.inwarded_by
+                 {$coWhere}
+                 ORDER BY (co.inward_status = 'PENDING') DESC, co.id DESC",
+                $coParams
+            );
+            if (!empty($incomingCuttingOutwards)) {
+                $coIds = array_column($incomingCuttingOutwards, 'id');
+                $ph = implode(',', array_fill(0, count($coIds), '?'));
+                $coItems = Database::fetchAll(
+                    "SELECT * FROM cutting_outward_items WHERE cutting_outward_id IN ($ph) ORDER BY id ASC",
+                    $coIds
+                );
+                $coItemMap = [];
+                foreach ($coItems as $ci) {
+                    $coItemMap[(int)$ci['cutting_outward_id']][] = $ci;
+                }
+                foreach ($incomingCuttingOutwards as &$coRow) {
+                    $coRow['items'] = $coItemMap[(int)$coRow['id']] ?? [];
+                    if (($coRow['inward_status'] ?? 'PENDING') === 'PENDING') {
+                        $pendingCuttingOutwardsCount++;
+                    }
+                }
+                unset($coRow);
+            }
+        } catch (\Throwable $e) {
+            error_log('InwardController incomingCuttingOutwards error: ' . $e->getMessage());
+        }
+
+        try {
+            $doWhere = $cid !== null ? "WHERE do.destination_concern_id = ?" : "WHERE 1=1";
+            $doParams = $cid !== null ? [(int)$cid] : [];
+            $incomingDamageOutwards = Database::fetchAll(
+                "SELECT do.*,
+                        COALESCE(c_src.name, 'Main Concern') AS source_concern_name,
+                        COALESCE(c_src.code, '') AS source_concern_code,
+                        c_dest.name AS destination_concern_name,
+                        u_rec.full_name AS inwarded_by_name
+                 FROM damage_outwards do
+                 LEFT JOIN concerns c_src ON c_src.id = COALESCE(do.concern_id, 1)
+                 LEFT JOIN concerns c_dest ON c_dest.id = do.destination_concern_id
+                 LEFT JOIN users u_rec ON u_rec.id = do.inwarded_by
+                 {$doWhere}
+                 ORDER BY (do.inward_status = 'PENDING') DESC, do.id DESC",
+                $doParams
+            );
+            if (!empty($incomingDamageOutwards)) {
+                $doIds = array_column($incomingDamageOutwards, 'id');
+                $ph = implode(',', array_fill(0, count($doIds), '?'));
+                $doItems = Database::fetchAll(
+                    "SELECT * FROM damage_outward_items WHERE damage_outward_id IN ($ph) ORDER BY id ASC",
+                    $doIds
+                );
+                $doItemMap = [];
+                foreach ($doItems as $di) {
+                    $doItemMap[(int)$di['damage_outward_id']][] = $di;
+                }
+                foreach ($incomingDamageOutwards as &$doRow) {
+                    $doRow['items'] = $doItemMap[(int)$doRow['id']] ?? [];
+                    if (($doRow['inward_status'] ?? 'PENDING') === 'PENDING') {
+                        $pendingDamageOutwardsCount++;
+                    }
+                }
+                unset($doRow);
+            }
+        } catch (\Throwable $e) {
+            error_log('InwardController incomingDamageOutwards error: ' . $e->getMessage());
+        }
+
         Response::view('allmodules.inwards.index', [
-            'pageTitle'              => 'Inward',
-            'activeModule'           => 'production',
-            'activeMenu'             => 'prod-inwards',
-            'batches'                => $batches,
-            'warehouses'             => $warehouses,
-            'productionUnits'        => $productionUnits,
-            'warehouseId'            => $warehouseId,
-            'scopedWarehouseId'      => $scopedWarehouseId,
-            'unitId'                 => $unitId,
-            'status'                 => $status,
-            'search'                 => $search,
-            'pendingBatchesCount'    => $pendingBatchesCount,
-            'totalPendingMissingQty' => $totalPendingMissingQty,
-            'receivedBatchesCount'   => $receivedBatchesCount,
-            'totalReceivedQty'       => $totalReceivedQty,
-            'breadcrumb'             => [
+            'pageTitle'                   => 'Inward',
+            'activeModule'                => 'production',
+            'activeMenu'                  => 'prod-inwards',
+            'batches'                     => $batches,
+            'warehouses'                  => $warehouses,
+            'productionUnits'             => $productionUnits,
+            'warehouseId'                 => $warehouseId,
+            'scopedWarehouseId'           => $scopedWarehouseId,
+            'unitId'                      => $unitId,
+            'status'                      => $status,
+            'search'                      => $search,
+            'pendingBatchesCount'         => $pendingBatchesCount,
+            'totalPendingMissingQty'      => $totalPendingMissingQty,
+            'receivedBatchesCount'        => $receivedBatchesCount,
+            'totalReceivedQty'            => $totalReceivedQty,
+            'incomingCuttingOutwards'     => $incomingCuttingOutwards,
+            'incomingDamageOutwards'      => $incomingDamageOutwards,
+            'pendingCuttingOutwardsCount' => $pendingCuttingOutwardsCount,
+            'pendingDamageOutwardsCount'  => $pendingDamageOutwardsCount,
+            'breadcrumb'                  => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'Inward'],
             ],
         ]);
+    }
+
+    private static function ensureOutwardInwardSchema(): void {
+        static $checked = false;
+        if ($checked) return;
+        $checked = true;
+        try {
+            if (Database::fetchOne("SHOW TABLES LIKE 'damage_outwards'")) {
+                Database::ensureColumn('damage_outwards', 'inward_status', "ENUM('PENDING','RECEIVED') NOT NULL DEFAULT 'PENDING'");
+                Database::ensureColumn('damage_outwards', 'inwarded_by', 'INT(10) UNSIGNED DEFAULT NULL');
+                Database::ensureColumn('damage_outwards', 'inwarded_at', 'DATETIME DEFAULT NULL');
+            }
+            if (Database::fetchOne("SHOW TABLES LIKE 'cutting_outwards'")) {
+                Database::ensureColumn('cutting_outwards', 'inward_status', "ENUM('PENDING','RECEIVED') NOT NULL DEFAULT 'PENDING'");
+                Database::ensureColumn('cutting_outwards', 'inwarded_by', 'INT(10) UNSIGNED DEFAULT NULL');
+                Database::ensureColumn('cutting_outwards', 'inwarded_at', 'DATETIME DEFAULT NULL');
+            }
+        } catch (\Throwable $e) {
+            error_log('ensureOutwardInwardSchema error: ' . $e->getMessage());
+        }
+    }
+
+    public function receiveCuttingOutward(string $id): void {
+        self::ensureOutwardInwardSchema();
+        if (!CSRF::validateRequest()) {
+            Response::redirect('allmodules/inwards', 'error', 'Invalid security token.');
+            return;
+        }
+        $outwardId = (int)$id;
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $row = Database::fetchOne("SELECT * FROM cutting_outwards WHERE id = ?", [$outwardId]);
+        if (!$row) {
+            Response::redirect('allmodules/inwards', 'error', 'Cutting outward record not found.');
+            return;
+        }
+        if ($cid !== null && (int)$row['destination_concern_id'] !== (int)$cid) {
+            Response::redirect('allmodules/inwards', 'error', 'This cutting outward is addressed to another concern.');
+            return;
+        }
+        if (($row['inward_status'] ?? 'PENDING') === 'RECEIVED') {
+            Response::redirect('allmodules/inwards', 'info', "Cutting Outward {$row['outward_number']} has already been received.");
+            return;
+        }
+
+        Database::execute(
+            "UPDATE cutting_outwards SET inward_status = 'RECEIVED', inwarded_by = ?, inwarded_at = NOW() WHERE id = ?",
+            [(int)(Auth::id() ?? 0) ?: null, $outwardId]
+        );
+        AuditService::log('inward', 'receive', 'cutting_outwards', $outwardId, null, ['outward_number' => $row['outward_number'], 'inward_status' => 'RECEIVED']);
+        Response::redirect('allmodules/inwards', 'success', "Cutting Outward {$row['outward_number']} received into Inward.");
+    }
+
+    public function receiveDamageOutward(string $id): void {
+        self::ensureOutwardInwardSchema();
+        if (!CSRF::validateRequest()) {
+            Response::redirect('allmodules/inwards', 'error', 'Invalid security token.');
+            return;
+        }
+        $outwardId = (int)$id;
+        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        $row = Database::fetchOne("SELECT * FROM damage_outwards WHERE id = ?", [$outwardId]);
+        if (!$row) {
+            Response::redirect('allmodules/inwards', 'error', 'Damage outward record not found.');
+            return;
+        }
+        if ($cid !== null && (int)$row['destination_concern_id'] !== (int)$cid) {
+            Response::redirect('allmodules/inwards', 'error', 'This damage outward is addressed to another concern.');
+            return;
+        }
+        if (($row['inward_status'] ?? 'PENDING') === 'RECEIVED') {
+            Response::redirect('allmodules/inwards', 'info', "Damage Outward {$row['outward_number']} has already been received.");
+            return;
+        }
+
+        Database::execute(
+            "UPDATE damage_outwards SET inward_status = 'RECEIVED', inwarded_by = ?, inwarded_at = NOW() WHERE id = ?",
+            [(int)(Auth::id() ?? 0) ?: null, $outwardId]
+        );
+        AuditService::log('inward', 'receive', 'damage_outwards', $outwardId, null, ['outward_number' => $row['outward_number'], 'inward_status' => 'RECEIVED']);
+        Response::redirect('allmodules/inwards', 'success', "Damage Outward {$row['outward_number']} received into Inward.");
     }
 
     // =========================================================================
@@ -305,6 +475,7 @@ class InwardController {
 
         // Multi-concern isolation check
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         if (!$this->canAccessBatch($batch, $cid)) {
             Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
             return;
@@ -392,6 +563,7 @@ class InwardController {
 
         // Multi-concern isolation check
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         if (!$this->canAccessBatch($batch, $cid)) {
             Response::redirect(url('production/inwards'), 'error', 'This production batch belongs to another concern.');
             return;
@@ -454,6 +626,7 @@ class InwardController {
             return;
         }
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         if (!$this->canAccessBatch($batch, $cid)) {
             Response::error(403, 'Access denied: Production batch belongs to another concern.');
             return;
@@ -478,6 +651,7 @@ class InwardController {
             return;
         }
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         if (!$this->canAccessBatch($batch, $cid)) {
             Response::error(403, 'Access denied: Production batch belongs to another concern.');
             return;
@@ -522,6 +696,7 @@ class InwardController {
 
         // Multi-concern validation
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         $batch = ProductionBatch::find($batchId);
         if (!$batch || !$this->canAccessBatch($batch, $cid)) {
             Response::jsonError("Batch belongs to another concern and cannot be accessed.", [], 403);
@@ -558,6 +733,7 @@ class InwardController {
         }
         $code = trim($code);
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
 
         $sql = "SELECT pb.*, pp.program_number, COALESCE(p.name, pp.name, 'General Apparel') as product_name, p.code as product_code,
                        w.name as warehouse_name, w.code as warehouse_code,
@@ -609,6 +785,7 @@ class InwardController {
         }
 
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
 
         // Clean code and handle JSON / Pipe formats
         $parsedCode = $code;
@@ -694,6 +871,7 @@ class InwardController {
         $batchId = (int)$id;
         $batch = ProductionBatch::find($batchId);
         $cid = function_exists('currentConcernId') ? currentConcernId() : null;
+        self::ensureOutwardInwardSchema();
         if ($batch && !$this->canAccessBatch($batch, $cid)) {
             Response::jsonError('Access denied: Batch belongs to another concern.', [], 403);
             return;

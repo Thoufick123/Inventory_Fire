@@ -1,7 +1,6 @@
 <div class="page-header d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-building-add text-primary me-2"></i>Add New Business Concern</h2>
-        <p class="text-muted small mb-0">Register a new company entity, independent manufacturing unit, or sister firm with separate tax credentials and document numbering.</p>
     </div>
     <div>
         <a href="<?= url('admin/concerns') ?>" class="btn btn-outline-secondary">
@@ -26,27 +25,16 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Concern / Firm Display Name <span class="text-danger">*</span></label>
                             <input type="text" name="name" class="form-control" placeholder="e.g. GRM Apparels Unit 2 / GRM Tex Trading" required>
-                            <div class="form-text">Common business name shown across dashboard and invoice headers.</div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label class="form-label fw-semibold">Short Unique Code <span class="text-danger">*</span></label>
                             <input type="text" name="code" class="form-control text-uppercase font-monospace" placeholder="e.g. CN-02, GRM-TEX" maxlength="20" required>
-                            <div class="form-text">Used in QR labels and barcodes.</div>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">Concern Archetype <span class="text-danger">*</span></label>
-                            <select name="concern_type" id="concernTypeSelect" class="form-select fw-semibold" required>
-                                <option value="HEAD_OFFICE">Corporate Head Office</option>
-                                <option value="PRODUCTION">Manufacturing Unit</option>
-                                <option value="WAREHOUSE">Central Warehouse</option>
-                                <option value="RETAIL">Retail Store / POS</option>
-                            </select>
-                            <div class="form-text">Operational role.</div>
+                            
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Registered Legal Company Name</label>
                             <input type="text" name="legal_name" class="form-control" placeholder="e.g. GRM Apparels Private Limited">
-                            <div class="form-text">Official registered corporate title for GST tax invoices and legal dispatches.</div>
+                            
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
@@ -64,9 +52,7 @@
                                     </div>
                                     <div class="flex-grow-1">
                                         <input type="file" name="logo" id="concernLogoInput" class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml" onchange="previewConcernLogo(this)">
-                                        <div class="form-text mt-1 text-muted small">
-                                            <i class="bi bi-info-circle me-1"></i>Upload PNG, JPG, JPEG, WEBP or SVG (max 5MB). This image automatically displays on all POS bills, tax invoices, purchase orders, and receipts under this concern.
-                                        </div>
+                                       
                                         <button type="button" id="clearLogoBtn" class="btn btn-sm btn-outline-danger mt-2 d-none" onclick="clearSelectedLogo()">
                                             <i class="bi bi-x-circle me-1"></i>Remove Selected File
                                         </button>
@@ -167,6 +153,27 @@
                         <input type="text" name="dispatch_prefix" class="form-control text-uppercase font-monospace" value="DSP-" placeholder="e.g. DSP-U2-">
                         <div class="form-text">Prefix for outward gate passes.</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Status Toggle (Active / Inactive) -->
+            <div class="card border shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-toggle-on me-2 text-success"></i>5. Entity Status</h6>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group w-100" role="group" aria-label="Concern Status">
+                        <input type="radio" class="btn-check" name="is_active" id="concernStatusActive" value="1" autocomplete="off" checked>
+                        <label class="btn btn-outline-success fw-semibold" for="concernStatusActive">
+                            <i class="bi bi-check-circle me-1"></i> Active
+                        </label>
+
+                        <input type="radio" class="btn-check" name="is_active" id="concernStatusInactive" value="0" autocomplete="off">
+                        <label class="btn btn-outline-danger fw-semibold" for="concernStatusInactive">
+                            <i class="bi bi-slash-circle me-1"></i> Inactive
+                        </label>
+                    </div>
+                    <div class="small text-muted mt-2">When set to Inactive, users cannot record new transactions under this concern.</div>
                 </div>
             </div>
 

@@ -24,6 +24,27 @@ foreach ($hierarchicalModules as $m) {
     }
 }
 ?>
+<style>
+.perm-checkbox,
+.row-all-toggle,
+.concern-checkbox {
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 2px solid #64748b !important;
+    cursor: pointer;
+}
+.perm-checkbox:hover,
+.row-all-toggle:hover,
+.concern-checkbox:hover {
+    border-color: #0d6efd !important;
+}
+.perm-checkbox:checked,
+.row-all-toggle:checked,
+.concern-checkbox:checked {
+    border-color: #0d6efd !important;
+    background-color: #0d6efd !important;
+}
+</style>
 <div class="container-fluid py-4">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">

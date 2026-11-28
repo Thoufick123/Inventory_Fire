@@ -5,6 +5,9 @@
             </div>
         <div class="d-flex gap-2 align-items-center ms-auto">
             <?php if (hasPermission('damages', 'create')): ?>
+            <button type="button" class="btn btn-outline-dark shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#damageOutwardModal">
+                <i class="bi bi-truck me-1"></i> Damage Outward
+            </button>
             <button type="button" class="btn btn-danger shadow-sm" data-bs-toggle="modal" data-bs-target="#reportDamageModal">
                 <i class="bi bi-plus-circle me-1"></i> Report Roll Damage
             </button>
@@ -2701,3 +2704,192 @@ function confirmDeleteDamage(actionUrl, damageNumber) {
         </div>
     </div>
 </div>
+
+<!-- Damage Outwards History Card -->
+<?php if (!empty($damageOutwards)): ?>
+<div class="card shadow-sm border mb-4">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h5 class="card-title mb-0 fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Damage Outwards to Other Concerns (<?= count($damageOutwards) ?>)</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>Outward #</th>
+                    <th>Date</th>
+                    <th>Destination Concern</th>
+                    <th>Damage Items</th>
+                    <th class="text-center">Count</th>
+                    <th>Vehicle / Driver</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($damageOutwards as $do): ?>
+                    <tr>
+                        <td class="fw-bold font-monospace text-primary"><?= e($do['outward_number']) ?></td>
+                        <td><?= e(date('d M Y', strtotime($do['outward_date']))) ?></td>
+                        <td><span class="badge bg-info-subtle text-info-emphasis border"><?= e($do['destination_concern_name'] ?? 'Concern') ?></span></td>
+                        <td class="font-monospace text-muted"><?= e($do['damage_numbers_csv'] ?? '') ?></td>
+                        <td class="text-center fw-bold"><?= (int)$do['total_items'] ?></td>
+                        <td><?= e(trim(($do['vehicle_number'] ?? '') . ' ' . ($do['driver_name'] ?? '')) ?: '—') ?></td>
+                        <td><?= e($do['notes'] ?: '—') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (hasPermission('damages', 'create')): ?>
+<!-- Modal: Damage Outward (Scan Damage-Module Items Only -> Other Concern) -->
+<div class="modal fade" id="damageOutwardModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="bi bi-truck me-2"></i>Damage Outward to Other Concern</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="<?= url('allmodules/damages/outward/store') ?>" id="damageOutwardForm">
+                <?= CSRF::field() ?>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Destination Concern <span class="text-danger">*</span></label>
+                            <select name="destination_concern_id" class="form-select fw-semibold" required>
+                                <option value="">-- Select Target Concern --</option>
+                                <?php foreach ($targetConcerns ?? [] as $tc): ?>
+                                    <option value="<?= (int)$tc['id'] ?>"><?= e($tc['name']) ?><?= !empty($tc['code']) ? ' (' . e($tc['code']) . ')' : '' ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Vehicle / Carrier</label>
+                            <input type="text" name="vehicle_number" class="form-control" placeholder="e.g. TN39...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Driver</label>
+                            <input type="text" name="driver_name" class="form-control" placeholder="Driver name">
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <label class="form-label fw-bold text-dark mb-1" for="damageOutwardScanInput">
+                            <i class="bi bi-qr-code-scan text-danger me-1"></i>Scan Damaged Product / QR / Damage #
+                        </label>
+                        <div class="input-group">
+                            <input type="text" id="damageOutwardScanInput" class="form-control font-monospace fw-bold" placeholder="Scan QR code or Damage # (only Damage-logged items allowed)..." autocomplete="off">
+                            <button type="button" class="btn btn-dark fw-semibold" onclick="scanDamageForOutward()">Scan / Add</button>
+                        </div>
+                        <div id="damageOutwardScanMsg" class="small mt-2 text-muted">Only items already logged in the Damage module can be scanned here.</div>
+                    </div>
+
+                    <div class="table-responsive border rounded-3 mb-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Damage #</th>
+                                    <th>QR / Roll</th>
+                                    <th>Product</th>
+                                    <th>Reason</th>
+                                    <th class="text-end">Qty / Wt</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="damageOutwardItemsBody">
+                                <tr id="damageOutwardEmptyRow"><td colspan="6" class="text-center text-muted py-4">No damaged items scanned yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <label class="form-label fw-semibold">Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Outward remarks..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-dark fw-semibold px-4"><i class="bi bi-truck me-1"></i>Create Damage Outward</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const damageOutwardMap = new Map();
+
+function scanDamageForOutward() {
+    const input = document.getElementById('damageOutwardScanInput');
+    const msgEl = document.getElementById('damageOutwardScanMsg');
+    const q = (input?.value || '').trim();
+    if (!q) return;
+
+    if (msgEl) msgEl.innerHTML = '<span class="text-muted">Checking Damage records...</span>';
+    fetch(`<?= url('api/allmodules/damages/outward-scan') ?>?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success || !res.data) {
+                if (msgEl) msgEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>${res?.message || 'Item not found in Damage module.'}</span>`;
+                return;
+            }
+            const d = res.data;
+            if (damageOutwardMap.has(d.roll_damage_id)) {
+                if (msgEl) msgEl.innerHTML = `<span class="text-warning-emphasis fw-semibold">Damage ${d.damage_number} is already added to this outward.</span>`;
+                input.value = '';
+                return;
+            }
+            damageOutwardMap.set(d.roll_damage_id, d);
+            renderDamageOutwardRows();
+            input.value = '';
+            input.focus();
+            if (msgEl) msgEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Added ${d.damage_number} (${d.product_name}).</span>`;
+        })
+        .catch(() => {
+            if (msgEl) msgEl.innerHTML = '<span class="text-danger">Error checking Damage records.</span>';
+        });
+}
+
+function removeDamageOutwardItem(id) {
+    damageOutwardMap.delete(id);
+    renderDamageOutwardRows();
+}
+
+function renderDamageOutwardRows() {
+    const tbody = document.getElementById('damageOutwardItemsBody');
+    if (!tbody) return;
+    if (!damageOutwardMap.size) {
+        tbody.innerHTML = '<tr id="damageOutwardEmptyRow"><td colspan="6" class="text-center text-muted py-4">No damaged items scanned yet.</td></tr>';
+        return;
+    }
+    let html = '';
+    damageOutwardMap.forEach((d, id) => {
+        const qtyWt = d.damaged_quantity > 0 ? `${d.damaged_quantity} pcs` : `${Number(d.damaged_weight || 0).toFixed(2)} kg`;
+        html += `<tr>
+            <td class="fw-bold font-monospace">${d.damage_number}<input type="hidden" name="damage_ids[]" value="${id}"></td>
+            <td class="font-monospace small">${d.qr_code || ''}</td>
+            <td>${d.product_name || ''}</td>
+            <td class="small text-muted">${d.damage_reason || ''}</td>
+            <td class="text-end font-monospace">${qtyWt}</td>
+            <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDamageOutwardItem(${id})"><i class="bi bi-x"></i></button></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+document.getElementById('damageOutwardScanInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        scanDamageForOutward();
+    }
+});
+
+document.getElementById('damageOutwardForm')?.addEventListener('submit', (e) => {
+    if (!damageOutwardMap.size) {
+        e.preventDefault();
+        alert('Please scan at least one damaged product from the Damage module.');
+    }
+});
+</script>
+<?php endif; ?>
