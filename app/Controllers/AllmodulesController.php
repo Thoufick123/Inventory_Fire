@@ -6329,6 +6329,14 @@ class AllmodulesController {
             $itemType = strtoupper((string)($item['item_type'] ?? 'THIRD_PARTY'));
             $isRoll = ($itemType === 'FABRIC_ROLL');
             $isRaw = ($itemType === 'RAW_MATERIAL');
+            $resolvedProductId = !empty($item['product_id']) ? (int)$item['product_id'] : null;
+            $resolvedVariantId = !empty($item['variant_id']) ? (int)$item['variant_id'] : null;
+            if ($resolvedVariantId !== null && !Database::fetchOne("SELECT id FROM product_variants WHERE id = ?", [$resolvedVariantId])) {
+                $resolvedVariantId = null;
+            }
+            if ($resolvedProductId !== null && !Database::fetchOne("SELECT id FROM products WHERE id = ?", [$resolvedProductId])) {
+                $resolvedProductId = null;
+            }
 
             if ($isRoll) {
                 $sellerId = (int)$purchase['seller_id'];
@@ -6383,7 +6391,7 @@ class AllmodulesController {
                          seller_roll_id, is_mapped, created_at)
                      VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
                              ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
-                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                    [(int)$purchase['id'], $item['item_name'], $resolvedProductId, $resolvedVariantId,
                         $item['product_code'], $item['vendor_sku'], $rollCode, $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'KGS',
                         $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
@@ -6398,7 +6406,7 @@ class AllmodulesController {
                          is_mapped, created_at)
                      VALUES (?, 'RAW_MATERIAL', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 'PERCENT', ?,
                              ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
-                    [(int)$purchase['id'], $item['item_name'], $item['brand_name'] ?? null, (int)$item['product_id'], (int)$item['variant_id'],
+                    [(int)$purchase['id'], $item['item_name'], $item['brand_name'] ?? null, $resolvedProductId, $resolvedVariantId,
                         $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'] ?: 'PCS',
                         $item['unit_price'], $lineTotal,
                         $taxAmount > 0 ? ($item['gst_type'] ?? 'BOTH') : 'EXEMPTED',
@@ -6415,7 +6423,7 @@ class AllmodulesController {
                          is_mapped, created_at)
                      VALUES (?, 'THIRD_PARTY', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
                              ?, ?, ?, ?, ?, ?, ?, 0, NOW())",
-                    [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
+                    [(int)$purchase['id'], $item['item_name'], $resolvedProductId, $resolvedVariantId,
                         $item['product_code'], $item['vendor_sku'], $item['quantity'], $item['unit'],
                         $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
