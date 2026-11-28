@@ -3784,6 +3784,9 @@ class AllmodulesController {
             if (!Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
                 Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
             }
+            if (Database::fetchOne("SHOW INDEX FROM third_party_mapping_bills WHERE Key_name = 'uk_tpmb_supplier_invoice'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills DROP INDEX uk_tpmb_supplier_invoice");
+            }
         } catch (\Throwable $e) {}
 
         Database::execute(
@@ -4246,6 +4249,9 @@ class AllmodulesController {
         try {
             if (!Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
                 Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+            }
+            if (Database::fetchOne("SHOW INDEX FROM third_party_mapping_bills WHERE Key_name = 'uk_tpmb_supplier_invoice'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills DROP INDEX uk_tpmb_supplier_invoice");
             }
         } catch (\Throwable $e) {}
 
@@ -5362,6 +5368,9 @@ class AllmodulesController {
         try {
             if ($invoiceDate !== '' && !Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
                 Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+            }
+            if (Database::fetchOne("SHOW INDEX FROM third_party_mapping_bills WHERE Key_name = 'uk_tpmb_supplier_invoice'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills DROP INDEX uk_tpmb_supplier_invoice");
             }
         } catch (\Throwable $e) {}
 

@@ -2579,7 +2579,7 @@ CREATE TABLE IF NOT EXISTS `third_party_mapping_bills` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_tpmb_supplier_invoice` (`concern_id`,`seller_id`,`invoice_number`),
+  KEY `idx_tpmb_supplier_invoice` (`concern_id`,`seller_id`,`invoice_number`),
   KEY `idx_tpmb_match` (`concern_id`,`seller_id`,`status`),
   KEY `idx_tpmb_purchase` (`purchase_id`),
   KEY `idx_tpmb_match_inv` (`concern_id`,`seller_id`,`invoice_number`),
