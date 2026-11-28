@@ -1940,7 +1940,6 @@ class ExportService
             'damage_outwards'      => ["SELECT COUNT(*) AS c FROM damage_outwards do WHERE do.outward_date >= ? AND do.outward_date <= ?" . $cWhere('do.concern_id'), $cParams([$startDate, $endDate])],
             'catalog'              => ["SELECT COUNT(*) AS c FROM products p WHERE p.is_active = 1" . $cWhere('p.concern_id'), $hasConcerns ? $concernIds : []],
             'variants'             => ["SELECT COUNT(*) AS c FROM product_variants pv JOIN products p ON p.id = pv.product_id WHERE pv.is_active = 1" . $cWhere('p.concern_id'), $hasConcerns ? $concernIds : []],
-            'batches'              => ["SELECT COUNT(*) AS c FROM production_batches pb WHERE pb.created_at >= ? AND pb.created_at <= ?" . $cWhere('pb.concern_id'), $cParams([$startDT, $endDT])],
             'outward'              => ["SELECT COUNT(*) AS c FROM production_outwards po WHERE po.created_at >= ? AND po.created_at <= ?" . $cWhere('po.concern_id'), $cParams([$startDT, $endDT])],
             'inventory'            => ["SELECT COUNT(*) AS c FROM stock_balances sb WHERE sb.quantity > 0" . $cWhere('sb.concern_id'), $hasConcerns ? $concernIds : []],
             'stock_ledger'         => ["SELECT COUNT(*) AS c FROM stock_transactions st WHERE st.created_at >= ? AND st.created_at <= ?" . $cWhere('st.concern_id'), $cParams([$startDT, $endDT])],

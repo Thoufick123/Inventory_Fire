@@ -142,13 +142,6 @@ class ExportController {
             ],
 
             // LOGISTICS & WAREHOUSING
-            'batches' => [
-                'name' => 'Batches',
-                'desc' => 'Master cartons, packaging batches, piece counts & production costing',
-                'icon' => 'bi bi-box-seam',
-                'color' => 'success',
-                'category' => 'Logistics & Warehousing'
-            ],
             'outward' => [
                 'name' => 'Outward & Dispatch',
                 'desc' => 'Warehouse transfers, gate passes, transporter details, vehicle & LR logs',
@@ -317,7 +310,7 @@ class ExportController {
         $allModules = [
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward',
             'programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants',
-            'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests',
+            'outward', 'inventory', 'stock_ledger', 'stock_requests',
             'billing', 'direct_billing', 'coupons', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
         if (!function_exists('isAdmin') || !isAdmin()) {
@@ -479,7 +472,6 @@ class ExportController {
             'damage_outwards'      => ['damages'],
             'catalog'              => ['catalog'],
             'variants'             => ['variants'],
-            'batches'              => ['batches'],
             'outward'              => ['outward'],
             'inventory'            => ['inventory'],
             'stock_ledger'         => ['inventory', 'stock'],

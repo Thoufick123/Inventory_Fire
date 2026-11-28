@@ -363,7 +363,7 @@
 const CONCERN_MODULE_MAPPING = {
     'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward'],
     'production': ['programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants', 'qr_generations'],
-    'warehouse': ['batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests'],
+    'warehouse': ['outward', 'inventory', 'stock_ledger', 'stock_requests'],
     'retail_pos': ['billing', 'direct_billing', 'coupons'],
     'digital_sales': ['billing', 'direct_billing', 'outward'],
     'returns': ['returns'],
@@ -443,8 +443,6 @@ function handleConcernSelectionChange() {
         : `Scoped: ${selectedValues.length} Concerns (${codes.join(', ')})`;
 
     filterWarehousesByConcerns(selectedValues);
-    const onlyDataEl = document.getElementById('toggleOnlyWithData');
-    if (onlyDataEl) onlyDataEl.checked = true;
     refreshExportModuleCounts();
 }
 
@@ -493,7 +491,7 @@ function applyExportModuleVisibility() {
         const cb = card.querySelector('.export-mod-cb');
         const shouldHide = onlyWithData && Object.prototype.hasOwnProperty.call(latestExportCounts, mod) && cnt === 0;
         card.classList.toggle('d-none', shouldHide);
-        if (hasScopedConcern && Object.prototype.hasOwnProperty.call(latestExportCounts, mod) && cb) {
+        if (onlyWithData && Object.prototype.hasOwnProperty.call(latestExportCounts, mod) && cb) {
             cb.checked = cnt > 0;
         }
         if (!shouldHide) {
@@ -600,8 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hasConcernCheckboxes) {
         handleConcernSelectionChange();
     } else {
-        const onlyDataEl = document.getElementById('toggleOnlyWithData');
-        if (onlyDataEl) onlyDataEl.checked = true;
         refreshExportModuleCounts();
     }
 });
