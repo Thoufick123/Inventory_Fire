@@ -201,17 +201,27 @@
                             </td>
                             <td class="fw-semibold"><?= formatCurrency((float)($ast['current_book_value'])) ?></td>
                             <td><?= renderConcernBadge($ast) ?></td>
-                            <td class="text-end pe-3">
-                                <div class="btn-group btn-group-sm">
-                                    <a href="<?= url('assets/view/' . $ast['id']) ?>" class="btn btn-outline-secondary" title="View Passport">
+                            <td class="text-end pe-3 text-nowrap">
+                                <div class="d-inline-flex gap-1 align-items-center">
+                                    <a href="<?= url('assets/view/' . $ast['id']) ?>" class="btn btn-sm btn-outline-info" title="View Passport">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="<?= url('assets/edit/' . $ast['id']) ?>" class="btn btn-outline-primary" title="Edit">
+                                    <?php if (hasPermission('asset_register', 'edit') || hasPermission('assets', 'edit')): ?>
+                                    <a href="<?= url('assets/edit/' . $ast['id']) ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <a href="<?= url('assets/print/' . $ast['id']) ?>" target="_blank" class="btn btn-outline-dark" title="Print QR Sticker">
+                                    <?php endif; ?>
+                                    <a href="<?= url('assets/print/' . $ast['id']) ?>" target="_blank" class="btn btn-sm btn-outline-dark" title="Print QR Sticker">
                                         <i class="bi bi-qr-code"></i>
                                     </a>
+                                    <?php if (hasPermission('asset_register', 'delete') || hasPermission('assets', 'delete') || isSuperAdmin()): ?>
+                                    <form method="POST" action="<?= url('assets/delete/' . $ast['id']) ?>" class="d-inline js-asset-delete-form" data-asset-name="<?= e($ast['name']) ?>" data-asset-code="<?= e($ast['asset_code']) ?>">
+                                        <?= CSRF::field() ?>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Asset">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -245,5 +255,32 @@ document.addEventListener('DOMContentLoaded', function() {
             itemName: 'assets'
         });
     }
+
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (!form.classList || !form.classList.contains('js-asset-delete-form')) return;
+        if (form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const code = form.dataset.assetCode || '';
+        const name = form.dataset.assetName || 'this asset';
+        const msg = `Delete asset ${code ? code + ' (' + name + ')' : name}? This will permanently remove it from the register.`;
+        if (typeof window.showModernConfirm === 'function') {
+            window.showModernConfirm({
+                title: 'Confirm Deletion',
+                message: msg,
+                isDelete: true,
+                btnText: 'Yes, Delete',
+                onConfirm: function() {
+                    form.dataset.confirmed = '1';
+                    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                    else form.submit();
+                }
+            });
+        } else {
+            form.dataset.confirmed = '1';
+            form.submit();
+        }
+    }, true);
 });
 </script>

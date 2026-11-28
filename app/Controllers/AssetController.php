@@ -266,6 +266,40 @@ class AssetController {
         }
     }
 
+    public function delete(string $id): void {
+        if (!hasPermission('asset_register', 'delete') && !hasPermission('assets', 'delete') && !isSuperAdmin()) {
+            Response::error(403, 'Access denied.');
+            return;
+        }
+        if (!CSRF::validateRequest()) {
+            Response::redirectWithError('assets', 'Invalid security token. Please try again.');
+            return;
+        }
+        $assetId = (int)$id;
+        $asset = Asset::find($assetId);
+        if (!$asset) {
+            Response::redirectWithError('assets', 'Asset not found.');
+            return;
+        }
+        try {
+            Database::beginTransaction();
+            try {
+                Database::execute("DELETE FROM asset_maintenance_logs WHERE asset_id = ?", [$assetId]);
+            } catch (\Throwable $e) {}
+            Database::execute("DELETE FROM assets WHERE id = ?", [$assetId]);
+            Database::commit();
+            try {
+                AuditService::log('assets', 'DELETE', 'assets', $assetId, $asset, null);
+            } catch (\Throwable $e) {}
+            Response::redirectWithSuccess('assets', "Asset '{$asset['asset_code']}' deleted successfully.");
+        } catch (\Throwable $e) {
+            if (Database::inTransaction()) {
+                Database::rollback();
+            }
+            Response::redirectWithError('assets', 'Could not delete asset: ' . $e->getMessage());
+        }
+    }
+
     public function printLabel(string $id): void {
         if (!hasPermission('asset_register', 'view') && !hasPermission('assets', 'view')) {
             Response::error(403, 'Access denied.');

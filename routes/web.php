@@ -646,6 +646,7 @@ class Router {
         $this->get('assets/view/{id}', 'AssetController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'view']]);
         $this->get('assets/edit/{id}', 'AssetController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'edit']]);
         $this->post('assets/update/{id}', 'AssetController', 'update', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'edit']]);
+        $this->post('assets/delete/{id}', 'AssetController', 'delete', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'delete']]);
         $this->get('assets/print/{id}', 'AssetController', 'printLabel', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'view']]);
         $this->get('assets/maintenance', 'AssetController', 'maintenanceList', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'view']]);
         $this->get('assets/maintenance/create', 'AssetController', 'maintenanceCreate', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'create']]);

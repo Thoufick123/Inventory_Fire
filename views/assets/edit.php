@@ -8,8 +8,8 @@
             <p class="text-muted small mb-0">Update technical specifications, location, custodian, and maintenance status</p>
         </div>
         <div>
-            <a href="<?= url('assets/view/' . $asset['id']) ?>" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Back to Asset Passport
+            <a href="<?= url('assets') ?>" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to Asset Register
             </a>
         </div>
     </div>

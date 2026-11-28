@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Sticker - <?= e($asset['asset_code']) ?></title>
-    <link rel="stylesheet" href="<?= asset('assets/css/bootstrap.min.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/bootstrap.min.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/bootstrap-icons.min.css') ?>">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #000; padding: 20px; font-size: 12px; }
         .label-sticker {
@@ -60,7 +61,12 @@
         </div>
     </div>
 
-    <script src="<?= asset('assets/js/qrcode.min.js') ?>"></script>
+    <script src="<?= asset('js/qrcode.min.js') ?>"></script>
+    <script>
+    if (typeof QRCode === 'undefined') {
+        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
+    }
+    </script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         new QRCode(document.getElementById("qrcode"), {
