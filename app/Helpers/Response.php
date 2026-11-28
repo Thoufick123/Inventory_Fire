@@ -1058,7 +1058,7 @@ function currentConcernType(?int $concernId = null): string {
  * Check if a module is enabled for the current active concern.
  */
 function hasConcernModule(string $moduleKey): bool {
-    if (isSuperAdmin()) {
+    if (isSuperAdmin() && currentConcernId() === null) {
         return true;
     }
 
