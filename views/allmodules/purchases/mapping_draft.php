@@ -328,11 +328,6 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                                                 <label class="btn btn-outline-primary fw-semibold" for="gstExc0">Excl.</label>
                                             </div>
                                         </div>
-                                        <div class="col-12 col-md-auto ms-md-auto d-flex align-items-end">
-                                            <button type="button" class="btn btn-primary fw-semibold px-3 text-nowrap btn-generate-variants">
-                                                <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -368,6 +363,11 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                                                 </thead>
                                                 <tbody class="gen-variant-rates-body"></tbody>
                                             </table>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-2 pt-1">
+                                            <button type="button" class="btn btn-primary fw-semibold px-4 text-nowrap btn-generate-variants">
+                                                <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
