@@ -1,669 +1,442 @@
 <?php
 $prodUnit = $prodUnit ?? (class_exists('ProductionUnit') ? ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null) : []);
 $sellerCompany = $sellerCompany ?? [];
-$seller = static fn(string $key): string => htmlspecialchars((string)($sellerCompany[$key] ?? ''), ENT_QUOTES, 'UTF-8');
-$concernBrand = function_exists('getConcernBranding') 
-    ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit) 
+$concernBrand = function_exists('getConcernBranding')
+    ? getConcernBranding($bill['concern_id'] ?? null, $prodUnit)
     : [];
 
+$storeName = trim((string)($concernBrand['name'] ?? ($sellerCompany['company_name'] ?? ($prodUnit['name'] ?? 'Retail Store'))));
+$storeAddress = trim((string)($concernBrand['address'] ?? ($sellerCompany['company_address'] ?? ($prodUnit['address'] ?? ''))));
+$storePhone = trim((string)($concernBrand['phone'] ?? ($sellerCompany['phone'] ?? ($prodUnit['phone'] ?? ''))));
+$storeEmail = trim((string)($concernBrand['email'] ?? ($sellerCompany['email'] ?? ($prodUnit['email'] ?? ''))));
+$storeGstin = trim((string)($concernBrand['gst_number'] ?? ($sellerCompany['gst_number'] ?? ($prodUnit['gst_number'] ?? ''))));
+$storeLogo = !empty($concernBrand['logo_url']) ? $concernBrand['logo_url'] : (!empty($prodUnit['logo_url']) ? $prodUnit['logo_url'] : '');
+
 // Staff name
-$staffName = 'System Administrator';
-if (!empty($bill['created_by'])) {
+$staffName = trim((string)($bill['staff_name'] ?? ''));
+if ($staffName === '' && !empty($bill['created_by'])) {
     $staffUser = Database::fetchOne("SELECT full_name, username FROM users WHERE id = ?", [(int)$bill['created_by']]);
     if ($staffUser) {
         $staffName = $staffUser['full_name'] ?: $staffUser['username'];
     }
-} elseif (Session::user()) {
+} elseif ($staffName === '' && Session::user()) {
     $staffName = Session::user()['full_name'] ?: (Session::user()['username'] ?: 'System Administrator');
 }
 
 // Buyer details
 $isCustomer = (($bill['buyer_type'] ?? 'COMPANY') === 'CUSTOMER');
-$buyerName = $isCustomer ? ($bill['customer_name'] ?: 'Direct Customer') : ($bill['company_name'] ?: 'Warehouse');
+$buyerName = $isCustomer ? ($bill['customer_name'] ?: 'Walk-in Customer') : ($bill['company_name'] ?: 'Company');
 $buyerPhone = $isCustomer ? ($bill['customer_phone'] ?: '—') : ($bill['company_phone'] ?: '—');
-$buyerAddress = $isCustomer 
-    ? trim(($bill['customer_address'] ?? '') . ' ' . ($bill['customer_city'] ?? '') . ' ' . ($bill['customer_state'] ?? '')) 
+$buyerEmail = $isCustomer ? '' : ($bill['company_email'] ?? '');
+$buyerAddress = $isCustomer
+    ? trim(($bill['customer_address'] ?? '') . ' ' . ($bill['customer_city'] ?? '') . ' ' . ($bill['customer_state'] ?? ''))
     : ($bill['company_address'] ?? '');
-if (empty($buyerAddress)) {
+if ($buyerAddress === '') {
     $buyerAddress = '—';
 }
-$buyerGstin = $isCustomer ? ($bill['customer_gstin'] ?? '') : ($bill['company_gstin'] ?? '');
+$buyerGstin = $isCustomer ? '' : ($bill['company_gstin'] ?? '');
 
-// Date & payment
-$purchasedAt = !empty($bill['created_at']) ? date('d-m-Y H:i:s', strtotime($bill['created_at'])) : date('d-m-Y H:i:s', strtotime($bill['bill_date']));
-$payMode = strtoupper($bill['payment_method'] ?: 'CASH');
+$billDateFormatted = !empty($bill['bill_date']) ? date('d M Y', strtotime($bill['bill_date'])) : date('d M Y');
+$purchasedAt = !empty($bill['created_at']) ? date('d M Y, h:i A', strtotime($bill['created_at'])) : $billDateFormatted;
+$payMode = strtoupper((string)($bill['payment_method'] ?: 'CASH'));
+$payStatus = strtoupper((string)($bill['payment_status'] ?: 'PAID'));
 
-// Totals calculation
 $totalQty = 0;
 foreach ($billItems as $it) {
     $totalQty += (int)($it['quantity'] ?? 0);
 }
-$subtotal = (float)($bill['subtotal'] ?? 0);
+$grossAmt = (float)($bill['gross_amount'] ?? 0);
 $discount = (float)($bill['discount_amount'] ?? 0);
+$couponDiscount = (float)($bill['coupon_discount_amount'] ?? 0);
+$subtotal = (float)($bill['subtotal'] ?? 0);
 $taxAmount = (float)($bill['tax_amount'] ?? 0);
 $cgst = (float)($bill['cgst_amount'] ?? 0);
 $sgst = (float)($bill['sgst_amount'] ?? 0);
 $igst = (float)($bill['igst_amount'] ?? 0);
 $totalAmount = (float)($bill['total_amount'] ?? 0);
-
-// GST Inclusive adjustment: ensure net amount equals gross minus discount, with tax included inside
-$grossAmt = (float)($bill['gross_amount'] ?? 0);
-$netAmount = max(0, $grossAmt - $discount);
-if ($netAmount > 0 && abs($totalAmount - ($netAmount + $taxAmount)) < 1.0) {
-    // If historical bill added tax exclusively on top, convert display to inclusive
-    $totalAmount = $netAmount;
-    $combinedGstRate = ($cgst > 0 || $sgst > 0 || $igst > 0)
-        ? (float)rtrim($cgstRate, '%') + (float)rtrim($sgstRate, '%') + (float)rtrim($igstRate, '%')
-        : 5.0;
-    if ($combinedGstRate > 0) {
-        $subtotal = round($netAmount / (1 + ($combinedGstRate / 100)), 2);
-        $taxAmount = round($netAmount - $subtotal, 2);
-        if ($igst > 0) {
-            $igst = $taxAmount;
-        } else {
-            $cgst = round($taxAmount / 2, 2);
-            $sgst = round($taxAmount - $cgst, 2);
-        }
-    }
-}
-
-$rawTotal = $subtotal + $taxAmount;
-$roundOff = round($totalAmount - $rawTotal, 2);
-
-// CGST / SGST rates
-$cgstRate = '2.5%';
-$sgstRate = '2.5%';
-$igstRate = '5.0%';
-if (!empty($billItems[0])) {
-    if (!empty($billItems[0]['cgst_rate'])) $cgstRate = rtrim(rtrim(number_format((float)$billItems[0]['cgst_rate'], 2), '0'), '.') . '%';
-    if (!empty($billItems[0]['sgst_rate'])) $sgstRate = rtrim(rtrim(number_format((float)$billItems[0]['sgst_rate'], 2), '0'), '.') . '%';
-    if (!empty($billItems[0]['igst_rate'])) $igstRate = rtrim(rtrim(number_format((float)$billItems[0]['igst_rate'], 2), '0'), '.') . '%';
-}
 ?>
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bill <?= htmlspecialchars($bill['bill_number']) ?> — POS Receipt</title>
+    <title>Tax Invoice <?= htmlspecialchars($bill['bill_number']) ?> — A4 Format</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; }
         body {
-            background-color: #e9ecef;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            line-height: 1.35;
-            color: #000;
-            padding: 20px 10px;
+            margin: 0;
+            padding: 24px 16px;
+            background: #f1f5f9;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+            color: #0f172a;
+            font-size: 13px;
+            line-height: 1.45;
         }
-
-        /* Top Action Bar (Buttons) */
         .no-print {
-            max-width: 360px;
+            max-width: 210mm;
             margin: 0 auto 16px auto;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            justify-content: flex-end;
             gap: 10px;
         }
-        .btn-print {
-            flex: 1;
-            background: #0d6efd;
-            color: #fff;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-family: inherit;
+        .btn {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #1e293b;
+            padding: 9px 18px;
+            border-radius: 8px;
             font-size: 13px;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            text-decoration: none;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
-        .btn-print:hover {
-            background: #0b5ed7;
-        }
-        .btn-close-window {
-            background: #6c757d;
+        .btn-primary {
+            background: #4f46e5;
+            border-color: #4f46e5;
             color: #fff;
-            border: none;
-            padding: 10px 14px;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: bold;
-            cursor: pointer;
         }
-        .btn-close-window:hover {
-            background: #5c636a;
-        }
-
-        /* Thermal POS Receipt Container (80mm width standard) */
-        .pos-receipt {
-            max-width: 340px;
-            width: 100%;
+        .a4-sheet {
+            width: 210mm;
+            min-height: 280mm;
             margin: 0 auto;
-            background: #ffffff;
-            padding: 14px 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-            border-radius: 4px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+            padding: 14mm 14mm 12mm 14mm;
+            display: flex;
+            flex-direction: column;
         }
-
-        /* Header Split: Left side Logo & Unit Name, Right side Unit Details */
-        .header-split {
+        .inv-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 6px;
+            gap: 20px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #0f172a;
         }
-        .header-left {
-            flex: 0 0 46%;
-            max-width: 46%;
-            text-align: left;
+        .brand-block {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
         }
-        .header-left .logo-box {
-            border: 1.5px solid #000;
-            padding: 3px 5px;
-            text-align: center;
-            background: #fff;
-            margin-bottom: 4px;
-            display: inline-block;
-            max-width: 100%;
-        }
-        .header-left .logo-box img {
-            max-width: 110px;
-            max-height: 48px;
+        .brand-logo {
+            max-width: 84px;
+            max-height: 64px;
             object-fit: contain;
-            display: block;
-            margin: 0 auto;
+            border-radius: 6px;
         }
-        .header-left .logo-box .brand-text {
-            font-size: 13px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+        .brand-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.01em;
         }
-        .header-left .store-title {
-            font-size: 13px;
-            font-weight: bold;
-            text-transform: uppercase;
-            line-height: 1.25;
-            word-break: break-word;
-            margin-top: 2px;
-        }
-
-        .header-right {
-            flex: 0 0 52%;
-            max-width: 52%;
+        .muted { color: #475569; }
+        .small { font-size: 11.5px; }
+        .inv-badge-box {
             text-align: right;
+        }
+        .inv-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #4f46e5;
+            letter-spacing: 0.04em;
+        }
+        .inv-copy-tag {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
             font-size: 10.5px;
-            line-height: 1.35;
+            font-weight: 700;
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            border-radius: 999px;
+            text-transform: uppercase;
         }
-        .header-right .store-address {
-            word-break: break-word;
-            margin-bottom: 2px;
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 14px;
+            margin: 14px 0;
         }
-        .header-right .store-contact {
-            word-break: break-word;
-            margin-bottom: 1px;
+        .meta-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            background: #f8fafc;
         }
-        .header-right .store-gstin {
-            font-weight: bold;
+        .meta-card h4 {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
         }
-
-        /* Dashed Separators */
-        .dashed-line {
-            border-top: 1px dashed #000;
-            margin: 7px 0;
-        }
-
-        /* Metadata & Customer Sections */
-        .info-grid {
-            width: 100%;
-            margin-bottom: 2px;
-        }
-        .info-row {
+        .meta-row {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            gap: 8px;
             margin-bottom: 3px;
-            font-size: 11.5px;
         }
-        .info-label {
-            font-weight: bold;
-            white-space: nowrap;
-            margin-right: 6px;
-        }
-        .info-value {
-            text-align: right;
-            word-break: break-word;
-        }
-
-        /* Table of Items */
-        .pos-table {
+        table.items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 6px 0 2px 0;
-            font-size: 11.5px;
+            margin-top: 6px;
         }
-        .pos-table th {
+        table.items-table th {
+            background: #0f172a;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 8px 8px;
             text-align: left;
-            font-weight: bold;
-            padding: 4px 2px;
-            border-bottom: 1px dashed #000;
-            font-size: 11px;
         }
-        .pos-table td {
-            padding: 3px 2px;
+        table.items-table th.num, table.items-table td.num { text-align: right; }
+        table.items-table th.ctr, table.items-table td.ctr { text-align: center; }
+        table.items-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e2e8f0;
             vertical-align: top;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .text-center {
-            text-align: center;
-        }
-
-        .item-title {
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 11.5px;
-        }
-        .item-variant {
-            font-size: 10.5px;
-            color: #333;
-            margin-top: 1px;
-            margin-bottom: 2px;
-        }
-        .tag-single-label {
-            font-family: inherit;
-            font-size: 11px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        /* Totals / Summary */
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11.5px;
-            margin-bottom: 4px;
-        }
-        .summary-label {
-            font-weight: normal;
-        }
-        .summary-val {
-            font-weight: bold;
-            text-align: right;
-        }
-        .discount-highlight {
-            color: #d32f2f !important;
-            font-weight: bold;
-        }
-        .net-amount-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            font-size: 14px;
-            font-weight: bold;
-            margin: 4px 0;
-        }
-
-        /* Footer */
-        .terms-box {
-            font-size: 10px;
-            line-height: 1.3;
-            margin: 8px 0;
-        }
-        .terms-title {
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 3px;
-        }
-        .thank-you {
-            text-align: center;
             font-size: 12px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
-            padding-top: 6px;
         }
-
-        /* Thermal Print Media Queries */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 18px;
+            margin-top: 16px;
+        }
+        .summary-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 10px 14px;
+            background: #f8fafc;
+        }
+        .sum-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 12.5px;
+        }
+        .sum-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0 2px 0;
+            margin-top: 6px;
+            border-top: 2px solid #0f172a;
+            font-size: 16px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .terms-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+        .inv-footer {
+            margin-top: auto;
+            padding-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 1px dashed #cbd5e1;
+        }
+        .sign-line {
+            width: 190px;
+            border-top: 1px solid #475569;
+            padding-top: 4px;
+            text-align: center;
+            font-size: 11.5px;
+            font-weight: 600;
+        }
         @media print {
-            body {
-                background: #fff;
+            @page { size: A4; margin: 10mm; }
+            body { background: #fff; padding: 0; }
+            .no-print { display: none !important; }
+            .a4-sheet {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                border-radius: 0;
                 padding: 0;
-                margin: 0;
-            }
-            .no-print {
-                display: none !important;
-            }
-            .pos-receipt {
-                max-width: 100% !important;
-                width: 100% !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                padding: 4px !important;
-                margin: 0 !important;
-            }
-            @page {
-                size: auto;
-                margin: 2mm 3mm;
             }
         }
     </style>
 </head>
 <body>
+    <div class="no-print">
+        <button type="button" class="btn btn-primary" onclick="window.print()">Print A4 Invoice</button>
+        <button type="button" class="btn" onclick="window.close()">Close</button>
+    </div>
 
-<!-- Print Controls (hidden on print) -->
-<div class="no-print">
-    <button type="button" class="btn-print" onclick="window.print()">
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
-            <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
-        </svg>
-        Print Bill
-    </button>
-    <button type="button" class="btn-close-window" onclick="window.close()">Close</button>
-</div>
+    <div class="a4-sheet">
+        <div class="inv-header">
+            <div class="brand-block">
+                <?php if ($storeLogo !== ''): ?>
+                    <img src="<?= htmlspecialchars($storeLogo, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($storeName, ENT_QUOTES, 'UTF-8') ?>" class="brand-logo">
+                <?php endif; ?>
+                <div>
+                    <div class="brand-name"><?= htmlspecialchars($storeName) ?></div>
+                    <?php if ($storeAddress !== ''): ?>
+                        <div class="muted small"><?= nl2br(htmlspecialchars($storeAddress)) ?></div>
+                    <?php endif; ?>
+                    <div class="muted small">
+                        <?php if ($storePhone !== ''): ?>Ph: <?= htmlspecialchars($storePhone) ?><?php endif; ?>
+                        <?php if ($storePhone !== '' && $storeEmail !== ''): ?> &bull; <?php endif; ?>
+                        <?php if ($storeEmail !== ''): ?>Email: <?= htmlspecialchars($storeEmail) ?><?php endif; ?>
+                    </div>
+                    <?php if ($storeGstin !== ''): ?>
+                        <div class="small" style="font-weight:700; margin-top:2px;">GSTIN: <?= htmlspecialchars($storeGstin) ?></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="inv-badge-box">
+                <div class="inv-title">TAX INVOICE</div>
+                <div class="inv-copy-tag">A4 Software Copy</div>
+                <div class="small muted" style="margin-top:8px;">Invoice #: <strong style="color:#0f172a;"><?= htmlspecialchars($bill['bill_number']) ?></strong></div>
+                <div class="small muted">Date: <strong style="color:#0f172a;"><?= htmlspecialchars($billDateFormatted) ?></strong></div>
+            </div>
+        </div>
 
-<!-- Receipt Paper Body -->
-<main class="pos-receipt">
-
-    <!-- 1 & 2. Header: Logo & Production Unit Name on LEFT, Details on RIGHT -->
-    <div class="header-split">
-        <div class="header-left">
-            <div class="logo-box">
-                <?php if (!empty($concernBrand['logo_url'])): ?>
-                    <img src="<?= htmlspecialchars($concernBrand['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
-                <?php elseif (!empty($prodUnit['logo_url'])): ?>
-                    <img src="<?= htmlspecialchars($prodUnit['logo_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
-                <?php elseif (!empty($sellerCompany['company_logo'])): ?>
-                    <img src="<?= htmlspecialchars($sellerCompany['company_logo'], ENT_QUOTES, 'UTF-8') ?>" alt="Logo">
-                <?php else: ?>
-                    <div class="brand-text"><?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? ($seller('company_name') ?: 'GRM APPARELS'))) ?></div>
+        <div class="meta-grid">
+            <div class="meta-card">
+                <h4><?= $isCustomer ? 'Billed To (Customer)' : 'Billed To (B2B Company)' ?></h4>
+                <div style="font-weight:700; font-size:14px;"><?= htmlspecialchars($buyerName) ?></div>
+                <div class="small muted"><?= nl2br(htmlspecialchars($buyerAddress)) ?></div>
+                <div class="small muted" style="margin-top:3px;">
+                    Phone: <?= htmlspecialchars($buyerPhone) ?>
+                    <?php if ($buyerEmail !== ''): ?> &bull; <?= htmlspecialchars($buyerEmail) ?><?php endif; ?>
+                </div>
+                <?php if ($buyerGstin !== ''): ?>
+                    <div class="small" style="font-weight:700; margin-top:2px;">GSTIN: <?= htmlspecialchars($buyerGstin) ?></div>
                 <?php endif; ?>
             </div>
-            <div class="store-title"><?= htmlspecialchars($concernBrand['name'] ?? ($prodUnit['name'] ?? ($seller('company_name') ?: 'Production Unit'))) ?></div>
-        </div>
-        <div class="header-right">
-            <?php 
-            $headerAddress = !empty($concernBrand['address']) ? $concernBrand['address'] : (!empty($prodUnit['address']) ? $prodUnit['address'] : $seller('address'));
-            $headerPhone = !empty($concernBrand['phone']) ? $concernBrand['phone'] : (!empty($prodUnit['phone']) ? $prodUnit['phone'] : $seller('phone'));
-            $headerGstin = !empty($concernBrand['gst_number']) ? $concernBrand['gst_number'] : (!empty($prodUnit['gst_number']) ? $prodUnit['gst_number'] : $seller('gstin'));
-            ?>
-            <?php if (!empty($headerAddress)): ?>
-                <div class="store-address"><?= htmlspecialchars($headerAddress) ?></div>
-            <?php endif; ?>
-
-            <div class="store-contact">
-                <?php if (!empty($headerPhone)): ?>
-                    Phone: <?= htmlspecialchars($headerPhone) ?>
+            <div class="meta-card">
+                <h4>Invoice &amp; Payment Details</h4>
+                <div class="meta-row small"><span class="muted">Bill ID:</span><strong>#<?= (int)$bill['id'] ?></strong></div>
+                <div class="meta-row small"><span class="muted">Generated At:</span><span><?= htmlspecialchars($purchasedAt) ?></span></div>
+                <div class="meta-row small"><span class="muted">Payment Mode:</span><strong><?= htmlspecialchars($payMode) ?> (<?= htmlspecialchars($payStatus) ?>)</strong></div>
+                <div class="meta-row small"><span class="muted">Billed By:</span><span><?= htmlspecialchars($staffName) ?></span></div>
+                <?php if (!empty($bill['upi_reference'])): ?>
+                    <div class="meta-row small"><span class="muted">UPI Ref:</span><span><?= htmlspecialchars($bill['upi_reference']) ?></span></div>
                 <?php endif; ?>
             </div>
+        </div>
 
-            <?php if (!empty($prodUnit['code'])): ?>
-                <div class="store-contact">Unit: <?= htmlspecialchars($prodUnit['code']) ?></div>
-            <?php endif; ?>
-            
-            <?php if (!empty($headerGstin)): ?>
-                <div class="store-contact store-gstin">GSTIN: <?= htmlspecialchars($headerGstin) ?></div>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <div class="dashed-line"></div>
-
-    <!-- 3. Invoice Metadata -->
-    <div class="info-grid">
-        <div class="info-row">
-            <span class="info-label">Bill No :</span>
-            <span class="info-value font-monospace" style="font-weight: bold;"><?= htmlspecialchars($bill['bill_number']) ?><?= !empty($bill['is_direct_bill']) ? ' [DIRECT BILL]' : '' ?></span>
-        </div>
-        <?php if (!empty($bill['is_direct_bill'])): ?>
-        <div class="info-row">
-            <span class="info-label">Type :</span>
-            <span class="info-value" style="font-weight: bold; color: #b45309;">DIRECT SALE (SEPARATED)</span>
-        </div>
-        <?php endif; ?>
-        <div class="info-row">
-            <span class="info-label">BID :</span>
-            <span class="info-value"><?= (int)$bill['id'] ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Purchased At :</span>
-            <span class="info-value"><?= htmlspecialchars($purchasedAt) ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Staff :</span>
-            <span class="info-value"><?= htmlspecialchars($staffName) ?></span>
-        </div>
-    </div>
-
-    <div class="dashed-line"></div>
-
-    <!-- 4. Customer / Buyer Details -->
-    <div class="info-grid">
-        <div class="info-row">
-            <span class="info-label">To :</span>
-            <span class="info-value" style="font-weight: bold;"><?= htmlspecialchars($buyerName) ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Ph :</span>
-            <span class="info-value"><?= htmlspecialchars($buyerPhone) ?></span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Add :</span>
-            <span class="info-value"><?= htmlspecialchars($buyerAddress) ?></span>
-        </div>
-        <?php if (!empty($buyerGstin)): ?>
-        <div class="info-row">
-            <span class="info-label">GSTIN :</span>
-            <span class="info-value"><?= htmlspecialchars($buyerGstin) ?></span>
-        </div>
-        <?php endif; ?>
-        <div class="info-row">
-            <span class="info-label">Pay Mode :</span>
-            <span class="info-value" style="font-weight: bold;"><?= htmlspecialchars($payMode) ?> (<?= htmlspecialchars($bill['payment_status'] ?? 'PAID') ?>)</span>
-        </div>
-    </div>
-
-    <div class="dashed-line"></div>
-
-    <!-- 5. Items Table (Each piece QR tag rendered as its own single detail row) -->
-    <table class="pos-table">
-        <thead>
-            <tr>
-                <th style="width: 34%;">Item</th>
-                <th style="width: 12%;">HSN</th>
-                <th style="width: 8%; text-align: right;">Qty</th>
-                <th style="width: 15%; text-align: right;">Price</th>
-                <th style="width: 13%; text-align: right;">Disc</th>
-                <th style="width: 18%; text-align: right;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($billItems as $item): ?>
-                <?php
-                    $iQty = max(1, (int)($item['quantity'] ?? 1));
-                    $varText = trim(($item['size_name'] ?? '') . ' ' . ($item['color_name'] ?? ''));
-                    $tags = !empty($item['tags']) && is_array($item['tags']) ? array_values(array_filter(array_map('trim', $item['tags']))) : [];
-                    $hsnCode = htmlspecialchars($item['hsn_code'] ?? '6109');
-                    
-                    // Single piece unit metrics (GST is INCLUSIVE in product amount)
-                    $unitPrice = (float)($item['mrp'] ?? 0);
-                    $unitDisc = round((float)($item['discount_amount'] ?? 0) / $iQty, 2);
-                    $itemNetLine = max(0, ((float)($item['mrp'] ?? 0) * $iQty) - (float)($item['discount_amount'] ?? 0));
-                    if ($itemNetLine <= 0 && !empty($item['unit_price'])) {
-                        $itemNetLine = round((float)$item['unit_price'] * $iQty, 2);
-                    }
-                    $unitTotal = $iQty > 0 ? round($itemNetLine / $iQty, 2) : 0.0;
-                    if ($unitPrice <= 0) {
-                        $unitPrice = $unitTotal + $unitDisc;
-                    }
-                ?>
-
-                <!-- Product Name Header Line -->
+        <table class="items-table">
+            <thead>
                 <tr>
-                    <td colspan="6" style="padding-top: 5px; padding-bottom: 2px;">
-                        <div class="item-title">
-                            <?= htmlspecialchars($item['product_name']) ?>
-                            <?php if (!empty($item['is_complementary'])): ?>
-                                <span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-size: 8pt; font-weight: bold; margin-left: 6px;">[COMPLEMENTARY / FREE]</span>
-                            <?php endif; ?>
-                        </div>
-                    </td>
+                    <th style="width:32px;">#</th>
+                    <th>Product Description &amp; QR / Variant</th>
+                    <th style="width:72px;">HSN</th>
+                    <th class="ctr" style="width:48px;">Qty</th>
+                    <th class="num" style="width:82px;">MRP</th>
+                    <th class="num" style="width:76px;">Disc</th>
+                    <th class="num" style="width:86px;">Taxable</th>
+                    <th class="num" style="width:76px;">GST</th>
+                    <th class="num" style="width:92px;">Total</th>
                 </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($billItems as $idx => $item):
+                    $qty = (int)($item['quantity'] ?? 1);
+                    $rowMrp = (float)($item['mrp'] ?? 0) * $qty;
+                    $rowDisc = (float)($item['discount_amount'] ?? 0);
+                    $rowTaxable = (float)($item['taxable_amount'] ?? 0);
+                    $rowTax = (float)($item['tax_amount'] ?? 0);
+                    $rowTotal = (float)($item['total_amount'] ?? 0);
+                    $metaParts = array_filter([
+                        !empty($item['size_name']) ? 'Size: ' . $item['size_name'] : '',
+                        !empty($item['color_name']) ? 'Color: ' . $item['color_name'] : '',
+                        !empty($item['sku']) ? 'SKU: ' . $item['sku'] : '',
+                    ]);
+                    $tags = !empty($item['tags']) ? implode(', ', $item['tags']) : '';
+                ?>
+                <tr>
+                    <td><?= $idx + 1 ?></td>
+                    <td>
+                        <div style="font-weight:700;"><?= htmlspecialchars($item['product_name']) ?></div>
+                        <?php if (!empty($metaParts)): ?>
+                            <div class="small muted"><?= htmlspecialchars(implode(' · ', $metaParts)) ?></div>
+                        <?php endif; ?>
+                        <?php if ($tags !== ''): ?>
+                            <div class="small muted" style="font-family: ui-monospace, monospace;">QR: <?= htmlspecialchars($tags) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td><?= htmlspecialchars($item['hsn_code'] ?? '—') ?></td>
+                    <td class="ctr"><?= $qty ?></td>
+                    <td class="num"><?= formatCurrency($rowMrp) ?></td>
+                    <td class="num" style="color:#dc2626;"><?= $rowDisc > 0 ? '-' . formatCurrency($rowDisc) : '—' ?></td>
+                    <td class="num"><?= formatCurrency($rowTaxable) ?></td>
+                    <td class="num"><?= formatCurrency($rowTax) ?></td>
+                    <td class="num" style="font-weight:700;"><?= formatCurrency($rowTotal) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
-                <?php if (!empty($tags)): ?>
-                    <!-- Single detail row for each QR code tag -->
-                    <?php foreach ($tags as $tg): ?>
-                        <tr>
-                            <td>
-                                <span class="tag-single-label"><?= htmlspecialchars($tg) ?></span>
-                            </td>
-                            <td><?= $hsnCode ?></td>
-                            <td class="text-right">1</td>
-                            <td class="text-right"><?= number_format($unitPrice, 2) ?></td>
-                            <td class="text-right <?= $unitDisc > 0 ? 'discount-highlight' : '' ?>"><?= number_format($unitDisc, 2) ?></td>
-                            <td class="text-right" style="font-weight: bold;"><?= number_format($unitTotal, 2) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <!-- Single detail row for non-tagged/bulk line -->
-                    <tr>
-                        <td><span class="tag-single-label">—</span></td>
-                        <td><?= $hsnCode ?></td>
-                        <td class="text-right"><?= (int)($item['quantity'] ?? 1) ?></td>
-                        <td class="text-right"><?= number_format($unitPrice, 2) ?></td>
-                        <td class="text-right <?= (float)($item['discount_amount'] ?? 0) > 0 ? 'discount-highlight' : '' ?>"><?= number_format((float)($item['discount_amount'] ?? 0), 2) ?></td>
-                        <td class="text-right" style="font-weight: bold;"><?= number_format($itemNetLine, 2) ?></td>
-                    </tr>
+        <div class="bottom-grid">
+            <div class="terms-box">
+                <div style="font-weight:700; font-size:12px; margin-bottom:6px;">Terms &amp; Conditions</div>
+                <ol class="small muted" style="margin:0; padding-left:16px;">
+                    <li>Goods once sold are exchangeable within 7 days with original tag &amp; invoice.</li>
+                    <li>All disputes are subject to local jurisdiction only.</li>
+                    <?php if (!empty($bill['notes'])): ?>
+                        <li>Note: <?= htmlspecialchars($bill['notes']) ?></li>
+                    <?php endif; ?>
+                </ol>
+                <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
+                    <div class="small" style="margin-top:10px; padding-top:8px; border-top:1px dashed #cbd5e1;">
+                        Cash Tendered: <strong><?= formatCurrency((float)$bill['cash_given']) ?></strong> &bull;
+                        Change Returned: <strong><?= formatCurrency((float)($bill['change_returned'] ?? 0)) ?></strong>
+                    </div>
                 <?php endif; ?>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </div>
 
-    <div class="dashed-line"></div>
+            <div class="summary-box">
+                <div class="sum-line"><span class="muted">Total Quantity</span><span><?= $totalQty ?> pcs</span></div>
+                <div class="sum-line"><span class="muted">Gross / MRP</span><span><?= formatCurrency($grossAmt) ?></span></div>
+                <?php if ($discount > 0): ?>
+                    <div class="sum-line"><span class="muted">Item Discount</span><span style="color:#dc2626;">-<?= formatCurrency($discount) ?></span></div>
+                <?php endif; ?>
+                <div class="sum-line"><span class="muted">Taxable Subtotal</span><span><?= formatCurrency($subtotal) ?></span></div>
+                <?php if ($cgst > 0): ?>
+                    <div class="sum-line"><span class="muted">CGST</span><span><?= formatCurrency($cgst) ?></span></div>
+                <?php endif; ?>
+                <?php if ($sgst > 0): ?>
+                    <div class="sum-line"><span class="muted">SGST</span><span><?= formatCurrency($sgst) ?></span></div>
+                <?php endif; ?>
+                <?php if ($igst > 0): ?>
+                    <div class="sum-line"><span class="muted">IGST</span><span><?= formatCurrency($igst) ?></span></div>
+                <?php endif; ?>
+                <div class="sum-line"><span class="muted">Total GST (Incl.)</span><span><?= formatCurrency($taxAmount) ?></span></div>
+                <?php if ($couponDiscount > 0): ?>
+                    <div class="sum-line" style="color:#2563eb;">
+                        <span>Coupon (<?= htmlspecialchars($bill['applied_coupon_code'] ?? '') ?>)</span>
+                        <span>-<?= formatCurrency($couponDiscount) ?></span>
+                    </div>
+                <?php endif; ?>
+                <div class="sum-total">
+                    <span>NET AMOUNT</span>
+                    <span><?= formatCurrency($totalAmount) ?></span>
+                </div>
+                <?php if ($payStatus === 'COD'): ?>
+                    <div class="sum-line small" style="margin-top:4px;">
+                        <span style="color:#16a34a;">Paid: <?= formatCurrency((float)($bill['paid_amount'] ?? 0)) ?></span>
+                        <span style="color:#dc2626;">Balance COD: <?= formatCurrency((float)($bill['remaining_amount'] ?? 0)) ?></span>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
 
-    <!-- 6. Summary & Totals -->
-    <div class="info-grid">
-        <div class="summary-row">
-            <span class="summary-label">Total Qty :</span>
-            <span class="summary-val"><?= $totalQty ?></span>
-        </div>
-        <div class="summary-row">
-            <span class="summary-label">Taxable Base :</span>
-            <span class="summary-val">₹ <?= number_format($subtotal, 2) ?></span>
-        </div>
-        <div class="summary-row">
-            <span class="summary-label">Total Disc :</span>
-            <span class="summary-val discount-highlight">-₹ <?= number_format($discount, 2) ?></span>
-        </div>
-        <div class="summary-row">
-            <span class="summary-label">GST Amount (Incl.) :</span>
-            <span class="summary-val">₹ <?= number_format($taxAmount, 2) ?></span>
-        </div>
-        <?php if ($cgst > 0): ?>
-        <div class="summary-row" style="padding-left: 10px; font-size: 11px;">
-            <span class="summary-label">CGST (<?= $cgstRate ?>) :</span>
-            <span class="summary-val">₹ <?= number_format($cgst, 2) ?></span>
-        </div>
-        <?php endif; ?>
-        <?php if ($sgst > 0): ?>
-        <div class="summary-row" style="padding-left: 10px; font-size: 11px;">
-            <span class="summary-label">SGST (<?= $sgstRate ?>) :</span>
-            <span class="summary-val">₹ <?= number_format($sgst, 2) ?></span>
-        </div>
-        <?php endif; ?>
-        <?php if ($igst > 0): ?>
-        <div class="summary-row" style="padding-left: 10px; font-size: 11px;">
-            <span class="summary-label">IGST (<?= $igstRate ?>) :</span>
-            <span class="summary-val">₹ <?= number_format($igst, 2) ?></span>
-        </div>
-        <?php endif; ?>
-        <div class="summary-row">
-            <span class="summary-label">Round Off :</span>
-            <span class="summary-val">₹ <?= number_format($roundOff, 2) ?></span>
+        <div class="inv-footer">
+            <div class="small muted">Thank you for your business! This is a computer-generated A4 Tax Invoice.</div>
+            <div class="sign-line">For <?= htmlspecialchars($storeName) ?><br><span class="muted" style="font-weight:400;">Authorized Signatory</span></div>
         </div>
     </div>
-
-    <div class="dashed-line"></div>
-
-    <!-- 7. Net Amount -->
-    <?php if ((float)($bill['coupon_discount_amount'] ?? 0) > 0): ?>
-    <div class="info-grid" style="margin-bottom: 4px;">
-        <div class="summary-row">
-            <span class="summary-label">Coupon (<?= htmlspecialchars($bill['applied_coupon_code'] ?? '') ?>) :</span>
-            <span class="summary-val discount-highlight">-₹ <?= number_format((float)$bill['coupon_discount_amount'], 2) ?></span>
-        </div>
-    </div>
-    <?php endif; ?>
-    <div class="net-amount-row">
-        <span>NET AMOUNT :</span>
-        <span style="font-size: 16px;">₹ <?= number_format($totalAmount, 2) ?></span>
-    </div>
-
-    <?php if (($bill['payment_status'] ?? '') === 'COD'): ?>
-    <div class="info-grid" style="margin-top: 4px;">
-        <div class="summary-row">
-            <span class="summary-label">Paid Amount :</span>
-            <span class="summary-val">₹ <?= number_format((float)($bill['paid_amount'] ?? 0), 2) ?></span>
-        </div>
-        <div class="summary-row">
-            <span class="summary-label" style="font-weight: bold;">Balance Due (COD) :</span>
-            <span class="summary-val">₹ <?= number_format((float)($bill['remaining_amount'] ?? 0), 2) ?></span>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ((float)($bill['cash_given'] ?? 0) > 0): ?>
-    <div class="info-grid" style="margin-top: 4px;">
-        <div class="summary-row">
-            <span class="summary-label">Cash Tendered :</span>
-            <span class="summary-val">₹ <?= number_format((float)$bill['cash_given'], 2) ?></span>
-        </div>
-        <div class="summary-row">
-            <span class="summary-label">Change Returned :</span>
-            <span class="summary-val">₹ <?= number_format((float)($bill['change_returned'] ?? 0), 2) ?></span>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <div class="dashed-line"></div>
-
-    <!-- 8. Terms & Conditions -->
-    <div class="terms-box">
-        <div class="terms-title">Terms &amp; Conditions:</div>
-        <div>1. Goods once sold cannot be taken back or exchanged.</div>
-        <div>2. Claims subject to local jurisdiction only.</div>
-        <?php if (!empty($bill['notes'])): ?>
-            <div style="margin-top: 3px;"><strong>Note:</strong> <?= nl2br(htmlspecialchars($bill['notes'])) ?></div>
-        <?php endif; ?>
-    </div>
-
-    <!-- 9. Thank You Footer -->
-    <div class="thank-you">
-        ***** Thank You !!! Visit Again *****
-    </div>
-
-</main>
-
-<script>
-window.addEventListener('DOMContentLoaded', () => {
-    if (window.location.search.includes('autoprint=1')) {
-        window.print();
-    }
-});
-</script>
 </body>
 </html>

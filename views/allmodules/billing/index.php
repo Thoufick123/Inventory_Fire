@@ -237,6 +237,7 @@
                                         <a class="btn btn-outline-info btn-action-icon" title="View in Outward &amp; Dispatch" href="<?= url('production/outward') ?>"><i class="bi bi-truck"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'view')): ?>
+                                        <a class="btn btn-outline-success btn-action-icon" title="Customer POS Bill Format" href="<?= url('production/billing/view/' . (int)$bill['id'] . '?completed=1') ?>"><i class="bi bi-receipt"></i></a>
                                         <a class="btn btn-outline-info btn-action-icon" title="View" href="<?= url('production/billing/view/' . (int)$bill['id']) ?>"><i class="bi bi-eye"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'edit') && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
