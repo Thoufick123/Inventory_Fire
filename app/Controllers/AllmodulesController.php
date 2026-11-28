@@ -4350,17 +4350,6 @@ class AllmodulesController {
                 throw new InvalidArgumentException('Invoice with status ' . $bill['status'] . ' cannot be deleted.');
             }
 
-            // Downstream guard: check if any item has posted warehouse stock
-            $stockedItem = Database::fetchOne(
-                "SELECT mi.id, mi.item_name FROM third_party_mapping_items mi
-                 JOIN qr_generations qrg ON qrg.id = mi.qr_generation_id
-                 WHERE mi.mapping_bill_id = ? AND qrg.stock_added = 1 LIMIT 1",
-                [$mappingBillId]
-            );
-            if ($stockedItem) {
-                throw new InvalidArgumentException("Cannot delete invoice because product '{$stockedItem['item_name']}' already has stock posted to warehouse inventory.");
-            }
-
             $items = Database::fetchAll(
                 "SELECT id, item_name, qr_generation_id, purchase_item_id
                  FROM third_party_mapping_items
@@ -4368,18 +4357,33 @@ class AllmodulesController {
                  FOR UPDATE",
                 [$mappingBillId]
             );
-            $this->deleteUnstockedMappingQrBatches($items, !empty($bill['purchase_id']));
-
-            // Module-scoped delete: keep linked Purchase bill intact in Purchases, only unlink QR references
-            if (!empty($bill['purchase_id'])) {
-                $deletedQrIds = array_values(array_filter(array_map(static fn($r) => (int)($r['qr_generation_id'] ?? 0), $items)));
-                if (!empty($deletedQrIds)) {
-                    $inQr = implode(',', array_fill(0, count($deletedQrIds), '?'));
-                    Database::execute(
-                        "UPDATE production_purchase_items SET qr_generation_id = NULL, qr_batch_code = NULL WHERE purchase_id = ? AND qr_generation_id IN ($inQr)",
-                        array_merge([(int)$bill['purchase_id']], $deletedQrIds)
-                    );
+            $unstockedItems = [];
+            $unstockedQrIds = [];
+            foreach ($items as $it) {
+                $gid = (int)($it['qr_generation_id'] ?? 0);
+                if ($gid <= 0) {
+                    continue;
                 }
+                $qgRow = Database::fetchOne("SELECT stock_added FROM qr_generations WHERE id = ? FOR UPDATE", [$gid]);
+                if ($qgRow && !empty($qgRow['stock_added'])) {
+                    // Preserve posted inventory & QR batch; only detach mapping item reference
+                    Database::execute("UPDATE qr_generations SET source_mapping_item_id = NULL WHERE id = ?", [$gid]);
+                } else {
+                    $unstockedItems[] = $it;
+                    $unstockedQrIds[] = $gid;
+                }
+            }
+            if (!empty($unstockedItems)) {
+                $this->deleteUnstockedMappingQrBatches($unstockedItems, !empty($bill['purchase_id']));
+            }
+
+            // Module-scoped delete: keep linked Purchase bill & stocked QR batches intact, only unlink deleted unstocked QRs
+            if (!empty($bill['purchase_id']) && !empty($unstockedQrIds)) {
+                $inQr = implode(',', array_fill(0, count($unstockedQrIds), '?'));
+                Database::execute(
+                    "UPDATE production_purchase_items SET qr_generation_id = NULL, qr_batch_code = NULL WHERE purchase_id = ? AND qr_generation_id IN ($inQr)",
+                    array_merge([(int)$bill['purchase_id']], $unstockedQrIds)
+                );
             }
 
             AuditService::log('purchases', 'DELETE', 'third_party_mapping_bills', $mappingBillId, null, [
