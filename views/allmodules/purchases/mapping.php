@@ -185,7 +185,7 @@ foreach (($mappingDrafts ?? []) as $md) {
                                     <?php endif; ?>
                                 <?php endif; ?>
                                 <?php if (hasPermission('production_purchase_mapping', 'delete')): ?>
-                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline" data-confirm="Delete invoice <?= e($draft['invoice_number']) ?> and all its unstocked products? This cannot be undone.">
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/delete') ?>" class="d-inline js-log-confirm-form" data-confirm-title="Confirm Deletion" data-confirm-msg="Delete invoice <?= e($draft['invoice_number']) ?> and all its unstocked products? This cannot be undone." data-confirm-btn="Yes, Delete" data-confirm-delete="1">
                                         <?= CSRF::field() ?>
                                         <input type="hidden" name="return_to" value="logs">
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Invoice">
@@ -194,7 +194,7 @@ foreach (($mappingDrafts ?? []) as $md) {
                                     </form>
                                 <?php endif; ?>
                                 <?php if ($draft['status'] !== 'MOVED' && (int)$draft['product_count'] > 0): ?>
-                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline" data-confirm="Move mapping invoice <?= e($draft['invoice_number']) ?> to Purchases?">
+                                    <form method="POST" action="<?= url('purchases/mapping/draft/' . (int)$draft['id'] . '/move') ?>" class="d-inline js-log-confirm-form" data-confirm-title="Move to Purchases" data-confirm-msg="Move mapping invoice <?= e($draft['invoice_number']) ?> to Purchases?" data-confirm-btn="Move to Purchase" data-confirm-delete="0">
                                         <?= CSRF::field() ?>
                                         <button type="submit" class="btn btn-sm btn-success" title="Create / Move to Purchase">
                                             <i class="bi bi-box-arrow-in-right"></i>
@@ -341,5 +341,32 @@ document.addEventListener('DOMContentLoaded', function () {
             searchInput.focus();
         }
     });
+
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (!form.classList || !form.classList.contains('js-log-confirm-form')) return;
+        if (form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const isDelete = form.dataset.confirmDelete === '1';
+        if (typeof window.showModernConfirm === 'function') {
+            window.showModernConfirm({
+                title: form.dataset.confirmTitle || (isDelete ? 'Confirm Deletion' : 'Please Confirm'),
+                message: form.dataset.confirmMsg || 'Are you sure?',
+                isDelete: isDelete,
+                isSuccess: !isDelete,
+                btnClass: isDelete ? 'btn-danger' : 'btn-success',
+                btnText: form.dataset.confirmBtn || (isDelete ? 'Yes, Delete' : 'Confirm'),
+                onConfirm: function () {
+                    form.dataset.confirmed = '1';
+                    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                    else form.submit();
+                }
+            });
+        } else {
+            form.dataset.confirmed = '1';
+            form.submit();
+        }
+    }, true);
 });
 </script>

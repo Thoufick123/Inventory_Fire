@@ -3805,8 +3805,8 @@ class AllmodulesController {
         } catch (\Throwable $e) {}
 
         Database::execute(
-            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, source_module, created_by)
+             VALUES (?, ?, ?, ?, ?, 'QR_GENERATION', ?)",
             [$cid, $sellerId, $invoiceNumber, $invoiceDate, $linkedPurchaseId, (int)(Session::get('user_id') ?? 0) ?: null]
         );
         $mappingBillId = (int)Database::lastInsertId();
@@ -4394,7 +4394,7 @@ class AllmodulesController {
                  FOR UPDATE",
                 [$mappingBillId]
             );
-            $this->deleteUnstockedMappingQrBatches($items);
+            $this->deleteUnstockedMappingQrBatches($items, !empty($bill['purchase_id']));
 
             // Clean up linked production purchase records if linked
             if (!empty($bill['purchase_id'])) {
@@ -4759,7 +4759,7 @@ class AllmodulesController {
         Response::redirect(url('purchases/mapping/draft/' . $mappingBillId));
     }
 
-    private function deleteUnstockedMappingQrBatches(array $items): void {
+    private function deleteUnstockedMappingQrBatches(array $items, bool $allowLinkedPurchaseBatch = false): void {
         foreach ($items as $item) {
             $generationId = (int)($item['qr_generation_id'] ?? 0);
             if ($generationId <= 0) {
@@ -4773,7 +4773,7 @@ class AllmodulesController {
             if (!$qrBatch) {
                 continue;
             }
-            if (!empty($qrBatch['stock_added']) || !empty($qrBatch['source_purchase_item_id'])) {
+            if (!empty($qrBatch['stock_added']) || (!$allowLinkedPurchaseBatch && !empty($qrBatch['source_purchase_item_id']))) {
                 throw new RuntimeException('A product with posted stock or a linked purchase QR batch cannot be deleted.');
             }
             $sourceMappingItemId = (int)($qrBatch['source_mapping_item_id'] ?? 0);
@@ -5455,17 +5455,18 @@ class AllmodulesController {
             }
         } catch (\Throwable $e) {}
 
+        $sourceModule = $fromMappingCreate ? 'QR_GENERATION' : 'PURCHASE';
         if ($invoiceDate !== '') {
             Database::execute(
-                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, status, created_by)
-                 VALUES (?, ?, ?, ?, ?, 'DRAFT', ?)",
-                [$cid, $sellerId, $invoiceNumber, $invoiceDate, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
+                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, status, source_module, created_by)
+                 VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?)",
+                [$cid, $sellerId, $invoiceNumber, $invoiceDate, ($purchaseId > 0 ? $purchaseId : null), $sourceModule, $userId ?: null]
             );
         } else {
             Database::execute(
-                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, status, created_by)
-                 VALUES (?, ?, ?, ?, 'DRAFT', ?)",
-                [$cid, $sellerId, $invoiceNumber, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
+                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, status, source_module, created_by)
+                 VALUES (?, ?, ?, ?, 'DRAFT', ?, ?)",
+                [$cid, $sellerId, $invoiceNumber, ($purchaseId > 0 ? $purchaseId : null), $sourceModule, $userId ?: null]
             );
         }
         $newId = (int)Database::lastInsertId();
@@ -6776,14 +6777,15 @@ class AllmodulesController {
         $categories = Database::fetchAll(
             "SELECT id, name, code FROM third_party_categories WHERE is_active = 1 ORDER BY name ASC"
         );
-        $draftWhere = '';
+        $draftConds = ["COALESCE(mb.source_module, 'QR_GENERATION') = 'QR_GENERATION'"];
         $draftParams = [];
         if ($cid !== null) {
-            $draftWhere = $cid === 1
-                ? 'WHERE (mb.concern_id = ? OR mb.concern_id IS NULL)'
-                : 'WHERE mb.concern_id = ?';
+            $draftConds[] = $cid === 1
+                ? '(mb.concern_id = ? OR mb.concern_id IS NULL)'
+                : 'mb.concern_id = ?';
             $draftParams[] = $cid;
         }
+        $draftWhere = 'WHERE ' . implode(' AND ', $draftConds);
         $mappingDrafts = Database::fetchAll(
             "SELECT mb.id, mb.concern_id, mb.seller_id, mb.invoice_number, mb.status, mb.purchase_id, mb.created_at,
                     s.name AS seller_name, s.company AS seller_company, s.phone AS seller_phone,
