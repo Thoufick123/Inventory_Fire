@@ -217,13 +217,13 @@ if (!empty($authUser['production_unit_name'])) {
 
                     <!-- All Modules (formerly Production) -->
                     <?php 
-                    $modProduction = isSuperAdmin() || hasConcernModule('production');
-                    $modPurchases  = isSuperAdmin() || hasConcernModule('purchases');
-                    $modWarehouse  = isSuperAdmin() || hasConcernModule('warehouse');
-                    $modRetailPos  = isSuperAdmin() || hasConcernModule('retail_pos');
-                    $modReturns    = isSuperAdmin() || hasConcernModule('returns');
-                    $modExpenses   = isSuperAdmin() || hasConcernModule('expenses');
-                    $modAssets     = isSuperAdmin() || hasConcernModule('assets');
+                    $modProduction = hasConcernModule('production');
+                    $modPurchases  = hasConcernModule('purchases');
+                    $modWarehouse  = hasConcernModule('warehouse');
+                    $modRetailPos  = hasConcernModule('retail_pos');
+                    $modReturns    = hasConcernModule('returns');
+                    $modExpenses   = hasConcernModule('expenses');
+                    $modAssets     = hasConcernModule('assets');
 
                     $canViewProduction = (
                         ($modPurchases && (hasPermission('sellers', 'view') || hasPermission('production_purchases', 'view') || hasPermission('production_purchase_mapping', 'view') || hasPermission('purchases', 'view')))

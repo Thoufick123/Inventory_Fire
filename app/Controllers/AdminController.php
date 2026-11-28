@@ -92,6 +92,20 @@ class AdminController {
             return null;
         }
 
+        $activeCid = currentConcernId();
+        if ($activeCid !== null && isset($concernMap[$activeCid])) {
+            $activeRow = $concernMap[$activeCid];
+            return [
+                'unauthorized'      => false,
+                'isGlobalAdmin'     => false,
+                'availableConcerns' => [$activeRow],
+                'allowedConcernIds' => [$activeCid],
+                'concernMap'        => [$activeCid => $activeRow],
+                'selectedConcernId' => $activeCid,
+                'selectedConcern'   => $activeRow,
+            ];
+        }
+
         $selectedConcernId = null;
         if ($requestedConcernParam !== null && $requestedConcernParam !== '') {
             $normalized = strtolower(trim($requestedConcernParam));
@@ -107,10 +121,7 @@ class AdminController {
                 $selectedConcernId = (int)$cid;
             }
         } else {
-            $activeCid = currentConcernId();
-            if ($activeCid !== null && isset($concernMap[$activeCid])) {
-                $selectedConcernId = $activeCid;
-            } elseif (!$isGlobalAdmin && count($allowedConcernIds) === 1) {
+            if (!$isGlobalAdmin && count($allowedConcernIds) === 1) {
                 $selectedConcernId = $allowedConcernIds[0];
             }
         }
@@ -676,10 +687,13 @@ class AdminController {
             }
             $concerns = $availConcerns;
         } else {
-            if (empty($filters['concern_id']) && currentConcernId()) {
-                $filters['concern_id'] = currentConcernId();
+            $activeStaffCid = currentConcernId();
+            if ($activeStaffCid !== null) {
+                $filters['concern_id'] = $activeStaffCid;
+                $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 AND id = ? ORDER BY name ASC", [$activeStaffCid]) ?: [];
+            } else {
+                $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
             }
-            $concerns = Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: [];
         }
 
         $staff           = User::getAll($filters);
