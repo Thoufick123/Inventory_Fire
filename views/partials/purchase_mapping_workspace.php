@@ -660,6 +660,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fd.append('csrf_token', pmCsrfToken);
         fd.append('seller_id', sellerId);
         fd.append('invoice_number', invoiceNumber);
+        fd.append('source_module', 'PURCHASE');
         if (pmPurchaseId > 0) {
             fd.append('purchase_id', String(pmPurchaseId));
         }

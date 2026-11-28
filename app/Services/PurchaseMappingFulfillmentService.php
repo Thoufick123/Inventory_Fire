@@ -29,7 +29,7 @@ class PurchaseMappingFulfillmentService {
         if (self::$schemaEnsured) {
             return;
         }
-        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261127_optional_all'])) {
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_pmf_schema_ensured_20261128_source_module'])) {
             self::$schemaEnsured = true;
             return;
         }
@@ -51,6 +51,18 @@ class PurchaseMappingFulfillmentService {
 
         Database::ensureColumn('products', 'attributes', 'TEXT DEFAULT NULL AFTER description');
         Database::ensureColumn('product_variants', 'attributes', 'TEXT DEFAULT NULL AFTER image');
+        try {
+            if (Database::fetchOne("SHOW TABLES LIKE 'third_party_mapping_bills'")) {
+                Database::ensureColumn('third_party_mapping_bills', 'source_module', "VARCHAR(32) NOT NULL DEFAULT 'QR_GENERATION' AFTER status");
+                Database::execute(
+                    "UPDATE third_party_mapping_bills mb
+                     INNER JOIN production_purchases pp ON pp.id = mb.purchase_id
+                     SET mb.source_module = 'PURCHASE'
+                     WHERE mb.source_module = 'QR_GENERATION'
+                       AND COALESCE(pp.notes, '') NOT LIKE 'Created from Purchase Item Mapping Invoice%'"
+                );
+            }
+        } catch (\Throwable $e) {}
         Database::execute("CREATE TABLE IF NOT EXISTS third_party_categories (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(200) NOT NULL,
@@ -264,7 +276,7 @@ class PurchaseMappingFulfillmentService {
         // Hard-coded default third-party categories are no longer auto-seeded; only catalog-saved categories are used.
 
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['_pmf_schema_ensured_20261127_optional_all'] = 1;
+            $_SESSION['_pmf_schema_ensured_20261128_source_module'] = 1;
         }
         self::$schemaEnsured = true;
     }
