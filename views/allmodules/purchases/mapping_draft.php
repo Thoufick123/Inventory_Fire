@@ -609,6 +609,8 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                         ]);
                         $isFabricRollItem = strtoupper((string)($item['item_type'] ?? '')) === 'FABRIC_ROLL';
                         $catLabel = $catParts ? implode(' / ', $catParts) : ($isFabricRollItem ? 'Fabric Roll' : '—');
+                        $hierKey = strtolower(trim((string)($item['category_name'] ?? ''))) . '|' . strtolower(trim((string)($item['subcategory_name'] ?? ''))) . '|' . strtolower(trim((string)($item['sub_subcategory_name'] ?? '')));
+                        $isCompItem = !empty($item['resolved_is_complementary']) || !empty($item['is_complementary']) || in_array($hierKey, $complementaryCatalogHierarchies ?? [], true);
                         $searchText = strtolower(trim(implode(' ', [
                             $item['item_name'] ?? '',
                             $item['brand_name'] ?? '',
@@ -622,7 +624,12 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                     ?>
                     <tr class="saved-variant-row" data-search="<?= e($searchText) ?>">
                         <td class="text-center text-muted fw-semibold font-monospace"><?= $idx + 1 ?></td>
-                        <td title="<?= e($catLabel) ?>"><?= e(mb_strimwidth($catLabel, 0, 28, '...')) ?></td>
+                        <td title="<?= e($catLabel) ?>">
+                            <?= e(mb_strimwidth($catLabel, 0, 28, '...')) ?>
+                            <?php if ($isCompItem): ?>
+                                <div class="mt-1"><span class="badge bg-info-subtle text-info-emphasis border border-info-subtle"><i class="bi bi-gift-fill me-1"></i>Complementary</span></div>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <strong class="text-dark"><?= e($item['item_name']) ?></strong>
                             <span class="badge bg-secondary-subtle text-secondary border font-monospace ms-1">VID: #<?= (int)$item['variant_id'] ?></span>
@@ -3200,17 +3207,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else if (e.target.classList.contains('gen-category')) {
             const card = e.target.closest('.tp-product-card');
-            const selectedCatOpt = e.target.options[e.target.selectedIndex];
-            const isComp = Boolean(
-                selectedCatOpt && (
-                    selectedCatOpt.dataset.complementary === '1' ||
-                    (selectedCatOpt.text || '').toLowerCase().includes('complementary')
-                )
-            );
-            const compBadge = card?.querySelector('.tp-complementary-badge');
-            const catCompBadge = card?.querySelector('.gen-category-comp-badge');
-            if (compBadge) compBadge.classList.toggle('d-none', !isComp);
-            if (catCompBadge) catCompBadge.classList.toggle('d-none', !isComp);
             const catId = String(e.target.value || '');
             const subSel = card?.querySelector('.gen-subcategory');
             const ssSel = card?.querySelector('.gen-subsubcategory');
@@ -3233,6 +3229,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 ssSel.value = '';
             }
+            updateCardComplementaryBadge(card);
             renderDraftAttributeChips(card);
         } else if (e.target.classList.contains('gen-subcategory')) {
             const card = e.target.closest('.tp-product-card');
@@ -3248,11 +3245,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 ssSel.value = '';
             }
+            updateCardComplementaryBadge(card);
             renderDraftAttributeChips(card);
         } else if (e.target.classList.contains('gen-subsubcategory')) {
-            renderDraftAttributeChips(e.target.closest('.tp-product-card'));
+            const card = e.target.closest('.tp-product-card');
+            updateCardComplementaryBadge(card);
+            renderDraftAttributeChips(card);
         }
     });
+
+    const complementaryCatalogHierarchies = <?= json_encode(array_values($complementaryCatalogHierarchies ?? [])) ?>;
+    function updateCardComplementaryBadge(card) {
+        if (!card) return;
+        const catSel = card.querySelector('.gen-category');
+        const subSel = card.querySelector('.gen-subcategory');
+        const ssSel = card.querySelector('.gen-subsubcategory');
+        const catOpt = catSel && catSel.selectedIndex >= 0 ? catSel.options[catSel.selectedIndex] : null;
+        const subOpt = subSel && subSel.selectedIndex >= 0 ? subSel.options[subSel.selectedIndex] : null;
+        const ssOpt = ssSel && ssSel.selectedIndex >= 0 ? ssSel.options[ssSel.selectedIndex] : null;
+
+        const cName = catOpt && catOpt.value ? (catOpt.text || '').trim().toLowerCase() : '';
+        const sName = subOpt && subOpt.value ? (subOpt.text || '').trim().toLowerCase() : '';
+        const ssName = ssOpt && ssOpt.value ? (ssOpt.text || '').trim().toLowerCase() : '';
+
+        const exactKey = cName ? `${cName}|${sName}|${ssName}` : '';
+        const subKey = cName && sName ? `${cName}|${sName}|` : '';
+        const catOnlyKey = cName ? `${cName}||` : '';
+
+        const isComp = Boolean(
+            (catOpt && (catOpt.dataset.complementary === '1' || cName.includes('complementary'))) ||
+            (exactKey && complementaryCatalogHierarchies.includes(exactKey)) ||
+            (subKey && complementaryCatalogHierarchies.includes(subKey)) ||
+            (catOnlyKey && complementaryCatalogHierarchies.includes(catOnlyKey))
+        );
+
+        const compBadge = card.querySelector('.tp-complementary-badge');
+        const catCompBadge = card.querySelector('.gen-category-comp-badge');
+        if (compBadge) compBadge.classList.toggle('d-none', !isComp);
+        if (catCompBadge) catCompBadge.classList.toggle('d-none', !isComp);
+    }
 
     function getSelectedDraftCustomAttributes(card) {
         if (!card) return [];
