@@ -129,49 +129,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (btnUse) { btnUse.href = useUrl; btnUse.classList.remove('d-none'); }
             if (btnUseCard) { btnUseCard.href = useUrl; }
             if (btnSave) { btnSave.disabled = true; }
-
-            let html = `
-                <div class="row g-2 mb-3 small">
-                    <div class="col-md-3"><strong>Source:</strong> ${esc(data.source === 'PURCHASE' ? 'Purchase Bill (' + (rec.purchase_number || '') + ')' : 'Mapping Draft #' + (rec.id || ''))}</div>
-                    <div class="col-md-3"><strong>Supplier:</strong> ${esc(rec.supplier || '—')}</div>
-                    <div class="col-md-3"><strong>Date:</strong> ${esc(rec.date || '—')}</div>
-                    <div class="col-md-3"><strong>Status:</strong> <span class="badge bg-secondary">${esc(rec.status || '—')}</span>${rec.total_amount !== undefined ? ' · <strong>₹' + Number(rec.total_amount).toFixed(2) + '</strong>' : ''}</div>
-                </div>
-                <div class="table-responsive border rounded">
-                    <table class="table table-sm table-hover align-middle mb-0 small">
-                        <thead class="table-light text-uppercase text-muted">
-                            <tr>
-                                <th>#</th>
-                                <th>Product / SKU</th>
-                                <th>Color / Size</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Rate (₹)</th>
-                                <th class="text-end">MRP / SP (₹)</th>
-                                <th>HSN</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            if (items.length === 0) {
-                html += '<tr><td colspan="7" class="text-center text-muted py-2">No products added to this invoice yet.</td></tr>';
-            } else {
-                items.forEach((it, idx) => {
-                    html += `
-                        <tr>
-                            <td>${idx + 1}</td>
-                            <td><strong>${esc(it.item_name)}</strong> <span class="text-muted font-monospace">${esc(it.vendor_sku || '')}</span></td>
-                            <td>${esc([it.color, it.size].filter(Boolean).join(' / ') || '—')}</td>
-                            <td class="text-end fw-bold">${Number(it.quantity || 0)} ${esc(it.unit || '')}</td>
-                            <td class="text-end">${formatCurrency(Number(it.unit_price || 0))}</td>
-                            <td class="text-end">${formatCurrency(Number(it.mrp || 0))} / ${formatCurrency(Number(it.selling_price || 0))}</td>
-                            <td class="font-monospace">${esc(it.hsn_code || '—')}</td>
-                        </tr>
-                    `;
-                });
-            }
-            html += '</tbody></table></div>';
-            if (previewBody) previewBody.innerHTML = html;
-            previewCard?.classList.remove('d-none');
+            if (previewBody) previewBody.innerHTML = '';
+            previewCard?.classList.add('d-none');
         })
         .catch(() => {});
     }
