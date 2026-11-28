@@ -1,7 +1,6 @@
 <div class="page-header d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-buildings text-primary me-2"></i>Business Concerns &amp; Sister Entities</h2>
-        <p class="text-muted small mb-0">Multi-concern enterprise architecture for managing independent business entities, GST profiles, and scoped module matrices.</p>
     </div>
     <div class="d-flex gap-2">
         <a href="<?= url('admin/concerns/create') ?>" class="btn btn-primary">

@@ -156,6 +156,27 @@
                 </div>
             </div>
 
+            <!-- Status Toggle (Active / Inactive) -->
+            <div class="card border shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-toggle-on me-2 text-success"></i>5. Entity Status</h6>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group w-100" role="group" aria-label="Concern Status">
+                        <input type="radio" class="btn-check" name="is_active" id="concernStatusActive" value="1" autocomplete="off" checked>
+                        <label class="btn btn-outline-success fw-semibold" for="concernStatusActive">
+                            <i class="bi bi-check-circle me-1"></i> Active
+                        </label>
+
+                        <input type="radio" class="btn-check" name="is_active" id="concernStatusInactive" value="0" autocomplete="off">
+                        <label class="btn btn-outline-danger fw-semibold" for="concernStatusInactive">
+                            <i class="bi bi-slash-circle me-1"></i> Inactive
+                        </label>
+                    </div>
+                    <div class="small text-muted mt-2">When set to Inactive, users cannot record new transactions under this concern.</div>
+                </div>
+            </div>
+
             <!-- Actions -->
             <div class="card border-0 shadow-sm bg-white p-3">
                 <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">

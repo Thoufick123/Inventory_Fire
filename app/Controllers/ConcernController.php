@@ -258,6 +258,7 @@ class ConcernController {
         }
 
         $creatorId = Auth::id() ?? 1;
+        $isActive = isset($_POST['is_active']) ? ((int)$_POST['is_active'] === 1 ? 1 : 0) : 1;
 
         $db = Database::getInstance();
         $db->beginTransaction();
@@ -273,14 +274,14 @@ class ConcernController {
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
-                    1, ?, NOW()
+                    ?, ?, NOW()
                 )
             ");
             $stmt->execute([
                 $name, $code, $concernType, $legalName ?: null, $gstNumber ?: null, $panNumber ?: null,
                 $phone ?: null, $email ?: null, $address ?: null, $city ?: null, $state ?: null, $pincode ?: null,
                 $logoUrl, $invoicePrefix, $poPrefix, $dispatchPrefix,
-                $creatorId
+                $isActive, $creatorId
             ]);
             $concernId = (int)$db->lastInsertId();
 
