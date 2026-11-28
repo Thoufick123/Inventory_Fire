@@ -101,38 +101,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function checkExistingInvoice() {
-        const sid = sellerSel?.value || '';
-        const inv = invInput?.value.trim() || '';
-        if (!sid || !inv) {
-            clearExistingState();
-            return;
-        }
-        fetch('<?= url('api/purchases/mapping/check-invoice') ?>?seller_id=' + encodeURIComponent(sid) + '&invoice_number=' + encodeURIComponent(inv), {
-            headers: { 'Accept': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (!data || !data.exists) {
-                clearExistingState();
-                return;
-            }
-            const rec = data.record || {};
-            const items = Array.isArray(data.items) ? data.items : [];
-            const useUrl = rec.use_url || '#';
-
-            invInput?.classList.add('is-invalid');
-            if (errEl) {
-                errEl.textContent = `Invoice "${rec.invoice_number || inv}" already exists (${data.source === 'PURCHASE' ? 'Purchase ' + (rec.purchase_number || '') : 'Mapping Draft'}). Cannot create duplicate — click "Use Existing Invoice".`;
-                errEl.classList.remove('d-none');
-                errEl.classList.add('d-block');
-            }
-            if (btnUse) { btnUse.href = useUrl; btnUse.classList.remove('d-none'); }
-            if (btnUseCard) { btnUseCard.href = useUrl; }
-            if (btnSave) { btnSave.disabled = true; }
-            if (previewBody) previewBody.innerHTML = '';
-            previewCard?.classList.add('d-none');
-        })
-        .catch(() => {});
+        // Purchases and QR Generations are independent; do not show duplicate-invoice errors or block entry here.
+        clearExistingState();
     }
 
     function scheduleCheck() {
