@@ -178,17 +178,6 @@ $canVerify = hasPermission('inward', 'verify');
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link d-flex align-items-center gap-2" id="tab-cards-btn" data-bs-toggle="pill" data-bs-target="#tab-cards-view" type="button" role="tab" aria-controls="tab-cards-view" aria-selected="false">
-                                <i class="bi bi-grid-fill fs-6"></i>
-                                <span>Batch Cards View</span>
-                                <?php if (($pendingBatchesCount ?? 0) > 0): ?>
-                                    <span class="badge bg-danger"><?= $pendingBatchesCount ?> Missing</span>
-                                <?php else: ?>
-                                    <span class="badge bg-secondary"><?= count($batches) ?></span>
-                                <?php endif; ?>
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
                             <button class="nav-link d-flex align-items-center gap-2" id="tab-cutting-outwards-btn" data-bs-toggle="pill" data-bs-target="#tab-cutting-outwards" type="button" role="tab" aria-controls="tab-cutting-outwards" aria-selected="false">
                                 <i class="bi bi-scissors fs-6"></i>
                                 <span>Cutting Outward Inward</span>
@@ -256,7 +245,9 @@ $canVerify = hasPermission('inward', 'verify');
                         <div class="col-12 col-sm-6 col-lg-3">
                             <label class="form-label small fw-semibold text-muted mb-1">Destination Warehouse</label>
                             <select name="warehouse_id" id="inwardWarehouseSelect" class="form-select form-select-sm" <?= (!empty($scopedWarehouseId) || count($warehouses) <= 1) ? 'disabled' : '' ?>>
-                                <?php if (empty($scopedWarehouseId) && count($warehouses) > 1): ?>
+                                <?php if (empty($warehouses)): ?>
+                                    <option value="">All Warehouses (None Assigned)</option>
+                                <?php elseif (empty($scopedWarehouseId) && count($warehouses) > 1): ?>
                                     <option value="">All Warehouses</option>
                                 <?php endif; ?>
                                 <?php foreach ($warehouses as $wh): ?>
@@ -412,209 +403,6 @@ $canVerify = hasPermission('inward', 'verify');
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-
-        <!-- --------------------------------------------------------------------- -->
-        <!-- TAB 2: BATCH CARDS (GRID) VIEW -->
-        <!-- --------------------------------------------------------------------- -->
-        <div class="tab-pane fade" id="tab-cards-view" role="tabpanel" aria-labelledby="tab-cards-btn">
-            <div class="card border-0 shadow-sm mb-4 border-start border-danger border-4">
-                <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <h6 class="card-title mb-0 fw-bold text-danger">
-                            <i class="bi bi-grid-fill me-2"></i>Batch-Wise Missing Stock &amp; Variant Overview
-                        </h6>
-                        <small class="text-muted fs-8">Interactive batch cards with variant breakdown &amp; destination warehouse</small>
-                    </div>
-                    <div class="d-flex align-items-center flex-wrap gap-2">
-                        <div class="input-group input-group-sm" style="width: 220px;">
-                            <span class="input-group-text bg-white"><i class="bi bi-search text-secondary"></i></span>
-                            <input type="text" id="batchCardSearch" class="form-control" placeholder="Search batch, SKU...">
-                        </div>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-secondary active btn-batch-filter" data-filter="all">All (<?= count($batches) ?>)</button>
-                            <button type="button" class="btn btn-outline-danger btn-batch-filter" data-filter="missing">Missing Only (<?= $pendingBatchesCount ?? 0 ?>)</button>
-                            <button type="button" class="btn btn-outline-success btn-batch-filter" data-filter="stocked">Stocked (<?= $receivedBatchesCount ?? 0 ?>)</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body p-3 bg-light">
-                    <?php if (empty($batches)): ?>
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox fs-2 d-block mb-1"></i> No batch records available.
-                        </div>
-                    <?php else: ?>
-                        <div class="row g-3" id="batchCardsContainer">
-                            <?php foreach ($batches as $b): ?>
-                                <?php
-                                $totalQty = (int) $b['total_qty'];
-                                $recQty = (int) ($b['received_qty'] ?? 0);
-                                $dmgQty = (int) ($b['damaged_qty'] ?? 0);
-                                $misQty = (int) ($b['missing_qty'] ?? max(0, $totalQty - ($recQty + $dmgQty)));
-                                $isFullyCredited = ($b['status'] === 'RECEIVED' && $misQty === 0);
-                                $isPartial = ($recQty > 0 && $misQty > 0);
-                                $isDispatched = ($b['status'] === 'DISPATCHED' && $recQty === 0);
-                                $itemsList = $b['items'] ?? ($batchItemsMap[$b['id']] ?? []);
-                                $skuSearchTerms = implode(' ', array_map(function ($i) {
-                                    return ($i['sku'] ?? '') . ' ' . ($i['size_name'] ?? '') . ' ' . ($i['color_name'] ?? '');
-                                }, $itemsList));
-                                $searchPayload = strtolower(e($b['batch_number'] . ' ' . ($b['outward_number'] ?? '') . ' ' . $b['product_name'] . ' ' . $b['program_number'] . ' ' . ($b['warehouse_name'] ?? '') . ' ' . ($b['warehouse_code'] ?? '') . ' ' . ($b['production_unit_name'] ?? '') . ' ' . ($b['production_unit_code'] ?? '') . ' ' . ($b['vehicle_number'] ?? '') . ' ' . ($b['driver_name'] ?? '') . ' ' . $skuSearchTerms));
-                                ?>
-                                <div class="col-12 col-md-6 col-lg-6 col-xl-4 col-xxl-3 batch-card-item" 
-                                     data-status="<?= ($misQty > 0) ? 'missing' : 'stocked' ?>" 
-                                     data-search="<?= $searchPayload ?>"
-                                     data-unit-id="<?= e($b['outward_unit_id'] ?? $b['program_unit_id'] ?? '') ?>"
-                                     data-warehouse-id="<?= e($b['destination_warehouse_id'] ?? '') ?>"
-                                     data-inward-status="<?= e($b['status']) ?>">
-                                    <div class="card border shadow-sm h-100 batch-card-hover <?= ($misQty > 0) ? ($isPartial ? 'border-warning border-opacity-75' : 'border-danger border-opacity-50') : 'border-success border-opacity-50' ?>">
-                                        <!-- Card Header -->
-                                        <div class="card-header <?= ($misQty > 0) ? ($isPartial ? 'bg-warning bg-opacity-10 border-warning border-opacity-25' : 'bg-danger bg-opacity-10 border-danger border-opacity-25') : 'bg-success bg-opacity-10 border-success border-opacity-25' ?> py-2 px-3 d-flex justify-content-between align-items-center">
-                                            <div class="d-flex align-items-center gap-1" style="min-width: 0;">
-                                                <span class="fw-bold font-monospace text-dark fs-7 text-truncate"><?= e($b['batch_number']) ?></span>
-                                                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none btn-show-qr ms-1 flex-shrink-0" data-code="<?= e($b['batch_number']) ?>" data-product="<?= e($b['product_name']) ?>" title="Show QR">
-                                                    <i class="bi bi-qr-code text-primary"></i>
-                                                </button>
-                                            </div>
-                                            <?php if ($isFullyCredited): ?>
-                                                <span class="badge bg-success rounded-pill px-2 py-1 fs-8 flex-shrink-0 ms-1">
-                                                    <i class="bi bi-check-circle-fill me-1"></i>Stock Credited (<?= number_format($recQty) ?>/<?= number_format($totalQty) ?>)
-                                                </span>
-                                            <?php elseif ($isPartial): ?>
-                                                <span class="badge bg-warning text-dark rounded-pill px-2 py-1 fs-8 flex-shrink-0 ms-1">
-                                                    <i class="bi bi-hourglass-split me-1"></i>Partial (<?= number_format($recQty) ?>/<?= number_format($totalQty) ?>)
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="badge bg-danger rounded-pill px-2 py-1 fs-8 flex-shrink-0 ms-1">
-                                                    <i class="bi bi-exclamation-circle-fill me-1"></i><?= number_format($misQty) ?> pcs Missing
-                                                </span>
-                                            <?php endif; ?>
-                                        </div>
-
-                                        <!-- Card Body -->
-                                        <div class="card-body p-3 bg-white d-flex flex-column justify-content-between">
-                                            <div>
-                                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                                    <div style="min-width: 0;">
-                                                        <h6 class="fw-bold text-dark mb-0 text-truncate" title="<?= e($b['product_name']) ?>">
-                                                             <?= e($b['product_name']) ?>
-                                                        </h6>
-                                                        <small class="text-muted d-block text-truncate">Prog: <?= e($b['program_number']) ?></small>
-                                                        <div class="mt-1"><?= renderConcernBadge($b) ?></div>
-                                                    </div>
-                                                    <span class="badge bg-light text-dark border font-monospace fs-7 ms-2 flex-shrink-0">
-                                                        <?= number_format($totalQty) ?> pcs
-                                                    </span>
-                                                </div>
-
-                                                <!-- Live Inward & Pending Scan Breakdown Strip -->
-                                                <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border mb-2 gap-1 flex-wrap fs-8 font-monospace">
-                                                    <span class="text-success fw-bold" title="Scanned and credited to stock">
-                                                        <i class="bi bi-check-circle-fill me-1"></i>Scanned: <?= number_format($recQty) ?> pcs
-                                                    </span>
-                                                    <span class="<?= $misQty > 0 ? 'text-danger fw-bold' : 'text-muted' ?>" title="Pending scan / Missing">
-                                                        <i class="bi bi-hourglass-split me-1"></i>Pending: <?= number_format($misQty) ?> pcs
-                                                    </span>
-                                                    <?php if ($dmgQty > 0): ?>
-                                                        <span class="text-danger fw-bold" title="Damaged / Quarantined">
-                                                            <i class="bi bi-slash-circle-fill me-1"></i>Dmg: <?= number_format($dmgQty) ?> pcs
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </div>
-
-                                                <!-- Source Production Unit Badge Box -->
-                                                <div class="p-2 mb-2 source-badge-box d-flex align-items-center justify-content-between gap-1">
-                                                    <span class="text-dark fs-8 fw-bold text-truncate"><i class="bi bi-gear-wide-connected me-1 text-warning"></i>Source:</span>
-                                                    <span class="badge bg-warning text-dark font-monospace fs-8 text-truncate" title="<?= e($b['production_unit_name'] ?? 'Main Facility') ?> (<?= e($b['production_unit_code'] ?? 'PU1') ?>)">
-                                                        <i class="bi bi-building me-1"></i><?= e($b['production_unit_name'] ?? 'Main Facility') ?> (<?= e($b['production_unit_code'] ?? 'PU1') ?>)
-                                                    </span>
-                                                </div>
-
-                                                <!-- Receiving Warehouse Badge Box -->
-                                                <div class="p-2 mb-2 dest-badge-box d-flex align-items-center justify-content-between gap-1">
-                                                    <span class="text-primary fs-8 fw-bold text-truncate"><i class="bi bi-geo-alt-fill me-1"></i>Destination:</span>
-                                                    <span class="badge bg-primary text-white font-monospace fs-8 text-truncate" title="<?= e($b['warehouse_name']) ?> (<?= e($b['warehouse_code']) ?>)">
-                                                        <?= e($b['warehouse_name']) ?> (<?= e($b['warehouse_code']) ?>)
-                                                    </span>
-                                                </div>
-
-                                                <!-- Variant Breakdown Box with Scanned / Pending Counts -->
-                                                <div class="p-2 rounded bg-light border mb-2 variant-scroll-box">
-                                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <small class="text-muted fw-bold fs-8 text-uppercase">
-                                                            <i class="bi bi-tags-fill me-1 text-secondary"></i>Product Variants (<?= count($itemsList) ?>):
-                                                        </small>
-                                                        <small class="text-muted fs-8 font-monospace">
-                                                            Scan / Pend / Tot
-                                                        </small>
-                                                    </div>
-                                                    <?php if (!empty($itemsList)): ?>
-                                                        <?php foreach ($itemsList as $v): ?>
-                                                            <?php
-                                                            $vExp = (int) ($v['quantity'] ?? 0);
-                                                            $vRec = (int) ($v['received_qty'] ?? ($b['status'] === 'RECEIVED' ? $vExp : 0));
-                                                            $vDmg = (int) ($v['damaged_qty'] ?? 0);
-                                                            $vMis = isset($v['missing_qty']) ? (int) $v['missing_qty'] : max(0, $vExp - ($vRec + $vDmg));
-                                                            ?>
-                                                            <div class="d-flex justify-content-between align-items-center bg-white px-2 py-1.5 rounded border mb-1 fs-8">
-                                                                <div class="text-truncate me-1" style="min-width: 0;" title="<?= e($v['sku']) ?>">
-                                                                    <strong class="font-monospace text-dark"><?= e($v['sku']) ?></strong>
-                                                                    <small class="text-muted d-block text-truncate">(<?= e($v['size_name'] ?? 'Std') ?>, <?= e($v['color_name'] ?? 'Std') ?>)</small>
-                                                                </div>
-                                                                <div class="d-flex align-items-center gap-1 flex-shrink-0 font-monospace">
-                                                                    <span class="badge bg-success-subtle text-success border border-success-subtle" title="Verified / Scanned Qty">
-                                                                        <i class="bi bi-check-lg me-0.5"></i><?= $vRec ?>
-                                                                    </span>
-                                                                    <span class="badge <?= $vMis > 0 ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-light text-muted border' ?>" title="Pending Scan Qty">
-                                                                        <i class="bi bi-hourglass-split me-0.5"></i><?= $vMis ?>
-                                                                    </span>
-                                                                    <?php if ($vDmg > 0): ?>
-                                                                        <span class="badge bg-danger text-white" title="Damaged Qty">
-                                                                            <i class="bi bi-slash-circle me-0.5"></i><?= $vDmg ?>
-                                                                        </span>
-                                                                    <?php endif; ?>
-                                                                    <span class="badge bg-light text-dark border ms-0.5" title="Expected Total">
-                                                                        / <?= $vExp ?>
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    <?php else: ?>
-                                                        <span class="text-muted fs-8">No variant lines logged</span>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-
-                                            <div class="d-flex justify-content-between align-items-center fs-8 text-muted pt-1 border-top">
-                                                <span><i class="bi bi-box-seam me-1"></i><?= number_format($b['box_count'] ?? 1) ?> Cartons</span>
-                                                <span><i class="bi bi-calendar3 me-1"></i><?= !empty($b['dispatch_date']) ? date('d M, h:i A', strtotime($b['dispatch_date'])) : 'Pending' ?></span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Card Footer -->
-                                        <div class="card-footer bg-light py-2 px-3 d-flex justify-content-between align-items-center gap-1">
-                                            <button type="button" class="btn btn-sm btn-outline-info py-1 px-2 btn-batch-history" data-batch-id="<?= $b['id'] ?>" data-batch-number="<?= e($b['batch_number']) ?>" title="Batch History &amp; Traceability Logs">
-                                                <i class="bi bi-clock-history"></i> Logs
-                                            </button>
-                                            <a href="<?= url('warehouse/inward/view/' . $b['id']) ?>" class="btn btn-sm <?= ($canVerify && $misQty > 0) ? 'btn-danger fw-semibold' : 'btn-outline-primary' ?> flex-grow-1 py-1">
-                                                <i class="bi <?= ($canVerify && $misQty > 0) ? 'bi-qr-code-scan' : 'bi-eye' ?> me-1"></i>
-                                                <?= ($canVerify && $misQty > 0) ? 'Cross-Check &amp; Inward' : 'View Inward' ?>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <div id="noBatchCardsMatch" class="text-center py-5 d-none text-muted">
-                            <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
-                            <h6 class="text-dark">No matching batch cards found</h6>
-                            <p class="small text-muted mb-3">Try adjusting your search terms or filter selection.</p>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnResetCardFilters">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Search &amp; Filters
-                            </button>
                         </div>
                     <?php endif; ?>
                 </div>
