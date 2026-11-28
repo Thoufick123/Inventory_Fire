@@ -157,12 +157,11 @@
                             <table class="table align-middle mb-0" id="reqItemsTable">
                                 <thead class="table-light small text-uppercase">
                                     <tr>
-                                        <th style="width: 17%;">Category Selection</th>
-                                        <th style="width: 25%;">Parent Product Style</th>
-                                        <th style="width: 24%;">Specific Sellable Variant (V-ID)</th>
-                                        <th style="width: 18%;">Current Stock in Areas</th>
-                                        <th style="width: 11%;" class="text-center">Asked Count (pcs) <span class="text-danger">*</span></th>
-                                        <th style="width: 5%;" class="text-end pe-2">Action</th>
+                                        <th style="width: 20%;">Category Selection</th>
+                                        <th style="width: 28%;">Parent Product Style</th>
+                                        <th style="width: 27%;">Specific Sellable Variant (V-ID)</th>
+                                        <th style="width: 19%;">Current Stock in Areas</th>
+                                        <th style="width: 6%;" class="text-end pe-2">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reqItemsTbody">
@@ -213,30 +212,15 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <!-- Asked Count -->
-                                        <td class="text-center">
-                                            <div class="input-group input-group-sm justify-content-center">
-                                                <input type="number" name="items[0][qty]" min="1" class="form-control text-center fw-bold fs-6 req-qty-input" value="10" required oninput="calculateTotalAsked()">
-                                                <span class="input-group-text">pcs</span>
-                                            </div>
-                                        </td>
                                         <!-- Action -->
                                         <td class="text-end pe-2">
+                                            <input type="hidden" name="items[0][qty]" class="req-qty-input" value="1">
                                             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequestRow(0)" title="Remove item" disabled>
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </td>
                                     </tr>
                                 </tbody>
-                                <tfoot class="table-light">
-                                    <tr>
-                                        <th colspan="4" class="text-end fw-bold text-dark">Total Asked Pieces across all lines:</th>
-                                        <th class="text-center">
-                                            <span class="badge bg-primary fs-6 px-3 py-2 fw-bold" id="totalAskedBadge">10 pcs</span>
-                                        </th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -576,13 +560,8 @@ function addRequestRow() {
                 </div>
             </div>
         </td>
-        <td class="text-center">
-            <div class="input-group input-group-sm justify-content-center">
-                <input type="number" name="items[${newIndex}][qty]" min="1" class="form-control text-center fw-bold fs-6 req-qty-input" value="10" required oninput="calculateTotalAsked()">
-                <span class="input-group-text">pcs</span>
-            </div>
-        </td>
         <td class="text-end pe-2">
+            <input type="hidden" name="items[${newIndex}][qty]" class="req-qty-input" value="1">
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequestRow(${newIndex})" title="Remove item">
                 <i class="bi bi-trash"></i>
             </button>
@@ -636,13 +615,13 @@ function validateStockReqForm() {
         return false;
     }
 
-    const inputs = document.querySelectorAll('.req-qty-input');
-    let hasQty = false;
-    inputs.forEach(inp => {
-        if (parseInt(inp.value, 10) > 0) hasQty = true;
+    const prodSelects = document.querySelectorAll('.product-select');
+    let hasProduct = false;
+    prodSelects.forEach(sel => {
+        if (sel.value && String(sel.value).trim() !== '') hasProduct = true;
     });
-    if (!hasQty) {
-        alert("Please specify a valid asked count (greater than zero) for at least one product style.");
+    if (!hasProduct) {
+        alert("Please select or scan at least one product style.");
         return false;
     }
     return true;

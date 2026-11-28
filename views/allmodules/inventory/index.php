@@ -13,13 +13,6 @@ $inventoryVariantCount = array_sum(array_map(
         <h2 class="mb-1"><i class="bi bi-box2-heart me-2 text-success"></i>Production Inventory &amp; Finished Goods</h2>
         <span class="text-muted">Production stitching goods, third-party vendor products, and active inventory valuation</span>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <?php if (hasPermission('batches', 'create')): ?>
-        <a href="<?= url('production/batches/create') ?>" class="btn btn-success shadow-sm">
-            <i class="bi bi-box-seam me-1"></i> Pack for Central Warehouse
-        </a>
-        <?php endif; ?>
-    </div>
 </div>
 
 <!-- KPI Summary Cards -->
