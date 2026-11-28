@@ -624,7 +624,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                                     <td><?= htmlspecialchars($movement['warehouse_name'] ?? '-') ?></td>
                                     <td>
                                         <?= htmlspecialchars($movement['qr_code'] ?? '-') ?><br>
-                                        <small><?= htmlspecialchars($movement['variant_code'] ?? '-') ?> · <?= htmlspecialchars($movement['sku'] ?? '-') ?></small>
+                                        <small><?= htmlspecialchars($movement['variant_code'] ?? '-') ?></small>
                                         <?php if (!empty($movement['series_start_code']) || !empty($movement['series_end_code'])): ?>
                                             <br><small>Series: <?= htmlspecialchars($movement['series_start_code'] ?? '-') ?>&ndash;<?= htmlspecialchars($movement['series_end_code'] ?? '-') ?></small>
                                         <?php endif; ?>
@@ -1136,17 +1136,16 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
         </div>
     <?php endif; ?>
 
-    <!-- Product Variants & SKUs -->
+    <!-- Product Variants -->
     <?php if (in_array('variants', $selectedModules, true) && !empty($data['variants'])): ?>
         <div class="section">
             <div class="section-header">
-                <h3 class="section-title">Product Variants &amp; SKUs</h3>
+                <h3 class="section-title">Product Variants</h3>
                 <span class="section-count"><?= count($data['variants']) ?> variants</span>
             </div>
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Variant SKU</th>
                         <th>Product Variant Code</th>
                         <th>Product / Style Name</th>
                         <th>Size</th>
@@ -1160,8 +1159,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                 <tbody>
                     <?php foreach ($data['variants'] as $v): ?>
                         <tr>
-                            <td><code><?= htmlspecialchars($v['sku'] ?: ($v['variant_code'] ?: '-')) ?></code></td>
-                            <td><code><?= htmlspecialchars($v['variant_code'] ?: '-') ?></code></td>
+                            <td><code><?= htmlspecialchars($v['variant_code'] ?? '-') ?></code></td>
                             <td><strong><?= htmlspecialchars($v['product_name']) ?></strong></td>
                             <td><?= htmlspecialchars($v['size_name'] ?: '-') ?></td>
                             <td><?= htmlspecialchars($v['color_name'] ?: '-') ?></td>
@@ -1187,7 +1185,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                 <thead>
                     <tr>
                         <th>Product Name</th>
-                        <th>SKU</th>
+                        <th>Variant Code</th>
                         <th>Size / Color</th>
                         <th>Location</th>
                         <th>Stock State</th>
@@ -1200,7 +1198,7 @@ $isProfit = ($fin['net_profit_loss'] ?? 0) >= 0;
                     <?php foreach ($data['inventory'] as $inv): ?>
                         <tr>
                             <td><strong><?= htmlspecialchars($inv['product_name']) ?></strong></td>
-                            <td><code><?= htmlspecialchars($inv['sku']) ?></code></td>
+                            <td><code><?= htmlspecialchars($inv['variant_code'] ?? '-') ?></code></td>
                             <td><?= htmlspecialchars(trim(($inv['size_name'] ?? '') . ' ' . ($inv['color_name'] ?? ''))) ?: '-' ?></td>
                             <td><?= htmlspecialchars($inv['location_name'] ?: 'Central Facility') ?></td>
                             <td><span class="badge badge-success"><?= htmlspecialchars($inv['stock_state'] ?? 'AVAILABLE') ?></span></td>
