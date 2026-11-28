@@ -238,7 +238,10 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                             <!-- Step 1: Compact Product, Category & Attributes Generator -->
                             <div class="row g-2 align-items-end mb-3">
                                 <div class="col-md-3">
-                                    <label class="form-label small fw-semibold mb-1">Category <span class="text-danger">*</span></label>
+                                    <label class="form-label small fw-semibold mb-1 d-flex align-items-center justify-content-between">
+                                        <span>Category <span class="text-danger">*</span></span>
+                                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle d-none gen-category-comp-badge"><i class="bi bi-gift-fill me-1"></i>Complementary</span>
+                                    </label>
                                     <select class="form-select form-select-sm gen-category">
                                         <option value="">-- Category --</option>
                                         <?php foreach ($categories as $cat): ?>
@@ -3198,11 +3201,16 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (e.target.classList.contains('gen-category')) {
             const card = e.target.closest('.tp-product-card');
             const selectedCatOpt = e.target.options[e.target.selectedIndex];
+            const isComp = Boolean(
+                selectedCatOpt && (
+                    selectedCatOpt.dataset.complementary === '1' ||
+                    (selectedCatOpt.text || '').toLowerCase().includes('complementary')
+                )
+            );
             const compBadge = card?.querySelector('.tp-complementary-badge');
-            if (compBadge) {
-                const isComp = Boolean(selectedCatOpt && selectedCatOpt.dataset.complementary === '1');
-                compBadge.classList.toggle('d-none', !isComp);
-            }
+            const catCompBadge = card?.querySelector('.gen-category-comp-badge');
+            if (compBadge) compBadge.classList.toggle('d-none', !isComp);
+            if (catCompBadge) catCompBadge.classList.toggle('d-none', !isComp);
             const catId = String(e.target.value || '');
             const subSel = card?.querySelector('.gen-subcategory');
             const ssSel = card?.querySelector('.gen-subsubcategory');
