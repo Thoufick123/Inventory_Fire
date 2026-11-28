@@ -2582,6 +2582,24 @@ class AllmodulesController {
             }
             Database::execute("DELETE FROM production_purchase_documents WHERE purchase_id = ?", [$purchaseId]);
 
+            // Handle linked mapping bills: delete internal PURCHASE drafts, but preserve QR_GENERATION invoices
+            try {
+                $linkedBills = Database::fetchAll(
+                    "SELECT id, COALESCE(source_module, 'QR_GENERATION') AS source_module FROM third_party_mapping_bills WHERE purchase_id = ?",
+                    [$purchaseId]
+                );
+                foreach ($linkedBills as $lb) {
+                    $lbId = (int)$lb['id'];
+                    if ($lb['source_module'] === 'PURCHASE') {
+                        Database::execute("DELETE FROM third_party_mapping_items WHERE mapping_bill_id = ?", [$lbId]);
+                        Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ?", [$lbId]);
+                    } else {
+                        Database::execute("UPDATE third_party_mapping_items SET purchase_item_id = NULL WHERE mapping_bill_id = ?", [$lbId]);
+                        Database::execute("UPDATE third_party_mapping_bills SET purchase_id = NULL, status = 'DRAFT', updated_at = NOW() WHERE id = ?", [$lbId]);
+                    }
+                }
+            } catch (\Throwable $e) {}
+
             Database::execute("DELETE FROM production_purchases WHERE id = ?", [$purchaseId]);
             Database::commit();
             AuditService::log('production', 'DELETE', 'production_purchases', $purchaseId, $purchase, null);
@@ -4371,24 +4389,8 @@ class AllmodulesController {
                 throw new InvalidArgumentException("Cannot delete invoice because product '{$stockedItem['item_name']}' already has stock posted to warehouse inventory.");
             }
 
-            // If linked to production_purchases, guard against Inward / Payments (draft GRN is auto-created on Move to Purchase)
-            if (!empty($bill['purchase_id'])) {
-                $purRow = Database::fetchOne("SELECT is_inwarded FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
-                if ($purRow && !empty($purRow['is_inwarded'])) {
-                    throw new InvalidArgumentException("Cannot delete invoice because purchase items have already been inwarded to inventory.");
-                }
-                try {
-                    $hasPayments = Database::fetchOne("SELECT id FROM purchase_payments WHERE purchase_id = ? LIMIT 1", [$bill['purchase_id']]);
-                    if ($hasPayments) {
-                        throw new InvalidArgumentException("Cannot delete invoice because payments have been recorded for linked purchase.");
-                    }
-                } catch (\InvalidArgumentException $e) {
-                    throw $e;
-                } catch (\Throwable $e) {}
-            }
-
             $items = Database::fetchAll(
-                "SELECT id, item_name, qr_generation_id
+                "SELECT id, item_name, qr_generation_id, purchase_item_id
                  FROM third_party_mapping_items
                  WHERE mapping_bill_id = ?
                  FOR UPDATE",
@@ -4396,30 +4398,16 @@ class AllmodulesController {
             );
             $this->deleteUnstockedMappingQrBatches($items, !empty($bill['purchase_id']));
 
-            // Clean up linked production purchase records if linked
+            // Module-scoped delete: keep linked Purchase bill intact in Purchases, only unlink QR references
             if (!empty($bill['purchase_id'])) {
-                $purchaseItemRows = Database::fetchAll(
-                    "SELECT id, seller_roll_id FROM production_purchase_items WHERE purchase_id = ?",
-                    [$bill['purchase_id']]
-                );
-                $pItemIds = array_values(array_filter(array_map(static fn($r) => (int)$r['id'], $purchaseItemRows)));
-                $sRollIds = array_values(array_filter(array_map(static fn($r) => (int)($r['seller_roll_id'] ?? 0), $purchaseItemRows)));
-                if (!empty($pItemIds)) {
-                    $inP = implode(',', array_fill(0, count($pItemIds), '?'));
-                    Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id IN ($inP)", $pItemIds);
-                    try {
-                        Database::execute("DELETE FROM purchase_inward_items WHERE purchase_item_id IN ($inP)", $pItemIds);
-                    } catch (\Throwable $e) {}
+                $deletedQrIds = array_values(array_filter(array_map(static fn($r) => (int)($r['qr_generation_id'] ?? 0), $items)));
+                if (!empty($deletedQrIds)) {
+                    $inQr = implode(',', array_fill(0, count($deletedQrIds), '?'));
+                    Database::execute(
+                        "UPDATE production_purchase_items SET qr_generation_id = NULL, qr_batch_code = NULL WHERE purchase_id = ? AND qr_generation_id IN ($inQr)",
+                        array_merge([(int)$bill['purchase_id']], $deletedQrIds)
+                    );
                 }
-                try {
-                    Database::execute("DELETE FROM purchase_inwards WHERE purchase_id = ?", [$bill['purchase_id']]);
-                } catch (\Throwable $e) {}
-                Database::execute("DELETE FROM production_purchase_items WHERE purchase_id = ?", [$bill['purchase_id']]);
-                if (!empty($sRollIds)) {
-                    $inR = implode(',', array_fill(0, count($sRollIds), '?'));
-                    Database::execute("DELETE FROM seller_rolls WHERE id IN ($inR)", $sRollIds);
-                }
-                Database::execute("DELETE FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
             }
 
             AuditService::log('purchases', 'DELETE', 'third_party_mapping_bills', $mappingBillId, null, [
@@ -4709,29 +4697,14 @@ class AllmodulesController {
                 }
             }
 
-            // If linked to a purchase item, check GRN
-            if (!empty($item['purchase_item_id'])) {
-                $purItem = Database::fetchOne("SELECT grn_id, purchase_id FROM production_purchase_items WHERE id = ?", [$item['purchase_item_id']]);
-                if ($purItem && !empty($purItem['grn_id'])) {
-                    throw new InvalidArgumentException("Cannot delete product because it has already been verified in GRN.");
-                }
-            }
+            $this->deleteUnstockedMappingQrBatches([$item], !empty($item['purchase_item_id']));
 
-            $this->deleteUnstockedMappingQrBatches([$item]);
-
-            // If linked to purchase_item_id, clean up purchase item
+            // Module-scoped delete: keep linked Purchase item intact in Purchases, only unlink QR reference
             if (!empty($item['purchase_item_id'])) {
-                Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id = ?", [$item['purchase_item_id']]);
-                Database::execute("DELETE FROM production_purchase_items WHERE id = ?", [$item['purchase_item_id']]);
-                if (!empty($bill['purchase_id'])) {
-                    Database::execute(
-                        "UPDATE production_purchases
-                         SET total_amount = (SELECT COALESCE(SUM(total_price), 0) FROM production_purchase_items WHERE purchase_id = ?),
-                             updated_at = NOW()
-                         WHERE id = ?",
-                        [$bill['purchase_id'], $bill['purchase_id']]
-                    );
-                }
+                Database::execute(
+                    "UPDATE production_purchase_items SET qr_generation_id = NULL, qr_batch_code = NULL WHERE id = ?",
+                    [(int)$item['purchase_item_id']]
+                );
             }
 
             if (Database::execute(
@@ -9211,18 +9184,46 @@ class AllmodulesController {
                 Database::execute("DELETE FROM qr_generations WHERE id = ?", [(int)$qb['id']]);
             }
 
-            // Delete third party product variants created for this purchase
-            Database::execute("DELETE FROM third_party_product_variants WHERE purchase_id = ?", [$purchaseId]);
+            // Delete third party product variants, inward items, purchase items, and seller rolls safely
+            $pItemRows = Database::fetchAll(
+                "SELECT id, seller_roll_id FROM production_purchase_items WHERE purchase_id = ?",
+                [$purchaseId]
+            );
+            $pItemIds = array_values(array_filter(array_map(static fn($r) => (int)$r['id'], $pItemRows)));
+            $sRollIds = array_values(array_filter(array_map(static fn($r) => (int)($r['seller_roll_id'] ?? 0), $pItemRows)));
+            if (!empty($pItemIds)) {
+                $inP = implode(',', array_fill(0, count($pItemIds), '?'));
+                Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id IN ($inP)", $pItemIds);
+                try {
+                    Database::execute("DELETE FROM purchase_inward_items WHERE purchase_item_id IN ($inP)", $pItemIds);
+                } catch (\Throwable $e) {}
+            }
+            try {
+                Database::execute("DELETE FROM purchase_inwards WHERE purchase_id = ?", [$purchaseId]);
+            } catch (\Throwable $e) {}
 
-            // Delete seller rolls
-            Database::execute("DELETE FROM seller_rolls WHERE purchase_id = ?", [$purchaseId]);
-
-            // Delete purchase items
             Database::execute("DELETE FROM production_purchase_items WHERE purchase_id = ?", [$purchaseId]);
 
-            // Delete or unlink mapping bills
-            Database::execute("DELETE FROM third_party_mapping_items WHERE mapping_bill_id IN (SELECT id FROM third_party_mapping_bills WHERE purchase_id = ?)", [$purchaseId]);
-            Database::execute("DELETE FROM third_party_mapping_bills WHERE purchase_id = ?", [$purchaseId]);
+            if (!empty($sRollIds)) {
+                $inR = implode(',', array_fill(0, count($sRollIds), '?'));
+                Database::execute("DELETE FROM seller_rolls WHERE id IN ($inR)", $sRollIds);
+            }
+
+            // Delete internal PURCHASE mapping drafts, but preserve QR_GENERATION invoices
+            $linkedBills = Database::fetchAll(
+                "SELECT id, COALESCE(source_module, 'QR_GENERATION') AS source_module FROM third_party_mapping_bills WHERE purchase_id = ?",
+                [$purchaseId]
+            );
+            foreach ($linkedBills as $lb) {
+                $lbId = (int)$lb['id'];
+                if ($lb['source_module'] === 'PURCHASE') {
+                    Database::execute("DELETE FROM third_party_mapping_items WHERE mapping_bill_id = ?", [$lbId]);
+                    Database::execute("DELETE FROM third_party_mapping_bills WHERE id = ?", [$lbId]);
+                } else {
+                    Database::execute("UPDATE third_party_mapping_items SET purchase_item_id = NULL WHERE mapping_bill_id = ?", [$lbId]);
+                    Database::execute("UPDATE third_party_mapping_bills SET purchase_id = NULL, status = 'DRAFT', updated_at = NOW() WHERE id = ?", [$lbId]);
+                }
+            }
 
             // Delete purchase bill
             Database::execute("DELETE FROM production_purchases WHERE id = ?", [$purchaseId]);
