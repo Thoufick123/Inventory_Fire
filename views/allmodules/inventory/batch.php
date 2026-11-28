@@ -213,7 +213,12 @@ $movementsList = $movementLogs ?? ($outwards ?? []);
                 <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">
                     <i class="bi bi-arrow-left me-1"></i>Back
                 </a>
-                <a href="<?= url('production/inventory') ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill fw-semibold">View All</a>
+                <button type="button" class="btn btn-sm btn-outline-primary px-3 rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#priceChangeLogsModal">
+                    <i class="bi bi-clock-history me-1"></i>Price Change Log
+                    <?php if (!empty($priceChangeLogs)): ?>
+                        <span class="badge bg-primary text-white rounded-pill ms-1"><?= count($priceChangeLogs) ?></span>
+                    <?php endif; ?>
+                </button>
             </div>
         </div>
         <div class="d-flex flex-wrap gap-3 align-items-center">
@@ -958,3 +963,62 @@ function copyTagCode(code, btn) {
     }
 }
 </script>
+
+<!-- Modal: Price Change Log -->
+<div class="modal fade" id="priceChangeLogsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Price Change Log</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <?php if (empty($priceChangeLogs)): ?>
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-tag fs-1 d-block mb-2 text-secondary"></i>
+                        <div class="fw-semibold">No Price Changes Recorded Yet</div>
+                        <small class="text-muted">Any MRP or selling price revisions from Inventory will appear here.</small>
+                    </div>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>Variant</th>
+                                    <th class="text-end">MRP (Old &rarr; New)</th>
+                                    <th class="text-end">Price (Old &rarr; New)</th>
+                                    <th>Notes</th>
+                                    <th>Updated By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($priceChangeLogs as $pl): ?>
+                                    <tr>
+                                        <td class="text-nowrap"><?= e(date('d M Y, h:i A', strtotime($pl['created_at']))) ?></td>
+                                        <td class="font-monospace fw-bold text-primary"><?= e($pl['variant_code'] ?: ($pl['sku'] ?: ('V#' . $pl['variant_id']))) ?></td>
+                                        <td class="text-end text-nowrap">
+                                            <span class="text-muted text-decoration-line-through"><?= formatCurrency((float)$pl['old_mrp']) ?></span>
+                                            <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                            <span class="fw-bold text-dark"><?= formatCurrency((float)$pl['new_mrp']) ?></span>
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            <span class="text-muted text-decoration-line-through"><?= formatCurrency((float)$pl['old_selling_price']) ?></span>
+                                            <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                            <span class="fw-bold text-success"><?= formatCurrency((float)$pl['new_selling_price']) ?></span>
+                                        </td>
+                                        <td class="text-muted"><?= e($pl['revision_notes'] ?: '—') ?></td>
+                                        <td><?= e($pl['user_name'] ?: 'System') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

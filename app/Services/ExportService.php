@@ -798,6 +798,38 @@ class ExportService
             );
         }
 
+        // 24. Cash Management & Register Shifts
+        if (in_array('cash_flow', $selectedModules, true)) {
+            $data['cash_flow_shifts'] = Database::fetchAll(
+                "SELECT s.id, s.shift_code, s.opening_float, s.opened_at, s.closed_at,
+                        s.expected_cash, s.actual_cash, s.variance, s.status, s.closing_notes,
+                        u.full_name AS cashier_name, cu.full_name AS closed_by_name,
+                        con.code AS concern_code, con.name AS concern_name
+                 FROM shop_shifts s
+                 LEFT JOIN users u ON u.id = s.cashier_id
+                 LEFT JOIN users cu ON cu.id = s.closed_by
+                 LEFT JOIN concerns con ON con.id = COALESCE(s.concern_id, 1)
+                 WHERE s.opened_at >= ? AND s.opened_at <= ?
+                 " . $cWhere('s.concern_id') . "
+                 ORDER BY s.id DESC",
+                $cParams([$startDateTime, $endDateTime])
+            );
+
+            $data['cash_flow'] = Database::fetchAll(
+                "SELECT c.id, c.transaction_type, c.amount, c.reference_type, c.reference_id,
+                        c.notes, c.created_at, s.shift_code, u.full_name AS user_name,
+                        con.code AS concern_code, con.name AS concern_name
+                 FROM cash_flow_transactions c
+                 LEFT JOIN shop_shifts s ON s.id = c.shift_id
+                 LEFT JOIN users u ON u.id = c.created_by
+                 LEFT JOIN concerns con ON con.id = COALESCE(c.concern_id, 1)
+                 WHERE c.created_at >= ? AND c.created_at <= ?
+                 " . $cWhere('c.concern_id') . "
+                 ORDER BY c.id DESC",
+                $cParams([$startDateTime, $endDateTime])
+            );
+        }
+
         // =========================================================================
         // EXECUTIVE FINANCIAL & OPERATIONAL STOCK RECONCILIATION SUMMARY
         // All summary stats are concern-scoped when concern filter is active.
@@ -1905,6 +1937,50 @@ class ExportService
             fputcsv($out, []);
         }
 
+        // 25. Cash Management Shifts
+        if (!empty($data['cash_flow_shifts'])) {
+            fputcsv($out, ['=== 25. CASH MANAGEMENT & REGISTER SHIFTS ===']);
+            fputcsv($out, ['Shift Code', 'Cashier', 'Opened At', 'Closed At', 'Opening Float (INR)', 'Expected Cash (INR)', 'Actual Cash (INR)', 'Variance (INR)', 'Status', 'Closed By', 'Notes', 'Concern']);
+            foreach ($data['cash_flow_shifts'] as $sh) {
+                fputcsv($out, [
+                    $sh['shift_code'],
+                    $sh['cashier_name'] ?: '-',
+                    !empty($sh['opened_at']) ? date('d M Y h:i A', strtotime($sh['opened_at'])) : '-',
+                    !empty($sh['closed_at']) ? date('d M Y h:i A', strtotime($sh['closed_at'])) : '-',
+                    number_format((float)($sh['opening_float'] ?? 0), 2, '.', ''),
+                    $sh['expected_cash'] !== null ? number_format((float)$sh['expected_cash'], 2, '.', '') : '-',
+                    $sh['actual_cash'] !== null ? number_format((float)$sh['actual_cash'], 2, '.', '') : '-',
+                    $sh['variance'] !== null ? number_format((float)$sh['variance'], 2, '.', '') : '-',
+                    $sh['status'] ?? 'OPEN',
+                    $sh['closed_by_name'] ?: '-',
+                    $sh['closing_notes'] ?: '-',
+                    $sh['concern_code'] ?? '-',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
+        // 26. Cash Flow Ledger Transactions
+        if (!empty($data['cash_flow'])) {
+            fputcsv($out, ['=== 26. CASH FLOW LEDGER TRANSACTIONS ===']);
+            fputcsv($out, ['Txn ID', 'Timestamp', 'Shift Code', 'Transaction Type', 'Amount (INR)', 'Reference', 'Notes', 'Staff', 'Concern']);
+            foreach ($data['cash_flow'] as $cf) {
+                $ref = trim(($cf['reference_type'] ?? '') . (!empty($cf['reference_id']) ? ' #' . $cf['reference_id'] : ''));
+                fputcsv($out, [
+                    'CF-' . $cf['id'],
+                    !empty($cf['created_at']) ? date('d M Y h:i A', strtotime($cf['created_at'])) : '-',
+                    $cf['shift_code'] ?: '-',
+                    $cf['transaction_type'] ?? '-',
+                    number_format((float)($cf['amount'] ?? 0), 2, '.', ''),
+                    $ref ?: '-',
+                    $cf['notes'] ?: '-',
+                    $cf['user_name'] ?: '-',
+                    $cf['concern_code'] ?? '-',
+                ]);
+            }
+            fputcsv($out, []);
+        }
+
         fclose($out);
         exit;
     }
@@ -1948,6 +2024,7 @@ class ExportService
             'direct_billing'       => ["SELECT COUNT(*) AS c FROM production_bills pb WHERE pb.is_direct_bill = 1 AND pb.bill_date >= ? AND pb.bill_date <= ?" . $cWhere('pb.concern_id'), $cParams([$startDate, $endDate])],
             'coupons'              => ["SELECT COUNT(*) AS c FROM pos_coupons pc WHERE pc.created_at >= ? AND pc.created_at <= ?" . $cWhere('pc.concern_id'), $cParams([$startDT, $endDT])],
             'returns'              => ["SELECT COUNT(*) AS c FROM production_returns pr WHERE pr.created_at >= ? AND pr.created_at <= ?" . $cWhere('pr.concern_id'), $cParams([$startDT, $endDT])],
+            'cash_flow'            => ["SELECT COUNT(*) AS c FROM cash_flow_transactions c WHERE c.created_at >= ? AND c.created_at <= ?" . $cWhere('c.concern_id'), $cParams([$startDT, $endDT])],
             'wastage'              => ["SELECT COUNT(*) AS c FROM wastage_sales ws WHERE ws.sale_date >= ? AND ws.sale_date <= ?" . $cWhere('ws.concern_id'), $cParams([$startDate, $endDate])],
             'expenses'             => ["SELECT COUNT(*) AS c FROM production_expenses pe WHERE pe.expense_date >= ? AND pe.expense_date <= ?" . $cWhere('pe.concern_id'), $cParams([$startDate, $endDate])],
             'assets'               => ["SELECT COUNT(*) AS c FROM assets a WHERE (a.is_active IS NULL OR a.is_active = 1)" . $cWhere('a.concern_id'), $hasConcerns ? $concernIds : []],

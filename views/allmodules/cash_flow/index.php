@@ -640,35 +640,138 @@ declare(strict_types=1);
 </div>
 
 <!-- MODAL 4: Start Shift / Open Till -->
+<?php
+$hasLastClosed = !empty($lastClosedShift);
+$carriedFloat = $hasLastClosed ? (float)($lastClosedShift['carried_float'] ?? 0) : 0.0;
+$carriedDenoms = $hasLastClosed ? ($lastClosedShift['denominations_map'] ?? []) : [];
+$currentCashierDisplay = (string)(Session::get('full_name') ?? Session::get('user_name') ?? 'Cashier');
+$defaultOpenNotes = $hasLastClosed
+    ? ('Opening float carried from shift ' . ($lastClosedShift['shift_code'] ?? ''))
+    : '';
+$lastClosedAtText = ($hasLastClosed && !empty($lastClosedShift['closed_at']))
+    ? date('d M Y, h:i A', strtotime((string)$lastClosedShift['closed_at']))
+    : 'N/A';
+$lastCashierDisplay = $hasLastClosed
+    ? (string)(($lastClosedShift['closed_by_name'] ?? '') ?: ($lastClosedShift['cashier_name'] ?? 'Staff'))
+    : '';
+$openDenomTotal = 0.0;
+$openDenomSpecs = [
+    ['key' => 'c500', 'label' => '₹500', 'mult' => 500, 'step' => '1'],
+    ['key' => 'c200', 'label' => '₹200', 'mult' => 200, 'step' => '1'],
+    ['key' => 'c100', 'label' => '₹100', 'mult' => 100, 'step' => '1'],
+    ['key' => 'c50',  'label' => '₹50',  'mult' => 50,  'step' => '1'],
+    ['key' => 'c20',  'label' => '₹20',  'mult' => 20,  'step' => '1'],
+    ['key' => 'c10',  'label' => '₹10',  'mult' => 10,  'step' => '1'],
+    ['key' => 'c5',   'label' => '₹5',   'mult' => 5,   'step' => '1'],
+    ['key' => 'coins','label' => 'Coins','mult' => 1,   'step' => '0.01'],
+];
+foreach ($openDenomSpecs as $spec) {
+    $openDenomTotal += ((float)($carriedDenoms[$spec['key']] ?? 0) * $spec['mult']);
+}
+?>
 <div class="modal fade" id="modalOpenShift" tabindex="-1" aria-labelledby="modalOpenShiftLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header border-bottom">
-                <h5 class="modal-title fw-bold text-primary d-flex align-items-center" id="modalOpenShiftLabel">
-                    <i class="bi bi-play-circle me-2"></i>Start Shift / Open Drawer Till
-                </h5>
+                <div>
+                    <h5 class="modal-title fw-bold text-primary d-flex align-items-center mb-0" id="modalOpenShiftLabel">
+                        <i class="bi bi-door-open me-2"></i>Open Cashier Shift Register
+                    </h5>
+                    <div class="small text-muted">Count and verify starting cash float before opening till drawer.</div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="<?= url('production/cash-flow/open-shift') ?>">
                 <?= CSRF::field() ?>
                 <div class="modal-body p-4">
                     <?php $concernSelectColClass = 'mb-3'; $concernSelectId = 'adminConcernCashOpen'; include BASE_PATH . '/views/partials/admin_concern_select.php'; unset($concernSelectId); ?>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small text-muted">Opening Cash Float (₹) <span class="text-danger">*</span></label>
-                        <div class="input-group input-group-lg">
-                            <span class="input-group-text bg-white border-end-0 fw-bold">₹</span>
-                            <input type="number" step="0.01" min="0" class="form-control border-start-0 fw-bold fs-4" name="opening_float" value="1500.00" required autofocus>
+
+                    <?php if ($hasLastClosed): ?>
+                    <div class="p-3 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-25 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <div class="text-uppercase fw-bold text-muted" style="font-size: 11px;">Expected Opening Float (From Last Closed Shift)</div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap my-1">
+                                <span class="fs-3 fw-bold text-primary"><?= formatCurrency($carriedFloat) ?></span>
+                                <span class="badge bg-primary font-monospace"><?= e($lastClosedShift['shift_code'] ?? '') ?></span>
+                            </div>
+                            <div class="small text-muted">
+                                Closed: <?= e($lastClosedAtText) ?> &bull; Last Cashier: <?= e($lastCashierDisplay) ?>
+                            </div>
                         </div>
-                        <div class="form-text small">Enter initial loose change float placed in drawer.</div>
+                        <span class="badge bg-white text-dark border px-3 py-2 rounded-pill">
+                            <i class="bi bi-lock-fill me-1 text-muted"></i>System Reference (Not Editable)
+                        </span>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label fw-semibold small text-muted">Opening Notes / Shift Assignment</label>
-                        <input type="text" class="form-control" name="opening_notes" placeholder="e.g. Morning shift opened by supervisor">
+                    <?php endif; ?>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted"><i class="bi bi-person-badge me-1"></i>Cashier Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-light fw-semibold" value="<?= e($currentCashierDisplay) ?>" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted"><i class="bi bi-card-text me-1"></i>Opening Notes / Shift Remarks</label>
+                            <input type="text" class="form-control" name="opening_notes" value="<?= e($defaultOpenNotes) ?>" placeholder="e.g. Morning shift opened by supervisor">
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-3 border mb-3">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small text-muted mb-1"><i class="bi bi-cash-stack me-1 text-success"></i>Total Starting Cash Float (₹) <span class="text-danger">*</span></label>
+                                <div class="text-muted small mb-2"><?= $hasLastClosed ? 'Unmodified closing balance from previous shift.' : 'Enter initial loose change float placed in drawer.' ?></div>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-white fw-bold">₹</span>
+                                    <input type="number" step="0.01" min="0"
+                                           class="form-control fw-bold fs-4 text-primary <?= $hasLastClosed ? 'bg-light' : '' ?>"
+                                           id="openShiftFloatInput"
+                                           name="opening_float"
+                                           value="<?= number_format($carriedFloat, 2, '.', '') ?>"
+                                           <?= $hasLastClosed ? 'readonly' : 'required autofocus' ?>>
+                                    <?php if ($hasLastClosed): ?>
+                                    <span class="input-group-text bg-light text-muted small"><i class="bi bi-lock-fill me-1"></i>Unmodified</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="fw-semibold small text-muted mb-1">Float Match Status &amp; Variance</div>
+                                <div class="text-muted small mb-2">Denomination count vs starting float</div>
+                                <div id="openFloatVarianceBadge" class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 w-100 d-flex align-items-center justify-content-between">
+                                    <span><i class="bi bi-check-circle me-1"></i>₹0.00 (Exact Match)</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Matched</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-3 border">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-muted"><i class="bi bi-calculator me-1 text-success"></i>Starting Denominations Count (Optional)</span>
+                            <span class="badge bg-primary" id="openDenomTotalBadge">Denom Total: <?= formatCurrency($openDenomTotal) ?></span>
+                        </div>
+                        <div class="row g-2">
+                            <?php foreach ($openDenomSpecs as $spec):
+                                $val = $carriedDenoms[$spec['key']] ?? 0;
+                            ?>
+                            <div class="col-md-3 col-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light fw-bold" style="width: 58px;"><?= $spec['label'] ?></span>
+                                    <input type="number"
+                                           min="0"
+                                           step="<?= $spec['step'] ?>"
+                                           class="form-control text-center fw-semibold open-denom-input"
+                                           data-multiplier="<?= $spec['mult'] ?>"
+                                           value="<?= e((string)$val) ?>"
+                                           <?= $hasLastClosed ? 'readonly' : '' ?>>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-top d-flex justify-content-end gap-2 bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-play-circle me-1"></i>Open Till &amp; Start Shift</button>
+                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-check-circle me-1"></i>Start Shift Register</button>
                 </div>
             </form>
         </div>
@@ -812,6 +915,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (actualCashInput) {
         actualCashInput.addEventListener('input', recalculateReconciliation);
+    }
+
+    // Open Shift Modal denomination & float match calculation
+    const openDenomInputs = document.querySelectorAll('.open-denom-input');
+    const openFloatInput = document.getElementById('openShiftFloatInput');
+    const openDenomBadge = document.getElementById('openDenomTotalBadge');
+    const openVarianceBadge = document.getElementById('openFloatVarianceBadge');
+    const hasLastClosedShift = <?= !empty($lastClosedShift) ? 'true' : 'false' ?>;
+
+    function recalculateOpenShiftFloat() {
+        let denomTotal = 0;
+        let anyEntered = false;
+        openDenomInputs.forEach(function(input) {
+            const count = parseFloat(input.value) || 0;
+            const mult = parseFloat(input.dataset.multiplier) || 1;
+            if (count > 0) anyEntered = true;
+            denomTotal += (count * mult);
+        });
+
+        if (openDenomBadge) {
+            openDenomBadge.textContent = 'Denom Total: ₹' + denomTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        if (!hasLastClosedShift && anyEntered && openFloatInput) {
+            openFloatInput.value = denomTotal.toFixed(2);
+        }
+
+        const floatVal = parseFloat(openFloatInput ? openFloatInput.value : 0) || 0;
+        const diff = denomTotal - floatVal;
+
+        if (openVarianceBadge) {
+            if (Math.abs(diff) < 0.01) {
+                openVarianceBadge.className = 'badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 w-100 d-flex align-items-center justify-content-between';
+                openVarianceBadge.innerHTML = '<span><i class="bi bi-check-circle me-1"></i>₹0.00 (Exact Match)</span><span class="badge bg-success-subtle text-success border border-success-subtle">Matched</span>';
+            } else if (diff > 0) {
+                openVarianceBadge.className = 'badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 fs-6 w-100 d-flex align-items-center justify-content-between';
+                openVarianceBadge.innerHTML = '<span><i class="bi bi-arrow-up-circle me-1"></i>+₹' + diff.toFixed(2) + ' (Surplus)</span><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Differs</span>';
+            } else {
+                openVarianceBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fs-6 w-100 d-flex align-items-center justify-content-between';
+                openVarianceBadge.innerHTML = '<span><i class="bi bi-exclamation-triangle me-1"></i>-₹' + Math.abs(diff).toFixed(2) + ' (Shortage)</span><span class="badge bg-danger-subtle text-danger border border-danger-subtle">Differs</span>';
+            }
+        }
+    }
+
+    if (openDenomInputs.length || openFloatInput) {
+        recalculateOpenShiftFloat();
+        openDenomInputs.forEach(function(input) {
+            input.addEventListener('input', recalculateOpenShiftFloat);
+        });
+        if (openFloatInput) {
+            openFloatInput.addEventListener('input', recalculateOpenShiftFloat);
+        }
     }
 });
 </script>

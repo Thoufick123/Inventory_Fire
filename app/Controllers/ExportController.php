@@ -214,6 +214,13 @@ class ExportController {
                 'color' => 'warning',
                 'category' => 'Sales & Finance'
             ],
+            'cash_flow' => [
+                'name' => 'Cash Management & Shifts',
+                'desc' => 'Shop till shifts, opening float carry-forwards, POS cash inflows, petty expenses & bank deposits',
+                'icon' => 'bi bi-cash-coin',
+                'color' => 'success',
+                'category' => 'Sales & Finance'
+            ],
 
             // ASSETS & INFRASTRUCTURE
             'assets' => [
@@ -311,7 +318,7 @@ class ExportController {
             'purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward',
             'programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants',
             'outward', 'inventory', 'stock_ledger', 'stock_requests',
-            'billing', 'direct_billing', 'coupons', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
+            'billing', 'direct_billing', 'coupons', 'returns', 'wastage', 'expenses', 'cash_flow', 'assets', 'asset_maintenance'
         ];
         if (!function_exists('isAdmin') || !isAdmin()) {
             $allModules = array_keys($this->filterModulesForCurrentUser(array_flip($allModules)));
@@ -482,6 +489,7 @@ class ExportController {
             'returns'              => ['production_returns'],
             'wastage'              => ['wastage', 'stitching_wastage'],
             'expenses'             => ['production_expenses'],
+            'cash_flow'            => ['cash_flow', 'shop_cash'],
             'assets'               => ['asset_register'],
             'asset_maintenance'    => ['asset_maintenance'],
         ];

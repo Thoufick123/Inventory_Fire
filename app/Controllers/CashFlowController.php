@@ -23,6 +23,7 @@ class CashFlowController {
         $cid = currentConcernId();
 
         $activeShift = CashFlowService::getActiveShift($cid);
+        $lastClosedShift = CashFlowService::getLastClosedShift($cid);
 
         // Fetch Concern name
         $concernName = 'All Concerns';
@@ -56,11 +57,19 @@ class CashFlowController {
         $todayBankDeposits = (float)($todayStats['today_bank_deposits'] ?? 0);
         $netCashPosition = $todayCashInflow - (float)($todayStats['today_total_outflow'] ?? 0);
 
-        // Digital Channels (UPI, Card from sales if available or mock baseline)
+        // Digital Channels (UPI, Card from today's sale inflows)
+        $digitalRow = Database::fetchOne(
+            "SELECT
+                COALESCE(SUM(CASE WHEN payment_mode = 'UPI' THEN amount ELSE 0 END), 0) AS upi,
+                COALESCE(SUM(CASE WHEN payment_mode = 'CARD' THEN amount ELSE 0 END), 0) AS card,
+                COALESCE(SUM(CASE WHEN payment_mode != 'CASH' THEN amount ELSE 0 END), 0) AS total
+             FROM cash_flow_transactions c {$todayWhere} AND flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW'",
+            $params
+        );
         $digitalStats = [
-            'total' => 0.00,
-            'upi' => 0.00,
-            'card' => 0.00
+            'total' => (float)($digitalRow['total'] ?? 0),
+            'upi'   => (float)($digitalRow['upi'] ?? 0),
+            'card'  => (float)($digitalRow['card'] ?? 0),
         ];
 
         // 1. Shift Logs (All closed and open shifts)
@@ -134,6 +143,7 @@ class CashFlowController {
             ],
             'concernName' => $concernName,
             'activeShift' => $activeShift,
+            'lastClosedShift' => $lastClosedShift,
             'todayCashInflow' => $todayCashInflow,
             'todayCashSales' => $todayCashSales,
             'todayBankDeposits' => $todayBankDeposits,
@@ -155,8 +165,14 @@ class CashFlowController {
         }
         $cid = currentConcernId();
         $cashierId = (int)(Session::get('user_id') ?? 1);
-        $floatAmount = (float)($_POST['opening_float'] ?? 0);
+        $lastClosedShift = CashFlowService::getLastClosedShift($cid);
+        $floatAmount = $lastClosedShift
+            ? (float)$lastClosedShift['carried_float']
+            : (float)($_POST['opening_float'] ?? 0);
         $notes = trim((string)($_POST['opening_notes'] ?? ''));
+        if ($notes === '' && $lastClosedShift) {
+            $notes = 'Opening float carried from shift ' . ($lastClosedShift['shift_code'] ?? '');
+        }
 
         try {
             $shiftId = CashFlowService::openShift($cid, $cashierId, $floatAmount, $notes);
