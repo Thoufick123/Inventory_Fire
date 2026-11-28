@@ -14,15 +14,6 @@
             <a href="<?= url('assets') ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Back to Register
             </a>
-            <a href="<?= url('assets/edit/' . $asset['id']) ?>" class="btn btn-outline-primary">
-                <i class="bi bi-pencil me-1"></i> Edit
-            </a>
-            <a href="<?= url('assets/print/' . $asset['id']) ?>" target="_blank" class="btn btn-outline-dark">
-                <i class="bi bi-qr-code me-1"></i> Print Label
-            </a>
-            <a href="<?= url('assets/maintenance/create?asset_id=' . $asset['id']) ?>" class="btn btn-warning fw-semibold">
-                <i class="bi bi-wrench-adjustable me-1"></i> Log Maintenance
-            </a>
         </div>
     </div>
 
@@ -113,9 +104,6 @@
                     <h6 class="fw-bold mb-0 text-dark">
                         <i class="bi bi-clock-history text-primary me-2"></i>Maintenance &amp; Service History (<?= count($maintenanceLogs) ?>)
                     </h6>
-                    <a href="<?= url('assets/maintenance/create?asset_id=' . $asset['id']) ?>" class="btn btn-sm btn-outline-primary fw-semibold">
-                        <i class="bi bi-plus-lg me-1"></i> Log Service
-                    </a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
