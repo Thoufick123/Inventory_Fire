@@ -395,7 +395,29 @@ class AllmodulesBillingController
     {
         $bill = $this->loadBill((int)$id);
         if (!$bill) {
+            if (!empty($_GET['receipt_only'])) {
+                Response::jsonError('Bill not found.', 404);
+                return;
+            }
             Response::redirect('production/billing', 'error', 'Bill not found.');
+            return;
+        }
+
+        $billItems = $this->loadBillItems((int)$bill['id']);
+        $sellerCompany = SettingsService::getGroup('company');
+        $prodUnit = ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null);
+
+        if (!empty($_GET['receipt_only'])) {
+            ob_start();
+            include BASE_PATH . '/views/allmodules/billing/_pos_receipt_body.php';
+            $receiptHtml = ob_get_clean();
+            Response::json([
+                'success' => true,
+                'bill_id' => (int)$bill['id'],
+                'bill_number' => (string)$bill['bill_number'],
+                'print_url' => url('production/billing/print/' . (int)$bill['id']),
+                'html' => $receiptHtml,
+            ]);
             return;
         }
 
@@ -409,9 +431,9 @@ class AllmodulesBillingController
                 ['label' => 'Billing ' . (!empty($bill['bill_number']) ? $bill['bill_number'] : '#' . (int)$bill['id'])],
             ],
             'bill' => $bill,
-            'billItems' => $this->loadBillItems((int)$bill['id']),
-            'sellerCompany' => SettingsService::getGroup('company'),
-            'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
+            'billItems' => $billItems,
+            'sellerCompany' => $sellerCompany,
+            'prodUnit' => $prodUnit,
             'showCompletedModal' => !empty($_GET['completed']),
         ]);
     }

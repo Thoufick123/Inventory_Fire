@@ -237,7 +237,7 @@
                                         <a class="btn btn-outline-info btn-action-icon" title="View in Outward &amp; Dispatch" href="<?= url('production/outward') ?>"><i class="bi bi-truck"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'view')): ?>
-                                        <a class="btn btn-outline-success btn-action-icon" title="Customer POS Bill Format" href="<?= url('production/billing/view/' . (int)$bill['id'] . '?completed=1') ?>"><i class="bi bi-receipt"></i></a>
+                                        <button type="button" class="btn btn-outline-success btn-action-icon btn-open-pos-receipt" title="Customer POS Bill Format" data-bill-id="<?= (int)$bill['id'] ?>"><i class="bi bi-receipt"></i></button>
                                         <a class="btn btn-outline-info btn-action-icon" title="View" href="<?= url('production/billing/view/' . (int)$bill['id']) ?>"><i class="bi bi-eye"></i></a>
                                     <?php endif; ?>
                                     <?php if (hasPermission('production_billing', 'edit') && (int)($bill['linked_batch_count'] ?? 0) === 0): ?>
@@ -301,4 +301,84 @@ function filterBillingLive(query) {
         });
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('posReceiptListModal');
+    const bodyEl = document.getElementById('posReceiptListModalBody');
+    const a4LinkEl = document.getElementById('posReceiptListA4Link');
+    const printBtnEl = document.getElementById('btnPrintListPosThermal');
+    let activeReceiptBillNo = '';
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-open-pos-receipt');
+        if (!btn || !modalEl || !bodyEl) return;
+        const billId = btn.getAttribute('data-bill-id');
+        if (!billId) return;
+
+        bodyEl.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading receipt...</div>';
+        if (a4LinkEl) a4LinkEl.href = '<?= url('production/billing/print/') ?>' + encodeURIComponent(billId);
+
+        if (typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+
+        fetch('<?= url('production/billing/view/') ?>' + encodeURIComponent(billId) + '?receipt_only=1', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data || !data.success || !data.html) {
+                bodyEl.innerHTML = '<div class="alert alert-danger mb-0">Unable to load POS receipt.</div>';
+                return;
+            }
+            activeReceiptBillNo = data.bill_number || ('BILL-' + billId);
+            if (a4LinkEl && data.print_url) a4LinkEl.href = data.print_url;
+            bodyEl.innerHTML = data.html;
+        })
+        .catch(() => {
+            bodyEl.innerHTML = '<div class="alert alert-danger mb-0">Network error while loading POS receipt.</div>';
+        });
+    });
+
+    if (printBtnEl) {
+        printBtnEl.addEventListener('click', function () {
+            const contentEl = bodyEl ? bodyEl.querySelector('#posThermalReceiptContent') : null;
+            if (!contentEl) return;
+            const win = window.open('', '_blank', 'width=380,height=650');
+            if (!win) return;
+            win.document.write(
+                '<!DOCTYPE html><html><head><meta charset="utf-8"><title>POS Receipt - ' + activeReceiptBillNo + '</title>' +
+                '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">' +
+                '<style>@page { size: 80mm auto; margin: 4mm; } body { width: 76mm; margin: 0 auto; padding: 6px; font-family: ui-monospace, monospace; }</style>' +
+                '</head><body>' + contentEl.innerHTML +
+                '<script>window.onload = function(){ setTimeout(function(){ window.print(); }, 250); };<\/script></body></html>'
+            );
+            win.document.close();
+        });
+    }
+});
 </script>
+
+<!-- Customer POS Receipt Modal (Billing List) -->
+<div class="modal fade" id="posReceiptListModal" tabindex="-1" aria-labelledby="posReceiptListModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 490px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0 pt-3 px-4 d-flex align-items-center justify-content-between">
+                <span class="badge bg-success px-3 py-2 rounded-pill fw-semibold" id="posReceiptListModalLabel">
+                    <i class="bi bi-check-circle me-1"></i>SALE COMPLETED
+                </span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 pt-3 pb-2" id="posReceiptListModalBody"></div>
+            <div class="modal-footer border-0 pt-2 pb-3 px-4 d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-3 text-nowrap" data-bs-dismiss="modal">Close</button>
+                <a href="#" target="_blank" class="btn btn-outline-primary rounded-pill px-3 text-nowrap" id="posReceiptListA4Link">
+                    <i class="bi bi-file-earmark-text me-1"></i>A4 Format
+                </a>
+                <button type="button" class="btn btn-primary rounded-pill px-3 fw-semibold text-nowrap" id="btnPrintListPosThermal">
+                    <i class="bi bi-printer me-1"></i>POS Format
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
