@@ -789,6 +789,21 @@ class ConcernController {
         // Prevent redirect loop if referer was switch URL itself
         if (str_contains($redirectUrl, 'switch')) {
             $redirectUrl = url('admin/dashboard');
+        } elseif (str_contains($redirectUrl, 'concern_id=')) {
+            $parts = parse_url($redirectUrl);
+            $query = [];
+            if (!empty($parts['query'])) {
+                parse_str($parts['query'], $query);
+                unset($query['concern_id']);
+            }
+            $rebuilt = ($parts['scheme'] ?? '') !== ''
+                ? ($parts['scheme'] . '://' . ($parts['host'] ?? '') . (isset($parts['port']) ? ':' . $parts['port'] : ''))
+                : '';
+            $rebuilt .= $parts['path'] ?? '';
+            if (!empty($query)) {
+                $rebuilt .= '?' . http_build_query($query);
+            }
+            $redirectUrl = $rebuilt !== '' ? $rebuilt : url('admin/dashboard');
         }
         Response::redirect($redirectUrl);
     }

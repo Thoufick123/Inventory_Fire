@@ -1334,7 +1334,11 @@ class AllmodulesController {
             $params[] = $activeCid;
         }
 
-        if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY', 'OWN_PRODUCT', 'MIXED'], true)) {
+        if (in_array($filterType, ['FABRIC_ROLL', 'RAW_MATERIAL', 'THIRD_PARTY'], true)) {
+            $where[] = "(pp.purchase_type = ? OR EXISTS (SELECT 1 FROM production_purchase_items ppi_f WHERE ppi_f.purchase_id = pp.id AND ppi_f.item_type = ?))";
+            $params[] = $filterType;
+            $params[] = $filterType;
+        } elseif (in_array($filterType, ['OWN_PRODUCT', 'MIXED'], true)) {
             $where[] = "pp.purchase_type = ?";
             $params[] = $filterType;
         } elseif ($filterType === 'MAPPING') {
@@ -1406,9 +1410,9 @@ class AllmodulesController {
             "SELECT 
                 COUNT(*) AS total_count,
                 COALESCE(SUM(total_amount), 0) AS total_value,
-                COUNT(CASE WHEN purchase_type = 'FABRIC_ROLL' THEN 1 END) AS fabric_roll_count,
-                COUNT(CASE WHEN purchase_type = 'RAW_MATERIAL' THEN 1 END) AS raw_material_count,
-                COUNT(CASE WHEN purchase_type = 'THIRD_PARTY' THEN 1 END) AS third_party_count,
+                COUNT(CASE WHEN purchase_type = 'FABRIC_ROLL' OR EXISTS (SELECT 1 FROM production_purchase_items ppi_fr WHERE ppi_fr.purchase_id = production_purchases.id AND ppi_fr.item_type = 'FABRIC_ROLL') THEN 1 END) AS fabric_roll_count,
+                COUNT(CASE WHEN purchase_type = 'RAW_MATERIAL' OR EXISTS (SELECT 1 FROM production_purchase_items ppi_rm WHERE ppi_rm.purchase_id = production_purchases.id AND ppi_rm.item_type = 'RAW_MATERIAL') THEN 1 END) AS raw_material_count,
+                COUNT(CASE WHEN purchase_type = 'THIRD_PARTY' OR EXISTS (SELECT 1 FROM production_purchase_items ppi_tp WHERE ppi_tp.purchase_id = production_purchases.id AND ppi_tp.item_type = 'THIRD_PARTY') THEN 1 END) AS third_party_count,
                 COUNT(CASE WHEN purchase_type = 'OWN_PRODUCT' THEN 1 END) AS own_product_count,
                 COUNT(CASE WHEN purchase_type = 'MIXED' THEN 1 END) AS mixed_count
              FROM production_purchases
