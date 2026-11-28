@@ -149,6 +149,7 @@
             </div>
 
             <!-- 1b. Business Concern Scoping & Filtering -->
+            <?php if (!empty($showConcernFilter)): ?>
             <div class="mb-4 pb-3 border-bottom">
                 <div class="concern-filter-panel border rounded-3 bg-light bg-opacity-50 p-3 p-md-4">
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
@@ -160,9 +161,11 @@
                             <div class="small text-muted">Choose one or more entities, or leave all unselected for a consolidated export.</div>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <?php if (!empty($isAdminUser)): ?>
                             <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="selectConcernFilter('ALL')">
                                 <i class="bi bi-globe me-1"></i>All concerns
                             </button>
+                            <?php endif; ?>
                             <?php if (!empty($activeConcern['id'])): ?>
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="selectConcernFilter('<?= (int)$activeConcern['id'] ?>')">
                                     <i class="bi bi-crosshair me-1"></i>Active: <?= e($activeConcern['code']) ?>
@@ -177,6 +180,7 @@
                     <?php if (!empty($concerns)): ?>
                         <div class="row g-2" id="exportConcernOptions" role="group" aria-label="Business concern filters">
                             <?php foreach ($concerns as $concern): ?>
+                                <?php $preCheck = empty($isAdminUser) && !empty($activeConcern['id']) && (int)$activeConcern['id'] === (int)$concern['id']; ?>
                                 <div class="col-sm-6 col-xl-4">
                                     <label class="concern-filter-card d-flex align-items-start gap-3 border rounded-3 bg-white p-3 h-100" for="exportConcern<?= (int)$concern['id'] ?>">
                                         <input type="checkbox"
@@ -186,6 +190,7 @@
                                                value="<?= (int)$concern['id'] ?>"
                                                data-code="<?= e($concern['code']) ?>"
                                                data-modules="<?= e($concern['enabled_modules'] ?? '') ?>"
+                                               <?= $preCheck ? 'checked' : '' ?>
                                                onchange="handleConcernSelectionChange()">
                                         <span class="flex-grow-1">
                                             <span class="d-flex justify-content-between align-items-center gap-2">
@@ -213,6 +218,11 @@
                     </div>
                 </div>
             </div>
+            <?php elseif (!empty($concerns)): ?>
+                <?php foreach ($concerns as $onlyConcern): ?>
+                    <input type="hidden" name="concern_ids[]" class="concern-filter-hidden" value="<?= (int)$onlyConcern['id'] ?>">
+                <?php endforeach; ?>
+            <?php endif; ?>
 
             <!-- 1c. Destination Warehouse Filter -->
             <div class="mb-4 pb-3 border-bottom">
@@ -449,7 +459,7 @@ function refreshExportModuleCounts() {
         params.set('date_from', document.querySelector('[name="date_from"]')?.value || '');
         params.set('date_to', document.querySelector('[name="date_to"]')?.value || '');
     }
-    document.querySelectorAll('.concern-filter-checkbox:checked').forEach(cb => {
+    document.querySelectorAll('.concern-filter-checkbox:checked, .concern-filter-hidden').forEach(cb => {
         if (cb.value) params.append('concern_ids[]', cb.value);
     });
 
@@ -473,7 +483,7 @@ function refreshExportModuleCounts() {
 
 function applyExportModuleVisibility() {
     const onlyWithData = Boolean(document.getElementById('toggleOnlyWithData')?.checked);
-    const hasScopedConcern = document.querySelectorAll('.concern-filter-checkbox:checked').length > 0;
+    const hasScopedConcern = document.querySelectorAll('.concern-filter-checkbox:checked, .concern-filter-hidden').length > 0;
     const catVisibleCount = {};
 
     document.querySelectorAll('.export-mod-card').forEach(card => {
@@ -586,7 +596,14 @@ function selectEnabledConcernModules() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    handleConcernSelectionChange();
+    const hasConcernCheckboxes = document.querySelectorAll('.concern-filter-checkbox').length > 0;
+    if (hasConcernCheckboxes) {
+        handleConcernSelectionChange();
+    } else {
+        const onlyDataEl = document.getElementById('toggleOnlyWithData');
+        if (onlyDataEl) onlyDataEl.checked = true;
+        refreshExportModuleCounts();
+    }
 });
 </script>
 

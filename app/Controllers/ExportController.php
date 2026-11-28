@@ -239,43 +239,51 @@ class ExportController {
             ],
         ];
 
-        // Active business concerns & scoping
-        $concerns = Database::fetchAll("
-            SELECT c.*,
-                   (SELECT GROUP_CONCAT(cm.module_key) FROM concern_modules cm WHERE cm.concern_id = c.id AND cm.is_enabled = 1) AS enabled_modules
-            FROM concerns c
-            WHERE c.is_active = 1
-            ORDER BY c.code ASC, c.id ASC
-        ") ?: [];
+        // Active business concerns & scoping (Admin sees all; Staff sees only allocated concerns)
+        $isAdminUser = function_exists('isAdmin') && isAdmin();
+        $concerns = $this->getScopedConcernsForExport();
+        $showConcernFilter = $isAdminUser || count($concerns) > 1;
+        $modules = $this->filterModulesForCurrentUser($modules);
         $activeConcern = function_exists('currentConcern') ? currentConcern() : null;
+
+        $allowedConcernIds = array_values(array_unique(array_filter(array_map('intval', array_column($concerns, 'id')))));
+        $whConcernSql = (!$isAdminUser && !empty($allowedConcernIds))
+            ? ' AND w.concern_id IN (' . implode(',', array_fill(0, count($allowedConcernIds), '?')) . ')'
+            : '';
+        $puConcernSql = (!$isAdminUser && !empty($allowedConcernIds))
+            ? ' AND pu.concern_id IN (' . implode(',', array_fill(0, count($allowedConcernIds), '?')) . ')'
+            : '';
+        $scopedParams = (!$isAdminUser && !empty($allowedConcernIds)) ? $allowedConcernIds : [];
 
         // Active production facilities and warehouses with concern association
         $facilities = Database::fetchAll("
             SELECT pu.id, pu.name, pu.code, pu.is_active, pu.concern_id, c.code AS concern_code, c.name AS concern_name 
             FROM production_units pu 
             LEFT JOIN concerns c ON c.id = pu.concern_id 
-            WHERE pu.is_active = 1 
+            WHERE pu.is_active = 1 {$puConcernSql}
             ORDER BY pu.name ASC
-        ");
+        ", $scopedParams);
         $warehouses = Database::fetchAll("
-            SELECT w.id, w.name, w.code, w.concern_id, c.code AS concern_code, c.name AS concern_name 
+            SELECT w.id, w.name, w.code, w.is_active, w.concern_id, c.code AS concern_code, c.name AS concern_name 
             FROM warehouses w 
             LEFT JOIN concerns c ON c.id = w.concern_id 
-            WHERE w.is_active = 1 
+            WHERE w.is_active = 1 {$whConcernSql}
             ORDER BY w.name ASC
-        ");
+        ", $scopedParams);
 
         Response::view('export.index', [
-            'pageTitle'        => 'Data Export Center',
-            'activeModule'     => 'export',
-            'activeMenu'       => 'export-hub',
-            'breadcrumb'       => [
+            'pageTitle'         => 'Data Export Center',
+            'activeModule'      => 'export',
+            'activeMenu'        => 'export-hub',
+            'breadcrumb'        => [
                 ['label' => 'Data Export Center']
             ],
-            'modules'          => $modules,
-            'concerns'         => $concerns,
-            'activeConcern'    => $activeConcern,
-            'facilities'       => $facilities,
+            'modules'           => $modules,
+            'concerns'          => $concerns,
+            'activeConcern'     => $activeConcern,
+            'isAdminUser'       => $isAdminUser,
+            'showConcernFilter' => $showConcernFilter,
+            'facilities'        => $facilities,
             'warehouses'       => $warehouses,
             'activeFacility'   => $activeFacility,
             'curMonth'         => $curMonth,
@@ -312,6 +320,9 @@ class ExportController {
             'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests',
             'billing', 'direct_billing', 'coupons', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
+        if (!function_exists('isAdmin') || !isAdmin()) {
+            $allModules = array_keys($this->filterModulesForCurrentUser(array_flip($allModules)));
+        }
         $selectedModules = !empty($_REQUEST['modules']) && is_array($_REQUEST['modules'])
             ? array_values(array_intersect($_REQUEST['modules'], $allModules))
             : $allModules;
@@ -328,6 +339,18 @@ class ExportController {
         $selectedConcernIds = array_values(array_unique(array_filter(array_map('intval', $requestedConcernIds), static function (int $id): bool {
             return $id > 0;
         })));
+
+        if (!function_exists('isAdmin') || !isAdmin()) {
+            $allowedConcernIds = array_values(array_unique(array_filter(array_map('intval', array_column($this->getScopedConcernsForExport(), 'id')))));
+            if (!empty($allowedConcernIds)) {
+                $selectedConcernIds = !empty($selectedConcernIds)
+                    ? array_values(array_intersect($selectedConcernIds, $allowedConcernIds))
+                    : $allowedConcernIds;
+                if (empty($selectedConcernIds)) {
+                    $selectedConcernIds = $allowedConcernIds;
+                }
+            }
+        }
 
         $selectedConcerns = [];
         if (!empty($selectedConcernIds)) {
@@ -385,6 +408,17 @@ class ExportController {
             $requestedConcernIds = ($requestedConcernIds !== '' && $requestedConcernIds != '0') ? [(int)$requestedConcernIds] : [];
         }
         $concernIds = array_values(array_unique(array_filter(array_map('intval', $requestedConcernIds), static fn(int $id): bool => $id > 0)));
+        if (!function_exists('isAdmin') || !isAdmin()) {
+            $allowedConcernIds = array_values(array_unique(array_filter(array_map('intval', array_column($this->getScopedConcernsForExport(), 'id')))));
+            if (!empty($allowedConcernIds)) {
+                $concernIds = !empty($concernIds)
+                    ? array_values(array_intersect($concernIds, $allowedConcernIds))
+                    : $allowedConcernIds;
+                if (empty($concernIds)) {
+                    $concernIds = $allowedConcernIds;
+                }
+            }
+        }
 
         $counts = ExportService::getModuleCounts($startDate, $endDate, $concernIds);
         Response::json([
@@ -393,6 +427,87 @@ class ExportController {
             'end_date'   => $endDate,
             'counts'     => $counts,
         ]);
+    }
+
+    private function getScopedConcernsForExport(): array {
+        if (function_exists('isAdmin') && isAdmin()) {
+            return Database::fetchAll("
+                SELECT c.*,
+                       (SELECT GROUP_CONCAT(cm.module_key) FROM concern_modules cm WHERE cm.concern_id = c.id AND cm.is_enabled = 1) AS enabled_modules
+                FROM concerns c
+                WHERE c.is_active = 1
+                ORDER BY c.code ASC, c.id ASC
+            ") ?: [];
+        }
+        $userConcerns = function_exists('getAvailableUserConcerns') ? getAvailableUserConcerns() : [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', array_column($userConcerns, 'id')))));
+        if (empty($ids)) {
+            $curCid = function_exists('currentConcernId') ? (int)currentConcernId() : 0;
+            if ($curCid > 0) $ids = [$curCid];
+        }
+        if (empty($ids)) {
+            return [];
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        return Database::fetchAll("
+            SELECT c.*,
+                   (SELECT GROUP_CONCAT(cm.module_key) FROM concern_modules cm WHERE cm.concern_id = c.id AND cm.is_enabled = 1) AS enabled_modules
+            FROM concerns c
+            WHERE c.is_active = 1 AND c.id IN ({$ph})
+            ORDER BY c.code ASC, c.id ASC
+        ", $ids) ?: [];
+    }
+
+    private function filterModulesForCurrentUser(array $modules): array {
+        if (function_exists('isAdmin') && isAdmin()) {
+            return $modules;
+        }
+        $permMap = [
+            'purchases'            => ['production_purchases', 'purchases'],
+            'rolls'                => ['production_purchases', 'purchases'],
+            'raw_materials'        => ['production_purchases', 'purchases'],
+            'third_party_products' => ['production_purchase_mapping', 'production_purchases', 'purchases'],
+            'qr_generations'       => ['production_purchase_mapping', 'production_purchases'],
+            'suppliers'            => ['sellers', 'wh_sellers'],
+            'goods_inward'         => ['inward'],
+            'programs'             => ['programs'],
+            'cuttings'             => ['cutting'],
+            'cutting_outwards'     => ['cutting'],
+            'stitching'            => ['stitching'],
+            'qc'                   => ['qc'],
+            'damages'              => ['damages'],
+            'damage_outwards'      => ['damages'],
+            'catalog'              => ['catalog'],
+            'variants'             => ['variants'],
+            'batches'              => ['batches'],
+            'outward'              => ['outward'],
+            'inventory'            => ['inventory'],
+            'stock_ledger'         => ['inventory', 'stock'],
+            'stock_requests'       => ['production_stock_requests', 'stock_requests'],
+            'billing'              => ['production_billing'],
+            'direct_billing'       => ['production_billing'],
+            'coupons'              => ['coupons'],
+            'returns'              => ['production_returns'],
+            'wastage'              => ['wastage', 'stitching_wastage'],
+            'expenses'             => ['production_expenses'],
+            'assets'               => ['asset_register'],
+            'asset_maintenance'    => ['asset_maintenance'],
+        ];
+        $filtered = [];
+        foreach ($modules as $key => $info) {
+            $perms = $permMap[$key] ?? [];
+            if (empty($perms)) {
+                $filtered[$key] = $info;
+                continue;
+            }
+            foreach ($perms as $pMod) {
+                if (function_exists('hasPermission') && hasPermission($pMod, 'view')) {
+                    $filtered[$key] = $info;
+                    break;
+                }
+            }
+        }
+        return $filtered;
     }
 
     /**
