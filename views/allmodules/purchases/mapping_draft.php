@@ -225,9 +225,10 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                         <!-- Product Block 0 -->
                         <div class="tp-product-card border rounded-3 mb-3 p-3 bg-white" data-product-index="0">
                             <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
-                                <div class="d-flex align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <span class="badge bg-primary text-white rounded-pill px-2 py-1 tp-product-badge">Product #1</span>
                                     <strong class="text-dark tp-product-title-display">New Product</strong>
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle d-none tp-complementary-badge"><i class="bi bi-gift-fill me-1"></i>Complementary Category</span>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-product" style="display: none;" title="Remove this product">
                                     <i class="bi bi-trash me-1"></i>Remove
@@ -241,7 +242,7 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                                     <select class="form-select form-select-sm gen-category">
                                         <option value="">-- Category --</option>
                                         <?php foreach ($categories as $cat): ?>
-                                            <option value="<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></option>
+                                            <option value="<?= (int)$cat['id'] ?>" data-complementary="<?= !empty($cat['is_complementary']) ? '1' : '0' ?>"><?= e($cat['name']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -3196,6 +3197,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else if (e.target.classList.contains('gen-category')) {
             const card = e.target.closest('.tp-product-card');
+            const selectedCatOpt = e.target.options[e.target.selectedIndex];
+            const compBadge = card?.querySelector('.tp-complementary-badge');
+            if (compBadge) {
+                const isComp = Boolean(selectedCatOpt && selectedCatOpt.dataset.complementary === '1');
+                compBadge.classList.toggle('d-none', !isComp);
+            }
             const catId = String(e.target.value || '');
             const subSel = card?.querySelector('.gen-subcategory');
             const ssSel = card?.querySelector('.gen-subsubcategory');

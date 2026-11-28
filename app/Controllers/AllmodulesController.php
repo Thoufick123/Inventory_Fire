@@ -3777,20 +3777,7 @@ class AllmodulesController {
             return;
         }
 
-        // Check if an existing purchase bill with the same supplier & invoice number exists
-        $concernCondition = ($cid === 1) ? "(concern_id = ? OR concern_id IS NULL)" : "concern_id = ?";
-        $existingPurchase = Database::fetchOne(
-            "SELECT id, purchase_number FROM production_purchases
-             WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
-               AND {$concernCondition}
-             ORDER BY id DESC LIMIT 1",
-            [$sellerId, $invoiceNumber, $cid]
-        );
-        if ($existingPurchase) {
-            Session::flash('error', "Invoice '{$invoiceNumber}' already exists in Purchases ({$existingPurchase['purchase_number']}). Use the existing invoice instead.");
-            Response::redirect(url('purchases/mapping/create?seller_id=' . $sellerId . '&invoice_number=' . urlencode($invoiceNumber)));
-            return;
-        }
+        // Purchases and QR Generations are separate modules; do not block QR Generation by Purchases invoice number.
         $linkedPurchaseId = null;
 
         try {
@@ -3944,7 +3931,7 @@ class AllmodulesController {
     private function loadMappingFormLookups(?int $cid): array {
         $this->syncCatalogCategoriesToThirdParty();
         $categories = Database::fetchAll(
-            "SELECT tpc.id, tpc.name, tpc.code
+            "SELECT tpc.id, tpc.name, tpc.code, COALESCE(tpc.is_complementary, 0) AS is_complementary
              FROM third_party_categories tpc
              WHERE tpc.is_active = 1
                AND (
@@ -5239,7 +5226,7 @@ class AllmodulesController {
         }
 
         $categories = Database::fetchAll(
-            "SELECT tpc.id, tpc.name, tpc.code
+            "SELECT tpc.id, tpc.name, tpc.code, COALESCE(tpc.is_complementary, 0) AS is_complementary
              FROM third_party_categories tpc
              WHERE tpc.is_active = 1
                AND (
@@ -5339,23 +5326,7 @@ class AllmodulesController {
         $cid = resolveSubmittedConcernId() ?: (currentConcernId() ?: 1);
         $userId = (int)(Session::get('user_id') ?? 0);
 
-        if ($fromMappingCreate) {
-            $concernCond = ($cid === 1) ? "(concern_id = ? OR concern_id IS NULL)" : "concern_id = ?";
-            $existingPurchase = Database::fetchOne(
-                "SELECT id, purchase_number FROM production_purchases
-                 WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
-                   AND {$concernCond}
-                 ORDER BY id DESC LIMIT 1",
-                [$sellerId, $invoiceNumber, $cid]
-            );
-            if ($existingPurchase) {
-                Response::json([
-                    'success' => false,
-                    'message' => "Invoice '{$invoiceNumber}' already exists in Purchases ({$existingPurchase['purchase_number']}). Use the existing invoice instead."
-                ], 422);
-                return;
-            }
-        }
+        // Purchases and QR Generations are separate modules; allow independent invoice numbers here.
 
         if ($purchaseId > 0) {
             $existing = Database::fetchOne(

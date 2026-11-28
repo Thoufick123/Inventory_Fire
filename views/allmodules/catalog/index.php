@@ -147,6 +147,9 @@
                                 <a href="<?= url('production/catalog/view/' . $p['id']) ?>" class="fw-bold text-dark text-decoration-none hover-primary">
                                     <?= e($p['name']) ?>
                                 </a>
+                                <?php if (!empty($p['is_complementary'])): ?>
+                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1"><i class="bi bi-gift-fill me-1"></i>Complementary</span>
+                                <?php endif; ?>
                                 <?php if (!empty($p['material'])): ?>
                                     <div class="small text-muted"><i class="bi bi-layers me-1"></i><?= e($p['material']) ?></div>
                                 <?php endif; ?>
