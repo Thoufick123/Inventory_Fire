@@ -18666,10 +18666,14 @@ class AllmodulesController {
             ];
         }
 
-        // Update base_price on parent products
-        foreach (array_keys($affectedProductIds) as $pid) {
-            Database::execute("UPDATE products SET base_price = ?, updated_at = NOW() WHERE id = ?", [$newSellingPrice, $pid]);
-        }
+        // Update base_price on parent products when column exists
+        try {
+            if (Database::fetchOne("SHOW COLUMNS FROM products LIKE 'base_price'")) {
+                foreach (array_keys($affectedProductIds) as $pid) {
+                    Database::execute("UPDATE products SET base_price = ?, updated_at = NOW() WHERE id = ?", [$newSellingPrice, $pid]);
+                }
+            }
+        } catch (\Throwable $e) {}
 
         $cnt = count($updatedVariants);
         echo json_encode([

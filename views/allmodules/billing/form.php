@@ -202,6 +202,95 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                     <div class="mt-3"><label class="form-label">GSTIN</label><input class="form-control text-uppercase font-monospace" name="company_gstin" id="companyGstinInput" maxlength="30" value="<?= $escape($bill['company_gstin'] ?? '') ?>"></div>
                 </div>
             </div>
+
+            <!-- Saved Coupons Card (below Customer box; hidden for B2B Company) -->
+            <div class="mb-3 rounded-4 overflow-hidden border shadow-sm bg-white <?= (empty($existingItems) || $selectedBuyerType === 'COMPANY') ? 'd-none' : '' ?>" id="savedCouponsCard">
+                <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #eef4ff 0%, #f7faff 100%); border-bottom: 1px solid #e2e8f0;">
+                    <div class="fw-bold text-primary small lh-sm">
+                        Save extra by applying<br>coupons on every order
+                    </div>
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center shadow-xs" style="width: 34px; height: 34px; flex-shrink: 0;">
+                        <i class="bi bi-percent fs-6"></i>
+                    </div>
+                </div>
+                <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <span class="small fw-semibold text-muted">Coupon Mode:</span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Coupon Apply Mode">
+                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeDirect" value="DIRECT" <?= ($bill['coupon_apply_mode'] ?? 'DIRECT') !== 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('DIRECT')">
+                        <label class="btn btn-outline-primary fw-semibold" for="couponModeDirect">Direct Bill Discount</label>
+
+                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeProductBuy" value="PRODUCT_BUY" <?= ($bill['coupon_apply_mode'] ?? '') === 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('PRODUCT_BUY')">
+                        <label class="btn btn-outline-primary fw-semibold" for="couponModeProductBuy">Buy Product with Coupon</label>
+                    </div>
+                    <input type="hidden" name="coupon_apply_mode" id="couponApplyMode" value="<?= $escape($bill['coupon_apply_mode'] ?? 'DIRECT') ?>">
+                </div>
+                <div class="px-3 py-2">
+                    <?php if (empty($availableCoupons)): ?>
+                        <div class="small text-muted py-2 text-center">
+                            No active coupons available. Create one in <strong>All Modules &rarr; Coupons</strong>.
+                        </div>
+                    <?php else: ?>
+                        <div id="couponCardList">
+                            <?php foreach ($availableCoupons as $cIdx => $cp): ?>
+                                <?php
+                                $cpType = strtoupper((string)($cp['discount_type'] ?? 'FIXED'));
+                                $cpVal = (float)($cp['discount_value'] ?? 0);
+                                $cpMin = (float)($cp['min_redemption_amount'] ?? 0);
+                                $cpRequired = max($cpMin, $cpType === 'FIXED' ? $cpVal : 0);
+                                $cpSaveText = $cpType === 'PERCENT'
+                                    ? 'Save ' . rtrim(rtrim(number_format($cpVal, 2), '0'), '.') . "% with '" . $cp['coupon_code'] . "'"
+                                    : 'Save ₹' . number_format($cpVal, 0) . " with '" . $cp['coupon_code'] . "'";
+                                $isCurrentlyApplied = ($bill['applied_coupon_code'] ?? '') === $cp['coupon_code'];
+                                ?>
+                                <div class="coupon-offer-item py-2 <?= $cIdx > 0 ? 'border-top border-dashed' : '' ?> <?= $cIdx >= 2 ? 'd-none extra-coupon-item' : '' ?>"
+                                     data-id="<?= (int)$cp['id'] ?>"
+                                     data-code="<?= e($cp['coupon_code']) ?>"
+                                     data-type="<?= e($cpType) ?>"
+                                     data-value="<?= number_format($cpVal, 2, '.', '') ?>"
+                                     data-min="<?= number_format($cpMin, 2, '.', '') ?>"
+                                     data-required="<?= number_format($cpRequired, 2, '.', '') ?>">
+                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                        <div class="d-flex align-items-start gap-2 min-w-0">
+                                            <i class="bi bi-patch-check text-secondary mt-1 flex-shrink-0"></i>
+                                            <div class="min-w-0">
+                                                <div class="fw-bold text-dark small text-truncate"><?= e($cpSaveText) ?></div>
+                                                <div class="text-muted" style="font-size: 11px;">
+                                                    <?php if (!empty($cp['title'])): ?>
+                                                        <span><?= e($cp['title']) ?></span>
+                                                    <?php endif; ?>
+                                                    <?php if ($cpRequired > 0): ?>
+                                                        <span><?= !empty($cp['title']) ? ' &bull; ' : '' ?>Min bill ₹<?= number_format($cpRequired, 2) ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button"
+                                                class="btn btn-sm <?= $isCurrentlyApplied ? 'btn-success' : 'btn-outline-danger' ?> fw-bold px-3 rounded-3 coupon-apply-btn flex-shrink-0"
+                                                onclick="toggleCouponCard('<?= e($cp['coupon_code']) ?>')">
+                                            <?= $isCurrentlyApplied ? 'REMOVE' : 'APPLY' ?>
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if (count($availableCoupons) > 2): ?>
+                            <div class="pt-1 pb-1 border-top mt-1">
+                                <a href="javascript:void(0)" id="viewAllCouponsLink" class="small fw-semibold text-secondary text-decoration-none" onclick="toggleAllCouponsList()">
+                                    View all coupons (<?= count($availableCoupons) ?>) <i class="bi bi-caret-right-fill"></i>
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
+                    <input type="hidden" name="applied_coupon_id" id="appliedCouponId" value="<?= (int)($bill['applied_coupon_id'] ?? 0) ?: '' ?>">
+                    <input type="hidden" name="applied_coupon_code" id="appliedCouponCode" value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
+                    <div id="couponStatusHelp" class="small mt-1 <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>">
+                        <?php if (!empty($bill['applied_coupon_code'])): ?>
+                            <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- RIGHT COLUMN: Scanner, Cart & Settlement (Image 2) -->
@@ -454,95 +543,6 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                                                 <button type="button" class="btn btn-xs btn-outline-secondary px-2 py-1 shadow-xs font-monospace" onclick="setQuickCash(2000)">₹2000</button>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Saved Coupons Card (Reference UI - visible once product is scanned) -->
-                            <div class="mt-3 rounded-4 overflow-hidden border shadow-xs bg-white <?= empty($existingItems) ? 'd-none' : '' ?>" id="savedCouponsCard">
-                                <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #eef4ff 0%, #f7faff 100%); border-bottom: 1px solid #e2e8f0;">
-                                    <div class="fw-bold text-primary small lh-sm">
-                                        Save extra by applying<br>coupons on every order
-                                    </div>
-                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center shadow-xs" style="width: 34px; height: 34px; flex-shrink: 0;">
-                                        <i class="bi bi-percent fs-6"></i>
-                                    </div>
-                                </div>
-                                <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                    <span class="small fw-semibold text-muted">Coupon Mode:</span>
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="Coupon Apply Mode">
-                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeDirect" value="DIRECT" <?= ($bill['coupon_apply_mode'] ?? 'DIRECT') !== 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('DIRECT')">
-                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeDirect">Direct Bill Discount</label>
-
-                                        <input type="radio" class="btn-check" name="coupon_apply_mode_radio" id="couponModeProductBuy" value="PRODUCT_BUY" <?= ($bill['coupon_apply_mode'] ?? '') === 'PRODUCT_BUY' ? 'checked' : '' ?> onchange="onCouponModeChange('PRODUCT_BUY')">
-                                        <label class="btn btn-outline-primary fw-semibold" for="couponModeProductBuy">Buy Product with Coupon</label>
-                                    </div>
-                                    <input type="hidden" name="coupon_apply_mode" id="couponApplyMode" value="<?= $escape($bill['coupon_apply_mode'] ?? 'DIRECT') ?>">
-                                </div>
-                                <div class="px-3 py-2">
-                                    <?php if (empty($availableCoupons)): ?>
-                                        <div class="small text-muted py-2 text-center">
-                                            No active coupons available. Create one in <strong>All Modules &rarr; Coupons</strong>.
-                                        </div>
-                                    <?php else: ?>
-                                        <div id="couponCardList">
-                                            <?php foreach ($availableCoupons as $cIdx => $cp): ?>
-                                                <?php
-                                                $cpType = strtoupper((string)($cp['discount_type'] ?? 'FIXED'));
-                                                $cpVal = (float)($cp['discount_value'] ?? 0);
-                                                $cpMin = (float)($cp['min_redemption_amount'] ?? 0);
-                                                $cpRequired = max($cpMin, $cpType === 'FIXED' ? $cpVal : 0);
-                                                $cpSaveText = $cpType === 'PERCENT'
-                                                    ? 'Save ' . rtrim(rtrim(number_format($cpVal, 2), '0'), '.') . "% with '" . $cp['coupon_code'] . "'"
-                                                    : 'Save ₹' . number_format($cpVal, 0) . " with '" . $cp['coupon_code'] . "'";
-                                                $isCurrentlyApplied = ($bill['applied_coupon_code'] ?? '') === $cp['coupon_code'];
-                                                ?>
-                                                <div class="coupon-offer-item py-2 <?= $cIdx > 0 ? 'border-top border-dashed' : '' ?> <?= $cIdx >= 2 ? 'd-none extra-coupon-item' : '' ?>"
-                                                     data-id="<?= (int)$cp['id'] ?>"
-                                                     data-code="<?= e($cp['coupon_code']) ?>"
-                                                     data-type="<?= e($cpType) ?>"
-                                                     data-value="<?= number_format($cpVal, 2, '.', '') ?>"
-                                                     data-min="<?= number_format($cpMin, 2, '.', '') ?>"
-                                                     data-required="<?= number_format($cpRequired, 2, '.', '') ?>">
-                                                    <div class="d-flex justify-content-between align-items-center gap-2">
-                                                        <div class="d-flex align-items-start gap-2 min-w-0">
-                                                            <i class="bi bi-patch-check text-secondary mt-1 flex-shrink-0"></i>
-                                                            <div class="min-w-0">
-                                                                <div class="fw-bold text-dark small text-truncate"><?= e($cpSaveText) ?></div>
-                                                                <div class="text-muted" style="font-size: 11px;">
-                                                                    <?php if (!empty($cp['title'])): ?>
-                                                                        <span><?= e($cp['title']) ?></span>
-                                                                    <?php endif; ?>
-                                                                    <?php if ($cpRequired > 0): ?>
-                                                                        <span><?= !empty($cp['title']) ? ' &bull; ' : '' ?>Min bill ₹<?= number_format($cpRequired, 2) ?></span>
-                                                                    <?php endif; ?>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button type="button"
-                                                                class="btn btn-sm <?= $isCurrentlyApplied ? 'btn-success' : 'btn-outline-danger' ?> fw-bold px-3 rounded-3 coupon-apply-btn flex-shrink-0"
-                                                                onclick="toggleCouponCard('<?= e($cp['coupon_code']) ?>')">
-                                                            <?= $isCurrentlyApplied ? 'REMOVE' : 'APPLY' ?>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <?php if (count($availableCoupons) > 2): ?>
-                                            <div class="pt-1 pb-1 border-top mt-1">
-                                                <a href="javascript:void(0)" id="viewAllCouponsLink" class="small fw-semibold text-secondary text-decoration-none" onclick="toggleAllCouponsList()">
-                                                    View all coupons (<?= count($availableCoupons) ?>) <i class="bi bi-caret-right-fill"></i>
-                                                </a>
-                                            </div>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-
-                                    <input type="hidden" name="applied_coupon_id" id="appliedCouponId" value="<?= (int)($bill['applied_coupon_id'] ?? 0) ?: '' ?>">
-                                    <input type="hidden" name="applied_coupon_code" id="appliedCouponCode" value="<?= $escape($bill['applied_coupon_code'] ?? '') ?>">
-                                    <div id="couponStatusHelp" class="small mt-1 <?= empty($bill['applied_coupon_code']) ? 'd-none' : '' ?>">
-                                        <?php if (!empty($bill['applied_coupon_code'])): ?>
-                                            <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Coupon <?= $escape($bill['applied_coupon_code']) ?> applied (-<?= formatCurrency((float)($bill['coupon_discount_amount'] ?? 0)) ?>)</span>
-                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -802,14 +802,27 @@ function onBuyerTypeChange(type) {
     const companyFields = document.getElementById('companyFields');
     const customerFields = document.getElementById('customerFields');
     const moveOutwardBtn = document.getElementById('moveToOutwardButton');
+    const savedCouponsCard = document.getElementById('savedCouponsCard');
     if (type === 'COMPANY') {
         companyFields.classList.remove('d-none');
         customerFields.classList.add('d-none');
         if (moveOutwardBtn) moveOutwardBtn.classList.remove('d-none');
+        if (savedCouponsCard) savedCouponsCard.classList.add('d-none');
+        document.querySelectorAll('.coupon-product-check-wrap').forEach(w => w.classList.add('d-none'));
+        if (typeof removeAppliedCoupon === 'function' && document.getElementById('appliedCouponCode')?.value) {
+            removeAppliedCoupon();
+        } else if (typeof window.__recalcBillingTotals === 'function') {
+            window.__recalcBillingTotals();
+        }
     } else {
         companyFields.classList.add('d-none');
         customerFields.classList.remove('d-none');
         if (moveOutwardBtn) moveOutwardBtn.classList.add('d-none');
+        if (typeof onCouponModeChange === 'function') {
+            onCouponModeChange(getSelectedCouponMode());
+        } else if (typeof window.__recalcBillingTotals === 'function') {
+            window.__recalcBillingTotals();
+        }
     }
 }
 
@@ -1673,7 +1686,8 @@ document.addEventListener('DOMContentLoaded', () => {
             productCell.append(productTitle);
 
             const couponItemWrap = document.createElement('div');
-            const showCouponCheck = getSelectedCouponMode() === 'PRODUCT_BUY' && index > 0;
+            const isCustomerBuyer = (document.getElementById('buyerType')?.value || 'CUSTOMER') !== 'COMPANY';
+            const showCouponCheck = isCustomerBuyer && getSelectedCouponMode() === 'PRODUCT_BUY' && index > 0;
             couponItemWrap.className = `mt-1 coupon-product-check-wrap ${showCouponCheck ? '' : 'd-none'}`;
             couponItemWrap.dataset.rowIndex = String(index);
             const couponCheckLabel = document.createElement('label');
@@ -2118,10 +2132,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taxCell) taxCell.textContent = money(lineTax);
         });
 
+        const isCompanyBuyer = (document.getElementById('buyerType')?.value || 'CUSTOMER') === 'COMPANY';
         const savedCouponsCard = document.getElementById('savedCouponsCard');
         if (savedCouponsCard) {
-            savedCouponsCard.classList.toggle('d-none', cart.size === 0);
-            if (cart.size === 0 && appliedCouponState) {
+            savedCouponsCard.classList.toggle('d-none', cart.size === 0 || isCompanyBuyer);
+            if ((cart.size === 0 || isCompanyBuyer) && appliedCouponState) {
                 removeAppliedCoupon();
                 return;
             }
@@ -2239,9 +2254,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!Array.isArray(existing.tags)) existing.tags = [];
             existing.tags.push(chosenTag);
         } else {
+            const isCustomerBuyer = (document.getElementById('buyerType')?.value || 'CUSTOMER') !== 'COMPANY';
             const entry = {
                 ...item,
-                is_coupon_product: (getSelectedCouponMode() === 'PRODUCT_BUY' && cart.size >= 1) ? 1 : 0,
+                is_coupon_product: (isCustomerBuyer && getSelectedCouponMode() === 'PRODUCT_BUY' && cart.size >= 1) ? 1 : 0,
                 discount_percentage: resolveDiscountPercentage(item),
                 available_tags: [...pool],
                 tags: [chosenTag]
