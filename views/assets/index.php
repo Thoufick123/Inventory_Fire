@@ -5,6 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h4 class="fw-bold mb-1"><i class="bi bi-tools text-primary me-2"></i>Fixed Assets &amp; Plant Machinery</h4>
+        </div>
         <div class="d-flex gap-2">
             <a href="<?= url('assets/create') ?>" class="btn btn-primary fw-semibold">
                 <i class="bi bi-plus-circle me-1"></i> Register New Asset
