@@ -5,6 +5,9 @@
                 <code><?= e($product['code']) ?></code>
             </span>
             <span class="badge bg-success-subtle text-success border border-success-subtle">Own Production Style</span>
+            <?php if (!empty($product['is_complementary'])): ?>
+                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle"><i class="bi bi-gift-fill me-1"></i>Complementary</span>
+            <?php endif; ?>
         </div>
         <h2 class="mb-1 fw-bold"><?= e($product['name']) ?></h2>
         <div class="text-muted small d-flex align-items-center gap-2 flex-wrap">
