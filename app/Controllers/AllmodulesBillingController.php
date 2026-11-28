@@ -410,7 +410,9 @@ class AllmodulesBillingController
             ],
             'bill' => $bill,
             'billItems' => $this->loadBillItems((int)$bill['id']),
+            'sellerCompany' => SettingsService::getGroup('company'),
             'prodUnit' => ProductionUnit::getActiveFacility($bill['production_unit_id'] ?? null),
+            'showCompletedModal' => !empty($_GET['completed']),
         ]);
     }
 
@@ -2986,7 +2988,7 @@ class AllmodulesBillingController
                 Response::redirect('production/outward?bill_id=' . $billId, 'success', 'Company bill saved. Fill vehicle details to complete outward dispatch.');
                 return;
             }
-            Response::redirect('production/billing/view/' . $billId, 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
+            Response::redirect('production/billing/view/' . $billId . ($isNewBill ? '?completed=1' : ''), 'success', $isNewBill ? 'Production bill created.' : 'Production bill saved.');
         } catch (Throwable $e) {
             Database::rollback();
             error_log('ProductionBillingController::persistBill failed: ' . $e->getMessage());

@@ -153,7 +153,7 @@ $defaultStaffDisplay = $defaultStaffName . ($defaultStaffRole !== '' ? ' (' . $d
                             <input class="form-control" name="customer_state" id="customerStateInput" value="<?= $escape($bill['customer_state'] ?? '') ?>" placeholder="State">
                         </div>
                     </div>
-                    <div class="mt-3">
+                    <div class="mt-3 d-none" id="customerGstinField">
                         <label class="form-label">GSTIN</label>
                         <input class="form-control text-uppercase font-monospace" name="customer_gstin" id="customerGstinInput" maxlength="30" value="<?= $escape($bill['customer_gstin'] ?? '') ?>" placeholder="Customer GSTIN (if registered)">
                     </div>
