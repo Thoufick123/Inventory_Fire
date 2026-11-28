@@ -117,7 +117,7 @@
                 <div class="row g-3" id="monthPickerRow">
                     <div class="col-md-6">
                         <label class="form-label small text-muted mb-1 fw-semibold">Select Month</label>
-                        <select name="selected_month" class="form-select fw-semibold">
+                        <select name="selected_month" class="form-select fw-semibold" onchange="refreshExportModuleCounts()">
                             <?php for ($m = 1; $m <= 12; $m++): ?>
                                 <option value="<?= $m ?>" <?= ($curMonth === $m) ? 'selected' : '' ?>>
                                     <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
@@ -127,7 +127,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small text-muted mb-1 fw-semibold">Select Year</label>
-                        <select name="selected_year" class="form-select fw-semibold">
+                        <select name="selected_year" class="form-select fw-semibold" onchange="refreshExportModuleCounts()">
                             <?php for ($y = $curYear - 3; $y <= $curYear + 2; $y++): ?>
                                 <option value="<?= $y ?>" <?= ($y === $curYear) ? 'selected' : '' ?>><?= $y ?></option>
                             <?php endfor; ?>
@@ -139,11 +139,11 @@
                 <div class="row g-3 d-none" id="customPickerRow">
                     <div class="col-md-6">
                         <label class="form-label small text-muted mb-1 fw-semibold">From Date (Start)</label>
-                        <input type="date" name="date_from" class="form-control" value="<?= e($firstDayOfMonth) ?>">
+                        <input type="date" name="date_from" class="form-control" value="<?= e($firstDayOfMonth) ?>" onchange="refreshExportModuleCounts()">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label small text-muted mb-1 fw-semibold">To Date (End)</label>
-                        <input type="date" name="date_to" class="form-control" value="<?= e($today) ?>">
+                        <input type="date" name="date_to" class="form-control" value="<?= e($today) ?>" onchange="refreshExportModuleCounts()">
                     </div>
                 </div>
             </div>
@@ -241,6 +241,10 @@
                         Choose Data Modules to Include
                     </label>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="form-check form-switch mb-0 me-2">
+                            <input class="form-check-input cursor-pointer" type="checkbox" id="toggleOnlyWithData" onchange="applyExportModuleVisibility()">
+                            <label class="form-check-label small fw-semibold cursor-pointer" for="toggleOnlyWithData">Only With Data</label>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-primary py-0.5 px-2.5 fw-semibold fs-7" onclick="selectEnabledConcernModules()" id="btnAutoConcernModules" title="Automatically check only modules authorized for the selected concern(s)">
                             <i class="bi bi-shield-check me-1"></i>Select Concern Modules
                         </button>
@@ -260,20 +264,23 @@
                     }
                     ?>
                     <?php foreach ($categories as $catName => $catModules): ?>
-                        <div class="col-12 mt-3">
+                        <div class="col-12 mt-3 export-cat-header" data-export-cat="<?= e($catName) ?>">
                             <span class="text-uppercase tracking-wider text-muted fw-bold small" style="letter-spacing: 0.05em; font-size: 11px;">
                                 <i class="bi bi-tag-fill me-1 text-primary"></i> <?= e($catName) ?>
                             </span>
                         </div>
                         <?php foreach ($catModules as $modKey => $mod): ?>
-                            <div class="col-md-6 col-lg-4">
+                            <div class="col-md-6 col-lg-4 export-mod-card" data-export-mod="<?= e($modKey) ?>" data-export-cat="<?= e($catName) ?>">
                                 <div class="p-3 bg-light bg-opacity-50 rounded-3 border h-100 hover-shadow transition">
                                     <div class="form-check d-flex align-items-start gap-2">
                                         <input class="form-check-input export-mod-cb mt-1" type="checkbox" name="modules[]" value="<?= e($modKey) ?>" id="mod_<?= e($modKey) ?>" checked>
                                         <label class="form-check-label w-100 cursor-pointer" for="mod_<?= e($modKey) ?>">
-                                            <div class="fw-bold text-dark d-flex align-items-center gap-1.5 mb-1">
-                                                <i class="<?= e($mod['icon']) ?> text-<?= e($mod['color']) ?>"></i>
-                                                <span><?= e($mod['name']) ?></span>
+                                            <div class="fw-bold text-dark d-flex align-items-center justify-content-between gap-1.5 mb-1">
+                                                <span class="d-flex align-items-center gap-1.5">
+                                                    <i class="<?= e($mod['icon']) ?> text-<?= e($mod['color']) ?>"></i>
+                                                    <span><?= e($mod['name']) ?></span>
+                                                </span>
+                                                <span class="badge bg-secondary-subtle text-secondary border export-mod-count" data-mod="<?= e($modKey) ?>" style="font-size: 10px;">...</span>
                                             </div>
                                             <div class="text-muted small" style="font-size: 11.5px; line-height: 1.35;">
                                                 <?= e($mod['desc']) ?>
@@ -344,15 +351,16 @@
 
 <script>
 const CONCERN_MODULE_MAPPING = {
-    'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward'],
-    'production': ['programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants', 'qr_generations'],
+    'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward'],
+    'production': ['programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants', 'qr_generations'],
     'warehouse': ['batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests'],
-    'retail_pos': ['billing', 'direct_billing'],
+    'retail_pos': ['billing', 'direct_billing', 'coupons'],
     'digital_sales': ['billing', 'direct_billing', 'outward'],
     'returns': ['returns'],
     'expenses': ['expenses', 'wastage'],
     'assets': ['assets', 'asset_maintenance']
 };
+let latestExportCounts = {};
 
 function togglePeriodInputs() {
     const isMonth = document.getElementById('periodTypeMonth').checked;
@@ -365,6 +373,7 @@ function togglePeriodInputs() {
         mRow.classList.add('d-none');
         cRow.classList.remove('d-none');
     }
+    refreshExportModuleCounts();
 }
 
 function toggleAllExportModules(check) {
@@ -411,6 +420,9 @@ function handleConcernSelectionChange() {
         badge.className = 'badge rounded-pill bg-primary-subtle text-primary border px-3 py-2';
         badge.textContent = 'All Business Concerns (Consolidated)';
         filterWarehousesByConcerns([]);
+        const onlyDataEl = document.getElementById('toggleOnlyWithData');
+        if (onlyDataEl) onlyDataEl.checked = false;
+        refreshExportModuleCounts();
         return;
     }
 
@@ -421,6 +433,68 @@ function handleConcernSelectionChange() {
         : `Scoped: ${selectedValues.length} Concerns (${codes.join(', ')})`;
 
     filterWarehousesByConcerns(selectedValues);
+    const onlyDataEl = document.getElementById('toggleOnlyWithData');
+    if (onlyDataEl) onlyDataEl.checked = true;
+    refreshExportModuleCounts();
+}
+
+function refreshExportModuleCounts() {
+    const params = new URLSearchParams();
+    const isMonth = document.getElementById('periodTypeMonth')?.checked;
+    params.set('period_type', isMonth ? 'MONTH' : 'CUSTOM');
+    if (isMonth) {
+        params.set('selected_month', document.querySelector('[name="selected_month"]')?.value || '');
+        params.set('selected_year', document.querySelector('[name="selected_year"]')?.value || '');
+    } else {
+        params.set('date_from', document.querySelector('[name="date_from"]')?.value || '');
+        params.set('date_to', document.querySelector('[name="date_to"]')?.value || '');
+    }
+    document.querySelectorAll('.concern-filter-checkbox:checked').forEach(cb => {
+        if (cb.value) params.append('concern_ids[]', cb.value);
+    });
+
+    fetch(`<?= url('api/export/concern-summary') ?>?${params.toString()}`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success || !res.counts) return;
+            latestExportCounts = res.counts;
+            document.querySelectorAll('.export-mod-count').forEach(badge => {
+                const mod = badge.dataset.mod;
+                const cnt = Number(latestExportCounts[mod] ?? 0);
+                badge.textContent = cnt === 1 ? '1 record' : `${cnt.toLocaleString()} records`;
+                badge.className = cnt > 0
+                    ? 'badge bg-success-subtle text-success border border-success-subtle export-mod-count'
+                    : 'badge bg-secondary-subtle text-secondary border export-mod-count';
+            });
+            applyExportModuleVisibility();
+        })
+        .catch(() => {});
+}
+
+function applyExportModuleVisibility() {
+    const onlyWithData = Boolean(document.getElementById('toggleOnlyWithData')?.checked);
+    const hasScopedConcern = document.querySelectorAll('.concern-filter-checkbox:checked').length > 0;
+    const catVisibleCount = {};
+
+    document.querySelectorAll('.export-mod-card').forEach(card => {
+        const mod = card.dataset.exportMod;
+        const cat = card.dataset.exportCat || '';
+        const cnt = Number(latestExportCounts[mod] ?? 0);
+        const cb = card.querySelector('.export-mod-cb');
+        const shouldHide = onlyWithData && Object.prototype.hasOwnProperty.call(latestExportCounts, mod) && cnt === 0;
+        card.classList.toggle('d-none', shouldHide);
+        if (hasScopedConcern && Object.prototype.hasOwnProperty.call(latestExportCounts, mod) && cb) {
+            cb.checked = cnt > 0;
+        }
+        if (!shouldHide) {
+            catVisibleCount[cat] = (catVisibleCount[cat] || 0) + 1;
+        }
+    });
+
+    document.querySelectorAll('.export-cat-header').forEach(hdr => {
+        const cat = hdr.dataset.exportCat || '';
+        hdr.classList.toggle('d-none', (catVisibleCount[cat] || 0) === 0);
+    });
 }
 
 function selectConcernFilter(val) {

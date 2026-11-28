@@ -48,10 +48,17 @@ class ExportController {
                 'category' => 'Procurement & Materials'
             ],
             'third_party_products' => [
-                'name' => 'Third-Party Products & QR Generations',
+                'name' => 'Third-Party Products & Mapping',
                 'desc' => 'Ready-to-sell vendor products, retail catalog mapping, 3-tier taxonomy, sizes, colors, MRP & SP',
                 'icon' => 'bi bi-shop',
                 'color' => 'info',
+                'category' => 'Procurement & Materials'
+            ],
+            'qr_generations' => [
+                'name' => 'QR Generations',
+                'desc' => 'QR generation batches across Third-Party, Stitching & QC sources, brand/category, MRP, SP & stock-added status',
+                'icon' => 'bi bi-qr-code-scan',
+                'color' => 'primary',
                 'category' => 'Procurement & Materials'
             ],
             'suppliers' => [
@@ -84,6 +91,13 @@ class ExportController {
                 'color' => 'secondary',
                 'category' => 'Manufacturing'
             ],
+            'cutting_outwards' => [
+                'name' => 'Cutting Outward',
+                'desc' => 'Cutting batches outwarded to other concerns, piece counts, vehicle/driver & inward receipt status',
+                'icon' => 'bi bi-truck',
+                'color' => 'dark',
+                'category' => 'Manufacturing'
+            ],
             'stitching' => [
                 'name' => 'Stitching',
                 'desc' => 'Tailor & operator completions, stitched outputs, reworks & rejections',
@@ -102,6 +116,13 @@ class ExportController {
                 'name' => 'Damages',
                 'desc' => 'Roll damages, defect logs, loss amounts, resolutions, debit notes & replacement rolls',
                 'icon' => 'bi bi-exclamation-octagon',
+                'color' => 'danger',
+                'category' => 'Manufacturing'
+            ],
+            'damage_outwards' => [
+                'name' => 'Damage Outward',
+                'desc' => 'Damaged rolls/items outwarded to other concerns, qty/weight, vehicle/driver & inward receipt status',
+                'icon' => 'bi bi-truck-flatbed',
                 'color' => 'danger',
                 'category' => 'Manufacturing'
             ],
@@ -170,6 +191,13 @@ class ExportController {
                 'desc' => 'Separated direct sales bills excluded from normal billing totals, client details, payment logs & line items',
                 'icon' => 'bi bi-box-arrow-up-right',
                 'color' => 'warning',
+                'category' => 'Sales & Finance'
+            ],
+            'coupons' => [
+                'name' => 'Coupons',
+                'desc' => 'POS discount coupons, fixed/percent offers, usage limits, redeemed counts, expiry & status',
+                'icon' => 'bi bi-ticket-perforated',
+                'color' => 'primary',
                 'category' => 'Sales & Finance'
             ],
             'returns' => [
@@ -279,10 +307,10 @@ class ExportController {
         }
 
         $allModules = [
-            'purchases', 'rolls', 'raw_materials', 'third_party_products', 'suppliers', 'goods_inward',
-            'programs', 'cuttings', 'stitching', 'qc', 'damages', 'catalog', 'variants',
+            'purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward',
+            'programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants',
             'batches', 'outward', 'inventory', 'stock_ledger', 'stock_requests',
-            'billing', 'direct_billing', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
+            'billing', 'direct_billing', 'coupons', 'returns', 'wastage', 'expenses', 'assets', 'asset_maintenance'
         ];
         $selectedModules = !empty($_REQUEST['modules']) && is_array($_REQUEST['modules'])
             ? array_values(array_intersect($_REQUEST['modules'], $allModules))
@@ -335,6 +363,36 @@ class ExportController {
         }
 
         ExportService::streamCsv($periodLabel, $startDate, $endDate, $data, $activeFacility, $selectedConcerns);
+    }
+
+    /**
+     * AJAX endpoint: Return live per-module record counts for selected concern(s) and date range
+     */
+    public function ajaxConcernSummary(): void {
+        $periodType = trim((string)($_GET['period_type'] ?? 'MONTH'));
+        if ($periodType === 'MONTH') {
+            $month = max(1, min(12, (int)($_GET['selected_month'] ?? date('n'))));
+            $year  = max(2020, min(2035, (int)($_GET['selected_year'] ?? date('Y'))));
+            $startDate = sprintf('%04d-%02d-01', $year, $month);
+            $endDate   = date('Y-m-t', strtotime($startDate));
+        } else {
+            $startDate = trim((string)($_GET['date_from'] ?? date('Y-m-01')));
+            $endDate   = trim((string)($_GET['date_to'] ?? date('Y-m-d')));
+        }
+
+        $requestedConcernIds = $_GET['concern_ids'] ?? [];
+        if (!is_array($requestedConcernIds)) {
+            $requestedConcernIds = ($requestedConcernIds !== '' && $requestedConcernIds != '0') ? [(int)$requestedConcernIds] : [];
+        }
+        $concernIds = array_values(array_unique(array_filter(array_map('intval', $requestedConcernIds), static fn(int $id): bool => $id > 0)));
+
+        $counts = ExportService::getModuleCounts($startDate, $endDate, $concernIds);
+        Response::json([
+            'success'    => true,
+            'start_date' => $startDate,
+            'end_date'   => $endDate,
+            'counts'     => $counts,
+        ]);
     }
 
     /**
