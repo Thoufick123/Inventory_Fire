@@ -2742,6 +2742,7 @@ function confirmDeleteDamage(actionUrl, damageNumber) {
 </div>
 <?php endif; ?>
 
+<?php if (hasPermission('damages', 'create')): ?>
 <!-- Modal: Damage Outward (Scan Damage-Module Items Only -> Other Concern) -->
 <div class="modal fade" id="damageOutwardModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -2891,3 +2892,4 @@ document.getElementById('damageOutwardForm')?.addEventListener('submit', (e) => 
     }
 });
 </script>
+<?php endif; ?>

@@ -3,9 +3,14 @@
         <h2 class="mb-1"><i class="bi bi-scissors me-2 text-info"></i>Cutting Batches</h2>
     </div>
     <?php if (hasPermission('cutting', 'create')): ?>
-    <a href="<?= url('production/cutting/create') ?>" class="btn btn-primary px-3 py-2 fw-semibold">
-        <i class="bi bi-plus-circle me-1"></i> New Cutting Batch
-    </a>
+    <div class="d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-outline-dark px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#cuttingOutwardModal">
+            <i class="bi bi-truck me-1"></i> Cutting Outward
+        </button>
+        <a href="<?= url('production/cutting/create') ?>" class="btn btn-primary px-3 py-2 fw-semibold">
+            <i class="bi bi-plus-circle me-1"></i> New Cutting Batch
+        </a>
+    </div>
     <?php endif; ?>
 </div>
 
@@ -98,6 +103,7 @@
                     <option value="PENDING" <?= ($filters['status'] ?? '') === 'PENDING' ? 'selected' : '' ?>>Pending</option>
                     <option value="COMPLETED" <?= ($filters['status'] ?? '') === 'COMPLETED' ? 'selected' : '' ?>>Completed</option>
                     <option value="HOLD" <?= ($filters['status'] ?? '') === 'HOLD' ? 'selected' : '' ?>>On Hold</option>
+                    <option value="OUTWARDED" <?= ($filters['status'] ?? '') === 'OUTWARDED' ? 'selected' : '' ?>>Outwarded</option>
                     <option value="CANCELLED" <?= ($filters['status'] ?? '') === 'CANCELLED' ? 'selected' : '' ?>>Cancelled</option>
                 </select>
             </div>
@@ -160,8 +166,10 @@
                                 $statusClass = match($b['status']) {
                                     'COMPLETED'   => 'bg-success',
                                     'IN_PROGRESS' => 'bg-warning text-dark',
+                                    'OUTWARDED'   => 'bg-dark text-white',
                                     default       => 'bg-secondary'
                                 };
+                                $isOutwarded = strtoupper((string)($b['status'] ?? '')) === 'OUTWARDED' || !empty($b['cutting_outward_id']);
 
                                 // Build Category Path
                                 $catParts = array_filter([
@@ -276,12 +284,12 @@
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <?php endif; ?>
-                                        <?php if (hasPermission('stitching', 'create')): ?>
+                                        <?php if (!$isOutwarded && hasPermission('stitching', 'create')): ?>
                                         <a href="<?= url('production/stitching/create?cutting_batch_id=' . $b['id']) ?>" class="btn btn-action-icon btn-outline-warning" title="Create Stitching Job">
                                             <i class="bi bi-threads"></i>
                                         </a>
                                         <?php endif; ?>
-                                        <?php if (hasPermission('cutting', 'delete')): ?>
+                                        <?php if (!$isOutwarded && hasPermission('cutting', 'delete')): ?>
                                         <form method="POST" action="<?= url('production/cutting/delete/' . $b['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete Cutting Batch \'<?= e(addslashes($b['name'] ?: $b['batch_number'])) ?>\'?');">
                                             <?= CSRF::field() ?>
                                             <button type="submit" class="btn btn-action-icon btn-outline-danger" title="Delete Cutting Batch">
@@ -412,3 +420,216 @@ if (document.readyState === 'loading') {
     initCuttingPagination();
 }
 </script>
+
+<!-- Cutting Outwards History Card -->
+<?php if (!empty($cuttingOutwards)): ?>
+<div class="card shadow-sm border mt-4 mb-4">
+    <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between">
+        <h5 class="card-title mb-0 fw-bold"><i class="bi bi-truck me-2 text-primary"></i>Cutting Outwards to Other Concerns (<?= count($cuttingOutwards) ?>)</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>Outward #</th>
+                    <th>Date</th>
+                    <th>Destination Concern</th>
+                    <th>Cutting Batches</th>
+                    <th class="text-center">Batches</th>
+                    <th class="text-end">Total Cut Qty</th>
+                    <th>Vehicle / Driver</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($cuttingOutwards as $co): ?>
+                    <tr>
+                        <td class="fw-bold font-monospace text-primary"><?= e($co['outward_number']) ?></td>
+                        <td><?= e(date('d M Y', strtotime($co['outward_date']))) ?></td>
+                        <td><span class="badge bg-info-subtle text-info-emphasis border"><?= e($co['destination_concern_name'] ?? 'Concern') ?></span></td>
+                        <td class="font-monospace text-muted"><?= e($co['batch_numbers_csv'] ?? '') ?></td>
+                        <td class="text-center fw-bold"><?= (int)$co['total_batches'] ?></td>
+                        <td class="text-end fw-bold text-success"><?= number_format((int)$co['total_cut_qty']) ?> pcs</td>
+                        <td><?= e(trim(($co['vehicle_number'] ?? '') . ' ' . ($co['driver_name'] ?? '')) ?: '—') ?></td>
+                        <td><?= e($co['notes'] ?: '—') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (hasPermission('cutting', 'create')): ?>
+<!-- Modal: Cutting Outward (Send Cutting Batches -> Other Concern) -->
+<div class="modal fade" id="cuttingOutwardModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="bi bi-truck me-2"></i>Cutting Outward to Other Concern</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="<?= url('allmodules/cutting/outward/store') ?>" id="cuttingOutwardForm">
+                <?= CSRF::field() ?>
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Destination Concern <span class="text-danger">*</span></label>
+                            <select name="destination_concern_id" class="form-select fw-semibold" required>
+                                <option value="">-- Select Target Concern --</option>
+                                <?php foreach ($targetConcerns ?? [] as $tc): ?>
+                                    <option value="<?= (int)$tc['id'] ?>"><?= e($tc['name']) ?><?= !empty($tc['code']) ? ' (' . e($tc['code']) . ')' : '' ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Vehicle / Carrier</label>
+                            <input type="text" name="vehicle_number" class="form-control" placeholder="e.g. TN39...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Driver</label>
+                            <input type="text" name="driver_name" class="form-control" placeholder="Driver name">
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <label class="form-label fw-bold text-dark mb-1" for="cuttingOutwardScanInput">
+                            <i class="bi bi-scissors text-primary me-1"></i>Scan / Select Cutting Batch
+                        </label>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <select id="cuttingOutwardSelect" class="form-select" onchange="selectCuttingBatchForOutward(this.value)">
+                                    <option value="">-- Quick Select Eligible Cutting Batch --</option>
+                                    <?php foreach ($availableOutwardBatches ?? [] as $ab): ?>
+                                        <option value="<?= e($ab['batch_number']) ?>">
+                                            <?= e($ab['batch_number']) ?> — <?= e($ab['name'] ?: $ab['batch_number']) ?> (<?= number_format((int)$ab['cut_qty']) ?> pcs)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" id="cuttingOutwardScanInput" class="form-control font-monospace fw-bold" placeholder="Or scan / enter Cutting Batch # or Name..." autocomplete="off">
+                                    <button type="button" class="btn btn-dark fw-semibold" onclick="scanCuttingForOutward()">Add</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="cuttingOutwardScanMsg" class="small mt-2 text-muted">Only active cutting batches not yet stitched or outwarded can be added.</div>
+                    </div>
+
+                    <div class="table-responsive border rounded-3 mb-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Batch #</th>
+                                    <th>Batch Name</th>
+                                    <th>Program #</th>
+                                    <th>Product</th>
+                                    <th class="text-end">Cut Qty</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuttingOutwardItemsBody">
+                                <tr id="cuttingOutwardEmptyRow"><td colspan="6" class="text-center text-muted py-4">No cutting batches added yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <label class="form-label fw-semibold">Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Outward remarks..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-dark fw-semibold px-4"><i class="bi bi-truck me-1"></i>Create Cutting Outward</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const cuttingOutwardMap = new Map();
+
+function selectCuttingBatchForOutward(batchNumber) {
+    if (!batchNumber) return;
+    const input = document.getElementById('cuttingOutwardScanInput');
+    if (input) input.value = batchNumber;
+    scanCuttingForOutward();
+    const sel = document.getElementById('cuttingOutwardSelect');
+    if (sel) sel.value = '';
+}
+
+function scanCuttingForOutward() {
+    const input = document.getElementById('cuttingOutwardScanInput');
+    const msgEl = document.getElementById('cuttingOutwardScanMsg');
+    const q = (input?.value || '').trim();
+    if (!q) return;
+
+    if (msgEl) msgEl.innerHTML = '<span class="text-muted">Checking Cutting Batch records...</span>';
+    fetch(`<?= url('api/allmodules/cutting/outward-scan') ?>?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res || !res.success || !res.data) {
+                if (msgEl) msgEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>${res?.message || 'Cutting batch not eligible.'}</span>`;
+                return;
+            }
+            const d = res.data;
+            if (cuttingOutwardMap.has(d.cutting_batch_id)) {
+                if (msgEl) msgEl.innerHTML = `<span class="text-warning-emphasis fw-semibold">Batch ${d.batch_number} is already added to this outward.</span>`;
+                input.value = '';
+                return;
+            }
+            cuttingOutwardMap.set(d.cutting_batch_id, d);
+            renderCuttingOutwardRows();
+            input.value = '';
+            input.focus();
+            if (msgEl) msgEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Added ${d.batch_number} (${d.cut_qty} pcs).</span>`;
+        })
+        .catch(() => {
+            if (msgEl) msgEl.innerHTML = '<span class="text-danger">Error checking Cutting Batch records.</span>';
+        });
+}
+
+function removeCuttingOutwardItem(id) {
+    cuttingOutwardMap.delete(id);
+    renderCuttingOutwardRows();
+}
+
+function renderCuttingOutwardRows() {
+    const tbody = document.getElementById('cuttingOutwardItemsBody');
+    if (!tbody) return;
+    if (!cuttingOutwardMap.size) {
+        tbody.innerHTML = '<tr id="cuttingOutwardEmptyRow"><td colspan="6" class="text-center text-muted py-4">No cutting batches added yet.</td></tr>';
+        return;
+    }
+    let html = '';
+    cuttingOutwardMap.forEach((d, id) => {
+        html += `<tr>
+            <td class="fw-bold font-monospace">${d.batch_number}<input type="hidden" name="cutting_batch_ids[]" value="${id}"></td>
+            <td>${d.batch_name || ''}</td>
+            <td class="font-monospace small">${d.program_number || '—'}</td>
+            <td>${d.product_name || ''}</td>
+            <td class="text-end font-monospace fw-bold">${Number(d.cut_qty || 0).toLocaleString()} pcs</td>
+            <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeCuttingOutwardItem(${id})"><i class="bi bi-x"></i></button></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+document.getElementById('cuttingOutwardScanInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        scanCuttingForOutward();
+    }
+});
+
+document.getElementById('cuttingOutwardForm')?.addEventListener('submit', (e) => {
+    if (!cuttingOutwardMap.size) {
+        e.preventDefault();
+        alert('Please add at least one Cutting Batch to outward.');
+    }
+});
+</script>
+<?php endif; ?>

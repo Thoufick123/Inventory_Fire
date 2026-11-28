@@ -465,7 +465,7 @@ class Router {
         $this->post('allmodules/damages/update/{id}', 'AllmodulesController', 'updateDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/resolve/{id}', 'AllmodulesController', 'resolveDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'edit']]);
         $this->post('allmodules/damages/delete/{id}', 'AllmodulesController', 'deleteDamage', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'delete']]);
-        $this->get('api/allmodules/damages/outward-scan', 'AllmodulesController', 'ajaxLookupDamageForOutward', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'view']]);
+        $this->get('api/allmodules/damages/outward-scan', 'AllmodulesController', 'ajaxLookupDamageForOutward', ['AuthMiddleware', ['PermissionMiddleware', [['damages', 'view'], ['damages', 'create']]]]);
         $this->post('allmodules/damages/outward/store', 'AllmodulesController', 'storeDamageOutward', ['AuthMiddleware', ['PermissionMiddleware', 'damages', 'create']]);
 
         // Production Catalog
@@ -520,6 +520,8 @@ class Router {
         $this->get('allmodules/cutting/edit/{id}', 'AllmodulesController', 'editCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
         $this->post('allmodules/cutting/update/{id}', 'AllmodulesController', 'updateCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
         $this->post('allmodules/cutting/delete/{id}', 'AllmodulesController', 'deleteCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'delete']]);
+        $this->get('api/allmodules/cutting/outward-scan', 'AllmodulesController', 'ajaxLookupCuttingForOutward', ['AuthMiddleware', ['PermissionMiddleware', [['cutting', 'view'], ['cutting', 'create']]]]);
+        $this->post('allmodules/cutting/outward/store', 'AllmodulesController', 'storeCuttingOutward', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
         $this->get('api/programs/{id}/details', 'AllmodulesController', 'ajaxProgramDetails', ['AuthMiddleware']);
 
         // Wastage Selling
