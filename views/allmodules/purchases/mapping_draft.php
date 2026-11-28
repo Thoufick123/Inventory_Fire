@@ -328,11 +328,6 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                                                 <label class="btn btn-outline-primary fw-semibold" for="gstExc0">Excl.</label>
                                             </div>
                                         </div>
-                                        <div class="col-12 col-md-auto ms-md-auto d-flex align-items-end">
-                                            <button type="button" class="btn btn-primary fw-semibold px-3 text-nowrap btn-generate-variants">
-                                                <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -368,6 +363,11 @@ $currentInvoiceDateVal = !empty($bill['invoice_date'])
                                                 </thead>
                                                 <tbody class="gen-variant-rates-body"></tbody>
                                             </table>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-2 pt-1">
+                                            <button type="button" class="btn btn-primary fw-semibold px-4 text-nowrap btn-generate-variants">
+                                                <i class="bi bi-lightning-charge-fill me-1"></i>Generate &amp; Save
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -3743,46 +3743,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function checkExistingInvoice() {
-        const sid = sellerSel?.value || '';
-        const inv = invInput?.value.trim() || '';
-        if (!sid || !inv) {
-            clearExistingState();
-            return;
-        }
-        if (initialDraftId > 0 && sid === initialSellerId && inv.toUpperCase() === initialInvoiceNum.trim().toUpperCase()) {
-            clearExistingState();
-            return;
-        }
-        fetch('<?= url('api/purchases/mapping/check-invoice') ?>?seller_id=' + encodeURIComponent(sid) + '&invoice_number=' + encodeURIComponent(inv), {
-            headers: { 'Accept': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (!data || !data.exists) {
-                clearExistingState();
-                return;
-            }
-            const rec = data.record || {};
-            if (initialDraftId > 0 && data.source === 'MAPPING' && Number(rec.id || 0) === initialDraftId) {
-                clearExistingState();
-                return;
-            }
-            const items = Array.isArray(data.items) ? data.items : [];
-            const useUrl = rec.use_url || '#';
-
-            invInput?.classList.add('is-invalid');
-            if (errEl) {
-                errEl.textContent = `Invoice "${rec.invoice_number || inv}" already exists (${data.source === 'PURCHASE' ? 'Purchase ' + (rec.purchase_number || '') : 'Mapping Draft'}). Cannot create duplicate — click "Use Existing Invoice".`;
-                errEl.classList.remove('d-none');
-                errEl.classList.add('d-block');
-            }
-            if (btnUse) { btnUse.href = useUrl; btnUse.classList.remove('d-none'); }
-            if (btnUseCard) { btnUseCard.href = useUrl; }
-            if (btnSave) { btnSave.disabled = true; }
-            if (previewBody) previewBody.innerHTML = '';
-            previewCard?.classList.add('d-none');
-        })
-        .catch(() => {});
+        // Purchases and QR Generations are independent; do not show duplicate-invoice errors or block entry here.
+        clearExistingState();
     }
 
     function scheduleCheck() {
