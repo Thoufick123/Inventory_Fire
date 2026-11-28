@@ -298,14 +298,8 @@ if (!empty($authUser['production_unit_name'])) {
                             <?php if (hasPermission('asset_register', 'view') || hasPermission('assets', 'view')): ?>
                             <li><a href="<?= url('assets') ?>" class="<?= ($activeMenu ?? '') === 'assets-list' ? 'active' : '' ?>">Asset Register</a></li>
                             <?php endif; ?>
-                            <?php if (hasPermission('asset_register', 'create') || hasPermission('assets', 'create')): ?>
-                            <li><a href="<?= url('assets/create') ?>" class="<?= ($activeMenu ?? '') === 'assets-create' ? 'active' : '' ?>">Register New Asset</a></li>
-                            <?php endif; ?>
                             <?php if (hasPermission('asset_maintenance', 'view') || hasPermission('assets', 'view')): ?>
                             <li><a href="<?= url('assets/maintenance') ?>" class="<?= ($activeMenu ?? '') === 'assets-maintenance' ? 'active' : '' ?>">Maintenance &amp; Services</a></li>
-                            <?php endif; ?>
-                            <?php if (hasPermission('asset_maintenance', 'create') || hasPermission('assets', 'create')): ?>
-                            <li><a href="<?= url('assets/maintenance/create') ?>" class="<?= ($activeMenu ?? '') === 'assets-maintenance-create' ? 'active' : '' ?>">Record Maintenance</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>

@@ -8,9 +8,6 @@
             <p class="text-muted small mb-0">Record and monitor equipment breakdowns, routine servicing, AMC, and parts replaced</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="<?= url('assets') ?>" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Asset Register
-            </a>
             <a href="<?= url('assets/maintenance/create') ?>" class="btn btn-primary fw-semibold">
                 <i class="bi bi-plus-circle me-1"></i> Log Maintenance Ticket
             </a>
@@ -22,13 +19,13 @@
         <div class="card-body p-3">
             <form method="GET" action="<?= url('assets/maintenance') ?>" class="row g-2 align-items-center">
                 <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="search" class="form-control" placeholder="Search Log #, Asset Code, Machine, Technician..." value="<?= e($filters['search']) ?>">
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <select name="service_type" class="form-select form-select-sm">
+                    <select name="service_type" class="form-select">
                         <option value="">All Service Types</option>
                         <option value="ROUTINE_PREVENTIVE" <?= $filters['service_type'] === 'ROUTINE_PREVENTIVE' ? 'selected' : '' ?>>Routine Preventive</option>
                         <option value="BREAKDOWN_REPAIR" <?= $filters['service_type'] === 'BREAKDOWN_REPAIR' ? 'selected' : '' ?>>Breakdown Repair</option>
@@ -38,7 +35,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <select name="status" class="form-select form-select-sm">
+                    <select name="status" class="form-select">
                         <option value="">All Statuses</option>
                         <option value="COMPLETED" <?= $filters['status'] === 'COMPLETED' ? 'selected' : '' ?>>Completed</option>
                         <option value="IN_PROGRESS" <?= $filters['status'] === 'IN_PROGRESS' ? 'selected' : '' ?>>In Progress / Servicing</option>
@@ -46,8 +43,12 @@
                     </select>
                 </div>
                 <div class="col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-sm btn-dark w-100"><i class="bi bi-funnel me-1"></i>Filter</button>
-                    <a href="<?= url('assets/maintenance') ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i></a>
+                    <button type="submit" class="btn btn-primary fw-semibold flex-grow-1 shadow-xs">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="<?= url('assets/maintenance') ?>" class="btn btn-outline-secondary shadow-xs" title="Reset Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
                 </div>
             </form>
         </div>

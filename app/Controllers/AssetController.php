@@ -154,7 +154,7 @@ class AssetController {
 
         try {
             $id = Asset::create($data);
-            Response::redirectWithSuccess('assets/view/' . $id, "Asset '{$name}' ({$assetCode}) registered successfully!");
+            Response::redirectWithSuccess('assets', "Asset '{$name}' ({$assetCode}) registered successfully!");
         } catch (Exception $e) {
             Response::redirectWithError('assets/create', 'Failed to register asset: ' . $e->getMessage());
         }
@@ -260,7 +260,7 @@ class AssetController {
 
         try {
             Asset::update($assetId, $data);
-            Response::redirectWithSuccess('assets/view/' . $assetId, 'Asset details updated successfully!');
+            Response::redirectWithSuccess('assets', 'Asset details updated successfully!');
         } catch (Exception $e) {
             Response::redirectWithError('assets/edit/' . $assetId, 'Failed to update asset: ' . $e->getMessage());
         }
