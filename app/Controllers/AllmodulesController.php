@@ -293,6 +293,14 @@ class AllmodulesController {
         ]);
         if (($_POST['return_to'] ?? '') === 'purchases/mapping/create') {
             $returnInvoiceNumber = mb_substr(trim((string)($_POST['return_invoice_number'] ?? '')), 0, 100);
+            $returnDraftId = (int)($_POST['return_draft_id'] ?? 0);
+            if ($returnDraftId > 0) {
+                Session::flash('success', 'Supplier saved.');
+                Response::redirect(url('purchases/mapping/draft/' . $returnDraftId . '?' . http_build_query([
+                    'seller_id' => $sellerId,
+                ])));
+                return;
+            }
             Session::flash('success', 'Supplier saved. Continue creating the mapping invoice.');
             Response::redirect(url('purchases/mapping/create?' . http_build_query([
                 'seller_id' => $sellerId,
@@ -3584,20 +3592,48 @@ class AllmodulesController {
             $selectedSellerId = 0;
         }
         $invoiceNumber = mb_substr(trim((string)($_GET['invoice_number'] ?? '')), 0, 100);
+        $invoiceDate = trim((string)($_GET['invoice_date'] ?? date('Y-m-d')));
+        $dtCheck = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate);
+        if (!$dtCheck || $dtCheck->format('Y-m-d') !== $invoiceDate) {
+            $invoiceDate = date('Y-m-d');
+        }
 
-        Response::view('allmodules.purchases.mapping_create', [
-            'pageTitle' => 'Create QR Generation',
-            'activeModule' => 'purchases',
-            'activeMenu' => 'purchases-mapping',
-            'sellers' => $sellers,
-            'selectedSellerId' => $selectedSellerId,
-            'invoiceNumber' => $invoiceNumber,
-            'breadcrumb' => [
+        $lookups = $this->loadMappingFormLookups($cid);
+        $bill = [
+            'id'             => 0,
+            'concern_id'     => $cid ?? 1,
+            'seller_id'      => $selectedSellerId,
+            'seller_name'    => '',
+            'seller_company' => '',
+            'invoice_number' => $invoiceNumber,
+            'invoice_date'   => $invoiceDate,
+            'status'         => 'DRAFT',
+            'purchase_id'    => null,
+            'purchase_number'=> null,
+            'concern_name'   => '',
+            'concern_code'   => '',
+            'created_at'     => date('Y-m-d H:i:s'),
+        ];
+
+        Response::view('allmodules.purchases.mapping_draft', array_merge($lookups, [
+            'pageTitle'          => 'Create QR Generation',
+            'activeModule'       => 'purchases',
+            'activeMenu'         => 'purchases-mapping',
+            'isCreateMode'       => true,
+            'bill'               => $bill,
+            'viewOnly'           => false,
+            'items'              => [],
+            'sellers'            => $sellers,
+            'selectedSellerId'   => $selectedSellerId,
+            'invoiceNumber'      => $invoiceNumber,
+            'candidatePurchases' => [],
+            'qrItemMap'          => [],
+            'breadcrumb'         => [
                 ['label' => 'All Modules', 'url' => url('purchases')],
                 ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
                 ['label' => 'Create QR Generation'],
             ],
-        ]);
+        ]));
     }
 
     /**
@@ -3831,20 +3867,6 @@ class AllmodulesController {
              ORDER BY mi.id ASC",
             [$mappingBillId]
         );
-        $this->syncCatalogCategoriesToThirdParty();
-        $categories = Database::fetchAll(
-            "SELECT tpc.id, tpc.name, tpc.code
-             FROM third_party_categories tpc
-             WHERE tpc.is_active = 1
-               AND (
-                   LOWER(TRIM(tpc.name)) NOT IN ('non feeding', 'feeding', 'kids wear', 'women ethnic', 'men casual')
-                   OR EXISTS (SELECT 1 FROM categories c WHERE c.is_active = 1 AND LOWER(TRIM(c.name)) = LOWER(TRIM(tpc.name)))
-               )
-             ORDER BY tpc.sort_order ASC, tpc.name ASC"
-        );
-        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
-        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
-
         $candidateScope = $cid !== null
             ? ($cid === 1 ? ' AND (pp.concern_id = ? OR pp.concern_id IS NULL)' : ' AND pp.concern_id = ?')
             : '';
@@ -3890,9 +3912,55 @@ class AllmodulesController {
             }
         }
 
-        $cid = function_exists('currentConcernId') ? currentConcernId() : null;
-        $warehouses = [];
-        $warehouses = [];
+        $lookups = $this->loadMappingFormLookups($cid);
+        $sellerWhere = "WHERE (is_active = 1 OR is_active IS NULL) AND production_deleted_at IS NULL";
+        $sellerParams = [];
+        if ($cid !== null) {
+            $sellerWhere .= $cid === 1 ? " AND (concern_id = ? OR concern_id IS NULL)" : " AND concern_id = ?";
+            $sellerParams[] = $cid;
+        }
+        $sellers = Database::fetchAll("SELECT id, name, company FROM sellers {$sellerWhere} ORDER BY company, name", $sellerParams);
+        $selectedSellerId = max(0, (int)($_GET['seller_id'] ?? $bill['seller_id'] ?? 0));
+
+        Response::view('allmodules.purchases.mapping_draft', array_merge($lookups, [
+            'pageTitle'          => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id'])),
+            'activeModule'       => 'purchases',
+            'activeMenu'         => 'purchases-mapping',
+            'isCreateMode'       => false,
+            'bill'               => $bill,
+            'viewOnly'           => $viewOnly,
+            'items'              => $items,
+            'sellers'            => $sellers,
+            'selectedSellerId'   => $selectedSellerId,
+            'invoiceNumber'      => (string)($bill['invoice_number'] ?? ''),
+            'candidatePurchases' => $candidatePurchases,
+            'qrItemMap'          => $qrItemMap,
+            'breadcrumb'         => [
+                ['label' => 'All Modules', 'url' => url('purchases')],
+                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
+                ['label' => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id']))],
+            ],
+        ]));
+    }
+
+    /**
+     * Load shared lookup data for the unified QR Generation create/edit page.
+     */
+    private function loadMappingFormLookups(?int $cid): array {
+        $this->syncCatalogCategoriesToThirdParty();
+        $categories = Database::fetchAll(
+            "SELECT tpc.id, tpc.name, tpc.code
+             FROM third_party_categories tpc
+             WHERE tpc.is_active = 1
+               AND (
+                   LOWER(TRIM(tpc.name)) NOT IN ('non feeding', 'feeding', 'kids wear', 'women ethnic', 'men casual')
+                   OR EXISTS (SELECT 1 FROM categories c WHERE c.is_active = 1 AND LOWER(TRIM(c.name)) = LOWER(TRIM(tpc.name)))
+               )
+             ORDER BY tpc.sort_order ASC, tpc.name ASC"
+        );
+        $subcategories = Database::fetchAll("SELECT id, category_id, name, code FROM third_party_subcategories WHERE is_active = 1 ORDER BY name");
+        $subSubcategories = Database::fetchAll("SELECT id, subcategory_id, name, code FROM third_party_sub_subcategories WHERE is_active = 1 ORDER BY name");
+
         if ($cid !== null) {
             $warehouses = Database::fetchAll(
                 "SELECT w.id, w.name, w.code, w.concern_id, c.name AS concern_name
@@ -4024,7 +4092,6 @@ class AllmodulesController {
                 }
             }
 
-            // Also include deferred-variant catalog products & custom attributes from products.attributes JSON
             $sizeNameById = [];
             foreach ($masterSizes as $msz) {
                 $sizeNameById[(int)$msz['id']] = trim((string)($msz['code'] ?: $msz['name']));
@@ -4118,34 +4185,19 @@ class AllmodulesController {
             unset($camEntry);
         } catch (\Throwable $e) {}
 
-        Response::view('allmodules.purchases.mapping_draft', [
-            'pageTitle' => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id'])),
-            'activeModule' => 'purchases',
-            'activeMenu' => 'purchases-mapping',
-            'bill' => $bill,
-            'viewOnly' => $viewOnly,
-            'items' => $items,
-            'sellers' => Database::fetchAll("SELECT id, name, company FROM sellers ORDER BY name ASC"),
-            'categories' => $categories,
-            'subcategories' => $subcategories,
-            'subSubcategories' => $subSubcategories,
-            'masterSizes' => $masterSizes,
-            'masterColors' => $masterColors,
+        return [
+            'categories'            => $categories,
+            'subcategories'         => $subcategories,
+            'subSubcategories'      => $subSubcategories,
+            'masterSizes'           => $masterSizes,
+            'masterColors'          => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
-            'hsnList' => $hsnList,
-            'candidatePurchases' => $candidatePurchases,
-            'warehouses' => $warehouses,
-            'concerns' => $concerns,
-            'existingRollProducts' => $existingRollProducts,
-            'existingProducts' => $existingProducts,
-            'hsnList' => $hsnList,
-            'qrItemMap' => $qrItemMap,
-            'breadcrumb' => [
-                ['label' => 'All Modules', 'url' => url('purchases')],
-                ['label' => 'QR Generations', 'url' => url('purchases/mapping')],
-                ['label' => ($viewOnly ? 'View QR Generation ' : 'Edit QR Generation ') . ($bill['invoice_number'] ?: ('#' . $bill['id']))],
-            ],
-        ]);
+            'hsnList'               => $hsnList,
+            'warehouses'            => $warehouses,
+            'concerns'              => $concerns,
+            'existingRollProducts'  => $existingRollProducts,
+            'existingProducts'      => $existingProducts,
+        ];
     }
 
     /**
@@ -4319,12 +4371,8 @@ class AllmodulesController {
                 throw new InvalidArgumentException("Cannot delete invoice because product '{$stockedItem['item_name']}' already has stock posted to warehouse inventory.");
             }
 
-            // If linked to production_purchases, guard against GRN / Inward / Payments
+            // If linked to production_purchases, guard against Inward / Payments (draft GRN is auto-created on Move to Purchase)
             if (!empty($bill['purchase_id'])) {
-                $hasGrn = Database::fetchOne("SELECT id FROM grn WHERE purchase_id = ? LIMIT 1", [$bill['purchase_id']]);
-                if ($hasGrn) {
-                    throw new InvalidArgumentException("Cannot delete invoice because Goods Received Note (GRN) has already been created for linked purchase.");
-                }
                 $purRow = Database::fetchOne("SELECT is_inwarded FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
                 if ($purRow && !empty($purRow['is_inwarded'])) {
                     throw new InvalidArgumentException("Cannot delete invoice because purchase items have already been inwarded to inventory.");
@@ -4334,6 +4382,8 @@ class AllmodulesController {
                     if ($hasPayments) {
                         throw new InvalidArgumentException("Cannot delete invoice because payments have been recorded for linked purchase.");
                     }
+                } catch (\InvalidArgumentException $e) {
+                    throw $e;
                 } catch (\Throwable $e) {}
             }
 
@@ -4348,9 +4398,27 @@ class AllmodulesController {
 
             // Clean up linked production purchase records if linked
             if (!empty($bill['purchase_id'])) {
-                Database::execute("DELETE FROM third_party_product_variants WHERE purchase_id = ?", [$bill['purchase_id']]);
-                Database::execute("DELETE FROM seller_rolls WHERE purchase_id = ?", [$bill['purchase_id']]);
+                $purchaseItemRows = Database::fetchAll(
+                    "SELECT id, seller_roll_id FROM production_purchase_items WHERE purchase_id = ?",
+                    [$bill['purchase_id']]
+                );
+                $pItemIds = array_values(array_filter(array_map(static fn($r) => (int)$r['id'], $purchaseItemRows)));
+                $sRollIds = array_values(array_filter(array_map(static fn($r) => (int)($r['seller_roll_id'] ?? 0), $purchaseItemRows)));
+                if (!empty($pItemIds)) {
+                    $inP = implode(',', array_fill(0, count($pItemIds), '?'));
+                    Database::execute("DELETE FROM third_party_product_variants WHERE purchase_item_id IN ($inP)", $pItemIds);
+                    try {
+                        Database::execute("DELETE FROM purchase_inward_items WHERE purchase_item_id IN ($inP)", $pItemIds);
+                    } catch (\Throwable $e) {}
+                }
+                try {
+                    Database::execute("DELETE FROM purchase_inwards WHERE purchase_id = ?", [$bill['purchase_id']]);
+                } catch (\Throwable $e) {}
                 Database::execute("DELETE FROM production_purchase_items WHERE purchase_id = ?", [$bill['purchase_id']]);
+                if (!empty($sRollIds)) {
+                    $inR = implode(',', array_fill(0, count($sRollIds), '?'));
+                    Database::execute("DELETE FROM seller_rolls WHERE id IN ($inR)", $sRollIds);
+                }
                 Database::execute("DELETE FROM production_purchases WHERE id = ?", [$bill['purchase_id']]);
             }
 
@@ -4719,7 +4787,14 @@ class AllmodulesController {
 
     public function addThirdPartyMappingDraftProduct(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
         if (!CSRF::validateRequest()) {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Session or security token expired. Please refresh the page and try again.'], 403);
+                return;
+            }
             Session::flash('error', 'Invalid security token. Please try again.');
             Response::back();
             return;
@@ -4740,14 +4815,16 @@ class AllmodulesController {
         $variants = $_POST['variants'] ?? [];
         $productName = mb_strtoupper(trim((string)($_POST['product_name'] ?? '')));
         if (!$bill || ($bill['status'] !== 'DRAFT' && empty($bill['purchase_id']))) {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Only an open mapping entry can be edited. Please refresh the page.'], 422);
+                return;
+            }
             Session::flash('error', 'Only an open mapping entry can be edited.');
             Response::redirect(url('purchases/mapping'));
             return;
         }
 
         $entryType = strtoupper(trim((string)($_POST['entry_type'] ?? 'THIRD_PARTY')));
-        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
 
         if ($entryType === 'FABRIC_ROLL') {
             $rolls = $_POST['rolls'] ?? [];
@@ -5304,11 +5381,42 @@ class AllmodulesController {
         $sellerId = max(0, (int)($_POST['seller_id'] ?? 0));
         $purchaseId = !empty($_POST['purchase_id']) ? (int)$_POST['purchase_id'] : 0;
         $invoiceNumber = trim((string)($_POST['invoice_number'] ?? ''));
+        $fromMappingCreate = !empty($_POST['from_mapping_create']);
+        $invoiceDate = trim((string)($_POST['invoice_date'] ?? ''));
+        if ($invoiceDate !== '') {
+            $dtCheck = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate);
+            if (!$dtCheck || $dtCheck->format('Y-m-d') !== $invoiceDate) {
+                Response::json(['success' => false, 'message' => 'Please select a valid Invoice Date.'], 422);
+                return;
+            }
+        }
+        if ($fromMappingCreate && $sellerId <= 0) {
+            Response::json(['success' => false, 'message' => 'Please select a Supplier / Person first.'], 422);
+            return;
+        }
         if ($invoiceNumber === '') {
-            $invoiceNumber = 'PUR-' . date('ymdHis');
+            $invoiceNumber = ($fromMappingCreate ? 'INV-' : 'PUR-') . date('ymdHis');
         }
         $cid = resolveSubmittedConcernId() ?: (currentConcernId() ?: 1);
         $userId = (int)(Session::get('user_id') ?? 0);
+
+        if ($fromMappingCreate) {
+            $concernCond = ($cid === 1) ? "(concern_id = ? OR concern_id IS NULL)" : "concern_id = ?";
+            $existingPurchase = Database::fetchOne(
+                "SELECT id, purchase_number FROM production_purchases
+                 WHERE seller_id = ? AND UPPER(TRIM(COALESCE(invoice_number, ''))) = UPPER(TRIM(?))
+                   AND {$concernCond}
+                 ORDER BY id DESC LIMIT 1",
+                [$sellerId, $invoiceNumber, $cid]
+            );
+            if ($existingPurchase) {
+                Response::json([
+                    'success' => false,
+                    'message' => "Invoice '{$invoiceNumber}' already exists in Purchases ({$existingPurchase['purchase_number']}). Use the existing invoice instead."
+                ], 422);
+                return;
+            }
+        }
 
         if ($purchaseId > 0) {
             $existing = Database::fetchOne(
@@ -5341,11 +5449,25 @@ class AllmodulesController {
             return;
         }
 
-        Database::execute(
-            "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, status, created_by)
-             VALUES (?, ?, ?, ?, 'DRAFT', ?)",
-            [$cid, $sellerId, $invoiceNumber, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
-        );
+        try {
+            if ($invoiceDate !== '' && !Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
+                Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+            }
+        } catch (\Throwable $e) {}
+
+        if ($invoiceDate !== '') {
+            Database::execute(
+                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, invoice_date, purchase_id, status, created_by)
+                 VALUES (?, ?, ?, ?, ?, 'DRAFT', ?)",
+                [$cid, $sellerId, $invoiceNumber, $invoiceDate, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
+            );
+        } else {
+            Database::execute(
+                "INSERT INTO third_party_mapping_bills (concern_id, seller_id, invoice_number, purchase_id, status, created_by)
+                 VALUES (?, ?, ?, ?, 'DRAFT', ?)",
+                [$cid, $sellerId, $invoiceNumber, ($purchaseId > 0 ? $purchaseId : null), $userId ?: null]
+            );
+        }
         $newId = (int)Database::lastInsertId();
         Response::json([
             'success' => true,
@@ -5983,7 +6105,22 @@ class AllmodulesController {
 
     public function moveThirdPartyMappingDraftToPurchase(string $id): void {
         PurchaseMappingFulfillmentService::ensureSchema();
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+            || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+        $respondMoveError = static function (string $msg, string $redirectUrl, int $status = 422) use ($isAjax): void {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => $msg], $status);
+                return;
+            }
+            Session::flash('error', $msg);
+            Response::redirect($redirectUrl);
+        };
+
         if (!CSRF::validateRequest()) {
+            if ($isAjax) {
+                Response::json(['success' => false, 'message' => 'Session or security token expired. Please refresh the page and try again.'], 403);
+                return;
+            }
             Session::flash('error', 'Invalid security token. Please try again.');
             Response::back();
             return;
@@ -5998,19 +6135,75 @@ class AllmodulesController {
         }
         $bill = Database::fetchOne("SELECT mb.* FROM third_party_mapping_bills mb WHERE mb.id = ? {$scope}", $params);
         if (!$bill) {
-            Session::flash('error', 'Mapping entry not found.');
-            Response::redirect(url('purchases/mapping'));
+            $respondMoveError('Mapping entry not found.', url('purchases/mapping'), 404);
             return;
         }
         if (empty(Database::fetchOne("SELECT id FROM third_party_mapping_items WHERE mapping_bill_id = ?", [$billId]))) {
-            Session::flash('error', 'Add at least one product before moving this entry to Purchases.');
-            Response::redirect(url('purchases/mapping/draft/' . $billId));
+            $respondMoveError('Add at least one product before moving this entry to Purchases.', url('purchases/mapping/draft/' . $billId));
             return;
         }
         if ($bill['status'] === 'MOVED' && !empty($bill['purchase_id'])) {
+            if ($isAjax) {
+                Response::json([
+                    'success' => true,
+                    'message' => 'This mapping entry was already moved to purchase #' . $bill['purchase_id'] . '.',
+                    'redirect_url' => url('purchases/view/' . (int)$bill['purchase_id'])
+                ]);
+                return;
+            }
             Session::flash('info', 'This mapping entry was already moved to purchase #' . $bill['purchase_id'] . '.');
             Response::redirect(url('purchases'));
             return;
+        }
+
+        // Auto-save any updated Supplier Invoice Details submitted with Move to Purchase
+        if (isset($_POST['seller_id']) && $bill['status'] === 'DRAFT') {
+            $postSellerId = (int)$_POST['seller_id'];
+            $postInvoiceNum = trim((string)($_POST['invoice_number'] ?? ''));
+            $postInvoiceDate = trim((string)($_POST['invoice_date'] ?? ''));
+            $postConcernId = isset($_POST['concern_id']) ? (int)$_POST['concern_id'] : (int)($bill['concern_id'] ?? 1);
+
+            if ($postSellerId <= 0) {
+                $respondMoveError('Please select a valid Supplier / Person before moving to Purchase.', url('purchases/mapping/draft/' . $billId));
+                return;
+            }
+            if ($postInvoiceDate !== '') {
+                $dtCheck = \DateTimeImmutable::createFromFormat('!Y-m-d', $postInvoiceDate);
+                if (!$dtCheck || $dtCheck->format('Y-m-d') !== $postInvoiceDate) {
+                    $respondMoveError('Please select a valid Invoice Date.', url('purchases/mapping/draft/' . $billId));
+                    return;
+                }
+            }
+            if ($postInvoiceNum === '') {
+                $postInvoiceNum = (string)($bill['invoice_number'] ?: ('INV-' . date('ymdHis')));
+            }
+            $dupCheck = Database::fetchOne(
+                "SELECT id FROM third_party_mapping_bills WHERE seller_id = ? AND UPPER(TRIM(invoice_number)) = UPPER(TRIM(?)) AND id != ?",
+                [$postSellerId, $postInvoiceNum, $billId]
+            );
+            if ($dupCheck) {
+                $respondMoveError("Invoice number '{$postInvoiceNum}' already exists for this supplier in QR Generations.", url('purchases/mapping/draft/' . $billId));
+                return;
+            }
+            try {
+                if ($postInvoiceDate !== '' && !Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
+                    Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+                }
+            } catch (\Throwable $e) {}
+
+            $updFields = ['seller_id = ?', 'invoice_number = ?', 'updated_at = NOW()'];
+            $updParams = [$postSellerId, $postInvoiceNum];
+            if ($postInvoiceDate !== '') {
+                $updFields[] = 'invoice_date = ?';
+                $updParams[] = $postInvoiceDate;
+            }
+            if ($postConcernId > 0 && ($cid === null || $cid === 1 || $cid === $postConcernId)) {
+                $updFields[] = 'concern_id = ?';
+                $updParams[] = $postConcernId;
+            }
+            $updParams[] = $billId;
+            Database::execute("UPDATE third_party_mapping_bills SET " . implode(', ', $updFields) . " WHERE id = ?", $updParams);
+            $bill = Database::fetchOne("SELECT mb.* FROM third_party_mapping_bills mb WHERE mb.id = ?", [$billId]) ?: $bill;
         }
 
         Database::execute("UPDATE third_party_mapping_bills SET status = 'READY' WHERE id = ?", [$billId]);
@@ -6026,6 +6219,14 @@ class AllmodulesController {
 
                 $targetPurchase = Database::fetchOne("SELECT purchase_number FROM production_purchases WHERE id = ?", [$targetPurchaseId]);
                 $poNumber = $targetPurchase['purchase_number'] ?? ('#' . $targetPurchaseId);
+                if ($isAjax) {
+                    Response::json([
+                        'success' => true,
+                        'message' => "Products from mapping invoice {$bill['invoice_number']} were linked to purchase {$poNumber}.",
+                        'redirect_url' => url('purchases/view/' . $targetPurchaseId)
+                    ]);
+                    return;
+                }
                 Session::flash('success', "Products from mapping invoice {$bill['invoice_number']} were linked to purchase {$poNumber}.");
                 Response::redirect(url('purchases'));
                 return;
@@ -6033,8 +6234,7 @@ class AllmodulesController {
                 if (Database::inTransaction()) {
                     Database::rollback();
                 }
-                Session::flash('error', 'Could not link this mapping entry to purchase: ' . $e->getMessage());
-                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                $respondMoveError('Could not link this mapping entry to purchase: ' . $e->getMessage(), url('purchases/mapping/draft/' . $billId));
                 return;
             }
         }
@@ -6051,8 +6251,7 @@ class AllmodulesController {
         );
 
         if (count($matches) > 1) {
-            Session::flash('error', 'More than one purchase matches this supplier and invoice. Select the specific purchase order or resolve duplicates.');
-            Response::redirect(url('purchases/mapping/draft/' . $billId));
+            $respondMoveError('More than one purchase matches this supplier and invoice. Select the specific purchase order or resolve duplicates.', url('purchases/mapping/draft/' . $billId));
             return;
         } elseif (count($matches) === 1) {
             try {
@@ -6060,8 +6259,6 @@ class AllmodulesController {
                 $this->linkThirdPartyMappingDraftToPurchase($billId, (int)$matches[0]['id']);
                 Database::commit();
                 $poNumber = $matches[0]['purchase_number'] ?? ('#' . $matches[0]['id']);
-                $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
                 if ($isAjax) {
                     Response::json([
                         'success' => true,
@@ -6077,8 +6274,7 @@ class AllmodulesController {
                 if (Database::inTransaction()) {
                     Database::rollback();
                 }
-                Session::flash('error', 'Could not move this mapping entry: ' . $e->getMessage());
-                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                $respondMoveError('Could not move this mapping entry: ' . $e->getMessage(), url('purchases/mapping/draft/' . $billId));
                 return;
             }
         } else {
@@ -6138,8 +6334,7 @@ class AllmodulesController {
                 if (Database::inTransaction()) {
                     Database::rollback();
                 }
-                Session::flash('error', 'Could not create purchase from mapping: ' . $e->getMessage());
-                Response::redirect(url('purchases/mapping/draft/' . $billId));
+                $respondMoveError('Could not create purchase from mapping: ' . $e->getMessage(), url('purchases/mapping/draft/' . $billId));
                 return;
             }
         }
@@ -6209,8 +6404,21 @@ class AllmodulesController {
                 );
                 $sellerRollId = null;
                 if ($existingRoll) {
-                    $sellerRollId = (int)$existingRoll['id'];
-                } else {
+                    $alreadyLinked = Database::fetchOne(
+                        "SELECT id FROM production_purchase_items WHERE seller_roll_id = ? LIMIT 1",
+                        [(int)$existingRoll['id']]
+                    );
+                    if (!$alreadyLinked) {
+                        $sellerRollId = (int)$existingRoll['id'];
+                    } else {
+                        // Existing roll_number is already linked to another purchase item; create a distinct roll record
+                        $rollCode = $rollCode . '-' . (int)$item['id'];
+                        if (Database::fetchOne("SELECT id FROM seller_rolls WHERE seller_id = ? AND roll_number = ? LIMIT 1", [$sellerId, $rollCode])) {
+                            $rollCode = $rollCode . '-' . strtoupper(bin2hex(random_bytes(2)));
+                        }
+                    }
+                }
+                if ($sellerRollId === null) {
                     $rollQrCode = 'SR-' . strtoupper(bin2hex(random_bytes(4))) . '-' . date('ymd');
                     try {
                         $rollConcernId = (int)($bill['concern_id'] ?? (currentConcernId() ?: 1));
@@ -6241,7 +6449,7 @@ class AllmodulesController {
                      VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PERCENT', 'EXCLUDED',
                              ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())",
                     [(int)$purchase['id'], $item['item_name'], (int)$item['product_id'], (int)$item['variant_id'],
-                        $item['product_code'], $item['vendor_sku'], $item['roll_code'], $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'KGS',
+                        $item['product_code'], $item['vendor_sku'], $rollCode, $item['weight_kg'], $item['quantity'], $item['unit'] ?: 'KGS',
                         $item['unit_price'], $item['mrp'], $item['selling_price'], $lineTotal,
                         $taxAmount > 0 ? 'BOTH' : 'EXEMPTED', $taxRateHalf, $taxRateHalf, $taxHalf, $taxHalf,
                         $item['color'], $item['size'], $item['hsn_code'], $sellerRollId]
@@ -6577,11 +6785,12 @@ class AllmodulesController {
             $draftParams[] = $cid;
         }
         $mappingDrafts = Database::fetchAll(
-            "SELECT mb.id, mb.concern_id, mb.invoice_number, mb.status, mb.purchase_id, mb.created_at,
-                    s.name AS seller_name, s.company AS seller_company,
+            "SELECT mb.id, mb.concern_id, mb.seller_id, mb.invoice_number, mb.status, mb.purchase_id, mb.created_at,
+                    s.name AS seller_name, s.company AS seller_company, s.phone AS seller_phone,
                     c_con.name AS concern_name, c_con.code AS concern_code,
                     pp.purchase_number, COALESCE(mi.product_count, 0) AS product_count,
                     COALESCE(mi.total_quantity, 0) AS total_quantity,
+                    COALESCE(NULLIF(pp.total_amount, 0), COALESCE(mi.total_amount, 0)) AS total_amount,
                     COALESCE(mi.pending_qr_or_stock_count, 0) AS pending_qr_or_stock_count
              FROM third_party_mapping_bills mb
              JOIN sellers s ON s.id = mb.seller_id
@@ -6591,6 +6800,7 @@ class AllmodulesController {
                  SELECT tmi.mapping_bill_id,
                         COUNT(*) AS product_count,
                         SUM(tmi.quantity) AS total_quantity,
+                        SUM(tmi.quantity * tmi.unit_price * (1 + COALESCE(tmi.gst_rate, 0) / 100)) AS total_amount,
                         SUM(CASE WHEN tmi.qr_generation_id IS NULL OR COALESCE(qrg.stock_added, 0) = 0 THEN 1 ELSE 0 END) AS pending_qr_or_stock_count
                  FROM third_party_mapping_items tmi
                  LEFT JOIN qr_generations qrg ON qrg.id = tmi.qr_generation_id

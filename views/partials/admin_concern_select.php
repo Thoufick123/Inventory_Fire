@@ -6,7 +6,7 @@
 if (function_exists('isSuperAdmin') && isSuperAdmin() && function_exists('currentConcernId') && currentConcernId() === null):
     $adminConcerns = function_exists('allActiveConcerns') ? allActiveConcerns() : [];
     if (!empty($adminConcerns)):
-        $selectedCid = (int)(function_exists('old') && old('concern_id') !== '' ? old('concern_id') : ($adminConcerns[0]['id'] ?? 1));
+        $selectedCid = (int)(function_exists('old') && old('concern_id') !== '' ? old('concern_id') : ($concernSelectValue ?? ($adminConcerns[0]['id'] ?? 1)));
         $colClass = $concernSelectColClass ?? 'col-md-4';
         $labelText = $concernSelectLabel ?? 'Target Concern';
         $fieldId = $concernSelectId ?? 'adminTargetConcernSelect';

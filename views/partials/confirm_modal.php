@@ -55,6 +55,15 @@
     70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(217, 119, 6, 0); }
     100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
 }
+.confirm-icon-success {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4) !important;
+    animation: confirmPulseSuccess 2s infinite !important;
+}
+@keyframes confirmPulseSuccess {
+    0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
+    70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(22, 163, 74, 0); }
+    100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
 </style>
 
 <script>
@@ -65,8 +74,10 @@
         options = options || {};
         const title = options.title || (options.isDelete ? 'Confirm Deletion' : 'Are you sure?');
         const message = options.message || 'Are you sure you want to proceed? This action cannot be undone.';
-        const btnText = options.btnText || (options.isDelete ? 'Yes, Delete' : 'Confirm');
-        const isDelete = options.isDelete !== false;
+        const btnText = options.btnText || options.confirmText || (options.isDelete ? 'Yes, Delete' : 'Confirm');
+        const btnClass = options.btnClass || '';
+        const isDelete = options.isDelete !== false && btnClass !== 'btn-success' && btnClass !== 'btn-primary';
+        const isSuccess = btnClass === 'btn-success' || options.isSuccess === true;
 
         const modalEl = document.getElementById('globalModernConfirmModal');
         if (!modalEl) {
@@ -94,12 +105,20 @@
             iconEl.className = 'bi bi-trash3-fill';
             okBtn.className = 'btn btn-danger px-4 py-2 rounded-pill fw-semibold shadow-sm';
             btnIconEl.className = 'bi bi-trash3 me-1.5';
+        } else if (isSuccess) {
+            iconWrapper.className = 'confirm-icon-pulse confirm-icon-success mb-3 mx-auto d-flex align-items-center justify-content-center rounded-circle';
+            iconWrapper.style.background = '#dcfce7';
+            iconWrapper.style.color = '#16a34a';
+            iconWrapper.style.border = '4px solid #bbf7d0';
+            iconEl.className = options.iconClass || 'bi bi-box-arrow-in-right';
+            okBtn.className = 'btn btn-success px-4 py-2 rounded-pill fw-semibold shadow-sm';
+            btnIconEl.className = (options.btnIconClass || 'bi bi-box-arrow-in-right') + ' me-1.5';
         } else {
             iconWrapper.className = 'confirm-icon-pulse confirm-icon-warning mb-3 mx-auto d-flex align-items-center justify-content-center rounded-circle';
             iconWrapper.style.background = '#fef3c7';
             iconWrapper.style.color = '#d97706';
             iconWrapper.style.border = '4px solid #fde68a';
-            iconEl.className = 'bi bi-exclamation-triangle-fill';
+            iconEl.className = options.iconClass || 'bi bi-exclamation-triangle-fill';
             okBtn.className = 'btn btn-primary px-4 py-2 rounded-pill fw-semibold shadow-sm';
             btnIconEl.className = 'bi bi-check2-circle me-1.5';
         }

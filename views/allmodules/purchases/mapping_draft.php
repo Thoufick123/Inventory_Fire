@@ -1,5 +1,6 @@
 <?php
-$mappingBillId = (int)$bill['id'];
+$mappingBillId = (int)($bill['id'] ?? 0);
+$isCreateMode = !empty($isCreateMode) || $mappingBillId <= 0;
 $billConcernName = trim((string)($bill['concern_name'] ?? ''));
 if ($billConcernName === '' && function_exists('currentConcern')) {
     $cc = currentConcern();
@@ -68,24 +69,102 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
 
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h2 class="mb-1"><i class="bi bi-qr-code-scan me-2 text-primary"></i>QR Generations<?= !empty($viewOnly) ? ' — View' : ' — Edit' ?></h2>
-        <div class="text-muted small">
-            Supplier: <strong><?= e($bill['seller_company'] ?: $bill['seller_name']) ?></strong>
-            <span class="mx-1">·</span> Invoice: <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>
-            <span class="mx-1">·</span>
-            <span class="badge <?= $bill['status'] === 'MOVED' ? 'bg-success' : ($bill['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($bill['status']) ?></span>
-            <?php if (!empty($bill['purchase_number'])): ?>
-                <span class="ms-1">Purchase <a href="<?= url('purchases/view/' . (int)$bill['purchase_id']) ?>"><?= e($bill['purchase_number']) ?></a></span>
+        <h2 class="mb-1">
+            <i class="bi bi-qr-code-scan me-2 text-primary"></i>
+            <?php if ($isCreateMode): ?>
+                Create QR Generation
+            <?php else: ?>
+                QR Generations<?= !empty($viewOnly) ? ' — View' : ' — Edit' ?>
             <?php endif; ?>
-        </div>
+        </h2>
+        <?php if (!$isCreateMode): ?>
+            <div class="text-muted small">
+                Supplier: <strong><?= e($bill['seller_company'] ?: $bill['seller_name']) ?></strong>
+                <span class="mx-1">·</span> Invoice: <strong class="font-monospace"><?= e($bill['invoice_number']) ?></strong>
+                <span class="mx-1">·</span>
+                <span class="badge <?= $bill['status'] === 'MOVED' ? 'bg-success' : ($bill['status'] === 'READY' ? 'bg-info text-dark' : 'bg-secondary') ?>"><?= e($bill['status']) ?></span>
+                <?php if (!empty($bill['purchase_number'])): ?>
+                    <span class="ms-1">Purchase <a href="<?= url('purchases/view/' . (int)$bill['purchase_id']) ?>"><?= e($bill['purchase_number']) ?></a></span>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        <?php if (!$viewOnly): ?>
-            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditDraftHeader">
-                <i class="bi bi-pencil-square me-1"></i>Edit Invoice Details
-            </button>
-        <?php endif; ?>
         <a href="<?= url('purchases/mapping') ?>" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to QR Generations</a>
+    </div>
+</div>
+
+<?php
+$invoiceLocked = !empty($viewOnly) || (!$isCreateMode && ($bill['status'] ?? 'DRAFT') !== 'DRAFT');
+$currentSellerIdVal = (int)($selectedSellerId ?? ($bill['seller_id'] ?? 0));
+$currentInvoiceNumVal = (string)($invoiceNumber ?? ($bill['invoice_number'] ?? ''));
+$currentInvoiceDateVal = !empty($bill['invoice_date'])
+    ? (string)$bill['invoice_date']
+    : (!empty($bill['created_at']) ? date('Y-m-d', strtotime((string)$bill['created_at'])) : date('Y-m-d'));
+?>
+<div class="card border shadow-sm w-100 mb-4" id="supplierInvoiceDetailsCard">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-receipt me-2 text-success"></i>Supplier Invoice Details</h5>
+        <button type="button" class="btn btn-outline-secondary" id="toggleSupplierInvoiceBox" title="Collapse / Expand Supplier Invoice Details">
+            <i class="bi bi-arrows-collapse me-1"></i>Compact
+        </button>
+    </div>
+    <div id="supplierInvoiceDetailsBody">
+        <div class="card-body p-4">
+            <form method="POST" action="<?= $isCreateMode ? url('purchases/mapping/create') : url('purchases/mapping/draft/' . $mappingBillId . '/update') ?>" id="mappingInvoiceHeaderForm">
+                <?= CSRF::field() ?>
+                <div class="row g-3">
+                    <?php
+                    $concernSelectColClass = 'col-12';
+                    $concernSelectValue = (int)($bill['concern_id'] ?? 1);
+                    include BASE_PATH . '/views/partials/admin_concern_select.php';
+                    ?>
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <label class="form-label fw-semibold mb-2">Supplier / Person <span class="text-danger">*</span></label>
+                            <?php if (!$invoiceLocked && hasPermission('sellers', 'create')): ?>
+                                <button type="button" class="btn btn-sm btn-outline-primary mb-2" data-bs-toggle="modal" data-bs-target="#createMappingSupplierModal">
+                                    <i class="bi bi-person-plus me-1"></i>Create Supplier
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                        <select class="form-select" name="seller_id" id="mappingSellerSelect" required <?= $invoiceLocked ? 'disabled' : '' ?>>
+                            <option value="">-- Select supplier --</option>
+                            <?php foreach ($sellers as $seller): ?>
+                                <option value="<?= (int)$seller['id'] ?>" <?= $currentSellerIdVal === (int)$seller['id'] ? 'selected' : '' ?>><?= e($seller['company'] ? $seller['company'] . ' (' . $seller['name'] . ')' : $seller['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Supplier Invoice Number</label>
+                        <div class="input-group">
+                            <input type="text" name="invoice_number" id="mappingInvoiceNumber" class="form-control font-monospace" maxlength="100" placeholder="Optional — auto-generated if blank" value="<?= e($currentInvoiceNumVal) ?>" autocomplete="off" <?= $invoiceLocked ? 'readonly' : '' ?>>
+                            <a href="#" id="btnUseExistingMappingInvoice" class="btn btn-warning fw-semibold d-none">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Use Existing Invoice
+                            </a>
+                        </div>
+                        <div id="mappingInvoiceError" class="invalid-feedback d-none fw-semibold"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="mappingInvoiceDate">Invoice Date <span class="text-danger">*</span></label>
+                        <input type="date" name="invoice_date" id="mappingInvoiceDate" class="form-control" required value="<?= e($currentInvoiceDateVal) ?>" <?= $invoiceLocked ? 'readonly' : '' ?>>
+                    </div>
+
+                    <!-- Existing Invoice All Data Preview Card -->
+                    <div class="col-12 d-none" id="existingInvoicePreviewCard">
+                        <div class="card border-warning shadow-sm">
+                            <div class="card-header bg-warning-subtle text-dark py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span class="fw-bold small"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Existing Invoice Found — All Recorded Data</span>
+                                <a href="#" id="btnUseExistingMappingInvoiceCard" class="btn btn-sm btn-warning fw-semibold">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Use Existing Invoice
+                                </a>
+                            </div>
+                            <div class="card-body p-3" id="existingInvoicePreviewBody"></div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -94,7 +173,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
         <div>
             <i class="bi bi-info-circle-fill me-2"></i>This mapping entry is ready. Click <strong>Move to Purchase Now</strong> to create the purchase bill in the Purchases module immediately.
         </div>
-        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0">
+        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0 js-move-to-purchase-form">
             <?= CSRF::field() ?>
             <button class="btn btn-sm btn-success" type="submit" <?= !$items ? 'disabled' : '' ?>>
                 <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase Now
@@ -507,8 +586,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     <th class="text-end">Qty</th>
                     <th>Uom</th>
                     <th class="text-end">Purchase Rate</th>
-                    <th class="text-end">MRP</th>
-                    <th class="text-end">Sale</th>
+                    <th class="text-end">MRP Rate</th>
+                    <th class="text-end">Sale Rate</th>
                     <th>QR / Stock</th>
                     <th>QR Count</th>
                     <th class="text-end">Action</th>
@@ -524,7 +603,8 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                             $item['subcategory_name'] ?? '',
                             $item['sub_subcategory_name'] ?? ''
                         ]);
-                        $catLabel = $catParts ? implode(' / ', $catParts) : '—';
+                        $isFabricRollItem = strtoupper((string)($item['item_type'] ?? '')) === 'FABRIC_ROLL';
+                        $catLabel = $catParts ? implode(' / ', $catParts) : ($isFabricRollItem ? 'Fabric Roll' : '—');
                         $searchText = strtolower(trim(implode(' ', [
                             $item['item_name'] ?? '',
                             $item['brand_name'] ?? '',
@@ -742,7 +822,7 @@ $variantRow = static function (int $pIndex = 0, int $vIndex = 0) use ($categorie
                     <div class="alert alert-danger py-1.5 px-2.5 small mb-0">MRP cannot be less than Selling Price.</div>
                 </div>
             </div>
-            <div class="modal-footer bg-white border-top">
+            <div class="modal-footer bg-white border-top d-flex justify-content-between">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary fw-semibold px-4"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>
             </div>
@@ -842,21 +922,37 @@ window.showDraftModernAlert = function (message, title = 'Notice', type = 'warni
     const iconEl = document.getElementById('draftModernAlertIcon');
     const titleEl = document.getElementById('draftModernAlertTitle');
     const msgEl = document.getElementById('draftModernAlertMsg');
+    const okBtn = modalEl.querySelector('button[data-bs-dismiss="modal"]');
     if (iconWrap) { iconWrap.style.background = st.bg; iconWrap.style.color = st.color; }
     if (iconEl) iconEl.className = st.icon;
     if (titleEl) titleEl.textContent = st.title;
     if (msgEl) msgEl.textContent = msgStr;
+    if (okBtn) {
+        okBtn.className = (type === 'success')
+            ? 'btn btn-success px-4 rounded-pill fw-semibold'
+            : 'btn btn-primary px-4 rounded-pill fw-semibold';
+    }
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
 };
 
 window.showDraftModernConfirm = function (title, message, onConfirm, confirmText = 'Confirm', btnClass = 'btn-primary') {
     if (typeof window.showModernConfirm === 'function') {
+        const isDelete = btnClass === 'btn-danger';
+        const iconClass = isDelete
+            ? 'bi bi-trash3-fill text-danger'
+            : (btnClass === 'btn-success'
+                ? 'bi bi-box-arrow-in-right text-success'
+                : 'bi bi-question-circle-fill text-primary');
         window.showModernConfirm({
             title: title,
             message: message,
+            isDelete: isDelete,
+            isSuccess: btnClass === 'btn-success',
+            btnText: confirmText,
             confirmText: confirmText,
             btnClass: btnClass,
-            iconClass: btnClass === 'btn-danger' ? 'bi bi-trash3-fill text-danger' : 'bi bi-question-circle-fill text-primary',
+            iconClass: iconClass,
+            btnIconClass: btnClass === 'btn-success' ? 'bi bi-box-arrow-in-right' : 'bi bi-check2-circle',
             onConfirm: onConfirm
         });
     } else {
@@ -864,8 +960,72 @@ window.showDraftModernConfirm = function (title, message, onConfirm, confirmText
     }
 };
 
+window.syncInvoiceDetailsToMoveForm = function (moveForm) {
+    if (!moveForm) return true;
+    const sellerSel = document.getElementById('mappingSellerSelect');
+    const invInput = document.getElementById('mappingInvoiceNumber');
+    const dateInput = document.getElementById('mappingInvoiceDate');
+    const concernSel = document.getElementById('adminTargetConcernSelect');
+
+    if (sellerSel && !sellerSel.disabled) {
+        if (!sellerSel.value) {
+            sellerSel.classList.add('is-invalid');
+            sellerSel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            sellerSel.focus();
+            if (typeof window.showDraftModernAlert === 'function') {
+                window.showDraftModernAlert('Please select a Supplier / Person in Supplier Invoice Details before moving to Purchase.');
+            }
+            return false;
+        }
+        sellerSel.classList.remove('is-invalid');
+    }
+    if (dateInput && !dateInput.readOnly && !dateInput.value) {
+        dateInput.classList.add('is-invalid');
+        dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        dateInput.focus();
+        if (typeof window.showDraftModernAlert === 'function') {
+            window.showDraftModernAlert('Please select a valid Invoice Date in Supplier Invoice Details.');
+        }
+        return false;
+    }
+    if (invInput && invInput.classList.contains('is-invalid')) {
+        invInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        invInput.focus();
+        if (typeof window.showDraftModernAlert === 'function') {
+            window.showDraftModernAlert('This invoice number already exists. Click "Use Existing Invoice" or enter a different invoice number.');
+        }
+        return false;
+    }
+
+    const fields = {
+        seller_id: sellerSel ? sellerSel.value : '',
+        invoice_number: invInput ? invInput.value.trim() : '',
+        invoice_date: dateInput ? dateInput.value : '',
+        concern_id: concernSel ? concernSel.value : ''
+    };
+    Object.entries(fields).forEach(([name, val]) => {
+        if (val === '' && name === 'concern_id') return;
+        let inp = moveForm.querySelector('input[type="hidden"][name="' + name + '"]');
+        if (!inp) {
+            inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = name;
+            moveForm.appendChild(inp);
+        }
+        inp.value = val;
+    });
+    return true;
+};
+
 document.addEventListener('submit', function (e) {
     const form = e.target;
+    if (form.classList && form.classList.contains('js-move-to-purchase-form')) {
+        if (!window.syncInvoiceDetailsToMoveForm(form)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return;
+        }
+    }
     if (!form.classList || !form.classList.contains('js-draft-confirm-form')) return;
     if (form.dataset.confirmed === '1') return;
     e.preventDefault();
@@ -912,6 +1072,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const isHidden = scrollBox.classList.toggle('d-none');
             if (!isHidden) scrollBox.classList.add('is-expanded');
             toggleBtn.innerHTML = isHidden
+                ? '<i class="bi bi-arrows-expand me-1"></i>Expand'
+                : '<i class="bi bi-arrows-collapse me-1"></i>Compact';
+        });
+    }
+
+    const toggleSupplierInvoiceBtn = document.getElementById('toggleSupplierInvoiceBox');
+    const supplierInvoiceBody = document.getElementById('supplierInvoiceDetailsBody');
+    if (toggleSupplierInvoiceBtn && supplierInvoiceBody) {
+        toggleSupplierInvoiceBtn.addEventListener('click', () => {
+            const isHidden = supplierInvoiceBody.classList.toggle('d-none');
+            toggleSupplierInvoiceBtn.innerHTML = isHidden
                 ? '<i class="bi bi-arrows-expand me-1"></i>Expand'
                 : '<i class="bi bi-arrows-collapse me-1"></i>Compact';
         });
@@ -966,11 +1137,28 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('editVarQty').value = btn.dataset.qty || '1';
             const unitSel = document.getElementById('editVarUnit');
             const customUnitEl = document.getElementById('editVarCustomUnit');
-            const rawU = btn.dataset.unit || 'Pieces';
-            const stdOpts = Array.from(unitSel?.options || []).map(o => o.value);
-            if (unitSel && stdOpts.includes(rawU)) {
-                unitSel.value = rawU;
-                customUnitEl?.classList.add('d-none');
+            const rawU = (btn.dataset.unit || 'Pieces').trim();
+            const unitAliasMap = {
+                'pieces': 'Pieces', 'piece': 'Pieces', 'pcs': 'Pieces', 'pc': 'Pieces',
+                'kilograms': 'Kilograms', 'kilogram': 'Kilograms', 'kg': 'Kilograms', 'kgs': 'Kilograms',
+                'metres': 'Metres', 'metre': 'Metres', 'meters': 'Metres', 'meter': 'Metres', 'mtr': 'Metres', 'mtrs': 'Metres', 'm': 'Metres',
+                'litres': 'Litres', 'litre': 'Litres', 'liters': 'Litres', 'liter': 'Litres', 'ltr': 'Litres', 'ltrs': 'Litres', 'l': 'Litres',
+                'boxes': 'Boxes', 'box': 'Boxes',
+                'packs': 'Packs', 'pack': 'Packs', 'pkt': 'Packs', 'pkts': 'Packs',
+                'pairs': 'Pairs', 'pair': 'Pairs', 'prs': 'Pairs',
+                'sets': 'Sets', 'set': 'Sets',
+                'bundles': 'Bundles', 'bundle': 'Bundles', 'bdl': 'Bundles'
+            };
+            const normalizedU = unitAliasMap[rawU.toLowerCase()] || rawU;
+            const matchedOpt = Array.from(unitSel?.options || []).find(
+                o => o.value !== 'Other' && o.value.toLowerCase() === normalizedU.toLowerCase()
+            );
+            if (unitSel && matchedOpt) {
+                unitSel.value = matchedOpt.value;
+                if (customUnitEl) {
+                    customUnitEl.value = '';
+                    customUnitEl.classList.add('d-none');
+                }
             } else if (unitSel) {
                 unitSel.value = 'Other';
                 if (customUnitEl) {
@@ -1033,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <i class="bi bi-check-circle-fill me-1"></i>Moved to Purchase <?= e($bill['purchase_number'] ?? ('#' . $bill['purchase_id'])) ?>
                         </div>
                     <?php else: ?>
-                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0 js-draft-confirm-form" data-confirm-title="Move to Purchases" data-confirm-msg="Move this mapping invoice to Purchases? It will create or link the purchase order for the purchase team to fill GST & HSN." data-confirm-btn="Move to Purchase" data-confirm-class="btn-success">
+                        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="m-0 js-draft-confirm-form js-move-to-purchase-form" data-confirm-title="Move to Purchases" data-confirm-msg="Move this mapping invoice to Purchases? It will automatically save your invoice details and create or link the purchase order." data-confirm-btn="Move to Purchase" data-confirm-class="btn-success">
                             <?= CSRF::field() ?>
                             <button class="btn btn-success w-100 py-2 fw-semibold" type="submit" <?= !$items ? 'disabled' : '' ?>>
                                 <i class="bi bi-box-arrow-in-right me-1"></i>Move to Purchase
@@ -1131,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <?php if (!$viewOnly && $bill['status'] !== 'MOVED' && !empty($candidatePurchases)): ?>
 <div class="modal fade" id="linkExistingPurchaseModal" tabindex="-1" aria-labelledby="linkExistingPurchaseModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>">
+        <form method="POST" action="<?= url('purchases/mapping/draft/' . $mappingBillId . '/move') ?>" class="js-move-to-purchase-form">
             <?= CSRF::field() ?>
             <div class="modal-content">
                 <div class="modal-header">
@@ -1425,35 +1613,44 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Products...';
         }
 
-        const formData = new FormData(form);
-        fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: formData
-        })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data.success) {
-                showDraftModernAlert('Success: ' + data.message);
-                window.location.reload();
-            } else {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
-                }
-                showDraftModernAlert('Error: ' + (data.message || 'Failed to save products.'));
-            }
-        })
-        .catch(function (err) {
+        const resetBtn = () => {
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save All Products to Mapping';
             }
-            showDraftModernAlert('Server error: ' + err.message);
-        });
+        };
+
+        window.ensureMappingDraftBeforeSubmit(form)
+            .then(function (draftInfo) {
+                const formData = new FormData(form);
+                return fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                })
+                .then(window.parseJsonResponseSafe)
+                .then(function (data) {
+                    if (data.success) {
+                        showDraftModernAlert('Success: ' + data.message);
+                        if (draftInfo.isNew && draftInfo.id > 0) {
+                            window.location.href = '<?= url('purchases/mapping/draft/') ?>' + draftInfo.id;
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        resetBtn();
+                        showDraftModernAlert('Error: ' + (data.message || 'Failed to save products.'));
+                    }
+                });
+            })
+            .catch(function (err) {
+                resetBtn();
+                if (err && err.handled) return;
+                showDraftModernAlert('Server error: ' + (err?.message || 'Unable to save products.'));
+            });
     });
 
     const headerAddProductBtn = document.getElementById('btnHeaderAddProduct');
@@ -1590,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <h6 class="fw-bold mb-2 small text-uppercase text-muted"><i class="bi bi-upc-scan me-1 text-primary"></i>Generated Labels (<?= count($batchQrItems) ?>)</h6>
-                <div class="row g-2">
+                <div class="row g-3">
                     <?php if (empty($batchQrItems)): ?>
                         <div class="col-12 text-center text-muted py-3">No QR label records found for this batch.</div>
                     <?php else:
@@ -1599,39 +1796,92 @@ document.addEventListener('DOMContentLoaded', () => {
                             trim((string)($item['subcategory_name'] ?? '')),
                             trim((string)($item['sub_subcategory_name'] ?? '')),
                         ]));
-                        $attrText = trim(implode(' / ', array_filter([
-                            trim((string)($item['color'] ?? '')),
-                            trim((string)($item['size'] ?? '')),
-                        ])));
+                        $sizeVal = trim((string)($item['size'] ?? ''));
+                        $colorVal = trim((string)($item['color'] ?? ''));
+                        $attrText = trim(implode(' / ', array_filter([$sizeVal, $colorVal])));
                         $designText = trim((string)($item['design_name'] ?? ''));
-                        foreach ($batchQrItems as $q): ?>
-                        <div class="col-md-3 col-sm-6">
-                            <div class="border rounded p-2 text-center bg-white shadow-sm h-100 d-flex flex-column justify-content-between qr-label-card"
+                        $brandDisplay = strtoupper(trim((string)($item['brand_name'] ?? '')));
+                        $mrpNum = (float)($item['mrp'] ?? 0);
+                        $spNum = (float)($item['selling_price'] ?? 0);
+                        $qtyDisplay = rtrim(rtrim(number_format((float)($item['quantity'] ?? 0), 2), '0'), '.');
+                        $unitDisplay = strtolower(trim((string)($item['unit'] ?? 'pcs')));
+                        $totalBatchLabels = count($batchQrItems);
+                        foreach ($batchQrItems as $qIdx => $q): ?>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <div class="card h-100 border border-light-subtle shadow-sm qr-label-card"
+                                 style="border-radius: 12px; overflow: hidden; background: #fff;"
                                  data-qr-code="<?= e($q['qr_code']) ?>"
                                  data-vid="VID: #<?= (int)($item['variant_id'] ?? 0) ?>"
                                  data-concern="<?= e($billConcernName) ?>"
-                                 data-brand="<?= e(strtoupper(trim((string)($item['brand_name'] ?? '')))) ?>"
+                                 data-brand="<?= e($brandDisplay) ?>"
                                  data-sub-subcategory="<?= e($item['sub_subcategory_name'] ?? '') ?>"
                                  data-product-name="<?= e($item['item_name']) ?>"
                                  data-category="<?= e($catTrail) ?>"
                                  data-attributes="<?= e($attrText) ?>"
                                  data-design="<?= e($designText) ?>"
-                                 data-mrp="<?= e(formatCurrency((float)$item['mrp'])) ?>"
-                                 data-selling-price="<?= e(formatCurrency((float)$item['selling_price'])) ?>"
+                                 data-mrp="<?= e(formatCurrency($mrpNum)) ?>"
+                                 data-selling-price="<?= e(formatCurrency($spNum)) ?>"
                                  data-hsn="<?= e($item['hsn_code'] ?? '') ?>">
-                                <div class="d-flex justify-content-between align-items-center mb-1 gap-1">
-                                    <span class="small fw-bold text-truncate text-dark qr-lbl-product"><?= e($item['item_name']) ?></span>
-                                    <span class="badge bg-light text-secondary border qr-lbl-vid" style="font-size: 10px;">VID: #<?= (int)($item['variant_id'] ?? 0) ?></span>
+                                <div class="card-header bg-light py-2 px-3 border-bottom d-flex justify-content-between align-items-center gap-2">
+                                    <span class="small fw-bold text-secondary">Label #<?= $qIdx + 1 ?> of <?= $totalBatchLabels ?></span>
+                                    <?php if (!empty($item['stock_added'])): ?>
+                                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold">
+                                            <i class="bi bi-check-circle-fill me-1"></i><?= e($qtyDisplay) ?> <?= e($unitDisplay) ?> Available
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold">
+                                            <i class="bi bi-check-circle-fill me-1"></i><?= e($qtyDisplay) ?> <?= e($unitDisplay) ?> Ready
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
-                                <div class="text-muted qr-lbl-category" style="font-size: 10px;"><?= e($catTrail) ?></div>
-                                <div class="small text-muted mb-1 qr-lbl-attrs" style="font-size: 11px;"><?= e($attrText) ?></div>
-                                <div class="small text-muted mb-1 d-none qr-lbl-design" style="font-size: 10px;"><?= e($designText) ?></div>
-                                <div class="d-flex justify-content-center my-1">
-                                    <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>"></div>
+                                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                                    <div>
+                                        <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom qr-lbl-concern" style="font-size: 11.5px; letter-spacing: 0.5px;">
+                                            <?= e($billConcernName) ?>
+                                        </div>
+                                        <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                                            <div class="d-flex flex-column align-items-center flex-shrink-0">
+                                                <div class="panel-qr-canvas p-1 bg-white border rounded" data-code="<?= e($q['qr_code']) ?>" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
+                                                <div class="font-monospace fw-bold text-dark mt-1 qr-lbl-code" style="font-size: 11.5px; letter-spacing: 0.4px;"><?= e($q['qr_code']) ?></div>
+                                            </div>
+                                            <div class="min-w-0 text-start">
+                                                <?php if ($brandDisplay !== ''): ?>
+                                                    <div class="fw-bolder text-truncate text-uppercase qr-lbl-brand" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
+                                                        <?= e($brandDisplay) ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <div class="fw-semibold text-dark text-truncate mb-1 qr-lbl-product" style="font-size: 11.5px;">
+                                                    <?= e($item['item_name']) ?>
+                                                </div>
+                                                <?php if ($attrText !== ''): ?>
+                                                    <div class="fw-semibold text-dark mb-1 qr-lbl-attrs" style="font-size: 12.5px;">
+                                                        <?= e($attrText) ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if ($mrpNum > $spNum && $mrpNum > 0): ?>
+                                                    <div class="text-muted text-decoration-line-through mb-0 qr-lbl-mrp" style="font-size: 12px;">
+                                                        MRP: <?= formatCurrency($mrpNum) ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if ($spNum > 0): ?>
+                                                    <div class="fw-bold qr-lbl-price" style="font-size: 13.5px; color: #15803d;">
+                                                        Disc: <?= formatCurrency($spNum) ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-end gap-1 pt-2 mt-2 border-top no-print">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyMappingQrCode('<?= e(addslashes($q['qr_code'])) ?>', this)" title="Copy QR Code">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="printSingleMappingQr(this)" title="Print Label">
+                                                <i class="bi bi-printer"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="font-monospace fw-bold text-primary small mt-1 qr-lbl-code"><?= e($q['qr_code']) ?></div>
-                                <div class="small text-muted qr-lbl-price" style="font-size: 11px;"><?= formatCurrency((float)$item['selling_price']) ?></div>
-                                <div class="text-muted d-none qr-lbl-hsn" style="font-size: 10px;">HSN: <?= e($item['hsn_code'] ?? '') ?></div>
                             </div>
                         </div>
                     <?php endforeach; endif; ?>
@@ -2009,46 +2259,67 @@ document.addEventListener('DOMContentLoaded', function() {
         if (summary) {
             summary.textContent = `${cfg.columns === 2 ? 'Dual Roll' : 'Single Roll'} ${cfg.widthMm}mm × ${cfg.heightMm}mm · QR Size ${cfg.qrSize}`;
         }
-        const labelCards = modalEl.querySelectorAll('.qr-label-card');
-        if (labelCards.length) {
-            const gridRow = labelCards[0].closest('.row');
-            if (gridRow) {
-                gridRow.className = 'd-flex flex-wrap gap-3 align-items-start';
-            }
-        }
-        labelCards.forEach((card, idx) => {
-            const colWrap = card.closest('[class*="col-"]');
-            if (colWrap) {
-                colWrap.className = 'd-inline-flex';
-            }
-            const d = card.dataset;
-            card.className = 'qr-label-card';
-            card.innerHTML = renderTscStickerHtml(cfg, {
-                concern: d.concern || <?= json_encode($billConcernName) ?>,
-                brand: d.brand || '',
-                subSubcategory: d.subSubcategory || '',
-                productName: d.productName || '',
-                attributes: d.attributes || '',
-                mrp: d.mrp || '',
-                sellingPrice: d.sellingPrice || '',
-                qrCode: d.qrCode || '',
-                vid: d.vid || '',
-                colIndex: (cfg.columns === 2 && idx % 2 === 1) ? 2 : 1
-            });
-            card.querySelectorAll('.tsc-qr-target').forEach(el => {
-                const qrPx = parseInt(el.dataset.qrPx || '48', 10);
+        modalEl.querySelectorAll('.panel-qr-canvas').forEach(el => {
+            if (typeof QRCode !== 'undefined') {
                 el.innerHTML = '';
                 new QRCode(el, {
                     text: el.dataset.code || '',
-                    width: Math.max(28, qrPx - 4),
-                    height: Math.max(28, qrPx - 4),
+                    width: 76,
+                    height: 76,
+                    colorDark: '#111827',
+                    colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.M
                 });
-            });
+                el.querySelectorAll('img').forEach(im => im.style.setProperty('display', 'none', 'important'));
+            }
         });
     }
 
+    window.copyMappingQrCode = function (code, btn) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(() => {
+                if (btn) {
+                    const orig = btn.innerHTML;
+                    btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                    setTimeout(() => { btn.innerHTML = orig; }, 1200);
+                }
+            }).catch(() => {});
+        }
+    };
+
+    window.printSingleMappingQr = function (btn) {
+        const card = btn?.closest('.qr-label-card');
+        if (!card) return;
+        const cfg = getSavedTscConfig();
+        const d = card.dataset;
+        const html = renderTscStickerHtml(cfg, {
+            concern: d.concern || <?= json_encode($billConcernName) ?>,
+            brand: d.brand || '',
+            subSubcategory: d.subSubcategory || '',
+            productName: d.productName || '',
+            attributes: d.attributes || '',
+            mrp: d.mrp || '',
+            sellingPrice: d.sellingPrice || '',
+            qrCode: d.qrCode || '',
+            vid: d.vid || '',
+            colIndex: 1
+        });
+        const win = window.open('', '_blank', 'width=420,height=320');
+        if (!win) return;
+        win.document.write(`<!doctype html><html><head><title>Print Label</title><style>@page{size:${cfg.widthMm}mm ${cfg.heightMm}mm;margin:0}body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:sans-serif}</style></head><body>${html}<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>window.onload=function(){document.querySelectorAll('.tsc-qr-target').forEach(function(el){new QRCode(el,{text:el.dataset.code||'',width:parseInt(el.dataset.qrPx||'48',10),height:parseInt(el.dataset.qrPx||'48',10),correctLevel:QRCode.CorrectLevel.M});});setTimeout(function(){window.print();},250);}<\/script></body></html>`);
+        win.document.close();
+    };
+
     document.querySelectorAll('[id^="modalQrBatch_"]').forEach(function(modalEl) {
+        modalEl.addEventListener('show.bs.modal', function () {
+            const mainEl = document.querySelector('.main-content');
+            const mainLeft = mainEl ? Math.max(0, Math.round(mainEl.getBoundingClientRect().left)) : 0;
+            modalEl.style.paddingLeft = mainLeft > 0 ? (mainLeft + 'px') : '';
+            const dlg = modalEl.querySelector('.modal-dialog');
+            if (dlg) {
+                dlg.style.maxWidth = mainLeft > 0 ? `calc(100vw - ${mainLeft + 32}px)` : 'min(96vw, 1280px)';
+            }
+        });
         modalEl.addEventListener('shown.bs.modal', function () {
             lastActiveQrBatchModal = modalEl;
             applyTscConfigToModal(modalEl);
@@ -2496,35 +2767,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving Rolls...';
             }
-            const formData = new FormData(draftRollsForm);
-            fetch(draftRollsForm.action, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    showDraftModernAlert('Success: ' + data.message);
-                    window.location.reload();
-                } else {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save';
-                    }
-                    showDraftModernAlert('Error: ' + (data.message || 'Failed to save rolls.'));
-                }
-            })
-            .catch(function(err) {
+            const resetRollsBtn = () => {
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-lightning-charge me-1"></i>Generate &amp; Save';
                 }
-                showDraftModernAlert('Server error: ' + err.message);
-            });
+            };
+            window.ensureMappingDraftBeforeSubmit(draftRollsForm)
+                .then(function(draftInfo) {
+                    const formData = new FormData(draftRollsForm);
+                    return fetch(draftRollsForm.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    })
+                    .then(window.parseJsonResponseSafe)
+                    .then(function(data) {
+                        if (data.success) {
+                            showDraftModernAlert('Success: ' + data.message);
+                            if (draftInfo.isNew && draftInfo.id > 0) {
+                                window.location.href = '<?= url('purchases/mapping/draft/') ?>' + draftInfo.id;
+                            } else {
+                                window.location.reload();
+                            }
+                        } else {
+                            resetRollsBtn();
+                            showDraftModernAlert('Error: ' + (data.message || 'Failed to save rolls.'));
+                        }
+                    });
+                })
+                .catch(function(err) {
+                    resetRollsBtn();
+                    if (err && err.handled) return;
+                    showDraftModernAlert('Server error: ' + (err?.message || 'Unable to save rolls.'));
+                });
         });
     }
 
@@ -2546,7 +2825,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: formData
             })
-            .then(function(res) { return res.json(); })
+            .then(window.parseJsonResponseSafe)
             .then(function(data) {
                 if (data.success) {
                     const alertModalEl = document.getElementById('draftModernAlertModal');
@@ -2592,7 +2871,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: formData
             })
-            .then(function(res) { return res.json(); })
+            .then(window.parseJsonResponseSafe)
             .then(function(data) {
                 if (data.success) {
                     showDraftModernAlert('Success: ' + data.message);
@@ -3345,3 +3624,292 @@ document.addEventListener('DOMContentLoaded', function() {
     updateDraftRollGstPreview();
 });
 </script>
+
+<script>
+window.parseJsonResponseSafe = function (res) {
+    return res.text().then(function (txt) {
+        try {
+            return JSON.parse(txt);
+        } catch (e) {
+            throw new Error('Unexpected server response (HTTP ' + res.status + '). Please refresh the page and try again.');
+        }
+    });
+};
+
+window.__currentMappingBillId = <?= (int)$mappingBillId ?>;
+
+window.ensureMappingDraftBeforeSubmit = function (targetForm) {
+    if (window.__currentMappingBillId > 0) {
+        return Promise.resolve({ id: window.__currentMappingBillId, isNew: false });
+    }
+    const headerForm = document.getElementById('mappingInvoiceHeaderForm');
+    const sellerSel = document.getElementById('mappingSellerSelect');
+    const invInput = document.getElementById('mappingInvoiceNumber');
+    const dateInput = document.getElementById('mappingInvoiceDate');
+    const concernSel = document.getElementById('adminTargetConcernSelect');
+
+    const sellerId = (sellerSel?.value || '').trim();
+    if (!sellerId) {
+        sellerSel?.classList.add('is-invalid');
+        sellerSel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sellerSel?.focus();
+        if (typeof window.showDraftModernAlert === 'function') {
+            window.showDraftModernAlert('Please select a Supplier / Person in Supplier Invoice Details before saving products.');
+        }
+        return Promise.reject({ handled: true });
+    }
+    sellerSel?.classList.remove('is-invalid');
+
+    const invoiceDate = (dateInput?.value || '').trim();
+    if (!invoiceDate) {
+        dateInput?.classList.add('is-invalid');
+        dateInput?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        dateInput?.focus();
+        if (typeof window.showDraftModernAlert === 'function') {
+            window.showDraftModernAlert('Please select a valid Invoice Date in Supplier Invoice Details.');
+        }
+        return Promise.reject({ handled: true });
+    }
+    dateInput?.classList.remove('is-invalid');
+
+    if (invInput?.classList.contains('is-invalid')) {
+        invInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        invInput.focus();
+        if (typeof window.showDraftModernAlert === 'function') {
+            window.showDraftModernAlert('This invoice number already exists. Click "Use Existing Invoice" or enter a different invoice number.');
+        }
+        return Promise.reject({ handled: true });
+    }
+
+    const payload = new FormData();
+    const csrfInput = headerForm?.querySelector('input[name="_token"], input[name="csrf_token"]');
+    if (csrfInput) {
+        payload.append(csrfInput.name, csrfInput.value);
+    }
+    payload.append('seller_id', sellerId);
+    payload.append('invoice_number', (invInput?.value || '').trim());
+    payload.append('invoice_date', invoiceDate);
+    payload.append('from_mapping_create', '1');
+    if (concernSel && concernSel.value) {
+        payload.append('concern_id', concernSel.value);
+    }
+
+    return fetch('<?= url('api/purchases/mapping/ensure-draft') ?>', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: payload
+    })
+    .then(window.parseJsonResponseSafe)
+    .then(function (data) {
+        if (!data || !data.success || !data.mapping_bill_id) {
+            throw new Error((data && data.message) ? data.message : 'Unable to create mapping invoice draft.');
+        }
+        window.__currentMappingBillId = parseInt(data.mapping_bill_id, 10);
+        if (targetForm) {
+            targetForm.action = '<?= url('purchases/mapping/draft/') ?>' + window.__currentMappingBillId + '/add-product';
+        }
+        return { id: window.__currentMappingBillId, isNew: true };
+    });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    const sellerSel = document.getElementById('mappingSellerSelect');
+    const invInput = document.getElementById('mappingInvoiceNumber');
+    const errEl = document.getElementById('mappingInvoiceError');
+    const btnUse = document.getElementById('btnUseExistingMappingInvoice');
+    const btnUseCard = document.getElementById('btnUseExistingMappingInvoiceCard');
+    const previewCard = document.getElementById('existingInvoicePreviewCard');
+    const previewBody = document.getElementById('existingInvoicePreviewBody');
+    const btnSave = document.getElementById('btnSaveNewMappingInvoice');
+    const initialDraftId = <?= (int)$mappingBillId ?>;
+    const initialSellerId = String(<?= (int)($bill['seller_id'] ?? 0) ?>);
+    const initialInvoiceNum = <?= json_encode((string)($bill['invoice_number'] ?? ''), JSON_UNESCAPED_UNICODE) ?>;
+    let debounceTimer = null;
+
+    function esc(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function clearExistingState() {
+        invInput?.classList.remove('is-invalid');
+        if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+        btnUse?.classList.add('d-none');
+        previewCard?.classList.add('d-none');
+        if (previewBody) previewBody.innerHTML = '';
+        if (btnSave) btnSave.disabled = false;
+    }
+
+    function checkExistingInvoice() {
+        const sid = sellerSel?.value || '';
+        const inv = invInput?.value.trim() || '';
+        if (!sid || !inv) {
+            clearExistingState();
+            return;
+        }
+        if (initialDraftId > 0 && sid === initialSellerId && inv.toUpperCase() === initialInvoiceNum.trim().toUpperCase()) {
+            clearExistingState();
+            return;
+        }
+        fetch('<?= url('api/purchases/mapping/check-invoice') ?>?seller_id=' + encodeURIComponent(sid) + '&invoice_number=' + encodeURIComponent(inv), {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || !data.exists) {
+                clearExistingState();
+                return;
+            }
+            const rec = data.record || {};
+            if (initialDraftId > 0 && data.source === 'MAPPING' && Number(rec.id || 0) === initialDraftId) {
+                clearExistingState();
+                return;
+            }
+            const items = Array.isArray(data.items) ? data.items : [];
+            const useUrl = rec.use_url || '#';
+
+            invInput?.classList.add('is-invalid');
+            if (errEl) {
+                errEl.textContent = `Invoice "${rec.invoice_number || inv}" already exists (${data.source === 'PURCHASE' ? 'Purchase ' + (rec.purchase_number || '') : 'Mapping Draft'}). Cannot create duplicate — click "Use Existing Invoice".`;
+                errEl.classList.remove('d-none');
+                errEl.classList.add('d-block');
+            }
+            if (btnUse) { btnUse.href = useUrl; btnUse.classList.remove('d-none'); }
+            if (btnUseCard) { btnUseCard.href = useUrl; }
+            if (btnSave) { btnSave.disabled = true; }
+
+            let html = `
+                <div class="row g-2 mb-3 small">
+                    <div class="col-md-3"><strong>Source:</strong> ${esc(data.source === 'PURCHASE' ? 'Purchase Bill (' + (rec.purchase_number || '') + ')' : 'Mapping Draft #' + (rec.id || ''))}</div>
+                    <div class="col-md-3"><strong>Supplier:</strong> ${esc(rec.supplier || '—')}</div>
+                    <div class="col-md-3"><strong>Date:</strong> ${esc(rec.date || '—')}</div>
+                    <div class="col-md-3"><strong>Status:</strong> <span class="badge bg-secondary">${esc(rec.status || '—')}</span>${rec.total_amount !== undefined ? ' · <strong>₹' + Number(rec.total_amount).toFixed(2) + '</strong>' : ''}</div>
+                </div>
+                <div class="table-responsive border rounded">
+                    <table class="table table-sm table-hover align-middle mb-0 small">
+                        <thead class="table-light text-uppercase text-muted">
+                            <tr>
+                                <th>#</th>
+                                <th>Product / SKU</th>
+                                <th>Color / Size</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Rate (₹)</th>
+                                <th class="text-end">MRP / SP (₹)</th>
+                                <th>HSN</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            if (items.length === 0) {
+                html += '<tr><td colspan="7" class="text-center text-muted py-2">No products added to this invoice yet.</td></tr>';
+            } else {
+                items.forEach((it, idx) => {
+                    html += `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td><strong>${esc(it.item_name)}</strong> <span class="text-muted font-monospace">${esc(it.vendor_sku || '')}</span></td>
+                            <td>${esc([it.color, it.size].filter(Boolean).join(' / ') || '—')}</td>
+                            <td class="text-end fw-bold">${Number(it.quantity || 0)} ${esc(it.unit || '')}</td>
+                            <td class="text-end">${formatCurrency(Number(it.unit_price || 0))}</td>
+                            <td class="text-end">${formatCurrency(Number(it.mrp || 0))} / ${formatCurrency(Number(it.selling_price || 0))}</td>
+                            <td class="font-monospace">${esc(it.hsn_code || '—')}</td>
+                        </tr>
+                    `;
+                });
+            }
+            html += '</tbody></table></div>';
+            if (previewBody) previewBody.innerHTML = html;
+            previewCard?.classList.remove('d-none');
+        })
+        .catch(() => {});
+    }
+
+    function scheduleCheck() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(checkExistingInvoice, 250);
+    }
+
+    sellerSel?.addEventListener('change', function () {
+        sellerSel.classList.remove('is-invalid');
+        scheduleCheck();
+    });
+    invInput?.addEventListener('input', scheduleCheck);
+    invInput?.addEventListener('blur', checkExistingInvoice);
+    if (initialDraftId === 0 && sellerSel?.value && invInput?.value.trim()) {
+        checkExistingInvoice();
+    }
+});
+</script>
+
+<?php if (!$invoiceLocked && hasPermission('sellers', 'create')): ?>
+<div class="modal fade" id="createMappingSupplierModal" tabindex="-1" aria-labelledby="createMappingSupplierModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="<?= url('production/sellers/store') ?>" id="createMappingSupplierForm">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="supplier_profile_only" value="1">
+                <input type="hidden" name="return_to" value="purchases/mapping/create">
+                <input type="hidden" name="return_draft_id" value="<?= (int)$mappingBillId ?>">
+                <input type="hidden" name="return_invoice_number" id="mappingReturnInvoiceNumber" value="<?= e($currentInvoiceNumVal) ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="createMappingSupplierModalLabel">
+                        <i class="bi bi-person-plus me-2 text-primary"></i>Create Supplier
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contact Person / Supplier Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control text-uppercase" required minlength="2" maxlength="200" autocomplete="name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Company / Business Name <span class="text-danger">*</span></label>
+                            <input type="text" name="company" class="form-control text-uppercase" required minlength="2" maxlength="300" autocomplete="organization">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone Number <span class="text-danger">*</span></label>
+                            <input type="tel" name="phone" class="form-control" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" autocomplete="tel">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email Address</label>
+                            <input type="email" name="email" class="form-control" maxlength="255" autocomplete="email">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">GSTIN / Tax ID</label>
+                            <input type="text" name="gst_number" class="form-control text-uppercase font-monospace" maxlength="15">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">City / District <span class="text-danger">*</span></label>
+                            <input type="text" name="city" class="form-control text-uppercase" required maxlength="100">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">State <span class="text-danger">*</span></label>
+                            <input type="text" name="state" class="form-control text-uppercase" required maxlength="100" value="TAMIL NADU">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Full Business Address <span class="text-danger">*</span></label>
+                            <textarea name="address" class="form-control text-uppercase" required maxlength="500" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i>Save Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.getElementById('createMappingSupplierForm')?.addEventListener('submit', function () {
+    const retInv = document.getElementById('mappingReturnInvoiceNumber');
+    const curInv = document.getElementById('mappingInvoiceNumber');
+    if (retInv && curInv) {
+        retInv.value = curInv.value;
+    }
+});
+</script>
+<?php endif; ?>
