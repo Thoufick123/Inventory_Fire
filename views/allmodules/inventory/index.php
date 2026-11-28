@@ -464,7 +464,7 @@ $inventoryVariantCount = array_sum(array_map(
                                         title="Edit Batch / Variant Price"
                                         onclick='openEditPriceModal(<?= json_encode([
                                             'variant_id'   => $allVariantIdsStr ?: $primaryVariantId,
-                                            'sku'          => $firstSku,
+                                            'sku'          => $firstVariantCode,
                                             'product_name' => (string)$batch['product_name'] . " (Batch #" . $batch['qc_batch_id'] . ")",
                                             'cost_price'   => $firstCost,
                                             'selling_price'=> $minPrice,
@@ -1164,11 +1164,8 @@ function submitProductPriceEdit(e) {
             `;
             document.body.appendChild(alertDiv);
             setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode) {
-                    alertDiv.classList.remove('show');
-                    setTimeout(() => alertDiv.remove(), 250);
-                }
-            }, 5000);
+                window.location.reload();
+            }, 600);
         } else {
             alert(data.message || 'Failed to update prices. Please try again.');
         }

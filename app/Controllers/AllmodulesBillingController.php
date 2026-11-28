@@ -348,6 +348,11 @@ class AllmodulesBillingController
             return;
         }
 
+        if (!class_exists('CashFlowService')) {
+            require_once BASE_PATH . '/app/Services/CashFlowService.php';
+        }
+        CashFlowService::ensureSchema();
+
         Database::beginTransaction();
         try {
             Database::fetchOne("SELECT id FROM production_bills WHERE id = ? FOR UPDATE", [(int)$bill['id']]);
@@ -2745,6 +2750,11 @@ class AllmodulesBillingController
             $couponApplyMode,
         ];
 
+        if (!class_exists('CashFlowService')) {
+            require_once BASE_PATH . '/app/Services/CashFlowService.php';
+        }
+        CashFlowService::ensureSchema();
+
         Database::beginTransaction();
         try {
             if ($billId === null) {
@@ -2939,6 +2949,34 @@ class AllmodulesBillingController
                         "UPDATE pos_coupons SET used_count = ?, status = ?, redeemed_bill_id = ?, redeemed_at = NOW() WHERE id = ?",
                         [$newUsed, $nextSt, $billId, $appliedCouponId]
                     );
+                }
+            }
+
+            // Record POS sale inflow in Cash Management when allocated to user/concern or an active shift is open
+            $cashFlowEnabled = (function_exists('isSuperAdmin') && isSuperAdmin())
+                || (function_exists('hasPermission') && (hasPermission('cash_flow', 'view') || hasPermission('cash_flow', 'create') || hasPermission('shop_cash', 'view') || hasPermission('shop_cash', 'create')))
+                || (function_exists('hasConcernModule') && (hasConcernModule('production') || hasConcernModule('retail_pos') || hasConcernModule('expenses')))
+                || CashFlowService::getActiveShift($activeConcernId) !== null;
+            if ($cashFlowEnabled) {
+                $billNoRow = $isNewBill ? $billNumber : (string)(Database::fetchColumn("SELECT bill_number FROM production_bills WHERE id = ?", [$billId]) ?: ('BILL-' . $billId));
+                if (!$isNewBill) {
+                    CashFlowService::clearSaleInflowByBill($billNoRow);
+                }
+                $partyLabel = $buyerType === 'COMPANY' ? ($companyName ?: 'Company') : ($customerName ?: 'Walk-in Customer');
+                $actorUid = (int)(Auth::id() ?? 0) ?: 1;
+                $cashIn = (float)($cashAmount ?? 0);
+                $upiIn = (float)($upiAmount ?? 0);
+                $paidIn = (float)($paidAmount ?? 0);
+
+                if ($cashIn > 0 || $upiIn > 0) {
+                    if ($cashIn > 0) {
+                        CashFlowService::recordSaleInflow($activeConcernId, $cashIn, 'CASH', $billNoRow, $partyLabel, $actorUid);
+                    }
+                    if ($upiIn > 0) {
+                        CashFlowService::recordSaleInflow($activeConcernId, $upiIn, 'UPI', $billNoRow, $partyLabel, $actorUid);
+                    }
+                } elseif ($paidIn > 0) {
+                    CashFlowService::recordSaleInflow($activeConcernId, $paidIn, (string)$paymentMethod, $billNoRow, $partyLabel, $actorUid);
                 }
             }
 

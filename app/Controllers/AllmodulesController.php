@@ -18684,10 +18684,14 @@ class AllmodulesController {
             ];
         }
 
-        // Update base_price on parent products
-        foreach (array_keys($affectedProductIds) as $pid) {
-            Database::execute("UPDATE products SET base_price = ?, updated_at = NOW() WHERE id = ?", [$newSellingPrice, $pid]);
-        }
+        // Update base_price on parent products when column exists
+        try {
+            if (Database::fetchOne("SHOW COLUMNS FROM products LIKE 'base_price'")) {
+                foreach (array_keys($affectedProductIds) as $pid) {
+                    Database::execute("UPDATE products SET base_price = ?, updated_at = NOW() WHERE id = ?", [$newSellingPrice, $pid]);
+                }
+            }
+        } catch (\Throwable $e) {}
 
         $cnt = count($updatedVariants);
         echo json_encode([
@@ -22692,9 +22696,11 @@ class AllmodulesController {
             } catch (\Throwable $e) {}
         }
 
+        $priceChangeLogs = self::fetchPriceChangeLogs($batchVariantIds ?? []);
         Response::view('allmodules.inventory.batch', [
             'pageTitle'           => 'QC Batch #' . $id . ' — Inventory Detail',
             'activeModule'        => 'production',
+            'priceChangeLogs'     => $priceChangeLogs,
             'activeMenu'          => 'prod-inventory',
             'qcBatchId'           => $id,
             'primarySku'          => $first['variant_code'] ?? $first['product_name'] ?? 'Batch',
@@ -23100,10 +23106,13 @@ class AllmodulesController {
         );
 
         $skuDisplay = $firstItem['variant_sku'] ?: ($firstItem['product_sku'] ?: 'SKU');
+        $inwVarIds = array_values(array_unique(array_filter(array_map('intval', array_column($items ?? [], 'variant_id')))));
+        $priceChangeLogs = self::fetchPriceChangeLogs($inwVarIds);
 
         Response::view('allmodules.inventory.batch', [
             'pageTitle'           => 'Stock Ledger — ' . $skuDisplay,
             'activeModule'        => 'warehouse',
+            'priceChangeLogs'     => $priceChangeLogs,
             'activeMenu'          => 'wh-stock',
             'qcBatchId'           => 'INW-' . $pbId,
             'batchId'             => $pbId,
@@ -23155,6 +23164,36 @@ class AllmodulesController {
      * with real-time remaining stock calculation, QR labels, and outward dispatch history,
      * exactly formatted like the QC Batch inventory page.
      */
+    private static function fetchPriceChangeLogs(array $variantIds, ?int $productId = null): array {
+        $variantIds = array_values(array_unique(array_filter(array_map('intval', $variantIds), static fn($v) => $v > 0)));
+        try {
+            if (!empty($variantIds)) {
+                $ph = implode(',', array_fill(0, count($variantIds), '?'));
+                return Database::fetchAll(
+                    "SELECT ppl.*, pv.variant_code
+                     FROM product_price_logs ppl
+                     LEFT JOIN product_variants pv ON pv.id = ppl.variant_id
+                     WHERE ppl.variant_id IN ({$ph})
+                     ORDER BY ppl.id DESC
+                     LIMIT 100",
+                    $variantIds
+                );
+            }
+            if ($productId && $productId > 0) {
+                return Database::fetchAll(
+                    "SELECT ppl.*, pv.variant_code
+                     FROM product_price_logs ppl
+                     LEFT JOIN product_variants pv ON pv.id = ppl.variant_id
+                     WHERE ppl.product_id = ?
+                     ORDER BY ppl.id DESC
+                     LIMIT 100",
+                    [$productId]
+                );
+            }
+        } catch (\Throwable $e) {}
+        return [];
+    }
+
     public function productionInventorySupplyBatch($id): void {
         self::ensureDatabaseSchema();
         $supplyItemId = (int)$id;
@@ -23514,9 +23553,11 @@ class AllmodulesController {
                 'total_qty'     => $totalPieces,
                 'status'        => 'AVAILABLE',
             ]];
+            $priceChangeLogs = self::fetchPriceChangeLogs($tpVariantIds, !empty($supplyItem['catalog_product_id']) ? (int)$supplyItem['catalog_product_id'] : null);
             Response::view('allmodules.inventory.batch', [
                 'pageTitle'           => 'Purchase #TP-' . $supplyItemId . ' — Inventory Detail',
                 'activeModule'        => 'production',
+                'priceChangeLogs'     => $priceChangeLogs,
                 'activeMenu'          => 'prod-inventory',
                 'qcBatchId'           => 'TP-' . $supplyItemId,
                 'primarySku'          => $supplyItem['product_sku'] ?? ('TP-' . $supplyItemId),

@@ -364,10 +364,10 @@ const CONCERN_MODULE_MAPPING = {
     'purchases': ['purchases', 'rolls', 'raw_materials', 'third_party_products', 'qr_generations', 'suppliers', 'goods_inward'],
     'production': ['programs', 'cuttings', 'cutting_outwards', 'stitching', 'qc', 'damages', 'damage_outwards', 'catalog', 'variants', 'qr_generations'],
     'warehouse': ['outward', 'inventory', 'stock_ledger', 'stock_requests'],
-    'retail_pos': ['billing', 'direct_billing', 'coupons'],
-    'digital_sales': ['billing', 'direct_billing', 'outward'],
+    'retail_pos': ['billing', 'direct_billing', 'coupons', 'cash_flow'],
+    'digital_sales': ['billing', 'direct_billing', 'outward', 'cash_flow'],
     'returns': ['returns'],
-    'expenses': ['expenses', 'wastage'],
+    'expenses': ['expenses', 'wastage', 'cash_flow'],
     'assets': ['assets', 'asset_maintenance']
 };
 let latestExportCounts = {};

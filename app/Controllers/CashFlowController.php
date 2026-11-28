@@ -23,6 +23,7 @@ class CashFlowController {
         $cid = currentConcernId();
 
         $activeShift = CashFlowService::getActiveShift($cid);
+        $lastClosedShift = CashFlowService::getLastClosedShift($cid);
 
         // Fetch Concern name
         $concernName = 'All Concerns';
@@ -39,13 +40,13 @@ class CashFlowController {
             $params[] = $cid;
         }
 
-        // Today's statistics
+        // Today's statistics (exclude FLOAT_OPEN carry-forwards so closing/reopening shifts never double-counts cash)
         $todayWhere = $scope ? ($scope . " AND DATE(c.created_at) = CURDATE()") : "WHERE DATE(c.created_at) = CURDATE()";
         $todayStats = Database::fetchOne(
             "SELECT 
-                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS today_cash_sales,
-                COALESCE(SUM(CASE WHEN flow = 'INFLOW' THEN amount ELSE 0 END), 0) AS today_total_inflow,
-                COALESCE(SUM(CASE WHEN flow = 'OUTFLOW' THEN amount ELSE 0 END), 0) AS today_total_outflow,
+                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_cash_sales,
+                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type IN ('SALE_INFLOW', 'FLOAT_TOPUP') AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_total_inflow,
+                COALESCE(SUM(CASE WHEN flow = 'OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_total_outflow,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS today_bank_deposits
              FROM cash_flow_transactions c {$todayWhere}",
             $params
@@ -56,11 +57,19 @@ class CashFlowController {
         $todayBankDeposits = (float)($todayStats['today_bank_deposits'] ?? 0);
         $netCashPosition = $todayCashInflow - (float)($todayStats['today_total_outflow'] ?? 0);
 
-        // Digital Channels (UPI, Card from sales if available or mock baseline)
+        // Digital Channels (UPI, Card from today's sale inflows)
+        $digitalRow = Database::fetchOne(
+            "SELECT
+                COALESCE(SUM(CASE WHEN payment_mode = 'UPI' THEN amount ELSE 0 END), 0) AS upi,
+                COALESCE(SUM(CASE WHEN payment_mode = 'CARD' THEN amount ELSE 0 END), 0) AS card,
+                COALESCE(SUM(CASE WHEN payment_mode != 'CASH' THEN amount ELSE 0 END), 0) AS total
+             FROM cash_flow_transactions c {$todayWhere} AND flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW'",
+            $params
+        );
         $digitalStats = [
-            'total' => 0.00,
-            'upi' => 0.00,
-            'card' => 0.00
+            'total' => (float)($digitalRow['total'] ?? 0),
+            'upi'   => (float)($digitalRow['upi'] ?? 0),
+            'card'  => (float)($digitalRow['card'] ?? 0),
         ];
 
         // 1. Shift Logs (All closed and open shifts)
@@ -134,6 +143,7 @@ class CashFlowController {
             ],
             'concernName' => $concernName,
             'activeShift' => $activeShift,
+            'lastClosedShift' => $lastClosedShift,
             'todayCashInflow' => $todayCashInflow,
             'todayCashSales' => $todayCashSales,
             'todayBankDeposits' => $todayBankDeposits,
@@ -155,8 +165,14 @@ class CashFlowController {
         }
         $cid = currentConcernId();
         $cashierId = (int)(Session::get('user_id') ?? 1);
-        $floatAmount = (float)($_POST['opening_float'] ?? 0);
+        $lastClosedShift = CashFlowService::getLastClosedShift($cid);
+        $floatAmount = $lastClosedShift
+            ? (float)$lastClosedShift['carried_float']
+            : (float)($_POST['opening_float'] ?? 0);
         $notes = trim((string)($_POST['opening_notes'] ?? ''));
+        if ($notes === '' && $lastClosedShift) {
+            $notes = 'Opening float carried from shift ' . ($lastClosedShift['shift_code'] ?? '');
+        }
 
         try {
             $shiftId = CashFlowService::openShift($cid, $cashierId, $floatAmount, $notes);

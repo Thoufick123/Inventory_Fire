@@ -102,8 +102,8 @@ class CashFlowService {
         $stats = Database::fetchOne(
             "SELECT 
                 COALESCE(SUM(CASE WHEN transaction_type = 'FLOAT_TOPUP' THEN amount ELSE 0 END), 0) AS total_topup,
-                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS total_sales,
-                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' THEN amount ELSE 0 END), 0) AS total_refunds,
+                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_sales,
+                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_refunds,
                 COALESCE(SUM(CASE WHEN transaction_type = 'PETTY_EXPENSE' THEN amount ELSE 0 END), 0) AS total_expenses,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS total_bank_drops
              FROM cash_flow_transactions
@@ -126,6 +126,67 @@ class CashFlowService {
         $shift['total_expenses'] = $expenses;
         $shift['total_bank_drops'] = $bankDrops;
         $shift['expected_drawer'] = max(0, $expectedDrawer);
+
+        return $shift;
+    }
+
+    /**
+     * Fetch the most recently closed shift for a concern so its closing balance
+     * and denominations can be carried forward into the next shift's opening float.
+     */
+    public static function getLastClosedShift(?int $concernId): ?array {
+        self::ensureSchema();
+        $where = "s.status = 'CLOSED'";
+        $params = [];
+        if ($concernId) {
+            if ($concernId === 1) {
+                $where .= " AND (s.concern_id = ? OR s.concern_id IS NULL)";
+            } else {
+                $where .= " AND s.concern_id = ?";
+            }
+            $params[] = $concernId;
+        }
+
+        $shift = Database::fetchOne(
+            "SELECT s.*,
+                    u.full_name AS cashier_name,
+                    cu.full_name AS closed_by_name
+             FROM shop_shifts s
+             LEFT JOIN users u ON u.id = s.cashier_id
+             LEFT JOIN users cu ON cu.id = s.closed_by
+             WHERE {$where}
+             ORDER BY COALESCE(s.closed_at, s.opened_at) DESC, s.id DESC
+             LIMIT 1",
+            $params
+        );
+
+        if (!$shift) {
+            return null;
+        }
+
+        $decodedDenoms = [];
+        if (!empty($shift['denominations'])) {
+            $parsed = json_decode((string)$shift['denominations'], true);
+            if (is_array($parsed)) {
+                $decodedDenoms = $parsed;
+            }
+        }
+
+        $shift['denominations_map'] = [
+            'c500' => (int)($decodedDenoms['c500'] ?? 0),
+            'c200' => (int)($decodedDenoms['c200'] ?? 0),
+            'c100' => (int)($decodedDenoms['c100'] ?? 0),
+            'c50'  => (int)($decodedDenoms['c50'] ?? 0),
+            'c20'  => (int)($decodedDenoms['c20'] ?? 0),
+            'c10'  => (int)($decodedDenoms['c10'] ?? 0),
+            'c5'   => (int)($decodedDenoms['c5'] ?? 0),
+            'coins'=> (float)($decodedDenoms['coins'] ?? 0),
+        ];
+
+        $carriedFloat = $shift['actual_cash'] !== null
+            ? (float)$shift['actual_cash']
+            : (float)($shift['expected_cash'] ?? 0);
+        $shift['carried_float'] = max(0.0, $carriedFloat);
 
         return $shift;
     }
@@ -242,8 +303,8 @@ class CashFlowService {
         $stats = Database::fetchOne(
             "SELECT 
                 COALESCE(SUM(CASE WHEN transaction_type = 'FLOAT_TOPUP' THEN amount ELSE 0 END), 0) AS total_topup,
-                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS total_sales,
-                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' THEN amount ELSE 0 END), 0) AS total_refunds,
+                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_sales,
+                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_refunds,
                 COALESCE(SUM(CASE WHEN transaction_type = 'PETTY_EXPENSE' THEN amount ELSE 0 END), 0) AS total_expenses,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS total_bank_drops
              FROM cash_flow_transactions
@@ -268,5 +329,55 @@ class CashFlowService {
             'actual_cash' => $actualCash,
             'variance' => $variance
         ];
+    }
+
+    /**
+     * Record a POS sale inflow into cash_flow_transactions (linked to active shift if open).
+     */
+    public static function recordSaleInflow(
+        ?int $concernId,
+        float $amount,
+        string $paymentMode,
+        string $billNumber,
+        string $partyName,
+        int $userId
+    ): void {
+        self::ensureSchema();
+        if ($amount <= 0) {
+            return;
+        }
+        $shift = self::getActiveShift($concernId);
+        $shiftId = $shift ? (int)$shift['id'] : null;
+        $mode = strtoupper(trim($paymentMode)) ?: 'CASH';
+        $txNumber = 'TX-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(2)));
+
+        Database::execute(
+            "INSERT INTO cash_flow_transactions
+             (concern_id, shift_id, tx_number, transaction_type, flow, payment_mode, amount, source_or_recipient, reference_number, reason, created_by, created_at)
+             VALUES (?, ?, ?, 'SALE_INFLOW', 'INFLOW', ?, ?, ?, ?, ?, ?, NOW())",
+            [
+                $concernId,
+                $shiftId,
+                $txNumber,
+                $mode,
+                $amount,
+                $partyName !== '' ? $partyName : 'POS Customer',
+                $billNumber,
+                "POS Sale ({$mode}) - {$billNumber}",
+                $userId > 0 ? $userId : 1,
+            ]
+        );
+    }
+
+    /**
+     * Remove previous POS sale inflow entries for a bill (used on bill edit before re-recording).
+     */
+    public static function clearSaleInflowByBill(string $billNumber): void {
+        if ($billNumber === '') return;
+        self::ensureSchema();
+        Database::execute(
+            "DELETE FROM cash_flow_transactions WHERE transaction_type = 'SALE_INFLOW' AND reference_number = ?",
+            [$billNumber]
+        );
     }
 }
