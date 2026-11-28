@@ -348,6 +348,11 @@ class AllmodulesBillingController
             return;
         }
 
+        if (!class_exists('CashFlowService')) {
+            require_once BASE_PATH . '/app/Services/CashFlowService.php';
+        }
+        CashFlowService::ensureSchema();
+
         Database::beginTransaction();
         try {
             Database::fetchOne("SELECT id FROM production_bills WHERE id = ? FOR UPDATE", [(int)$bill['id']]);
@@ -2745,6 +2750,11 @@ class AllmodulesBillingController
             $couponApplyMode,
         ];
 
+        if (!class_exists('CashFlowService')) {
+            require_once BASE_PATH . '/app/Services/CashFlowService.php';
+        }
+        CashFlowService::ensureSchema();
+
         Database::beginTransaction();
         try {
             if ($billId === null) {
@@ -2942,12 +2952,12 @@ class AllmodulesBillingController
                 }
             }
 
-            // Record POS sale inflow in Cash Management when allocated/enabled for the concern
-            $cashFlowEnabled = !function_exists('hasConcernModule') || hasConcernModule('cash_flow');
+            // Record POS sale inflow in Cash Management when allocated to user/concern or an active shift is open
+            $cashFlowEnabled = (function_exists('isSuperAdmin') && isSuperAdmin())
+                || (function_exists('hasPermission') && (hasPermission('cash_flow', 'view') || hasPermission('cash_flow', 'create') || hasPermission('shop_cash', 'view') || hasPermission('shop_cash', 'create')))
+                || (function_exists('hasConcernModule') && (hasConcernModule('production') || hasConcernModule('retail_pos') || hasConcernModule('expenses')))
+                || CashFlowService::getActiveShift($activeConcernId) !== null;
             if ($cashFlowEnabled) {
-                if (!class_exists('CashFlowService')) {
-                    require_once BASE_PATH . '/app/Services/CashFlowService.php';
-                }
                 $billNoRow = $isNewBill ? $billNumber : (string)(Database::fetchColumn("SELECT bill_number FROM production_bills WHERE id = ?", [$billId]) ?: ('BILL-' . $billId));
                 if (!$isNewBill) {
                     CashFlowService::clearSaleInflowByBill($billNoRow);
