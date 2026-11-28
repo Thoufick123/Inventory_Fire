@@ -1338,7 +1338,7 @@ class AllmodulesController {
             $where[] = "pp.purchase_type = ?";
             $params[] = $filterType;
         } elseif ($filterType === 'MAPPING') {
-            $where[] = "(mb.id IS NOT NULL OR pp.notes LIKE '%Mapping Invoice%')";
+            $where[] = "((mb.id IS NOT NULL AND COALESCE(mb.source_module, 'QR_GENERATION') = 'QR_GENERATION') OR pp.notes LIKE '%Mapping Invoice%')";
         }
         if ($search !== '') {
             $where[] = "(pp.purchase_number LIKE ? OR pp.invoice_number LIKE ? OR s.company LIKE ? OR s.name LIKE ?)";
@@ -1361,7 +1361,7 @@ class AllmodulesController {
              FROM production_purchases pp
              INNER JOIN sellers s ON s.id = pp.seller_id
              LEFT JOIN concerns c_con ON c_con.id = COALESCE(pp.concern_id, 1)
-             LEFT JOIN third_party_mapping_bills mb ON mb.purchase_id = pp.id
+             LEFT JOIN third_party_mapping_bills mb ON mb.purchase_id = pp.id AND COALESCE(mb.source_module, 'QR_GENERATION') = 'QR_GENERATION'
              $whereSql
              ORDER BY pp.purchase_date DESC, pp.id DESC",
             $params
@@ -1417,7 +1417,8 @@ class AllmodulesController {
         );
         $totalPurchaseValue = (float)($metrics['total_value'] ?? 0);
 
-        $pendingMappingWhere = $metricWhere ? ($metricWhereSql . " AND accounts_status = 'PENDING_ACCOUNTS'") : "WHERE accounts_status = 'PENDING_ACCOUNTS'";
+        $pendingMappingCond = "accounts_status = 'PENDING_ACCOUNTS' AND (EXISTS (SELECT 1 FROM third_party_mapping_bills mb2 WHERE mb2.purchase_id = production_purchases.id AND COALESCE(mb2.source_module, 'QR_GENERATION') = 'QR_GENERATION') OR notes LIKE '%Mapping Invoice%')";
+        $pendingMappingWhere = $metricWhere ? ($metricWhereSql . " AND " . $pendingMappingCond) : ("WHERE " . $pendingMappingCond);
         $pendingMappingCount = (int)(Database::fetchOne(
             "SELECT COUNT(*) AS cnt FROM production_purchases $pendingMappingWhere",
             $metricParams
