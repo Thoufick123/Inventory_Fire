@@ -64,6 +64,36 @@ class AssetController {
         ]);
     }
 
+    public function ajaxStoreCategory(): void {
+        if (!hasPermission('asset_register', 'create') && !hasPermission('assets', 'create')) {
+            Response::json(['success' => false, 'message' => 'Access denied.'], 403);
+            return;
+        }
+        if (!CSRF::validateRequest()) {
+            Response::json(['success' => false, 'message' => 'Invalid security token. Please refresh and try again.'], 403);
+            return;
+        }
+        $name = trim((string)($_POST['name'] ?? ''));
+        if ($name === '' || mb_strlen($name) > 150) {
+            Response::json(['success' => false, 'message' => 'Please enter a valid category name (max 150 characters).'], 422);
+            return;
+        }
+        try {
+            $category = AssetCategory::createQuick($name);
+            Response::json([
+                'success'  => true,
+                'message'  => 'Category saved successfully.',
+                'category' => [
+                    'id'   => (int)$category['id'],
+                    'name' => (string)$category['name'],
+                    'code' => (string)($category['code'] ?? ''),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Response::json(['success' => false, 'message' => 'Could not save category: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function store(): void {
         if (!hasPermission('asset_register', 'create') && !hasPermission('assets', 'create')) {
             Response::error(403, 'Access denied.');

@@ -78,13 +78,13 @@
         <div class="card-body p-3">
             <form method="GET" action="<?= url('assets') ?>" class="row g-2 align-items-center">
                 <div class="col-md-4">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="search" class="form-control" placeholder="Search Code, Name, Brand, Serial #, QR..." value="<?= e($filters['search']) ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <select name="category_id" class="form-select form-select-sm">
+                <div class="col-md-2">
+                    <select name="category_id" class="form-select">
                         <option value="">All Categories</option>
                         <?php foreach ($categories as $cat): ?>
                         <option value="<?= $cat['id'] ?>" <?= $filters['category_id'] == $cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?></option>
@@ -92,7 +92,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <select name="status" class="form-select form-select-sm">
+                    <select name="status" class="form-select">
                         <option value="">All Statuses</option>
                         <option value="IN_USE" <?= $filters['status'] === 'IN_USE' ? 'selected' : '' ?>>In Use / Operational</option>
                         <option value="IDLE" <?= $filters['status'] === 'IDLE' ? 'selected' : '' ?>>Idle / Standby</option>
@@ -102,7 +102,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <select name="condition_state" class="form-select form-select-sm">
+                    <select name="condition_state" class="form-select">
                         <option value="">All Conditions</option>
                         <option value="EXCELLENT" <?= $filters['condition_state'] === 'EXCELLENT' ? 'selected' : '' ?>>Excellent</option>
                         <option value="GOOD" <?= $filters['condition_state'] === 'GOOD' ? 'selected' : '' ?>>Good</option>
@@ -111,9 +111,13 @@
                         <option value="CRITICAL" <?= $filters['condition_state'] === 'CRITICAL' ? 'selected' : '' ?>>Critical</option>
                     </select>
                 </div>
-                <div class="col-md-1 d-flex gap-1">
-                    <button type="submit" class="btn btn-sm btn-dark w-100"><i class="bi bi-funnel"></i></button>
-                    <a href="<?= url('assets') ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i></a>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-semibold flex-grow-1 shadow-xs">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="<?= url('assets') ?>" class="btn btn-outline-secondary shadow-xs" title="Reset Filters">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
                 </div>
             </form>
         </div>

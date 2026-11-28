@@ -32,13 +32,30 @@
                                 <input type="text" name="asset_code" class="form-control font-monospace fw-bold bg-light" value="<?= e($nextCode) ?>" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">Category <span class="text-danger">*</span></label>
-                                <select name="category_id" class="form-select" required>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-semibold small mb-0">Category <span class="text-danger">*</span></label>
+                                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold" id="btnToggleAddAssetCategory" style="font-size: 11px;">
+                                        <i class="bi bi-plus-circle me-1"></i>Add Category
+                                    </button>
+                                </div>
+                                <select name="category_id" id="assetCategorySelect" class="form-select" required>
                                     <option value="">-- Select Category --</option>
                                     <?php foreach ($categories as $cat): ?>
                                     <option value="<?= $cat['id'] ?>"><?= e($cat['name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div id="addAssetCategoryBox" class="mt-2 p-2 border rounded bg-light d-none">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="newAssetCategoryName" class="form-control" placeholder="Enter new category name..." maxlength="150" autocomplete="off">
+                                        <button type="button" class="btn btn-primary fw-semibold" id="btnSaveAssetCategory">
+                                            <i class="bi bi-check2 me-1"></i>Save
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" id="btnCancelAssetCategory" title="Cancel">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div id="addAssetCategoryError" class="text-danger small mt-1 d-none"></div>
+                                </div>
                             </div>
 
                             <div class="col-md-12">
@@ -193,4 +210,100 @@ function onCostChange(val) {
         bookValEl.value = val;
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const btnToggle = document.getElementById('btnToggleAddAssetCategory');
+    const box = document.getElementById('addAssetCategoryBox');
+    const nameInput = document.getElementById('newAssetCategoryName');
+    const btnSave = document.getElementById('btnSaveAssetCategory');
+    const btnCancel = document.getElementById('btnCancelAssetCategory');
+    const errEl = document.getElementById('addAssetCategoryError');
+    const selectEl = document.getElementById('assetCategorySelect');
+
+    function showErr(msg) {
+        if (!errEl) return;
+        errEl.textContent = msg;
+        errEl.classList.remove('d-none');
+    }
+
+    function hideBox() {
+        box?.classList.add('d-none');
+        errEl?.classList.add('d-none');
+        if (nameInput) nameInput.value = '';
+    }
+
+    btnToggle?.addEventListener('click', function () {
+        if (!box) return;
+        const isHidden = box.classList.toggle('d-none');
+        errEl?.classList.add('d-none');
+        if (!isHidden) {
+            nameInput?.focus();
+        }
+    });
+
+    btnCancel?.addEventListener('click', hideBox);
+
+    function saveCategory() {
+        const catName = (nameInput?.value || '').trim();
+        if (!catName) {
+            showErr('Please enter a category name.');
+            nameInput?.focus();
+            return;
+        }
+        errEl?.classList.add('d-none');
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+        const form = selectEl?.closest('form');
+        const csrfInput = form?.querySelector('input[name="csrf_token"], input[name="_token"]');
+        const fd = new FormData();
+        if (csrfInput) fd.append(csrfInput.name, csrfInput.value);
+        fd.append('name', catName);
+
+        fetch('<?= url('assets/categories/store') ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: fd
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data || !data.success || !data.category) {
+                showErr((data && data.message) ? data.message : 'Could not save category.');
+                return;
+            }
+            const cat = data.category;
+            if (selectEl) {
+                let opt = Array.from(selectEl.options).find(o => String(o.value) === String(cat.id));
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = String(cat.id);
+                    opt.textContent = cat.name;
+                    selectEl.appendChild(opt);
+                }
+                selectEl.value = String(cat.id);
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            hideBox();
+        })
+        .catch(() => showErr('Server error while saving category.'))
+        .finally(() => {
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="bi bi-check2 me-1"></i>Save';
+            }
+        });
+    }
+
+    btnSave?.addEventListener('click', saveCategory);
+    nameInput?.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveCategory();
+        }
+    });
+});
 </script>

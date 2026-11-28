@@ -290,9 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="badge bg-primary-subtle text-primary border" id="badge_count_<?= $c['id'] ?>">
                             <span class="count-val"><?= count($assignedIds) ?></span> / <?= count($allStaff ?? []) ?> Staff
                         </span>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary" onclick="batchModalStaff(<?= $c['id'] ?>, true)">Select All</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="batchModalStaff(<?= $c['id'] ?>, false)">Clear</button>
+                        <div class="btn-group btn-group-sm flex-shrink-0">
+                            <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="batchModalStaff(<?= $c['id'] ?>, true)">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary text-nowrap" onclick="batchModalStaff(<?= $c['id'] ?>, false)">Clear</button>
                         </div>
                     </div>
                 </div>
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         $initials = strtoupper(substr($st['full_name'], 0, 1) . (strpos($st['full_name'], ' ') !== false ? substr(strchr($st['full_name'], ' '), 1, 1) : ''));
                     ?>
                         <div class="col-12 col-md-6 modal-staff-item_<?= $c['id'] ?> mb-2" data-search="<?= strtolower(e($st['full_name'] . ' ' . $st['username'] . ' ' . ($st['role_name'] ?? '') . ' ' . ($st['department'] ?? ''))) ?>">
-                            <div class="card h-100 border rounded-3 p-3 cursor-pointer transition-all <?= $isAssigned ? 'border-primary bg-primary bg-opacity-10' : 'bg-light bg-opacity-25' ?>" id="mCard_<?= $c['id'] ?>_<?= $stId ?>" onclick="handleModalStaffClick(event, <?= $c['id'] ?>, <?= $stId ?>)">
+                            <div class="card h-100 border rounded-3 p-3 cursor-pointer transition-all <?= $isAssigned ? 'border-primary bg-primary-subtle' : 'bg-white' ?>" id="mCard_<?= $c['id'] ?>_<?= $stId ?>" onclick="handleModalStaffClick(event, <?= $c['id'] ?>, <?= $stId ?>)">
                                 <div class="d-flex align-items-start gap-2.5">
                                     <div class="form-check mt-1">
                                         <input class="form-check-input modal-chk-<?= $c['id'] ?>" type="checkbox" name="staff_ids[]" value="<?= $stId ?>" id="mChk_<?= $c['id'] ?>_<?= $stId ?>" <?= $isAssigned ? 'checked' : '' ?> onchange="syncModalStaff(<?= $c['id'] ?>, <?= $stId ?>)">
@@ -375,13 +375,13 @@ function syncModalStaff(cId, stId) {
 
     if (chk && card) {
         if (chk.checked) {
-            card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
-            card.classList.remove('bg-light', 'bg-opacity-25');
+            card.classList.add('border-primary', 'bg-primary-subtle');
+            card.classList.remove('bg-white', 'bg-light', 'bg-opacity-25', 'bg-primary', 'bg-opacity-10');
             const curRadio = document.querySelector('.modal-radio-' + cId + ':checked');
             if (!curRadio && radio) radio.checked = true;
         } else {
-            card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
-            card.classList.add('bg-light', 'bg-opacity-25');
+            card.classList.remove('border-primary', 'bg-primary-subtle', 'bg-primary', 'bg-opacity-10', 'bg-light', 'bg-opacity-25');
+            card.classList.add('bg-white');
             if (radio && radio.checked) {
                 radio.checked = false;
                 const nextChecked = document.querySelector('.modal-chk-' + cId + ':checked');
@@ -402,11 +402,11 @@ function batchModalStaff(cId, state) {
         const card = document.getElementById('mCard_' + cId + '_' + stId);
         if (card) {
             if (state) {
-                card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
-                card.classList.remove('bg-light', 'bg-opacity-25');
+                card.classList.add('border-primary', 'bg-primary-subtle');
+                card.classList.remove('bg-white', 'bg-light', 'bg-opacity-25', 'bg-primary', 'bg-opacity-10');
             } else {
-                card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
-                card.classList.add('bg-light', 'bg-opacity-25');
+                card.classList.remove('border-primary', 'bg-primary-subtle', 'bg-primary', 'bg-opacity-10', 'bg-light', 'bg-opacity-25');
+                card.classList.add('bg-white');
             }
         }
     });

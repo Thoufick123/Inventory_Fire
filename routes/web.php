@@ -641,6 +641,7 @@ class Router {
         // ==========================================
         $this->get('assets', 'AssetController', 'index', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'view']]);
         $this->get('assets/create', 'AssetController', 'create', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'create']]);
+        $this->post('assets/categories/store', 'AssetController', 'ajaxStoreCategory', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'create']]);
         $this->post('assets/store', 'AssetController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'create']]);
         $this->get('assets/view/{id}', 'AssetController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'view']]);
         $this->get('assets/edit/{id}', 'AssetController', 'edit', ['AuthMiddleware', ['PermissionMiddleware', 'asset_register', 'edit']]);

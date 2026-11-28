@@ -40,4 +40,36 @@ class AssetCategory {
             $stmt->execute($cat);
         }
     }
+
+    public static function createQuick(string $name, float $depreciationRate = 15.00): array {
+        $db = Database::getInstance();
+        $cleanName = trim($name);
+        $stmt = $db->prepare("SELECT * FROM asset_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1");
+        $stmt->execute([$cleanName]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            if (empty($existing['is_active'])) {
+                $db->prepare("UPDATE asset_categories SET is_active = 1 WHERE id = ?")->execute([(int)$existing['id']]);
+                $existing['is_active'] = 1;
+            }
+            return $existing;
+        }
+
+        $baseCode = strtoupper(preg_replace('/[^A-Z0-9]+/', '_', strtoupper($cleanName)));
+        $baseCode = trim((string)$baseCode, '_');
+        if ($baseCode === '') {
+            $baseCode = 'CAT';
+        }
+        $code = mb_substr($baseCode, 0, 16);
+        $chk = $db->prepare("SELECT id FROM asset_categories WHERE code = ? LIMIT 1");
+        $chk->execute([$code]);
+        if ($chk->fetch()) {
+            $code = mb_substr($baseCode, 0, 12) . '_' . random_int(100, 999);
+        }
+
+        $ins = $db->prepare("INSERT INTO asset_categories (name, code, icon, description, depreciation_rate_annual, is_active, created_at) VALUES (?, ?, 'bi-tag', '', ?, 1, NOW())");
+        $ins->execute([$cleanName, $code, $depreciationRate]);
+        $newId = (int)$db->lastInsertId();
+        return self::find($newId) ?: ['id' => $newId, 'name' => $cleanName, 'code' => $code];
+    }
 }
