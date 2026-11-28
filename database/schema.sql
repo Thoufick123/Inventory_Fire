@@ -2664,7 +2664,7 @@ CREATE TABLE IF NOT EXISTS `third_party_product_variants` (
   KEY `idx_tppv_product` (`third_party_product_id`),
   KEY `idx_tppv_item` (`purchase_item_id`),
   KEY `idx_tppv_sku` (`sku`),
-  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`),
+  KEY `idx_tppv_qr_generation_id` (`qr_generation_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
