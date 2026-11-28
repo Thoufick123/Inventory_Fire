@@ -3364,24 +3364,12 @@ class AllmodulesController {
                         $item['product_id'] = (int)Database::lastInsertId();
                     }
 
-                    // 2. Find or create Variant via VariantService
-                    $var = VariantService::findOrCreateVariantForInward((int)$item['product_id'], [
-                        'color'         => $item['color'],
-                        'size'          => $item['size'],
-                        'vendor_sku'    => $item['vendor_sku'],
-                        'hsn_code'      => $item['hsn_code'],
-                        'mrp'           => $item['mrp'],
-                        'selling_price' => $item['selling_price'],
-                        'unit_price'    => $item['unit_price'],
-                    ]);
-
-                    $item['variant_id'] = (int)$var['id'];
-                    $vCode = $var['variant_code'];
-                    $itemProductCode = $var['sku'];
-                    $itemStartCode = $vCode;
-                    $itemEndCode = $vCode;
-                    $itemQrCode = $vCode;
-                    // Taxonomy mapping creates the GRN; QR generation happens afterward.
+                    // Variant ID (V0001, ...) is generated only at QR Generation time, not during Purchase creation.
+                    $item['variant_id'] = null;
+                    $itemProductCode = $item['vendor_sku'] ?: ($item['product_code'] ?? '');
+                    $itemStartCode = null;
+                    $itemEndCode = null;
+                    $itemQrCode = null;
                 } elseif ($item['type'] === 'RAW_MATERIAL') {
                     $supplySeqIndex++;
                     $rmPrefix = 'RM' . date('my', strtotime($purchaseDate));
@@ -3393,23 +3381,7 @@ class AllmodulesController {
                     $itemEndCode = $rmCode;
                     $itemQrCode = $rmCode;
                 } elseif ($item['type'] === 'OWN_PRODUCT') {
-                    if (empty($item['variant_id']) && !empty($item['product_id'])) {
-                        $var = VariantService::findOrCreateVariantForInward((int)$item['product_id'], [
-                            'color'         => $item['color'],
-                            'size'          => $item['size'],
-                            'vendor_sku'    => $item['product_code'],
-                            'hsn_code'      => $item['hsn_code'],
-                            'mrp'           => $item['mrp'],
-                            'selling_price' => $item['selling_price'],
-                            'unit_price'    => $item['unit_price'],
-                        ]);
-                        $item['variant_id'] = (int)$var['id'];
-                        $vCode = $var['variant_code'];
-                        $itemProductCode = $var['sku'];
-                        $itemStartCode = $vCode;
-                        $itemEndCode = $vCode;
-                        $itemQrCode = $vCode;
-                    } elseif (!empty($item['variant_id'])) {
+                    if (!empty($item['variant_id'])) {
                         $var = ProductVariant::find((int)$item['variant_id']);
                         if ($var) {
                             $vCode = $var['variant_code'];
@@ -4896,25 +4868,19 @@ class AllmodulesController {
                     $qty = $submittedQty > 0 ? $submittedQty : (($weightKg > 0) ? $weightKg : ($meters > 0 ? $meters : 1.0));
                     $unit = $submittedQty > 0 ? 'PCS' : (($weightKg > 0) ? 'KGS' : (($meters > 0) ? 'MTR' : 'KGS'));
 
-                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
-                        'color' => $color,
-                        'design_name' => $designName !== '' ? $designName : null,
-                        'size' => $sizeLabel,
-                        'hsn_code' => $hsn,
-                        'gst_rate' => $gstRate,
-                        'mrp' => round($rate * 1.3, 2),
-                        'selling_price' => round($rate * 1.2, 2),
-                        'unit_price' => $rate,
-                    ]);
+                    try {
+                        Database::execute("ALTER TABLE third_party_mapping_items MODIFY COLUMN variant_id INT(10) UNSIGNED DEFAULT NULL");
+                    } catch (\Throwable $e) {}
 
+                    // Variant ID is generated only at QR Generation time, not during Purchase creation
                     Database::execute(
                         "INSERT INTO third_party_mapping_items
                             (mapping_bill_id, item_type, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
                              roll_code, weight_kg, meters, quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, design_name, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, 'FABRIC_ROLL', ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                         VALUES (?, 'FABRIC_ROLL', ?, NULL, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
-                            $mappingBillId, $productId, (int)$productVariant['id'], $fabricName, ($itemBrandName !== '' ? $itemBrandName : null), $productCode,
+                            $mappingBillId, $productId, $fabricName, ($itemBrandName !== '' ? $itemBrandName : null), $productCode,
                             $rollCode, ($weightKg > 0 ? $weightKg : null), ($meters > 0 ? $meters : null), $qty, $unit,
                             $rate, round($rate * 1.3, 2), round($rate * 1.2, 2), $gstRate, $gstMode, $gstType, $hsn, $color, ($designName !== '' ? $designName : null),
                             $sizeLabel, $rollCategoryId, $rollSubcategoryId, $rollSubSubcategoryId
@@ -5005,24 +4971,19 @@ class AllmodulesController {
                     Database::execute("UPDATE products SET brand_id = COALESCE(brand_id, ?) WHERE id = ?", [$rmBrandId, $productId]);
                 }
 
-                $productVariant = VariantService::findOrCreateVariantForInward($productId, [
-                    'color' => $color !== '' ? $color : 'Standard',
-                    'size' => $size !== '' ? $size : 'Standard',
-                    'hsn_code' => $hsn !== '' ? $hsn : null,
-                    'gst_rate' => $gstRate,
-                    'mrp' => 0,
-                    'selling_price' => 0,
-                    'unit_price' => $unitPrice,
-                ]);
+                try {
+                    Database::execute("ALTER TABLE third_party_mapping_items MODIFY COLUMN variant_id INT(10) UNSIGNED DEFAULT NULL");
+                } catch (\Throwable $e) {}
 
+                // Variant ID is generated only at QR Generation time, not during Purchase creation
                 Database::execute(
                     "INSERT INTO third_party_mapping_items
                         (mapping_bill_id, item_type, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
                          quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, size,
                          category_id, subcategory_id, sub_subcategory_id)
-                     VALUES (?, 'RAW_MATERIAL', ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
+                     VALUES (?, 'RAW_MATERIAL', ?, NULL, ?, ?, ?, NULL, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, 1, NULL, NULL)",
                     [
-                        $mappingBillId, $productId, (int)$productVariant['id'], $itemName, ($brandName !== '' ? $brandName : null), $productCode,
+                        $mappingBillId, $productId, $itemName, ($brandName !== '' ? $brandName : null), $productCode,
                         $qty, $unit, $unitPrice, $gstRate, $gstMode, $gstType, $hsn, ($color !== '' ? $color : 'Standard'), ($size !== '' ? $size : 'Standard')
                     ]
                 );
@@ -5170,22 +5131,18 @@ class AllmodulesController {
                         $subSubcategoryId = null;
                     }
 
-                    $productVariant = VariantService::findOrCreateVariantForInward($productId, [
-                        'color' => $color ?: null,
-                        'size' => $size ?: 'Standard',
-                        'hsn_code' => $hsn,
-                        'gst_rate' => $gstRate,
-                        'mrp' => $mrp,
-                        'selling_price' => $sellingPrice,
-                        'unit_price' => $rate,
-                    ]);
+                    try {
+                        Database::execute("ALTER TABLE third_party_mapping_items MODIFY COLUMN variant_id INT(10) UNSIGNED DEFAULT NULL");
+                    } catch (\Throwable $e) {}
+
+                    // Variant ID is generated only at QR Generation time, not during Purchase creation
                     Database::execute(
                         "INSERT INTO third_party_mapping_items
                             (mapping_bill_id, product_id, variant_id, item_name, brand_name, product_code, vendor_sku,
                              quantity, unit, unit_price, mrp, selling_price, gst_rate, gst_mode, gst_type, hsn_code, color, size,
                              category_id, subcategory_id, sub_subcategory_id)
-                         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$mappingBillId, $productId, (int)$productVariant['id'], $pName, ($pBrandName !== '' ? $pBrandName : null), $productCode,
+                         VALUES (?, ?, NULL, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$mappingBillId, $productId, $pName, ($pBrandName !== '' ? $pBrandName : null), $productCode,
                             $qty, $pUnit, $rate, $mrp, $sellingPrice, $gstRate, $gstMode, $gstType, $hsn, $color ?: null,
                             $size ?: null, $categoryId, $subcategoryId, $subSubcategoryId]
                     );
@@ -18545,7 +18502,7 @@ class AllmodulesController {
 
         foreach ($variantIds as $vId) {
             $variant = Database::fetchOne(
-                "SELECT pv.*, p.name as product_name, p.code as product_code, p.id as p_id, p.base_price as prod_base_price 
+                "SELECT pv.*, p.name as product_name, p.code as product_code, p.id as p_id 
                  FROM product_variants pv 
                  JOIN products p ON pv.product_id = p.id 
                  WHERE pv.id = ?",
@@ -21875,9 +21832,9 @@ class AllmodulesController {
 
             // Also check active catalog products with available stock in stock_balances
             $prodStockSql = "SELECT p.id AS product_id, p.concern_id, p.name AS product_name, p.code AS product_sku,
-                                    p.category_id, c.name AS category_name, p.base_price,
-                                    pv.id AS variant_id, pv.sku AS variant_sku,
-                                    COALESCE(NULLIF(pv.price, 0), pv.selling_price, p.base_price, 0) AS variant_price,
+                                    p.category_id, c.name AS category_name, pv.mrp AS base_price,
+                                    pv.id AS variant_id, pv.variant_code AS variant_sku,
+                                    COALESCE(NULLIF(pv.price, 0), pv.selling_price, pv.mrp, 0) AS variant_price,
                                     pv.mrp AS variant_mrp, pv.production_cost, pv.purchase_price,
                                     co.name AS color_name, sz.name AS size_name,
                                     COALESCE(SUM(sb.quantity), 0) AS available_stock

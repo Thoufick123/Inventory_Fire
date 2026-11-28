@@ -2599,7 +2599,7 @@ CREATE TABLE IF NOT EXISTS `third_party_mapping_items` (
   `purchase_item_id` int(10) unsigned DEFAULT NULL,
   `item_type` enum('THIRD_PARTY','FABRIC_ROLL') NOT NULL DEFAULT 'THIRD_PARTY',
   `product_id` int(10) unsigned NOT NULL,
-  `variant_id` int(10) unsigned NOT NULL,
+  `variant_id` int(10) unsigned DEFAULT NULL,
   `item_name` varchar(255) NOT NULL,
   `product_code` varchar(100) DEFAULT NULL,
   `roll_code` varchar(100) DEFAULT NULL,
