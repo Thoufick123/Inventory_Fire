@@ -1056,7 +1056,8 @@ function onCouponModeChange(mode) {
     const isProductBuy = mode === 'PRODUCT_BUY';
     if (el) el.value = isProductBuy ? 'PRODUCT_BUY' : 'DIRECT';
     document.querySelectorAll('.coupon-product-check-wrap').forEach(w => {
-        w.classList.toggle('d-none', !isProductBuy);
+        const rowIdx = Number(w.dataset.rowIndex || '0');
+        w.classList.toggle('d-none', !(isProductBuy && rowIdx > 0));
     });
     if (typeof window.__recalcBillingTotals === 'function') window.__recalcBillingTotals();
 }
@@ -1672,7 +1673,9 @@ document.addEventListener('DOMContentLoaded', () => {
             productCell.append(productTitle);
 
             const couponItemWrap = document.createElement('div');
-            couponItemWrap.className = `mt-1 coupon-product-check-wrap ${getSelectedCouponMode() === 'PRODUCT_BUY' ? '' : 'd-none'}`;
+            const showCouponCheck = getSelectedCouponMode() === 'PRODUCT_BUY' && index > 0;
+            couponItemWrap.className = `mt-1 coupon-product-check-wrap ${showCouponCheck ? '' : 'd-none'}`;
+            couponItemWrap.dataset.rowIndex = String(index);
             const couponCheckLabel = document.createElement('label');
             couponCheckLabel.className = 'form-check-label small text-primary fw-semibold d-inline-flex align-items-center gap-1';
             couponCheckLabel.style.cursor = 'pointer';
@@ -2238,7 +2241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const entry = {
                 ...item,
-                is_coupon_product: (getSelectedCouponMode() === 'PRODUCT_BUY' && appliedCouponState) ? 1 : 0,
+                is_coupon_product: (getSelectedCouponMode() === 'PRODUCT_BUY' && cart.size >= 1) ? 1 : 0,
                 discount_percentage: resolveDiscountPercentage(item),
                 available_tags: [...pool],
                 tags: [chosenTag]

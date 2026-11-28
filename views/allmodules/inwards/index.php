@@ -188,6 +188,28 @@ $canVerify = hasPermission('inward', 'verify');
                                 <?php endif; ?>
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link d-flex align-items-center gap-2" id="tab-cutting-outwards-btn" data-bs-toggle="pill" data-bs-target="#tab-cutting-outwards" type="button" role="tab" aria-controls="tab-cutting-outwards" aria-selected="false">
+                                <i class="bi bi-scissors fs-6"></i>
+                                <span>Cutting Outward Inward</span>
+                                <?php if (($pendingCuttingOutwardsCount ?? 0) > 0): ?>
+                                    <span class="badge bg-warning text-dark"><?= (int)$pendingCuttingOutwardsCount ?> Pending</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary"><?= count($incomingCuttingOutwards ?? []) ?></span>
+                                <?php endif; ?>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link d-flex align-items-center gap-2" id="tab-damage-outwards-btn" data-bs-toggle="pill" data-bs-target="#tab-damage-outwards" type="button" role="tab" aria-controls="tab-damage-outwards" aria-selected="false">
+                                <i class="bi bi-exclamation-octagon fs-6"></i>
+                                <span>Damage Outward Inward</span>
+                                <?php if (($pendingDamageOutwardsCount ?? 0) > 0): ?>
+                                    <span class="badge bg-danger"><?= (int)$pendingDamageOutwardsCount ?> Pending</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary"><?= count($incomingDamageOutwards ?? []) ?></span>
+                                <?php endif; ?>
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -595,6 +617,205 @@ $canVerify = hasPermission('inward', 'verify');
                             </button>
                         </div>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- --------------------------------------------------------------------- -->
+        <!-- TAB 3: CUTTING OUTWARD INWARD (FROM OTHER CONCERNS) -->
+        <!-- --------------------------------------------------------------------- -->
+        <div class="tab-pane fade" id="tab-cutting-outwards" role="tabpanel" aria-labelledby="tab-cutting-outwards-btn">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-scissors me-2 text-primary"></i>Incoming Cutting Outwards</h5>
+                        <small class="text-muted">Cutting batches outwarded from other concerns to this concern.</small>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
+                        <?= count($incomingCuttingOutwards ?? []) ?> Outward(s)
+                    </span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Outward #</th>
+                                <th>Date</th>
+                                <th>From Concern</th>
+                                <th>Cutting Batches</th>
+                                <th class="text-end">Total Cut Qty</th>
+                                <th>Vehicle / Driver</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($incomingCuttingOutwards)): ?>
+                                <tr>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-scissors fs-2 d-block mb-2 text-secondary"></i>
+                                        No incoming cutting outwards for this concern.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php $canReceiveOutward = $canVerify || hasPermission('inward', 'create') || hasPermission('inward', 'edit'); ?>
+                                <?php foreach ($incomingCuttingOutwards as $co): ?>
+                                    <?php $isRec = ($co['inward_status'] ?? 'PENDING') === 'RECEIVED'; ?>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold font-monospace text-primary"><?= e($co['outward_number']) ?></div>
+                                            <?php if (!empty($co['notes'])): ?>
+                                                <small class="text-muted"><?= e($co['notes']) ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= e(date('d M Y', strtotime($co['outward_date']))) ?></td>
+                                        <td>
+                                            <span class="badge bg-info-subtle text-info-emphasis border">
+                                                <?= e($co['source_concern_name']) ?><?= !empty($co['source_concern_code']) ? ' (' . e($co['source_concern_code']) . ')' : '' ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($co['items'])): ?>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <?php foreach ($co['items'] as $ci): ?>
+                                                        <span class="badge bg-light text-dark border font-monospace">
+                                                            <?= e($ci['batch_number']) ?> (<?= number_format((int)$ci['cut_qty']) ?> pcs)
+                                                        </span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-muted"><?= (int)($co['total_batches'] ?? 0) ?> batch(es)</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end fw-bold text-success"><?= number_format((int)($co['total_cut_qty'] ?? 0)) ?> pcs</td>
+                                        <td><?= e(trim(($co['vehicle_number'] ?? '') . ' ' . ($co['driver_name'] ?? '')) ?: '—') ?></td>
+                                        <td>
+                                            <?php if ($isRec): ?>
+                                                <span class="badge bg-success">RECEIVED</span>
+                                                <?php if (!empty($co['inwarded_at'])): ?>
+                                                    <div class="text-muted" style="font-size: 0.72rem;"><?= e(date('d M Y H:i', strtotime($co['inwarded_at']))) ?></div>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning text-dark">PENDING</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end">
+                                            <?php if (!$isRec && $canReceiveOutward): ?>
+                                                <form method="POST" action="<?= url('allmodules/inwards/cutting-outward/receive/' . $co['id']) ?>" class="d-inline" onsubmit="return confirm('Receive Cutting Outward <?= e($co['outward_number']) ?> into Inward?');">
+                                                    <?= CSRF::field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-success fw-semibold">
+                                                        <i class="bi bi-check2-circle me-1"></i>Receive
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="text-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- --------------------------------------------------------------------- -->
+        <!-- TAB 4: DAMAGE OUTWARD INWARD (FROM OTHER CONCERNS) -->
+        <!-- --------------------------------------------------------------------- -->
+        <div class="tab-pane fade" id="tab-damage-outwards" role="tabpanel" aria-labelledby="tab-damage-outwards-btn">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Incoming Damage Outwards</h5>
+                        <small class="text-muted">Damaged items outwarded from other concerns to this concern.</small>
+                    </div>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
+                        <?= count($incomingDamageOutwards ?? []) ?> Outward(s)
+                    </span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Outward #</th>
+                                <th>Date</th>
+                                <th>From Concern</th>
+                                <th>Damaged Items</th>
+                                <th class="text-center">Count</th>
+                                <th>Vehicle / Driver</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($incomingDamageOutwards)): ?>
+                                <tr>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-exclamation-octagon fs-2 d-block mb-2 text-secondary"></i>
+                                        No incoming damage outwards for this concern.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php $canReceiveOutward = $canVerify || hasPermission('inward', 'create') || hasPermission('inward', 'edit'); ?>
+                                <?php foreach ($incomingDamageOutwards as $do): ?>
+                                    <?php $isRec = ($do['inward_status'] ?? 'PENDING') === 'RECEIVED'; ?>
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold font-monospace text-primary"><?= e($do['outward_number']) ?></div>
+                                            <?php if (!empty($do['notes'])): ?>
+                                                <small class="text-muted"><?= e($do['notes']) ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= e(date('d M Y', strtotime($do['outward_date']))) ?></td>
+                                        <td>
+                                            <span class="badge bg-info-subtle text-info-emphasis border">
+                                                <?= e($do['source_concern_name']) ?><?= !empty($do['source_concern_code']) ? ' (' . e($do['source_concern_code']) . ')' : '' ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($do['items'])): ?>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <?php foreach ($do['items'] as $di): ?>
+                                                        <?php $qtyWt = ((int)$di['damaged_quantity'] > 0) ? ((int)$di['damaged_quantity'] . ' pcs') : (number_format((float)$di['damaged_weight'], 2) . ' kg'); ?>
+                                                        <span class="badge bg-light text-dark border font-monospace">
+                                                            <?= e($di['damage_number']) ?> &bull; <?= e($di['product_name']) ?> (<?= e($qtyWt) ?>)
+                                                        </span>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-muted"><?= (int)($do['total_items'] ?? 0) ?> item(s)</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center fw-bold"><?= (int)($do['total_items'] ?? 0) ?></td>
+                                        <td><?= e(trim(($do['vehicle_number'] ?? '') . ' ' . ($do['driver_name'] ?? '')) ?: '—') ?></td>
+                                        <td>
+                                            <?php if ($isRec): ?>
+                                                <span class="badge bg-success">RECEIVED</span>
+                                                <?php if (!empty($do['inwarded_at'])): ?>
+                                                    <div class="text-muted" style="font-size: 0.72rem;"><?= e(date('d M Y H:i', strtotime($do['inwarded_at']))) ?></div>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning text-dark">PENDING</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end">
+                                            <?php if (!$isRec && $canReceiveOutward): ?>
+                                                <form method="POST" action="<?= url('allmodules/inwards/damage-outward/receive/' . $do['id']) ?>" class="d-inline" onsubmit="return confirm('Receive Damage Outward <?= e($do['outward_number']) ?> into Inward?');">
+                                                    <?= CSRF::field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-success fw-semibold">
+                                                        <i class="bi bi-check2-circle me-1"></i>Receive
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="text-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

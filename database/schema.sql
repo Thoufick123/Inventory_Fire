@@ -382,7 +382,7 @@ CREATE TABLE IF NOT EXISTS `cutting_batches` (
   `cut_qty` int(11) DEFAULT 0,
   `rejected_qty` int(11) DEFAULT 0,
   `wastage_qty` int(11) DEFAULT 0,
-  `status` enum('PENDING','IN_PROGRESS','COMPLETED','HOLD','CANCELLED') DEFAULT 'PENDING',
+  `status` enum('PENDING','IN_PROGRESS','COMPLETED','HOLD','CANCELLED','OUTWARDED') DEFAULT 'PENDING',
   `notes` text DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -393,6 +393,8 @@ CREATE TABLE IF NOT EXISTS `cutting_batches` (
   `completion_date` date DEFAULT NULL,
   `created_by` int(10) unsigned DEFAULT NULL,
   `concern_id` int(11) DEFAULT NULL,
+  `cutting_outward_id` int(10) unsigned DEFAULT NULL,
+  `outward_concern_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `batch_number` (`batch_number`),
   KEY `program_id` (`program_id`),
@@ -812,7 +814,12 @@ CREATE TABLE IF NOT EXISTS `production_bills` (
   `bill_date` date NOT NULL,
   `payment_method` varchar(30) NOT NULL DEFAULT 'CASH',
   `is_direct_bill` tinyint(1) NOT NULL DEFAULT 0,
-  `payment_status` enum('PENDING','PAID') NOT NULL DEFAULT 'PAID',
+  `payment_status` enum('PENDING','PAID','COD') NOT NULL DEFAULT 'PAID',
+  `paid_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `remaining_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `applied_coupon_id` int(10) unsigned DEFAULT NULL,
+  `applied_coupon_code` varchar(40) DEFAULT NULL,
+  `coupon_discount_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `tax_type` enum('CGST_SGST','IGST') NOT NULL DEFAULT 'CGST_SGST',
   `cash_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `upi_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -1995,7 +2002,7 @@ CREATE TABLE IF NOT EXISTS `roll_damages` (
   `damage_reason` varchar(255) NOT NULL,
   `defect_notes` text DEFAULT NULL,
   `photo_url` varchar(500) DEFAULT NULL,
-  `status` enum('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED') NOT NULL DEFAULT 'LOGGED',
+  `status` enum('LOGGED','INVESTIGATING','CLAIMED','SETTLED','REJECTED','CLOSED','CANCELLED','REPLACEMENT_RECEIVED','RETURN_INITIATED','RETURNED_TO_SELLER','REFUND_RECEIVED','OUTWARDED') NOT NULL DEFAULT 'LOGGED',
   `resolution_type` varchar(100) DEFAULT 'NONE',
   `refund_amount` decimal(12,2) DEFAULT 0.00,
   `debit_note_number` varchar(100) DEFAULT NULL,
@@ -2008,6 +2015,8 @@ CREATE TABLE IF NOT EXISTS `roll_damages` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `concern_id` int(11) DEFAULT NULL,
+  `damage_outward_id` int(10) unsigned DEFAULT NULL,
+  `outward_concern_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_roll_damages_number` (`damage_number`),
   KEY `idx_roll_damages_seller` (`seller_id`),
@@ -3316,5 +3325,125 @@ INSERT INTO `hsn_codes` (`hsn_code`,`description`,`gst_rate`,`created_at`,`updat
 ('7318','Screws, Bolts, Nuts, Rivets, Fasteners for Sewing & Textile Machinery',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
 ('8487','Machinery Spare Parts, Gaskets, Seals, Mechanical Spares',18.00,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE `description` = VALUES(`description`), `gst_rate` = VALUES(`gst_rate`), `updated_at` = CURRENT_TIMESTAMP;
+
+--
+-- Table structure for table `pos_coupons`
+--
+
+CREATE TABLE IF NOT EXISTS `pos_coupons` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `concern_id` int(10) unsigned DEFAULT NULL,
+  `coupon_code` varchar(40) NOT NULL,
+  `title` varchar(150) DEFAULT NULL,
+  `issued_bill_id` int(10) unsigned DEFAULT NULL,
+  `customer_phone` varchar(20) DEFAULT NULL,
+  `customer_name` varchar(150) DEFAULT NULL,
+  `discount_type` enum('FIXED','PERCENT') NOT NULL DEFAULT 'FIXED',
+  `discount_value` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `min_redemption_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `max_uses` int(11) NOT NULL DEFAULT 0,
+  `used_count` int(11) NOT NULL DEFAULT 0,
+  `status` enum('ACTIVE','INACTIVE','REDEEMED','EXPIRED','CANCELLED') NOT NULL DEFAULT 'ACTIVE',
+  `redeemed_bill_id` int(10) unsigned DEFAULT NULL,
+  `redeemed_at` datetime DEFAULT NULL,
+  `expires_at` date DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_pos_coupons_code` (`coupon_code`),
+  KEY `idx_pos_coupons_issued_bill` (`issued_bill_id`),
+  KEY `idx_pos_coupons_redeemed_bill` (`redeemed_bill_id`),
+  KEY `idx_pos_coupons_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `damage_outwards`
+--
+
+CREATE TABLE IF NOT EXISTS `damage_outwards` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `outward_number` varchar(50) NOT NULL,
+  `concern_id` int(10) unsigned DEFAULT NULL,
+  `destination_concern_id` int(10) unsigned NOT NULL,
+  `vehicle_number` varchar(60) DEFAULT NULL,
+  `driver_name` varchar(120) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `inward_status` enum('PENDING','RECEIVED') NOT NULL DEFAULT 'PENDING',
+  `inwarded_by` int(10) unsigned DEFAULT NULL,
+  `inwarded_at` datetime DEFAULT NULL,
+  `total_items` int(11) NOT NULL DEFAULT 0,
+  `outward_date` date NOT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_damage_outward_number` (`outward_number`),
+  KEY `idx_damage_outward_concern` (`concern_id`),
+  KEY `idx_damage_outward_dest` (`destination_concern_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `damage_outward_items`
+--
+
+CREATE TABLE IF NOT EXISTS `damage_outward_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `damage_outward_id` int(10) unsigned NOT NULL,
+  `roll_damage_id` int(10) unsigned NOT NULL,
+  `damage_number` varchar(50) NOT NULL,
+  `qr_code` varchar(100) DEFAULT NULL,
+  `product_name` varchar(300) DEFAULT NULL,
+  `damaged_quantity` int(11) NOT NULL DEFAULT 0,
+  `damaged_weight` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_damage_outward_roll_damage` (`roll_damage_id`),
+  KEY `idx_damage_outward_items_parent` (`damage_outward_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `cutting_outwards`
+--
+
+CREATE TABLE IF NOT EXISTS `cutting_outwards` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `outward_number` varchar(50) NOT NULL,
+  `concern_id` int(10) unsigned DEFAULT NULL,
+  `destination_concern_id` int(10) unsigned NOT NULL,
+  `vehicle_number` varchar(60) DEFAULT NULL,
+  `driver_name` varchar(120) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `inward_status` enum('PENDING','RECEIVED') NOT NULL DEFAULT 'PENDING',
+  `inwarded_by` int(10) unsigned DEFAULT NULL,
+  `inwarded_at` datetime DEFAULT NULL,
+  `total_batches` int(11) NOT NULL DEFAULT 0,
+  `total_cut_qty` int(11) NOT NULL DEFAULT 0,
+  `outward_date` date NOT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_cutting_outward_number` (`outward_number`),
+  KEY `idx_cutting_outward_concern` (`concern_id`),
+  KEY `idx_cutting_outward_dest` (`destination_concern_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `cutting_outward_items`
+--
+
+CREATE TABLE IF NOT EXISTS `cutting_outward_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `cutting_outward_id` int(10) unsigned NOT NULL,
+  `cutting_batch_id` int(10) unsigned NOT NULL,
+  `batch_number` varchar(50) NOT NULL,
+  `batch_name` varchar(255) DEFAULT NULL,
+  `program_number` varchar(50) DEFAULT NULL,
+  `product_name` varchar(300) DEFAULT NULL,
+  `cut_qty` int(11) NOT NULL DEFAULT 0,
+  `used_weight` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_cutting_outward_batch` (`cutting_batch_id`),
+  KEY `idx_cutting_outward_items_parent` (`cutting_outward_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

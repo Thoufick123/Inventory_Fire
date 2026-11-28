@@ -426,6 +426,8 @@ class Router {
         $this->post('allmodules/inwards/store', 'InwardController', 'store', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
         $this->get('allmodules/inwards/view/{id}', 'InwardController', 'view', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->post('allmodules/inwards/verify/{id}', 'InwardController', 'verifyInward', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'verify']]);
+        $this->post('allmodules/inwards/cutting-outward/receive/{id}', 'InwardController', 'receiveCuttingOutward', ['AuthMiddleware', ['PermissionMiddleware', [['inward', 'verify'], ['inward', 'create'], ['inward', 'edit']]]]);
+        $this->post('allmodules/inwards/damage-outward/receive/{id}', 'InwardController', 'receiveDamageOutward', ['AuthMiddleware', ['PermissionMiddleware', [['inward', 'verify'], ['inward', 'create'], ['inward', 'edit']]]]);
         $this->get('allmodules/inwards/label/{id}', 'InwardController', 'printBatchQRLabel', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
         $this->get('allmodules/inwards/gatepass/{id}', 'InwardController', 'printOutwardGatePass', ['AuthMiddleware', ['PermissionMiddleware', 'inward', 'view']]);
 
