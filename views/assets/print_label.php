@@ -1,3 +1,20 @@
+<?php
+$qrCodeVal = (string)($asset['barcode_qr'] ?: $asset['asset_code']);
+$concernObj = function_exists('currentConcern') ? currentConcern() : null;
+$companyTitle = 'GRM APPARELS';
+if (!empty($concernObj['name']) && strtoupper(trim((string)($concernObj['code'] ?? ''))) !== 'ADMIN') {
+    $companyTitle = strtoupper(trim((string)$concernObj['name']));
+}
+$brandTitle = strtoupper(trim((string)($asset['brand'] ?? '')));
+$assetTitle = strtoupper(trim((string)($asset['name'] ?? '')));
+$locParts = array_filter([
+    trim((string)($asset['location_type'] ?? '')),
+    trim((string)($asset['floor_area'] ?? '')),
+]);
+$locLine = $locParts ? implode(' / ', $locParts) : 'Standard';
+$costVal = (float)($asset['purchase_cost'] ?? 0);
+$statusLabel = trim((string)($asset['status'] ?? 'IN_USE'));
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,57 +24,81 @@
     <link rel="stylesheet" href="<?= asset('css/bootstrap.min.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/bootstrap-icons.min.css') ?>">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #000; padding: 20px; font-size: 12px; }
-        .label-sticker {
-            width: 75mm;
-            height: 50mm;
-            border: 2px solid #000;
-            padding: 8px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 28px 16px;
+        }
+        .asset-label-card {
+            max-width: 390px;
             margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            page-break-inside: avoid;
+            border-radius: 12px;
+            overflow: hidden;
             background: #fff;
         }
-        .org-header { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .asset-title { font-size: 12px; font-weight: 800; line-height: 1.2; text-transform: uppercase; }
-        .asset-code { font-size: 14px; font-weight: 900; font-family: monospace; letter-spacing: 0.5px; }
         @media print {
             .no-print { display: none !important; }
-            body { padding: 0; margin: 0; }
-            .label-sticker { border: 1.5px solid #000; margin: 0; }
+            body { background: #fff; padding: 0; margin: 0; }
+            .asset-label-card {
+                box-shadow: none !important;
+                border: 1px solid #cbd5e1 !important;
+                margin: 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="text-center mb-3 no-print">
-        <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="bi bi-printer"></i> Print Sticker</button>
-        <button onclick="window.close()" class="btn btn-outline-secondary btn-sm">Close</button>
-    </div>
-
-    <div class="label-sticker">
-        <div class="org-header">
-            <span>GRM APPARELS</span>
-            <span>PLANT ASSET</span>
+    <div class="card border border-light-subtle shadow-sm asset-label-card">
+        <div class="card-header bg-light py-2 px-3 border-bottom d-flex justify-content-between align-items-center gap-2">
+            <span class="small fw-bold text-secondary">Asset #1 of 1</span>
+            <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1 fw-bold">
+                <i class="bi bi-check-circle-fill me-1"></i><?= e($statusLabel) ?>
+            </span>
         </div>
-
-        <div class="d-flex align-items-center justify-content-between my-1">
-            <div style="width: 58%;">
-                <div class="asset-title text-truncate"><?= e($asset['name']) ?></div>
-                <div class="small fw-semibold text-truncate"><?= e($asset['brand']) ?> <?= e($asset['model_number']) ?></div>
-                <div class="small text-muted font-monospace">SN: <?= e($asset['serial_number'] ?: 'N/A') ?></div>
-                <div class="asset-code mt-1"><?= e($asset['asset_code']) ?></div>
+        <div class="card-body p-3 d-flex flex-column justify-content-between">
+            <div>
+                <div class="text-center fw-bold text-secondary text-uppercase text-truncate mb-2 pb-1 border-bottom" style="font-size: 11.5px; letter-spacing: 0.5px;">
+                    <?= e($companyTitle) ?>
+                </div>
+                <div class="d-flex justify-content-center align-items-center gap-3 py-1">
+                    <div class="d-flex flex-column align-items-center flex-shrink-0">
+                        <div id="qrcode" class="p-1 bg-white border rounded" style="width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;"></div>
+                        <div class="font-monospace fw-bold text-dark mt-1" style="font-size: 11.5px; letter-spacing: 0.4px;"><?= e($qrCodeVal) ?></div>
+                    </div>
+                    <div class="min-w-0 text-start">
+                        <?php if ($brandTitle !== ''): ?>
+                            <div class="fw-bolder text-truncate text-uppercase" style="font-size: 13.5px; letter-spacing: 0.3px; color: #881337;">
+                                <?= e($brandTitle) ?>
+                            </div>
+                        <?php endif; ?>
+                        <div class="fw-semibold text-dark text-truncate mb-1" style="font-size: 12px;">
+                            <?= e($assetTitle) ?>
+                        </div>
+                        <div class="fw-semibold text-dark mb-1 text-truncate" style="font-size: 12px;">
+                            <?= e($locLine) ?>
+                        </div>
+                        <?php if ($costVal > 0): ?>
+                            <div class="fw-bold" style="font-size: 13.5px; color: #15803d;">
+                                Cost: <?= formatCurrency($costVal) ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
-            <div style="width: 40%; text-align: center;">
-                <div id="qrcode" class="d-flex justify-content-center"></div>
-                <div style="font-size: 9px; font-family: monospace; margin-top: 2px;" class="text-truncate"><?= e($asset['barcode_qr']) ?></div>
+            <div class="d-flex align-items-center justify-content-between gap-2 pt-2 mt-2 border-top no-print">
+                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="window.close()">
+                    Close
+                </button>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="copyAssetQr('<?= e(addslashes($qrCodeVal)) ?>', this)" title="Copy Asset QR Code">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="window.print()" title="Print Label">
+                        <i class="bi bi-printer"></i>
+                    </button>
+                </div>
             </div>
-        </div>
-
-        <div style="border-top: 1px solid #000; padding-top: 2px; font-size: 9px; display: flex; justify-content: space-between;">
-            <span>Loc: <?= e($asset['location_type']) ?> (<?= e($asset['floor_area'] ?: 'Floor #1') ?>)</span>
-            <span>Cond: <?= e($asset['condition_state']) ?></span>
         </div>
     </div>
 
@@ -68,15 +109,33 @@
     }
     </script>
     <script>
+    function copyAssetQr(code, btn) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(function() {
+                if (btn) {
+                    var orig = btn.innerHTML;
+                    btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                    setTimeout(function() { btn.innerHTML = orig; }, 1200);
+                }
+            }).catch(function() {});
+        }
+    }
     document.addEventListener('DOMContentLoaded', function() {
-        new QRCode(document.getElementById("qrcode"), {
-            text: "<?= addslashes($asset['barcode_qr']) ?>",
-            width: 75,
-            height: 75,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.M
-        });
+        var qrBox = document.getElementById('qrcode');
+        if (qrBox && typeof QRCode !== 'undefined') {
+            qrBox.innerHTML = '';
+            new QRCode(qrBox, {
+                text: "<?= addslashes($qrCodeVal) ?>",
+                width: 76,
+                height: 76,
+                colorDark: "#111827",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+            qrBox.querySelectorAll('img').forEach(function(im) {
+                im.style.setProperty('display', 'none', 'important');
+            });
+        }
     });
     </script>
 </body>
