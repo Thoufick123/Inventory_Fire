@@ -18528,24 +18528,44 @@ class AllmodulesController {
                 [$newSellingPrice, $newMrp, $vId]
             );
 
-            // 2. Update qc_items
-            Database::execute(
-                "UPDATE qc_items SET base_price = ?, discount_price = ? WHERE variant_id = ?",
-                [$newMrp, $newSellingPrice, $vId]
-            );
+            // 2. Update qc_items (when base_price/discount_price columns exist)
+            try {
+                if (Database::fetchOne("SHOW COLUMNS FROM qc_items LIKE 'base_price'")) {
+                    Database::execute(
+                        "UPDATE qc_items SET base_price = ?, discount_price = ? WHERE variant_id = ?",
+                        [$newMrp, $newSellingPrice, $vId]
+                    );
+                }
+            } catch (\Throwable $e) {}
 
-            // 3. Update production_purchase_items if mapped
-            Database::execute(
-                "UPDATE production_purchase_items SET unit_price = ? WHERE variant_id = ?",
-                [$newSellingPrice, $vId]
-            );
+            // 3. Update production_purchase_items & third_party_product_variants if mapped
+            try {
+                Database::execute(
+                    "UPDATE production_purchase_items SET unit_price = ? WHERE variant_id = ?",
+                    [$newSellingPrice, $vId]
+                );
+            } catch (\Throwable $e) {}
+            try {
+                Database::execute(
+                    "UPDATE third_party_product_variants SET mrp = ?, selling_price = ? WHERE product_variant_id = ?",
+                    [$newMrp, $newSellingPrice, $vId]
+                );
+            } catch (\Throwable $e) {}
 
             // 4. Update QR tags if old QR price is NOT protected (so scanning old QR uses new price)
             if (!$dontAffectOldQr) {
-                Database::execute(
-                    "UPDATE qr_generation_items SET mrp = ?, selling_price = ? WHERE variant_id = ?",
-                    [$newMrp, $newSellingPrice, $vId]
-                );
+                try {
+                    Database::execute(
+                        "UPDATE qr_generation_items SET mrp = ?, selling_price = ? WHERE variant_id = ?",
+                        [$newMrp, $newSellingPrice, $vId]
+                    );
+                } catch (\Throwable $e) {}
+                try {
+                    Database::execute(
+                        "UPDATE qr_generations SET mrp = ?, selling_price = ? WHERE variant_id = ?",
+                        [$newMrp, $newSellingPrice, $vId]
+                    );
+                } catch (\Throwable $e) {}
             }
 
             // 5. Handle stock reduction if specified
