@@ -57,12 +57,22 @@
                                 <input type="text" name="serial_number" class="form-control font-monospace" value="<?= e($asset['serial_number']) ?>">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold small">Location Type</label>
+                                <label class="form-label fw-semibold small">Location Unit</label>
                                 <select name="location_type" class="form-select">
-                                    <option value="PRODUCTION" <?= $asset['location_type'] === 'PRODUCTION' ? 'selected' : '' ?>>Factory / Production Unit</option>
-                                    <option value="WAREHOUSE" <?= $asset['location_type'] === 'WAREHOUSE' ? 'selected' : '' ?>>Central Warehouse</option>
-                                    <option value="OFFICE" <?= $asset['location_type'] === 'OFFICE' ? 'selected' : '' ?>>Administrative Office</option>
-                                    <option value="SHOP" <?= $asset['location_type'] === 'SHOP' ? 'selected' : '' ?>>Retail Outlet</option>
+                                    <?php
+                                    $locConcerns = $locationConcerns ?? (function_exists('allActiveConcerns') ? allActiveConcerns() : []);
+                                    $curLocVal = (string)($asset['location_type'] ?? '');
+                                    $matchedCurLoc = false;
+                                    foreach ($locConcerns as $lc):
+                                        $lcLabel = $lc['name'] . (!empty($lc['code']) ? ' (' . $lc['code'] . ')' : '');
+                                        $isSel = ($curLocVal === $lcLabel || $curLocVal === (string)$lc['name'] || $curLocVal === (string)($lc['code'] ?? ''));
+                                        if ($isSel) $matchedCurLoc = true;
+                                    ?>
+                                        <option value="<?= e($lcLabel) ?>" <?= $isSel ? 'selected' : '' ?>><?= e($lcLabel) ?></option>
+                                    <?php endforeach; ?>
+                                    <?php if ($curLocVal !== '' && !$matchedCurLoc): ?>
+                                        <option value="<?= e($curLocVal) ?>" selected><?= e($curLocVal) ?></option>
+                                    <?php endif; ?>
                                 </select>
                             </div>
 

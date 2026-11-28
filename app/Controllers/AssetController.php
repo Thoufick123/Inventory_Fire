@@ -50,17 +50,19 @@ class AssetController {
 
         $categories = AssetCategory::getAll();
         $nextCode = Asset::generateAssetCode();
+        $locationConcerns = function_exists('allActiveConcerns') ? allActiveConcerns() : (Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: []);
 
         Response::view('assets.create', [
-            'pageTitle'    => 'Register New Asset',
-            'activeModule' => 'assets',
-            'activeMenu'   => 'assets-create',
-            'breadcrumb'   => [
+            'pageTitle'        => 'Register New Asset',
+            'activeModule'     => 'assets',
+            'activeMenu'       => 'assets-create',
+            'breadcrumb'       => [
                 ['label' => 'Asset Management', 'url' => url('assets')],
                 ['label' => 'Register Asset'],
             ],
-            'categories'   => $categories,
-            'nextCode'     => $nextCode,
+            'categories'       => $categories,
+            'nextCode'         => $nextCode,
+            'locationConcerns' => $locationConcerns,
         ]);
     }
 
@@ -94,11 +96,21 @@ class AssetController {
         }
     }
 
+    private function ensureAssetLocationTypeVarchar(): void {
+        try {
+            $col = Database::fetchOne("SHOW COLUMNS FROM assets LIKE 'location_type'");
+            if ($col && stripos((string)($col['Type'] ?? ''), 'enum') !== false) {
+                Database::execute("ALTER TABLE assets MODIFY COLUMN location_type VARCHAR(150) NOT NULL DEFAULT 'PRODUCTION'");
+            }
+        } catch (\Throwable $e) {}
+    }
+
     public function store(): void {
         if (!hasPermission('asset_register', 'create') && !hasPermission('assets', 'create')) {
             Response::error(403, 'Access denied.');
             return;
         }
+        $this->ensureAssetLocationTypeVarchar();
 
         $name = trim($_POST['name'] ?? '');
         $categoryId = (int)($_POST['category_id'] ?? 0);
@@ -188,18 +200,20 @@ class AssetController {
         }
 
         $categories = AssetCategory::getAll();
+        $locationConcerns = function_exists('allActiveConcerns') ? allActiveConcerns() : (Database::fetchAll("SELECT id, name, code FROM concerns WHERE is_active = 1 ORDER BY name ASC") ?: []);
 
         Response::view('assets.edit', [
-            'pageTitle'    => 'Edit Asset: ' . $asset['asset_code'],
-            'activeModule' => 'assets',
-            'activeMenu'   => 'assets-list',
-            'breadcrumb'   => [
+            'pageTitle'        => 'Edit Asset: ' . $asset['asset_code'],
+            'activeModule'     => 'assets',
+            'activeMenu'       => 'assets-list',
+            'breadcrumb'       => [
                 ['label' => 'Asset Management', 'url' => url('assets')],
                 ['label' => $asset['asset_code'], 'url' => url('assets/view/' . $asset['id'])],
                 ['label' => 'Edit'],
             ],
-            'asset'        => $asset,
-            'categories'   => $categories,
+            'asset'            => $asset,
+            'categories'       => $categories,
+            'locationConcerns' => $locationConcerns,
         ]);
     }
 
@@ -208,6 +222,7 @@ class AssetController {
             Response::error(403, 'Access denied.');
             return;
         }
+        $this->ensureAssetLocationTypeVarchar();
 
         $assetId = (int)$id;
         $name = trim($_POST['name'] ?? '');

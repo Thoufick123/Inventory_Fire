@@ -99,10 +99,21 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">Location Unit</label>
                                 <select name="location_type" class="form-select">
-                                    <option value="PRODUCTION" selected>Factory / Production Unit</option>
-                                    <option value="WAREHOUSE">Central Warehouse</option>
-                                    <option value="OFFICE">Administrative Office</option>
-                                    <option value="SHOP">Retail Outlet</option>
+                                    <?php
+                                    $locConcerns = $locationConcerns ?? (function_exists('allActiveConcerns') ? allActiveConcerns() : []);
+                                    $activeLocCid = function_exists('currentConcernId') ? currentConcernId() : null;
+                                    if (!empty($locConcerns)):
+                                        foreach ($locConcerns as $lc):
+                                            $lcLabel = $lc['name'] . (!empty($lc['code']) ? ' (' . $lc['code'] . ')' : '');
+                                            $isSel = ($activeLocCid !== null && (int)$lc['id'] === (int)$activeLocCid);
+                                    ?>
+                                        <option value="<?= e($lcLabel) ?>" <?= $isSel ? 'selected' : '' ?>><?= e($lcLabel) ?></option>
+                                    <?php
+                                        endforeach;
+                                    else:
+                                    ?>
+                                        <option value="PRODUCTION" selected>Factory / Production Unit</option>
+                                    <?php endif; ?>
                                 </select>
                             </div>
                             <div class="col-md-6">
