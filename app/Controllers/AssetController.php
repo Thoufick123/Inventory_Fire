@@ -404,7 +404,7 @@ class AssetController {
 
         try {
             $logId = AssetMaintenance::create($data);
-            Response::redirectWithSuccess('assets/maintenance/view/' . $logId, "Maintenance log {$logNumber} recorded successfully!");
+            Response::redirectWithSuccess('assets/maintenance', "Maintenance log {$logNumber} recorded successfully!");
         } catch (Exception $e) {
             Response::redirectWithError('assets/maintenance/create', 'Failed to save maintenance ticket: ' . $e->getMessage());
         }
@@ -433,5 +433,109 @@ class AssetController {
             ],
             'log'          => $log,
         ]);
+    }
+
+    public function maintenanceEdit(string $id): void {
+        if (!hasPermission('asset_maintenance', 'edit') && !hasPermission('assets', 'edit') && !isSuperAdmin()) {
+            Response::error(403, 'Access denied.');
+            return;
+        }
+        $log = AssetMaintenance::find((int)$id);
+        if (!$log) {
+            Response::error(404, 'Maintenance log not found.');
+            return;
+        }
+        $assets = Asset::getAll();
+        Response::view('assets.maintenance_edit', [
+            'pageTitle'    => 'Edit Maintenance Ticket: ' . $log['log_number'],
+            'activeModule' => 'assets',
+            'activeMenu'   => 'assets-maintenance',
+            'breadcrumb'   => [
+                ['label' => 'Asset Management', 'url' => url('assets')],
+                ['label' => 'Maintenance', 'url' => url('assets/maintenance')],
+                ['label' => 'Edit ' . $log['log_number']],
+            ],
+            'log'          => $log,
+            'assets'       => $assets,
+        ]);
+    }
+
+    public function maintenanceUpdate(string $id): void {
+        if (!hasPermission('asset_maintenance', 'edit') && !hasPermission('assets', 'edit') && !isSuperAdmin()) {
+            Response::error(403, 'Access denied.');
+            return;
+        }
+        if (!CSRF::validateRequest()) {
+            Response::redirectWithError('assets/maintenance', 'Invalid security token.');
+            return;
+        }
+        $logId = (int)$id;
+        $log = AssetMaintenance::find($logId);
+        if (!$log) {
+            Response::redirectWithError('assets/maintenance', 'Maintenance log not found.');
+            return;
+        }
+        $assetId = (int)($_POST['asset_id'] ?? 0);
+        if ($assetId <= 0) {
+            Response::redirectWithError('assets/maintenance/edit/' . $logId, 'Please select an asset.');
+            return;
+        }
+        try {
+            $nextDue = trim((string)($_POST['next_due_date'] ?? ''));
+            $serviceDate = trim((string)($_POST['service_date'] ?? $log['service_date']));
+            Database::execute(
+                "UPDATE asset_maintenance_logs
+                 SET asset_id = ?, service_type = ?, issue_description = ?, action_taken = ?,
+                     serviced_by_vendor = ?, technician_name = ?, technician_contact = ?,
+                     service_cost = ?, parts_replaced = ?, service_date = ?, next_due_date = ?,
+                     downtime_hours = ?, status = ?
+                 WHERE id = ?",
+                [
+                    $assetId,
+                    $_POST['service_type'] ?? 'ROUTINE_PREVENTIVE',
+                    trim((string)($_POST['issue_description'] ?? '')),
+                    trim((string)($_POST['action_taken'] ?? '')),
+                    trim((string)($_POST['serviced_by_vendor'] ?? '')),
+                    trim((string)($_POST['technician_name'] ?? '')),
+                    trim((string)($_POST['technician_contact'] ?? '')),
+                    (float)($_POST['service_cost'] ?? 0),
+                    trim((string)($_POST['parts_replaced'] ?? '')),
+                    $serviceDate,
+                    $nextDue !== '' ? $nextDue : null,
+                    (float)($_POST['downtime_hours'] ?? 0),
+                    $_POST['status'] ?? 'COMPLETED',
+                    $logId,
+                ]
+            );
+            Response::redirectWithSuccess('assets/maintenance', "Maintenance log {$log['log_number']} updated successfully!");
+        } catch (\Throwable $e) {
+            Response::redirectWithError('assets/maintenance/edit/' . $logId, 'Failed to update maintenance ticket: ' . $e->getMessage());
+        }
+    }
+
+    public function maintenanceDelete(string $id): void {
+        if (!hasPermission('asset_maintenance', 'delete') && !hasPermission('assets', 'delete') && !isSuperAdmin()) {
+            Response::error(403, 'Access denied.');
+            return;
+        }
+        if (!CSRF::validateRequest()) {
+            Response::redirectWithError('assets/maintenance', 'Invalid security token.');
+            return;
+        }
+        $logId = (int)$id;
+        $log = AssetMaintenance::find($logId);
+        if (!$log) {
+            Response::redirectWithError('assets/maintenance', 'Maintenance log not found.');
+            return;
+        }
+        try {
+            Database::execute("DELETE FROM asset_maintenance_logs WHERE id = ?", [$logId]);
+            try {
+                AuditService::log('assets', 'DELETE', 'asset_maintenance_logs', $logId, $log, null);
+            } catch (\Throwable $e) {}
+            Response::redirectWithSuccess('assets/maintenance', "Maintenance log '{$log['log_number']}' deleted successfully.");
+        } catch (\Throwable $e) {
+            Response::redirectWithError('assets/maintenance', 'Could not delete maintenance log: ' . $e->getMessage());
+        }
     }
 }

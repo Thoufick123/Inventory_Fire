@@ -652,6 +652,9 @@ class Router {
         $this->get('assets/maintenance/create', 'AssetController', 'maintenanceCreate', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'create']]);
         $this->post('assets/maintenance/store', 'AssetController', 'maintenanceStore', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'create']]);
         $this->get('assets/maintenance/view/{id}', 'AssetController', 'maintenanceView', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'view']]);
+        $this->get('assets/maintenance/edit/{id}', 'AssetController', 'maintenanceEdit', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'edit']]);
+        $this->post('assets/maintenance/update/{id}', 'AssetController', 'maintenanceUpdate', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'edit']]);
+        $this->post('assets/maintenance/delete/{id}', 'AssetController', 'maintenanceDelete', ['AuthMiddleware', ['PermissionMiddleware', 'asset_maintenance', 'delete']]);
 
         // ==========================================
         // SYSTEM ROUTES

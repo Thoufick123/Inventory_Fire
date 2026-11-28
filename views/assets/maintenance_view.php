@@ -13,9 +13,6 @@
             <a href="<?= url('assets/maintenance') ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Back to Logs
             </a>
-            <a href="<?= url('assets/view/' . $log['asset_id']) ?>" class="btn btn-outline-primary">
-                <i class="bi bi-cpu me-1"></i> View Machine Passport
-            </a>
         </div>
     </div>
 

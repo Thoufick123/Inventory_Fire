@@ -112,10 +112,25 @@
                                 </span>
                             </td>
                             <td><?= renderConcernBadge($l, 'concern_name', 'concern_code', 'asset_concern_id') ?></td>
-                            <td class="text-end pe-3">
-                                <a href="<?= url('assets/maintenance/view/' . $l['id']) ?>" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-eye"></i> View
-                                </a>
+                            <td class="text-end pe-3 text-nowrap">
+                                <div class="d-inline-flex gap-1 align-items-center">
+                                    <a href="<?= url('assets/maintenance/view/' . $l['id']) ?>" class="btn btn-sm btn-outline-info" title="View Ticket">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <?php if (hasPermission('asset_maintenance', 'edit') || hasPermission('assets', 'edit') || isSuperAdmin()): ?>
+                                    <a href="<?= url('assets/maintenance/edit/' . $l['id']) ?>" class="btn btn-sm btn-outline-primary" title="Edit Ticket">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <?php endif; ?>
+                                    <?php if (hasPermission('asset_maintenance', 'delete') || hasPermission('assets', 'delete') || isSuperAdmin()): ?>
+                                    <form method="POST" action="<?= url('assets/maintenance/delete/' . $l['id']) ?>" class="d-inline js-maint-delete-form" data-log-number="<?= e($l['log_number']) ?>">
+                                        <?= CSRF::field() ?>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Ticket">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -126,3 +141,31 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (!form.classList || !form.classList.contains('js-maint-delete-form')) return;
+        if (form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const logNo = form.dataset.logNumber || 'this maintenance ticket';
+        if (typeof window.showModernConfirm === 'function') {
+            window.showModernConfirm({
+                title: 'Confirm Deletion',
+                message: `Delete maintenance log ${logNo}? This will permanently remove it from the database.`,
+                isDelete: true,
+                btnText: 'Yes, Delete',
+                onConfirm: function() {
+                    form.dataset.confirmed = '1';
+                    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                    else form.submit();
+                }
+            });
+        } else {
+            form.dataset.confirmed = '1';
+            form.submit();
+        }
+    }, true);
+});
+</script>
