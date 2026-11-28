@@ -3764,18 +3764,7 @@ class AllmodulesController {
             Response::back();
             return;
         }
-        $existingMapping = Database::fetchOne(
-            "SELECT id, status FROM third_party_mapping_bills
-             WHERE concern_id = ? AND seller_id = ?
-               AND UPPER(TRIM(invoice_number)) = UPPER(TRIM(?))
-             ORDER BY id DESC LIMIT 1",
-            [$cid, $sellerId, $invoiceNumber]
-        );
-        if ($existingMapping) {
-            Session::flash('error', 'This supplier invoice already has a Mapping entry. Open that saved entry instead.');
-            Response::redirect(url('purchases/mapping/draft/' . (int)$existingMapping['id']));
-            return;
-        }
+        // Allow creating a new QR Generation entry even if the invoice number was used earlier.
 
         // Purchases and QR Generations are separate modules; do not block QR Generation by Purchases invoice number.
         $linkedPurchaseId = null;
@@ -4170,10 +4159,30 @@ class AllmodulesController {
             unset($camEntry);
         } catch (\Throwable $e) {}
 
+        $complementaryCatalogHierarchies = [];
+        try {
+            $compRows = Database::fetchAll(
+                "SELECT LOWER(TRIM(COALESCE(cc.name, ''))) AS cat_name,
+                        LOWER(TRIM(COALESCE(cs.name, ''))) AS sub_name,
+                        LOWER(TRIM(COALESCE(css.name, ''))) AS sub_sub_name
+                 FROM products cp
+                 LEFT JOIN categories cc ON cc.id = cp.category_id
+                 LEFT JOIN subcategories cs ON cs.id = cp.subcategory_id
+                 LEFT JOIN sub_subcategories css ON css.id = cp.sub_subcategory_id
+                 WHERE cp.is_active = 1 AND cp.is_complementary = 1"
+            );
+            foreach ($compRows as $cr) {
+                if (($cr['cat_name'] ?? '') === '') continue;
+                $complementaryCatalogHierarchies[] = $cr['cat_name'] . '|' . ($cr['sub_name'] ?? '') . '|' . ($cr['sub_sub_name'] ?? '');
+            }
+            $complementaryCatalogHierarchies = array_values(array_unique($complementaryCatalogHierarchies));
+        } catch (\Throwable $e) {}
+
         return [
             'categories'            => $categories,
             'subcategories'         => $subcategories,
             'subSubcategories'      => $subSubcategories,
+            'complementaryCatalogHierarchies' => $complementaryCatalogHierarchies,
             'masterSizes'           => $masterSizes,
             'masterColors'          => $masterColors,
             'categoryAttributesMap' => $categoryAttributesMap,
@@ -4235,16 +4244,7 @@ class AllmodulesController {
             $invoiceNumber = (string)($bill['invoice_number'] ?: ('INV-' . date('ymdHis')));
         }
 
-        // Check if invoice number is duplicate for this seller
-        $dupCheck = Database::fetchOne(
-            "SELECT id FROM third_party_mapping_bills WHERE seller_id = ? AND invoice_number = ? AND id != ?",
-            [$sellerId, $invoiceNumber, $mappingBillId]
-        );
-        if ($dupCheck) {
-            Session::flash('error', "Invoice number '{$invoiceNumber}' already exists for this supplier in QR Generations.");
-            Response::back();
-            return;
-        }
+        // Allow duplicate invoice numbers across QR Generations and Purchases.
 
         try {
             if (!Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
@@ -5201,7 +5201,21 @@ class AllmodulesController {
             "SELECT mi.*, pv.sku AS variant_sku, pv.variant_code, qg.batch_code,
                     qg.stock_added, c.name AS category_name, sc.name AS subcategory_name,
                     ssc.name AS sub_subcategory_name,
-                    COALESCE(NULLIF(mi.brand_name, ''), b.name, '') AS resolved_brand_name
+                    COALESCE(NULLIF(mi.brand_name, ''), b.name, '') AS resolved_brand_name,
+                    (CASE WHEN COALESCE(mi.is_complementary, 0) = 1
+                           OR COALESCE(c.is_complementary, 0) = 1
+                           OR COALESCE(p.is_complementary, 0) = 1
+                           OR EXISTS (
+                               SELECT 1 FROM products cp
+                               LEFT JOIN categories cc ON cc.id = cp.category_id
+                               LEFT JOIN subcategories cs ON cs.id = cp.subcategory_id
+                               LEFT JOIN sub_subcategories css ON css.id = cp.sub_subcategory_id
+                               WHERE cp.is_active = 1 AND cp.is_complementary = 1
+                                 AND LOWER(TRIM(COALESCE(cc.name, ''))) = LOWER(TRIM(COALESCE(c.name, '')))
+                                 AND (COALESCE(sc.name, '') = '' OR LOWER(TRIM(COALESCE(cs.name, ''))) = LOWER(TRIM(sc.name)))
+                                 AND (COALESCE(ssc.name, '') = '' OR LOWER(TRIM(COALESCE(css.name, ''))) = LOWER(TRIM(ssc.name)))
+                           )
+                          THEN 1 ELSE 0 END) AS resolved_is_complementary
              FROM third_party_mapping_items mi
              LEFT JOIN products p ON p.id = mi.product_id
              LEFT JOIN brands b ON b.id = p.brand_id
@@ -6097,17 +6111,12 @@ class AllmodulesController {
             if ($postInvoiceNum === '') {
                 $postInvoiceNum = (string)($bill['invoice_number'] ?: ('INV-' . date('ymdHis')));
             }
-            $dupCheck = Database::fetchOne(
-                "SELECT id FROM third_party_mapping_bills WHERE seller_id = ? AND UPPER(TRIM(invoice_number)) = UPPER(TRIM(?)) AND id != ?",
-                [$postSellerId, $postInvoiceNum, $billId]
-            );
-            if ($dupCheck) {
-                $respondMoveError("Invoice number '{$postInvoiceNum}' already exists for this supplier in QR Generations.", url('purchases/mapping/draft/' . $billId));
-                return;
-            }
             try {
                 if ($postInvoiceDate !== '' && !Database::fetchOne("SHOW COLUMNS FROM third_party_mapping_bills LIKE 'invoice_date'")) {
                     Database::execute("ALTER TABLE third_party_mapping_bills ADD COLUMN invoice_date DATE NULL AFTER invoice_number");
+                }
+                if (Database::fetchOne("SHOW INDEX FROM third_party_mapping_bills WHERE Key_name = 'uk_tpmb_supplier_invoice'")) {
+                    Database::execute("ALTER TABLE third_party_mapping_bills DROP INDEX uk_tpmb_supplier_invoice");
                 }
             } catch (\Throwable $e) {}
 
