@@ -40,13 +40,13 @@ class CashFlowController {
             $params[] = $cid;
         }
 
-        // Today's statistics
+        // Today's statistics (exclude FLOAT_OPEN carry-forwards so closing/reopening shifts never double-counts cash)
         $todayWhere = $scope ? ($scope . " AND DATE(c.created_at) = CURDATE()") : "WHERE DATE(c.created_at) = CURDATE()";
         $todayStats = Database::fetchOne(
             "SELECT 
-                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS today_cash_sales,
-                COALESCE(SUM(CASE WHEN flow = 'INFLOW' THEN amount ELSE 0 END), 0) AS today_total_inflow,
-                COALESCE(SUM(CASE WHEN flow = 'OUTFLOW' THEN amount ELSE 0 END), 0) AS today_total_outflow,
+                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_cash_sales,
+                COALESCE(SUM(CASE WHEN flow = 'INFLOW' AND transaction_type IN ('SALE_INFLOW', 'FLOAT_TOPUP') AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_total_inflow,
+                COALESCE(SUM(CASE WHEN flow = 'OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS today_total_outflow,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS today_bank_deposits
              FROM cash_flow_transactions c {$todayWhere}",
             $params

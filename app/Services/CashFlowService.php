@@ -102,8 +102,8 @@ class CashFlowService {
         $stats = Database::fetchOne(
             "SELECT 
                 COALESCE(SUM(CASE WHEN transaction_type = 'FLOAT_TOPUP' THEN amount ELSE 0 END), 0) AS total_topup,
-                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS total_sales,
-                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' THEN amount ELSE 0 END), 0) AS total_refunds,
+                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_sales,
+                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_refunds,
                 COALESCE(SUM(CASE WHEN transaction_type = 'PETTY_EXPENSE' THEN amount ELSE 0 END), 0) AS total_expenses,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS total_bank_drops
              FROM cash_flow_transactions
@@ -303,8 +303,8 @@ class CashFlowService {
         $stats = Database::fetchOne(
             "SELECT 
                 COALESCE(SUM(CASE WHEN transaction_type = 'FLOAT_TOPUP' THEN amount ELSE 0 END), 0) AS total_topup,
-                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' THEN amount ELSE 0 END), 0) AS total_sales,
-                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' THEN amount ELSE 0 END), 0) AS total_refunds,
+                COALESCE(SUM(CASE WHEN transaction_type = 'SALE_INFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_sales,
+                COALESCE(SUM(CASE WHEN transaction_type = 'REFUND_OUTFLOW' AND payment_mode = 'CASH' THEN amount ELSE 0 END), 0) AS total_refunds,
                 COALESCE(SUM(CASE WHEN transaction_type = 'PETTY_EXPENSE' THEN amount ELSE 0 END), 0) AS total_expenses,
                 COALESCE(SUM(CASE WHEN transaction_type = 'BANK_DROP' THEN amount ELSE 0 END), 0) AS total_bank_drops
              FROM cash_flow_transactions
