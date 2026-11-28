@@ -220,7 +220,7 @@ $canVerify = hasPermission('inward', 'verify');
                 <div class="card-body p-3">
                     <form method="GET" action="<?= url('production/inwards') ?>" class="row g-2 align-items-end">
                         <!-- Search Filter -->
-                        <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="col-12 col-sm-6 col-lg-7">
                             <label class="form-label small fw-semibold text-muted mb-1">Search Filter</label>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-white"><i class="bi bi-search text-secondary"></i></span>
@@ -228,41 +228,8 @@ $canVerify = hasPermission('inward', 'verify');
                             </div>
                         </div>
 
-                        <!-- Source Production Unit -->
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label class="form-label small fw-semibold text-muted mb-1">Source Production Unit</label>
-                            <select name="production_unit_id" id="inwardProductionUnitSelect" class="form-select form-select-sm">
-                                <option value="">All Production Units</option>
-                                <?php foreach ($productionUnits ?? [] as $pu): ?>
-                                    <option value="<?= $pu['id'] ?>" <?= ($unitId ?? '') == $pu['id'] ? 'selected' : '' ?>>
-                                        <?= e($pu['name']) ?> (<?= e($pu['code']) ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <!-- Destination Warehouse -->
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <label class="form-label small fw-semibold text-muted mb-1">Destination Warehouse</label>
-                            <select name="warehouse_id" id="inwardWarehouseSelect" class="form-select form-select-sm" <?= (!empty($scopedWarehouseId) || count($warehouses) <= 1) ? 'disabled' : '' ?>>
-                                <?php if (empty($warehouses)): ?>
-                                    <option value="">All Warehouses (None Assigned)</option>
-                                <?php elseif (empty($scopedWarehouseId) && count($warehouses) > 1): ?>
-                                    <option value="">All Warehouses</option>
-                                <?php endif; ?>
-                                <?php foreach ($warehouses as $wh): ?>
-                                    <option value="<?= $wh['id'] ?>" <?= (($warehouseId ?? '') == $wh['id'] || (!empty($scopedWarehouseId) && $scopedWarehouseId == $wh['id'])) ? 'selected' : '' ?>>
-                                        <?= e($wh['name']) ?><?= !empty($wh['code']) ? ' (' . e($wh['code']) . ')' : '' ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <?php if (!empty($scopedWarehouseId) || count($warehouses) <= 1): ?>
-                                <input type="hidden" name="warehouse_id" value="<?= e(!empty($warehouseId) ? $warehouseId : ($warehouses[0]['id'] ?? '')) ?>">
-                            <?php endif; ?>
-                        </div>
-
                         <!-- Inward Status -->
-                        <div class="col-8 col-sm-4 col-lg-2">
+                        <div class="col-8 col-sm-4 col-lg-3">
                             <label class="form-label small fw-semibold text-muted mb-1">Inward Status</label>
                             <select name="status" id="inwardStatusSelect" class="form-select form-select-sm">
                                 <option value="">All Statuses</option>
@@ -272,7 +239,7 @@ $canVerify = hasPermission('inward', 'verify');
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="col-4 col-sm-2 col-lg-1">
+                        <div class="col-4 col-sm-2 col-lg-2">
                             <div class="btn-group btn-group-sm w-100" role="group">
                                 <button type="submit" class="btn btn-primary" title="Apply Filter"><i class="bi bi-funnel-fill"></i></button>
                                 <a href="<?= url('production/inwards') ?>" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-arrow-clockwise"></i></a>
@@ -419,9 +386,15 @@ $canVerify = hasPermission('inward', 'verify');
                         <h5 class="mb-0 fw-bold"><i class="bi bi-scissors me-2 text-primary"></i>Incoming Cutting Outwards</h5>
                         <small class="text-muted">Cutting batches outwarded from other concerns to this concern.</small>
                     </div>
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
-                        <?= count($incomingCuttingOutwards ?? []) ?> Outward(s)
-                    </span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="input-group input-group-sm" style="width: 260px;">
+                            <span class="input-group-text bg-white"><i class="bi bi-search text-secondary"></i></span>
+                            <input type="text" id="cuttingOutwardSearchInput" class="form-control" placeholder="Search outward #, batch, concern..." autocomplete="off" oninput="filterOutwardInwardTable('cuttingOutwardSearchInput', 'cuttingOutwardInwardTbody')">
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
+                            <?= count($incomingCuttingOutwards ?? []) ?> Outward(s)
+                        </span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 small">
@@ -437,7 +410,7 @@ $canVerify = hasPermission('inward', 'verify');
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="cuttingOutwardInwardTbody">
                             <?php if (empty($incomingCuttingOutwards)): ?>
                                 <tr>
                                     <td colspan="8" class="text-center py-5 text-muted">
@@ -518,9 +491,15 @@ $canVerify = hasPermission('inward', 'verify');
                         <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-octagon me-2 text-danger"></i>Incoming Damage Outwards</h5>
                         <small class="text-muted">Damaged items outwarded from other concerns to this concern.</small>
                     </div>
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
-                        <?= count($incomingDamageOutwards ?? []) ?> Outward(s)
-                    </span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="input-group input-group-sm" style="width: 260px;">
+                            <span class="input-group-text bg-white"><i class="bi bi-search text-secondary"></i></span>
+                            <input type="text" id="damageOutwardSearchInput" class="form-control" placeholder="Search outward #, damage #, product..." autocomplete="off" oninput="filterOutwardInwardTable('damageOutwardSearchInput', 'damageOutwardInwardTbody')">
+                        </div>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
+                            <?= count($incomingDamageOutwards ?? []) ?> Outward(s)
+                        </span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 small">
@@ -536,7 +515,7 @@ $canVerify = hasPermission('inward', 'verify');
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="damageOutwardInwardTbody">
                             <?php if (empty($incomingDamageOutwards)): ?>
                                 <tr>
                                     <td colspan="8" class="text-center py-5 text-muted">
@@ -610,6 +589,36 @@ $canVerify = hasPermission('inward', 'verify');
     </div>
 
 </div> <!-- /.inward-wrapper -->
+
+<script>
+function filterOutwardInwardTable(inputId, tbodyId) {
+    const input = document.getElementById(inputId);
+    const tbody = document.getElementById(tbodyId);
+    if (!input || !tbody) return;
+    const q = (input.value || '').trim().toLowerCase();
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.classList.contains('outward-no-match-row'));
+    let visible = 0;
+    rows.forEach(row => {
+        if (row.querySelector('td[colspan]')) return;
+        const text = (row.textContent || '').toLowerCase();
+        const show = !q || text.includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    let noMatch = tbody.querySelector('.outward-no-match-row');
+    if (rows.length > 0 && visible === 0 && q !== '') {
+        if (!noMatch) {
+            noMatch = document.createElement('tr');
+            noMatch.className = 'outward-no-match-row';
+            noMatch.innerHTML = '<td colspan="8" class="text-center py-4 text-muted"><i class="bi bi-search me-1"></i>No matching outward records found.</td>';
+            tbody.appendChild(noMatch);
+        }
+        noMatch.style.display = '';
+    } else if (noMatch) {
+        noMatch.style.display = 'none';
+    }
+}
+</script>
 
 <!-- ========================================================================= -->
 <!-- MODAL: BATCH LIFECYCLE HISTORY & TRACEABILITY LOGS -->
